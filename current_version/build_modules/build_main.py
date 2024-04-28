@@ -21,7 +21,7 @@ def main(args):
             else:
                 # parse input
                 parsed_command = parser.parse(command)
-                print(parsed_command)
+                # print(parsed_command)
                 # execute command
                 interpreter.execute_command(parsed_command)
         except KeyboardInterrupt:

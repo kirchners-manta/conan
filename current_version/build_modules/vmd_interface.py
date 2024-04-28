@@ -96,7 +96,8 @@ def vmd_socket():
                     set indices [$sel get index]
                     set coords [$sel get {x y z}]
 
-                    # Specify the Z-offset
+                    # Specify the offset of the label. If we do not use an offset, the
+                    # numbers will be inside the atoms
                     set z_offset 1
 
                     # Loop through the atoms and draw a label for each, offset in the Z-direction
