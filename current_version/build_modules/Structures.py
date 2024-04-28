@@ -117,15 +117,11 @@ class Structure_1D(Structure):
 
     # INTERFACE
     def add(self,parameters,keywrods):
-        print(f"parameters:{parameters}")
         parameters['group_count'] = 1
         self._initialize_functional_groups(parameters)
         position = [self._structure_df.iloc[parameters['position'],1],
                     self._structure_df.iloc[parameters['position'],2],
                     self._structure_df.iloc[parameters['position'],3]]
-        
-        print(f"position:{position}")
-
         self.__add_group_on_position(position)
 
     # CONSTRUCTOR
@@ -326,11 +322,12 @@ class Structure_1D(Structure):
         self.radius = radius
         self._structure_df = pd.DataFrame(positions_tube)
         self._structure_df.insert(0, "Species", "C")
-        self._structure_df.insert(4, "Molecule", 1)
+        self._structure_df.insert(4, "group", "Structure")
+        self._structure_df.insert(5, "Molecule", 1)
         self._structure_df.columns.values[1] = "x"
         self._structure_df.columns.values[2] = "y"
         self._structure_df.columns.values[3] = "z"
-        self._structure_df.insert(5,"Label","X")
+        self._structure_df.insert(6,"Label","X")
         counter=1
         for i,atom in self._structure_df.iterrows():
             self._structure_df['Label'][i] = f"C{counter}"
@@ -443,8 +440,6 @@ class Structure_2D(Structure):
         self._initialize_functional_groups(parameters)
         position = [self._structure_df.iloc[parameters['position'],1],
                     self._structure_df.iloc[parameters['position'],2]]
-        
-        print(f"position:{position}")
         self.__add_group_on_position(position)
         
     
@@ -528,7 +523,7 @@ class Structure_2D(Structure):
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Label','x','y','z'])
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species','x','y','z'])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df,new_atoms_df])
 
@@ -544,7 +539,6 @@ class Pore(Structure):
 
     # INTERFACE
     def add(self,parameters,keywrods):
-        print(f"parameters:{parameters}")
         parameters['group_count'] = 1
         self._initialize_functional_groups(parameters)
         # get the coordinates of the selected position
@@ -634,7 +628,7 @@ class Pore(Structure):
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
             atom[3] += selected_position[2]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Label','x','y','z'])
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species','x','y','z'])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df,new_atoms_df])
 
@@ -656,7 +650,7 @@ class Pore(Structure):
                 atom[2] += selected_position[1]
                 atom[3] += selected_position[2]
 
-            new_atoms_df = pd.DataFrame(rotated_coordinates, columns=['Label','x','y','z','group'])  # Update columns as needed
+            new_atoms_df = pd.DataFrame(rotated_coordinates, columns=['Species','x','y','z','group'])  # Update columns as needed
             #new_atoms_df["group"] = "functional"
             self._structure_df = pd.concat([self._structure_df,new_atoms_df])
 
@@ -693,8 +687,6 @@ class Pore(Structure):
         # compute normal vector
         position=np.array(position)
         normal_vector = average_position-position"""
-        print(f"CENTER:{self.pore_center}")
-        print(f"CENTER:{self.sheet_size}")
         normal_vector = np.array([self.pore_center[0]-position[0],self.pore_center[1]-position[1],0.0])
         normal_magnitude = np.linalg.norm(normal_vector)
         normal_vector /= normal_magnitude
@@ -755,7 +747,7 @@ class Graphene(Structure_2D):
                 coords.append(["C",X[3],Y[3],Z[3],"Structure"])
         self._structure_df = pd.DataFrame(coords) 
         # Give appropriate column names
-        self._structure_df.columns = ['Label','x','y','z','group']
+        self._structure_df.columns = ['Species','x','y','z','group']
 
 class Boronnitride(Structure_2D):
 

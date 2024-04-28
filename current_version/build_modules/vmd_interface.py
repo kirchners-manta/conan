@@ -86,6 +86,8 @@ def vmd_socket():
                     display dof off
                     display dof_fnumber 64.000000
                     display dof_focaldist 0.700000
+                    set structuralCount [countStructural structures/.tmp.xyz]
+                    applyStructuralRepresentation $molid $structuralCount
                     }
                 }
                 if {[string match *show_index* $data]} {
@@ -114,6 +116,44 @@ def vmd_socket():
                 }          
             }
         }
+    }
+    proc applyStructuralRepresentation {molid structuralCount} {
+        # First, clear any existing representations
+        mol delrep 0 $molid
+
+        # Add a new representation for structural atoms
+        mol representation Bonds
+        mol color Name
+        mol selection "index < [expr {$structuralCount}]"
+        mol addrep $molid
+
+        # Optionally, add other representations for the rest of the molecule
+        mol representation CPK
+        mol color Element
+        mol selection "index >= [expr {$structuralCount}]"
+        mol addrep $molid
+    }
+    proc countStructural {filePath} {
+        # Open the file for reading
+        set file [open $filePath r]
+        set count 0
+
+        # Read the file line by line
+        while {[gets $file line] != -1} {
+            # Split the line into a list of words
+            set words [split $line]
+
+            # Check if the fifth column (index 4) is "structural"
+            if {[lindex $words 4] eq "Structure"} {
+                incr count
+            }
+        }
+
+        # Close the file
+        close $file
+
+        # Return the count
+        return $count
     }
     set port 12345
     set sock [socket -server handle_connection $port]

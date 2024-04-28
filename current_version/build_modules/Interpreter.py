@@ -149,6 +149,8 @@ class Interpreter:
         else:
             raise InvalidCommand(f"unknown structure type '{parameters['type']}'.")
         
+        self.number_of_structural_atoms=len(self.current_structure._structure_df['group'])
+
         # print to temporary .xyz file
         self.current_structure.print_xyz_file(".tmp")
         ddict.printLog("Structure build finished")
