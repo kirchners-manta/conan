@@ -1,5 +1,6 @@
 import defdict as ddict
 import Structures
+import build_main as main
 import pandas as pd
 import time
 import vmd_interface as vmd
@@ -29,6 +30,8 @@ class Interpreter:
                 vmd.update_structure()
         elif parsed_command['COMMAND'] == 'load':
             self._load_structure(parsed_command['KEYWORDS'])
+        elif parsed_command['COMMAND'] == 'undo':
+            self._undo()
 
         #VMD interface
         if parsed_command['COMMAND'] == 'vmd':
@@ -56,6 +59,8 @@ class Interpreter:
         self.vmd_is_running = False
 
     # PRIVATE
+    def _undo(self):
+        pass
     def _remove_atom(self,parameters,keywords):
         if 'atom' in keywords:
             self.current_structure.remove_atom_by_index(parameters['index'])

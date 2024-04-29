@@ -41,10 +41,17 @@ class Parser:
         keywords = {"KEYWORDS":keyword_list}
         parsed_command.update(keywords)
         self.parsing_successful = True
+
+        # save the command in file (this is needed for the undo command to work)
+        self._save_command(command)
         return parsed_command
 
 
     # PRIVATE
+    def _save_command(self,command):
+        with open(".command_file", 'a') as file:
+            file.write(f"\n{command}")
+
     def __perform_assignment_operations(self,expression_list):
         parameters={}
         for expression in expression_list:
@@ -90,6 +97,8 @@ class Parser:
 
     def __init__(self):
         self.lexer = Lexer()
+        with open('.command_file', 'w') as file:
+            pass # generates the command file (needed for the undo command)
 
 class Lexer:
     # INTERFACE
