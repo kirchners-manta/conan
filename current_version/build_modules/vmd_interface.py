@@ -118,20 +118,111 @@ def vmd_socket():
         }
     }
     proc applyStructuralRepresentation {molid structuralCount} {
-        # First, clear any existing representations
-        mol delrep 0 $molid
-
-        # Add a new representation for structural atoms
-        mol representation Bonds
+        mol rename $molid top
+        mol delrep 0 top
+        mol representation Bonds 0.300000 12.000000
         mol color Name
-        mol selection "index < [expr {$structuralCount}]"
-        mol addrep $molid
-
-        # Optionally, add other representations for the rest of the molecule
-        mol representation CPK
-        mol color Element
-        mol selection "index >= [expr {$structuralCount}]"
-        mol addrep $molid
+        mol selection {index <= 345}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 0 top 0
+        mol colupdate 0 top 0
+        mol scaleminmax top 0 0.000000 0.000000
+        mol smoothrep top 0 0
+        mol drawframes top 0 {now}
+        mol clipplane center 0 0 top {0.0 0.0 0.0}
+        mol clipplane color  0 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 0 top {0.0 0.0 1.0}
+        mol clipplane status 0 0 top {0}
+        mol clipplane center 1 0 top {0.0 0.0 0.0}
+        mol clipplane color  1 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 0 top {0.0 0.0 1.0}
+        mol clipplane status 1 0 top {0}
+        mol clipplane center 2 0 top {0.0 0.0 0.0}
+        mol clipplane color  2 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 0 top {0.0 0.0 1.0}
+        mol clipplane status 2 0 top {0}
+        mol clipplane center 3 0 top {0.0 0.0 0.0}
+        mol clipplane color  3 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 0 top {0.0 0.0 1.0}
+        mol clipplane status 3 0 top {0}
+        mol clipplane center 4 0 top {0.0 0.0 0.0}
+        mol clipplane color  4 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 0 top {0.0 0.0 1.0}
+        mol clipplane status 4 0 top {0}
+        mol clipplane center 5 0 top {0.0 0.0 0.0}
+        mol clipplane color  5 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 0 top {0.0 0.0 1.0}
+        mol clipplane status 5 0 top {0}
+        mol representation CPK 1.000000 0.300000 12.000000 12.000000
+        mol color Name
+        mol selection {index > 345}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 1 top 0
+        mol colupdate 1 top 0
+        mol scaleminmax top 1 0.000000 0.000000
+        mol smoothrep top 1 0
+        mol drawframes top 1 {now}
+        mol clipplane center 0 1 top {0.0 0.0 0.0}
+        mol clipplane color  0 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 1 top {0.0 0.0 1.0}
+        mol clipplane status 0 1 top {0}
+        mol clipplane center 1 1 top {0.0 0.0 0.0}
+        mol clipplane color  1 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 1 top {0.0 0.0 1.0}
+        mol clipplane status 1 1 top {0}
+        mol clipplane center 2 1 top {0.0 0.0 0.0}
+        mol clipplane color  2 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 1 top {0.0 0.0 1.0}
+        mol clipplane status 2 1 top {0}
+        mol clipplane center 3 1 top {0.0 0.0 0.0}
+        mol clipplane color  3 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 1 top {0.0 0.0 1.0}
+        mol clipplane status 3 1 top {0}
+        mol clipplane center 4 1 top {0.0 0.0 0.0}
+        mol clipplane color  4 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 1 top {0.0 0.0 1.0}
+        mol clipplane status 4 1 top {0}
+        mol clipplane center 5 1 top {0.0 0.0 0.0}
+        mol clipplane color  5 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 1 top {0.0 0.0 1.0}
+        mol clipplane status 5 1 top {0}
+        mol representation Bonds 0.100000 12.000000
+        mol color Name
+        mol selection {all}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 2 top 0
+        mol colupdate 2 top 0
+        mol scaleminmax top 2 0.000000 0.000000
+        mol smoothrep top 2 0
+        mol drawframes top 2 {now}
+        mol clipplane center 0 2 top {0.0 0.0 0.0}
+        mol clipplane color  0 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 2 top {0.0 0.0 1.0}
+        mol clipplane status 0 2 top {0}
+        mol clipplane center 1 2 top {0.0 0.0 0.0}
+        mol clipplane color  1 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 2 top {0.0 0.0 1.0}
+        mol clipplane status 1 2 top {0}
+        mol clipplane center 2 2 top {0.0 0.0 0.0}
+        mol clipplane color  2 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 2 top {0.0 0.0 1.0}
+        mol clipplane status 2 2 top {0}
+        mol clipplane center 3 2 top {0.0 0.0 0.0}
+        mol clipplane color  3 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 2 top {0.0 0.0 1.0}
+        mol clipplane status 3 2 top {0}
+        mol clipplane center 4 2 top {0.0 0.0 0.0}
+        mol clipplane color  4 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 2 top {0.0 0.0 1.0}
+        mol clipplane status 4 2 top {0}
+        mol clipplane center 5 2 top {0.0 0.0 0.0}
+        mol clipplane color  5 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 2 top {0.0 0.0 1.0}
+        mol clipplane status 5 2 top {0}
+        mol rename top $molid
     }
     proc countStructural {filePath} {
         # Open the file for reading
