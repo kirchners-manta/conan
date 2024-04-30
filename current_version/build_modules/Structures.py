@@ -6,6 +6,7 @@ import sys
 import random
 import numpy as np
 import pandas as pd
+import analysis_modules.utils as utils
 
 class Atom:
     # INTERFACE
@@ -95,17 +96,105 @@ class Structure:
             xyz.write("#Made by CONAN\n")
             coordinates.to_csv(xyz, sep='\t', header=False, index=False, float_format='%.3f')
     
+    def _initialize_functional_groups(self,parameters):
+
+        # Depending on whether build_main is called from CONAN.py
+        # or as standalone module, the structure library is somewhere else
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        structure_library_path = os.path.join(base_path, 'structure_lib')
+        if not os.path.exists(structure_library_path):
+            structure_library_path = os.path.join(base_path, '..', 'structure_lib')
+        structure_library_path = os.path.normpath(structure_library_path)
+
+        self.group_list = []
+        self.group_list.append(Functional_Group(parameters,structure_library_path))  
+
 class Structure_1D(Structure):
 
     def stack(self,parameters,keywords):
         if not self._structure_df is None: # Check if any structure has been loaded
             self._stack_CNTs(parameters,keywords)
 
+    # INTERFACE
+    def add(self,parameters,keywrods):
+        parameters['group_count'] = 1
+        self._initialize_functional_groups(parameters)
+        position = [self._structure_df.iloc[parameters['position'],1],
+                    self._structure_df.iloc[parameters['position'],2],
+                    self._structure_df.iloc[parameters['position'],3]]
+        self.__add_group_on_position(position)
+
     # CONSTRUCTOR
     def __init__(self,parameters,keywords):
         self._build_CNT(parameters,keywords)
+        self.bond_length=parameters['bond_length']
 
     # PRIVATE
+    def __add_group_on_position(self,selected_position):
+        added_group = self.group_list[0].remove_anchors()
+        # give the group a random orientation first
+        new_atom_coordinates = random_rotate_group_list(added_group.copy())
+        
+        # find the right orientation relative to local surface
+        normal_vector = self.find_surface_normal_vector(selected_position)
+        rotation_matrix = self.rotation_matrix_from_vectors(normal_vector)
+
+        # finally rotate the group
+        rotated_coordinates = []
+        for atom in new_atom_coordinates:
+            atom_coords = np.array(atom[1:4], dtype=float) # ensure that atom_coords has the right datatype
+            rotated_coord = np.dot(rotation_matrix, atom_coords)
+            rotated_coordinates.append([atom[0],rotated_coord[0],rotated_coord[1],rotated_coord[2],'functional'])
+
+        # shift the coordinates to the selected position
+        for atom in rotated_coordinates:
+            atom[1] += selected_position[0]
+            atom[2] += selected_position[1]
+            atom[3] += selected_position[2]
+
+        new_atoms_df = pd.DataFrame(rotated_coordinates, columns=['Species','x','y','z','group'])  # Update columns as needed
+        self._structure_df = pd.concat([self._structure_df,new_atoms_df])
+
+    def find_surface_normal_vector(self,position):
+
+        surface_atoms = []
+        # find adjacent atoms
+        for i, atom in self._structure_df.iterrows():
+            delta_x = atom['x']-position[0]
+            delta_y = atom['y']-position[1]
+            distance = math.sqrt((delta_x)**2+(delta_y)**2+(atom['z']-position[2])**2)
+            if distance <= self.bond_length*1.2:
+                # we append the mirrored atom and not the atom itself, since
+                # atoms that are mirrored due to periodic boundary conditions would
+                # make the averages later useless if we take the positions directly
+                if distance >= 0.05: # We do not want to add the selected position itself
+                    surface_atoms.append([atom['x'],atom['y'],atom['z']]) 
+
+        # compute average position
+        surface_atoms = np.array(surface_atoms)
+        average_position = np.average(surface_atoms, axis=0)
+
+        # this only works on curved surface (selected position and surface atoms are NOT in one plane)
+        # on flat surfaces we have to use a different algorithm
+
+        # compute normal vector
+        position=np.array(position)
+        normal_vector = average_position-position
+        normal_magnitude = np.linalg.norm(normal_vector)
+        normal_vector /= normal_magnitude
+
+        return normal_vector
+    
+    def rotation_matrix_from_vectors(self,vec2):
+        """ Find the rotation matrix that aligns vec1 to vec2 """
+        vec1 = np.array([0,0,1])
+        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+        v = np.cross(a, b)
+        c = np.dot(a, b)
+        s = np.linalg.norm(v)
+        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+
     def _build_CNT(self,parameters,keywords):
 
         if 'armchair' in keywords:
@@ -233,11 +322,12 @@ class Structure_1D(Structure):
         self.radius = radius
         self._structure_df = pd.DataFrame(positions_tube)
         self._structure_df.insert(0, "Species", "C")
-        self._structure_df.insert(4, "Molecule", 1)
+        self._structure_df.insert(4, "group", "Structure")
+        self._structure_df.insert(5, "Molecule", 1)
         self._structure_df.columns.values[1] = "x"
         self._structure_df.columns.values[2] = "y"
         self._structure_df.columns.values[3] = "z"
-        self._structure_df.insert(5,"Label","X")
+        self._structure_df.insert(6,"Label","X")
         counter=1
         for i,atom in self._structure_df.iterrows():
             self._structure_df['Label'][i] = f"C{counter}"
@@ -336,7 +426,7 @@ class Structure_1D(Structure):
 class Structure_2D(Structure):
 
     def functionalize_sheet(self,parameters):
-        self.__initialize_functional_groups(parameters)
+        self._initialize_functional_groups(parameters)
         self.__add_groups_to_sheet()
 
     def available_positions(self):
@@ -346,13 +436,10 @@ class Structure_2D(Structure):
         return available_positions
     
     def add(self,parameters,keywords):
-        print(f"parameters:{parameters}")
         parameters['group_count'] = 1
-        self.__initialize_functional_groups(parameters)
+        self._initialize_functional_groups(parameters)
         position = [self._structure_df.iloc[parameters['position'],1],
                     self._structure_df.iloc[parameters['position'],2]]
-        
-        print(f"position:{position}")
         self.__add_group_on_position(position)
         
     
@@ -436,7 +523,7 @@ class Structure_2D(Structure):
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates)
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species','x','y','z'])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df,new_atoms_df])
 
@@ -446,28 +533,28 @@ class Structure_2D(Structure):
             if positions_are_adjacent(position, selected_position, cutoff_distance, self.sheet_size):
                 adjacent_positions.append(position)
         for adjacent_position in adjacent_positions:
-            position_list.remove(adjacent_position)
-
-    def __initialize_functional_groups(self,parameters):
-
-        # Depending on whether build_main is called from CONAN.py
-        # or as standalone module, the structure library is somewhere else
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        structure_library_path = os.path.join(base_path, 'structure_lib')
-        if not os.path.exists(structure_library_path):
-            structure_library_path = os.path.join(base_path, '..', 'structure_lib')
-        structure_library_path = os.path.normpath(structure_library_path)
-
-        self.group_list = []
-        self.group_list.append(Functional_Group(parameters,structure_library_path))      
+            position_list.remove(adjacent_position)    
 
 class Pore(Structure):
+
+    # INTERFACE
+    def add(self,parameters,keywrods):
+        parameters['group_count'] = 1
+        self._initialize_functional_groups(parameters)
+        # get the coordinates of the selected position
+        selected_position = [self._structure_df.iloc[parameters['position'],1],
+                    self._structure_df.iloc[parameters['position'],2],
+                    self._structure_df.iloc[parameters['position'],3]]
+        self.__add_group_on_position(selected_position)
 
     # CONSTRUCTOR
     def __init__(self,parameters,keywords):
         self._build_pore(parameters,keywords)
 
+    # PRIVATE
     def _build_pore(self,parameters,keywords):
+        self.bond_length = parameters['bond_length']
+        self.sheet_size = parameters['sheet_size']
         if 'closed' in keywords:
             pore_kind = 2
         else:
@@ -480,10 +567,12 @@ class Pore(Structure):
             wall2 = copy.deepcopy(wall)
         self._structure_df = wall._structure_df
         # make a hole in the wall
-        hole_position = wall.make_pores(4.7)
+        pore_position = wall.make_pores(cnt.radius+1.0)
         # shift cnt position to hole
-        cnt._structure_df['x'] += hole_position[1]
-        cnt._structure_df['y'] += hole_position[2]
+        cnt._structure_df['x'] += pore_position[1]
+        cnt._structure_df['y'] += pore_position[2]
+        self.pore_center = [pore_position[1],pore_position[2]]
+        self.cnt_radius=[cnt.radius]
         # If the user wants an open pore, we copy it now with the hole
         if pore_kind == 1:
             wall2 = copy.deepcopy(wall)
@@ -493,6 +582,126 @@ class Pore(Structure):
         # combine the pore and the wall
         self._structure_df = pd.concat([wall._structure_df, cnt._structure_df, wall2._structure_df])
 
+        # lastly we need to correct the sheet_size to reflect the actual size of the sheet
+        # 
+        max_x = self._structure_df['x'].max()   # determine the maximum x-value
+        delta_x = abs(max_x - self.sheet_size[0]) # minimum image distance in x-direction
+        # the sheet size needs to be scaled down so that the minimum image distance
+        # is equal to the bond length
+        self.sheet_size[0] -= (delta_x-self.bond_length)
+
+        # we do the same in y direction. The only difference is that 
+        # the distance should not be equal to one bond length
+        max_y = self._structure_df['y'].max()
+        delta_y = abs(max_y - self.sheet_size[1])
+        self.sheet_size[1] -= (delta_y-self.bond_length*math.cos(30*math.pi/180))
+        
+    def __add_group_on_position(self,selected_position):
+        added_group = self.group_list[0].remove_anchors()
+        # give the group a random orientation first
+        new_atom_coordinates = random_rotate_group_list(added_group.copy())
+        
+        # find out if the position is inside the pore or on a wall 
+        distance_to_center=math.sqrt((selected_position[0]-self.pore_center[0])**2
+                                    +(selected_position[1]-self.pore_center[1])**2)
+        
+        if(distance_to_center < self.cnt_radius[0]+0.4):
+            self.add_group_in_pore(new_atom_coordinates,selected_position)
+        else:
+            self.add_group_on_wall(new_atom_coordinates,selected_position)
+
+    def add_group_on_wall(self,new_atom_coordinates,selected_position):
+
+        # find out which wall the selected position belongs to
+        structure_center_z = self._structure_df['z'].max()/2.0
+
+        # if the position is on the wall with z~0.0, we have to invert the group
+        # otherwise we do not change anything
+        if selected_position[2] < structure_center_z:
+            for atom in new_atom_coordinates:
+                atom[1] *= -1.0
+                atom[2] *= -1.0
+                atom[3] *= -1.0
+
+        # move the group to the position
+        for atom in new_atom_coordinates:
+            atom[1] += selected_position[0]
+            atom[2] += selected_position[1]
+            atom[3] += selected_position[2]
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species','x','y','z'])
+        new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
+        self._structure_df = pd.concat([self._structure_df,new_atoms_df])
+
+    def add_group_in_pore(self,new_atom_coordinates,selected_position):
+        # find the right orientation relative to local surface
+            normal_vector = self.find_surface_normal_vector(selected_position)
+            rotation_matrix = self.rotation_matrix_from_vectors(normal_vector)
+
+            # finally rotate the group
+            rotated_coordinates = []
+            for atom in new_atom_coordinates:
+                atom_coords = np.array(atom[1:4], dtype=float) # ensure that atom_coords has the right datatype
+                rotated_coord = np.dot(rotation_matrix, atom_coords)
+                rotated_coordinates.append([atom[0],rotated_coord[0],rotated_coord[1],rotated_coord[2],'functional'])
+
+            # shift the coordinates to the selected position
+            for atom in rotated_coordinates:
+                atom[1] += selected_position[0]
+                atom[2] += selected_position[1]
+                atom[3] += selected_position[2]
+
+            new_atoms_df = pd.DataFrame(rotated_coordinates, columns=['Species','x','y','z','group'])  # Update columns as needed
+            #new_atoms_df["group"] = "functional"
+            self._structure_df = pd.concat([self._structure_df,new_atoms_df])
+
+    def find_surface_normal_vector(self,position):
+
+        """surface_atoms = []
+        # find adjacent atoms
+        for i, atom in self._structure_df.iterrows():
+            delta_x = atom['x']-position[0]
+            delta_x -= self.sheet_size[0] * round(delta_x / self.sheet_size[0])
+            delta_y = atom['y']-position[1]
+            delta_y -= self.sheet_size[1] * round(delta_y / self.sheet_size[1]) ## minimum immage distance in x-y-direction
+            distance = math.sqrt((delta_x)**2+(delta_y)**2+(atom['z']-position[2])**2)
+            if distance <= self.bond_length*1.2:
+                # we append the mirrored atom and not the atom itself, since
+                # atoms that are mirrored due to periodic boundary conditions would
+                # make the averages later useless if we take the positions directly
+                if distance >= 0.05: # We do not want to add the selected position itself
+                    surface_atoms.append([position[0]+delta_x,position[1]+delta_y,atom['z']])       
+
+        # compute average position
+        surface_atoms = np.array(surface_atoms)
+        average_position = np.average(surface_atoms, axis=0)
+
+        # this only works on curved surface (selected position and surface atoms are NOT in one plane)
+        # on flat surfaces we have to use a different algorithm
+
+        # check if the local surface is curved
+        if (np.linalg.norm(average_position-np.array(position)) < 0.01):
+            print("WARNING WARNING WARNING")
+            print(np.linalg.norm(average_position-np.array(position)))
+            return(np.array([1,0,0]))
+
+        # compute normal vector
+        position=np.array(position)
+        normal_vector = average_position-position"""
+        normal_vector = np.array([self.pore_center[0]-position[0],self.pore_center[1]-position[1],0.0])
+        normal_magnitude = np.linalg.norm(normal_vector)
+        normal_vector /= normal_magnitude
+
+        return normal_vector
+    
+    def rotation_matrix_from_vectors(self,vec2):
+        vec1 = np.array([0,0,1])
+        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+        v = np.cross(a, b)
+        c = np.dot(a, b)
+        s = np.linalg.norm(v)
+        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+        
 class Graphene(Structure_2D):
 
     #INTERFACE
@@ -538,7 +747,7 @@ class Graphene(Structure_2D):
                 coords.append(["C",X[3],Y[3],Z[3],"Structure"])
         self._structure_df = pd.DataFrame(coords) 
         # Give appropriate column names
-        self._structure_df.columns = ['Label','x','y','z','group']
+        self._structure_df.columns = ['Species','x','y','z','group']
 
 class Boronnitride(Structure_2D):
 

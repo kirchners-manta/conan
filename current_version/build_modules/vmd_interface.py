@@ -86,6 +86,8 @@ def vmd_socket():
                     display dof off
                     display dof_fnumber 64.000000
                     display dof_focaldist 0.700000
+                    set structuralCount [countStructural structures/.tmp.xyz]
+                    applyStructuralRepresentation $molid $structuralCount
                     }
                 }
                 if {[string match *show_index* $data]} {
@@ -96,7 +98,8 @@ def vmd_socket():
                     set indices [$sel get index]
                     set coords [$sel get {x y z}]
 
-                    # Specify the Z-offset
+                    # Specify the offset of the label. If we do not use an offset, the
+                    # numbers will be inside the atoms
                     set z_offset 1
 
                     # Loop through the atoms and draw a label for each, offset in the Z-direction
@@ -113,6 +116,135 @@ def vmd_socket():
                 }          
             }
         }
+    }
+    proc applyStructuralRepresentation {molid structuralCount} {
+        mol rename $molid top
+        mol delrep 0 top
+        mol representation Bonds 0.300000 12.000000
+        mol color Name
+        mol selection {index <= 345}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 0 top 0
+        mol colupdate 0 top 0
+        mol scaleminmax top 0 0.000000 0.000000
+        mol smoothrep top 0 0
+        mol drawframes top 0 {now}
+        mol clipplane center 0 0 top {0.0 0.0 0.0}
+        mol clipplane color  0 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 0 top {0.0 0.0 1.0}
+        mol clipplane status 0 0 top {0}
+        mol clipplane center 1 0 top {0.0 0.0 0.0}
+        mol clipplane color  1 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 0 top {0.0 0.0 1.0}
+        mol clipplane status 1 0 top {0}
+        mol clipplane center 2 0 top {0.0 0.0 0.0}
+        mol clipplane color  2 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 0 top {0.0 0.0 1.0}
+        mol clipplane status 2 0 top {0}
+        mol clipplane center 3 0 top {0.0 0.0 0.0}
+        mol clipplane color  3 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 0 top {0.0 0.0 1.0}
+        mol clipplane status 3 0 top {0}
+        mol clipplane center 4 0 top {0.0 0.0 0.0}
+        mol clipplane color  4 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 0 top {0.0 0.0 1.0}
+        mol clipplane status 4 0 top {0}
+        mol clipplane center 5 0 top {0.0 0.0 0.0}
+        mol clipplane color  5 0 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 0 top {0.0 0.0 1.0}
+        mol clipplane status 5 0 top {0}
+        mol representation CPK 1.000000 0.300000 12.000000 12.000000
+        mol color Name
+        mol selection {index > 345}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 1 top 0
+        mol colupdate 1 top 0
+        mol scaleminmax top 1 0.000000 0.000000
+        mol smoothrep top 1 0
+        mol drawframes top 1 {now}
+        mol clipplane center 0 1 top {0.0 0.0 0.0}
+        mol clipplane color  0 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 1 top {0.0 0.0 1.0}
+        mol clipplane status 0 1 top {0}
+        mol clipplane center 1 1 top {0.0 0.0 0.0}
+        mol clipplane color  1 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 1 top {0.0 0.0 1.0}
+        mol clipplane status 1 1 top {0}
+        mol clipplane center 2 1 top {0.0 0.0 0.0}
+        mol clipplane color  2 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 1 top {0.0 0.0 1.0}
+        mol clipplane status 2 1 top {0}
+        mol clipplane center 3 1 top {0.0 0.0 0.0}
+        mol clipplane color  3 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 1 top {0.0 0.0 1.0}
+        mol clipplane status 3 1 top {0}
+        mol clipplane center 4 1 top {0.0 0.0 0.0}
+        mol clipplane color  4 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 1 top {0.0 0.0 1.0}
+        mol clipplane status 4 1 top {0}
+        mol clipplane center 5 1 top {0.0 0.0 0.0}
+        mol clipplane color  5 1 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 1 top {0.0 0.0 1.0}
+        mol clipplane status 5 1 top {0}
+        mol representation Bonds 0.100000 12.000000
+        mol color Name
+        mol selection {all}
+        mol material Opaque
+        mol addrep top
+        mol selupdate 2 top 0
+        mol colupdate 2 top 0
+        mol scaleminmax top 2 0.000000 0.000000
+        mol smoothrep top 2 0
+        mol drawframes top 2 {now}
+        mol clipplane center 0 2 top {0.0 0.0 0.0}
+        mol clipplane color  0 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 0 2 top {0.0 0.0 1.0}
+        mol clipplane status 0 2 top {0}
+        mol clipplane center 1 2 top {0.0 0.0 0.0}
+        mol clipplane color  1 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 1 2 top {0.0 0.0 1.0}
+        mol clipplane status 1 2 top {0}
+        mol clipplane center 2 2 top {0.0 0.0 0.0}
+        mol clipplane color  2 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 2 2 top {0.0 0.0 1.0}
+        mol clipplane status 2 2 top {0}
+        mol clipplane center 3 2 top {0.0 0.0 0.0}
+        mol clipplane color  3 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 3 2 top {0.0 0.0 1.0}
+        mol clipplane status 3 2 top {0}
+        mol clipplane center 4 2 top {0.0 0.0 0.0}
+        mol clipplane color  4 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 4 2 top {0.0 0.0 1.0}
+        mol clipplane status 4 2 top {0}
+        mol clipplane center 5 2 top {0.0 0.0 0.0}
+        mol clipplane color  5 2 top {0.5 0.5 0.5 }
+        mol clipplane normal 5 2 top {0.0 0.0 1.0}
+        mol clipplane status 5 2 top {0}
+        mol rename top $molid
+    }
+    proc countStructural {filePath} {
+        # Open the file for reading
+        set file [open $filePath r]
+        set count 0
+
+        # Read the file line by line
+        while {[gets $file line] != -1} {
+            # Split the line into a list of words
+            set words [split $line]
+
+            # Check if the fifth column (index 4) is "structural"
+            if {[lindex $words 4] eq "Structure"} {
+                incr count
+            }
+        }
+
+        # Close the file
+        close $file
+
+        # Return the count
+        return $count
     }
     set port 12345
     set sock [socket -server handle_connection $port]
