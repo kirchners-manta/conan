@@ -21,7 +21,7 @@ def main(args):
                 print("exiting...")
                 break
             elif command == 'undo':
-                undo(command,parser,interpreter)
+                undo(parser,interpreter)
             else:
                 # parse input
                 parsed_command = parser.parse(command)
@@ -62,7 +62,7 @@ def read_commands_from_input(input_file, parser, interpreter):
             #    print(f"ERROR: {e}")
                 continue
 
-def undo(command,parser,interpreter):
+def undo(parser,interpreter):
 
     # delete the last command
     with open(".command_file", "r+") as f:

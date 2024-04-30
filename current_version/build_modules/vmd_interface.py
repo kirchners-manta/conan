@@ -118,11 +118,13 @@ def vmd_socket():
         }
     }
     proc applyStructuralRepresentation {molid structuralCount} {
+        puts "HERE"
+        puts $structuralCount
         mol rename $molid top
         mol delrep 0 top
         mol representation Bonds 0.300000 12.000000
         mol color Name
-        mol selection {index <= 345}
+        mol selection "index < $structuralCount"
         mol material Opaque
         mol addrep top
         mol selupdate 0 top 0
@@ -156,7 +158,7 @@ def vmd_socket():
         mol clipplane status 5 0 top {0}
         mol representation CPK 1.000000 0.300000 12.000000 12.000000
         mol color Name
-        mol selection {index > 345}
+        mol selection "index >= $structuralCount"
         mol material Opaque
         mol addrep top
         mol selupdate 1 top 0
@@ -244,6 +246,7 @@ def vmd_socket():
         close $file
 
         # Return the count
+        puts $count
         return $count
     }
     set port 12345
