@@ -86,14 +86,10 @@ class Structure:
         directory = "structures"
         filename = f"{name_output}.xyz"
         filepath = os.path.join(directory, filename)
-
-        # Ensure the directory exists
         os.makedirs(directory, exist_ok=True)
-
-        # Handle file creation and writing in a context manager
         with open(filepath, "w") as xyz:
             xyz.write(f"   {len(coordinates)}\n")
-            xyz.write("#Made by CONAN\n")
+            xyz.write("#Generated with CONAN\n")
             coordinates.to_csv(xyz, sep='\t', header=False, index=False, float_format='%.3f')
     
     def _initialize_functional_groups(self,parameters):
@@ -202,7 +198,7 @@ class Structure_1D(Structure):
         elif 'zigzag' in keywords:
             tube_kind = 2
         else:
-            ddict.printLog("No valid tube kind found in arguments")
+            ddict.printLog("No valid tube kind found in arguments, use 'zigzag' or 'armchair'")
             return None        
 
         tube_size=parameters['tube_size']
@@ -330,7 +326,7 @@ class Structure_1D(Structure):
         self._structure_df.insert(6,"Label","X")
         counter=1
         for i,atom in self._structure_df.iterrows():
-            self._structure_df['Label'][i] = f"C{counter}"
+            self._structure_df.loc[:,('Label',i)] = f"C{counter}"
             counter=counter+1
         return self._structure_df
 
@@ -576,8 +572,11 @@ class Pore(Structure):
         # If the user wants an open pore, we copy it now with the hole
         if pore_kind == 1:
             wall2 = copy.deepcopy(wall)
-        # move the second wall
+        # 'clip off' te ends of the cnt for a smoother transition
+        cnt._structure_df = cnt._structure_df[cnt._structure_df['z'] > 0.2]
         max_z = cnt._structure_df['z'].max()
+        cnt._structure_df = cnt._structure_df[cnt._structure_df['z'] < (max_z-0.2)]
+        # move the second wall
         wall2._structure_df['z'] += max_z
         # combine the pore and the wall
         self._structure_df = pd.concat([wall._structure_df, cnt._structure_df, wall2._structure_df])
@@ -820,7 +819,7 @@ class Boronnitride(Structure_2D):
                 coords.append(["N",X[3],Y[3],Z[3],"Structure"])
         self._structure_df = pd.DataFrame(coords)
         # Give appropriate column names
-        self._structure_df.columns = ['Species','x','y','z','group']
+        self._structure_df.columns = ['Species','x','y','z','group'] 
 
 def center_position(sheet_size, atoms_df):
     # This function returns the coordinates of the atom that

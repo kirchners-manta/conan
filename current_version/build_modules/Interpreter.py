@@ -104,7 +104,7 @@ class Interpreter:
             return
         self.current_structure.make_pores(parameters['pore_size'])
         self.current_structure.print_xyz_file(".tmp")
-        ddict.printLog("Structure changed")
+        #ddict.printLog("Structure changed")
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure() 
@@ -116,7 +116,7 @@ class Interpreter:
         self.current_structure.functionalize_sheet(parameters)
         # print to temporary .xyz file
         self.current_structure.print_xyz_file(".tmp")
-        ddict.printLog("Structure functionalization finished")
+        #ddict.printLog("Structure functionalization finished")
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure() 
@@ -154,7 +154,7 @@ class Interpreter:
 
         # print to temporary .xyz file
         self.current_structure.print_xyz_file(".tmp")
-        ddict.printLog("Structure build finished")
+        #ddict.printLog("Structure build finished")
 
         # load updated structure into vmd
         if self.vmd_is_running:
