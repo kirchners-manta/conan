@@ -41,10 +41,20 @@ class Parser:
         keywords = {"KEYWORDS":keyword_list}
         parsed_command.update(keywords)
         self.parsing_successful = True
+
+        # save the command in file (this is needed for the undo command to work)
+        if not self.undo:
+            self._save_command(command,parsed_command)
         return parsed_command
 
 
     # PRIVATE
+    def _save_command(self,raw_command,parsed_command):
+        # we append the command to a file if it is not the vmd command
+        if not parsed_command['COMMAND'] == 'vmd':
+            with open(".command_file", 'a') as file:
+                file.write(f"\n{raw_command}")
+
     def __perform_assignment_operations(self,expression_list):
         parameters={}
         for expression in expression_list:
@@ -90,6 +100,9 @@ class Parser:
 
     def __init__(self):
         self.lexer = Lexer()
+        self.undo = False
+        with open('.command_file', 'w') as file:
+            pass # generates the command file (needed for the undo command)
 
 class Lexer:
     # INTERFACE
