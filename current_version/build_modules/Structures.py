@@ -819,6 +819,8 @@ class Boronnitride(Structure_2D):
                 coords.append(["B",X[2],Y[2],Z[2],"Structure"])
                 coords.append(["N",X[3],Y[3],Z[3],"Structure"])
         self._structure_df = pd.DataFrame(coords)
+        # Give appropriate column names
+        self._structure_df.columns = ['Species','x','y','z','group']
 
 def center_position(sheet_size, atoms_df):
     # This function returns the coordinates of the atom that
