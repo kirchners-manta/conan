@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import math
 import os
 from abc import ABC
@@ -175,6 +176,29 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
         self._structure_df: pd.DataFrame = pd.DataFrame()  # Empty DataFrame to hold structure data
         self.group_list: List[FunctionalGroup] = []  # Empty list to hold functional groups
 
+    @abc.abstractmethod
+    def add(self, parameters: Dict[str, Union[str, int, float]]):
+        """
+        Adds a functional group to the structure at a specified position, modifying the chemical properties. This method
+        ensures that the child classes implement this functionality.
+
+        Args:
+            parameters (Dict[str, Union[str, int, float]]): The parameters for the addition.
+        """
+        pass
+
+    @abc.abstractmethod
+    def __add_group_on_position(self, selected_position: List[float]):
+        """
+        Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
+        orientation based on the local surface normal. This method ensures that the child classes implement this
+        functionality.
+
+        Args:
+            selected_position (List[float]): Coordinates [x, y, z] where the group should be added.
+        """
+        pass
+
     # INTERFACE
     def print_xyz_file(self, file_name: str):
         """
@@ -270,15 +294,13 @@ class Structure1d(Structure):
             self._stack_CNTs(parameters, keywords)  # Private method that handles the actual stacking logic
 
     # INTERFACE
-    def add(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden
+    def add(self, parameters: Dict[str, Union[str, int, float]]):
         """
         Adds a functional group to the structure at a specified position, modifying the chemical properties.
 
         Args:
             parameters (Dict[str, Union[str, int, float]]):
                 Parameters including the position and details about the group to be added.
-            keywords (List[str]):
-                Keywords providing additional context or modifications for the addition process.
         """
         parameters['group_count'] = 1  # Assuming only one group is added at a time
         self._initialize_functional_groups(parameters)  # Initializes functional groups based on provided parameters
@@ -717,13 +739,12 @@ class Structure2d(Structure):
         """
         return [(position[1], position[2], position[3]) for _, position in self._structure_df.iterrows()]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr übersichtlich. Evtl. in Datenklasse auslagern?
 
-    def add(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden; Methode evtl. auch besser wo anders hin verlagern?
+    def add(self, parameters: Dict[str, Union[str, int, float]]):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden; Methode evtl. auch besser wo anders hin verlagern?
         """
         Adds a functional group to the structure.
 
         Args:
             parameters (Dict[str, Union[str, int, float]]): The parameters for the addition.
-            keywords (List[str]): The keywords for the addition.
         """
         parameters['group_count'] = 1
         self._initialize_functional_groups(parameters)
@@ -755,7 +776,7 @@ class Structure2d(Structure):
                                    ]
 
         # Create a list for the atomic positions inside the unit cell.
-        self._positions_unitcell = [
+        self._positions_unitcell: List[Tuple] = [
             (0, 0, 0),  # Position of the first atom
             (C_C_x_distance, C_C_y_distance, 0),  # Position of the second atom
             (C_C_x_distance + self.bond_distance, C_C_y_distance, 0),  # Position of the third atom
@@ -893,13 +914,12 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         self._build_pore(parameters, keywords)
 
     # INTERFACE
-    def add(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
+    def add(self, parameters: Dict[str, Union[str, int, float]]):
         """
         Adds a functional group to the pore.
 
         Args:
             parameters (Dict[str, Union[str, int, float]]): The parameters for the addition.
-            keywords (List[str]): The keywords for the addition.
         """
         parameters['group_count'] = 1
         self._initialize_functional_groups(parameters)
@@ -1175,7 +1195,7 @@ class Graphene(Structure2d):
         Z = [0.0] * 4  # All Z-coordinates are 0  # ToDo: Multiplikation mit 4 wegen 4 Atomen pro Einheit?
 
         # Initialize an empty list to store the coordinates of all atoms in the sheet
-        coords = []
+        coords: List = []
 
         # Build the graphene sheet from multiple unit cells
         for i in range(self._number_of_unit_cells[0]):
