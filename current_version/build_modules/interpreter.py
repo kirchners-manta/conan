@@ -1,5 +1,5 @@
 import defdict as ddict
-import structures
+from structures import *
 import build_main as main
 import pandas as pd
 import time
@@ -141,13 +141,13 @@ class Interpreter:
             #ddict.printLog(f"sheet_size parameter set to default. ({default_sheet_size[0]}x{default_sheet_size[1]})")
 
         if parameters['type'] == "graphene":
-            self.current_structure = Structures.Graphene(parameters['bond_length'], parameters['sheet_size'])
+            self.current_structure = Graphene(parameters['bond_length'], parameters['sheet_size'])
         elif parameters['type'] == "boronnitride":
-            self.current_structure = Structures.Boronnitride(parameters['bond_length'], parameters['sheet_size'])
+            self.current_structure = Boronnitride(parameters['bond_length'], parameters['sheet_size'])
         elif parameters['type'] == "cnt":
-            self.current_structure = Structures.Structure1d(parameters, keywords)
+            self.current_structure = Structure1d(parameters, keywords)
         elif parameters['type'] == "pore":
-            self.current_structure = Structures.Pore(parameters, keywords)
+            self.current_structure = Pore(parameters, keywords)
         else:
             raise InvalidCommand(f"unknown structure type '{parameters['type']}'.")
 

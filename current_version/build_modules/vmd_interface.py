@@ -3,27 +3,32 @@ import subprocess
 import os
 import defdict as ddict
 
+
 def start_vmd():
     # vmd is started in a new terminal, this avoids problems with the conan and vmd
     # prompts blocking each other
-    tcl_script = vmd_socket() # Get tcl script from function below
+    tcl_script = vmd_socket()  # Get tcl script from function below
     with open(".socket.tcl", "w") as file:
-        file.write(tcl_script) # write script to file
-    process = subprocess.Popen(["gnome-terminal", "--", "vmd", "-e", ".socket.tcl"]) # start vmd with the script in new terminal
-    return process # return the process id so we can try to close it later
+        file.write(tcl_script)  # write script to file
+    process = subprocess.Popen(
+        ["gnome-terminal", "--", "vmd", "-e", ".socket.tcl"])  # start vmd with the script in new terminal
+    return process  # return the process id so we can try to close it later
+
 
 def update_structure():
-    send_command("mol load xyz structures/.tmp.xyz") # load structure from tmp file
+    send_command("mol load xyz structures/.tmp.xyz")  # load structure from tmp file
+
 
 def send_command(vmd_command):
     host = "localhost"
     port = 12345
     try:
-        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as sock:
-            sock.connect((host,port))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((host, port))
             sock.sendall(vmd_command.encode("utf-8"))
     except ConnectionError as e:
         ddict.printLog(f"Failed to connect to VMD: {e}")
+
 
 def vmd_socket():
     #
