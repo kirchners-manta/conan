@@ -1,8 +1,8 @@
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 import sys
-import Input_handler
-import Interpreter
+import input_handler
+import interpreter
 
 def main(args):
     history = InMemoryHistory() # command history from prompt toolkit
