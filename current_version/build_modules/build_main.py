@@ -1,13 +1,14 @@
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 import sys
-import input_handler
-import interpreter
+from input_handler import Parser
+from interpreter import Interpreter
+
 
 def main(args):
-    history = InMemoryHistory() # command history from prompt toolkit
-    parser = Input_handler.Parser()
-    interpreter = Interpreter.Interpreter()
+    history = InMemoryHistory()  # command history from prompt toolkit
+    parser = Parser()
+    interpreter = Interpreter()
 
     if args['input']:
         read_commands_from_input(args['input'], parser, interpreter)
