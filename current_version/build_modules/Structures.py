@@ -167,7 +167,7 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         return atom_list
 
 
-class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, sodass diese nicht selbst instanziiert werden kann, sondern nur die abgeleiteten Klassen
+class Structure(ABC):
     """
     Represents a molecular structure. This class serves as a base for managing molecular data, designed to be abstract
     to support specific structure types derived from it.
@@ -265,6 +265,40 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
 
         self.group_list = []
         self.group_list.append(FunctionalGroup(parameters, structure_library_path))   # Adds a new functional group
+
+    def rotation_matrix_from_vectors(self, vec2: npt.NDArray) -> npt.NDArray:  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
+        """
+        Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
+        vector (vec2).
+
+        Args:
+            vec2 (np.ndarray): The target vector to align with the z-axis.
+
+        Returns:
+            np.ndarray: The rotation matrix that when multiplied by vec1 results in vec2.
+        """
+        # Define the default vector vec1 as the positive z-axis
+        vec1 = np.array([0, 0, 1])
+
+        # Normalize both vectors to ensure they are unit vectors
+        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+
+        # Compute the cross product of vec1 and vec2 to find the axis of rotation
+        v = np.cross(a, b)
+
+        # Calculate the dot product, which gives the cosine of the angle between vec1 and vec2
+        c = np.dot(a, b)
+
+        # Calculate the sine of the angle using the magnitude of the cross product vector
+        s = np.linalg.norm(v)
+
+        # The skew-symmetric cross-product matrix of vector v
+        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+        # Calculate the rotation matrix using the Rodrigues' rotation formula:
+        # R = I + sin(theta) * K + (1 - cos(theta)) * K^2
+        # This formula is derived for rotating one vector onto another.
+        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
 
 
 class Structure1d(Structure):
@@ -398,40 +432,6 @@ class Structure1d(Structure):
         normal_vector /= normal_magnitude
 
         return normal_vector
-
-    def rotation_matrix_from_vectors(self, vec2: npt.NDArray) -> npt.NDArray:
-        """
-        Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
-        vector (vec2).
-
-        Args:
-            vec2 (np.ndarray): The target vector to align with the z-axis.
-
-        Returns:
-            np.ndarray: The rotation matrix that when multiplied by vec1 results in vec2.
-        """
-        # Define the default vector vec1 as the positive z-axis
-        vec1 = np.array([0, 0, 1])
-
-        # Normalize both vectors to ensure they are unit vectors
-        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
-
-        # Compute the cross product of vec1 and vec2 to find the axis of rotation
-        v = np.cross(a, b)
-
-        # Calculate the dot product, which gives the cosine of the angle between vec1 and vec2
-        c = np.dot(a, b)
-
-        # Calculate the sine of the angle using the magnitude of the cross product vector
-        s = np.linalg.norm(v)
-
-        # The skew-symmetric cross-product matrix of vector v
-        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-
-        # Calculate the rotation matrix using the Rodrigues' rotation formula:
-        # R = I + sin(theta) * K + (1 - cos(theta)) * K^2
-        # This formula is derived for rotating one vector onto another.
-        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
 
     def _build_CNT(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
@@ -717,10 +717,6 @@ class Structure2d(Structure):
         self.bond_distance = bond_distance
         self.sheet_size = sheet_size
         self._create_sheet()
-    # def __init__(self, bond_distance, sheet_size):
-    #     self.bond_distance = bond_distance
-    #     self.sheet_size = sheet_size
-    #     self._create_sheet()
 
     def functionalize_sheet(self, parameters: Dict[str, Union[str, int, float]]) -> None:
         """
@@ -807,29 +803,47 @@ class Structure2d(Structure):
         """
         Adds functional groups to the sheet.
         """
+        # Initialize a list to store the functional groups without anchor atoms
         added_groups = []
         for group in self.group_list:
             added_groups.append(group.remove_anchors())
+
+        # Get the list of available positions on the sheet
         position_list = self.available_positions()
         new_atoms = []
+
+        # Seed the random number generator to ensure reproducibility
         random.seed(a=None, version=2)
+
+        # Iterate through each group in the group list
         for i in range(len(self.group_list)):
             group = self.group_list[i]
             number_of_added_groups = 0
+
+            # Try to add the specified number of functional groups to the sheet
             for j in range(group.group_count):
                 if position_list:
+                    # Add a group to a random position on the sheet
                     new_atoms += self.__add_group_on_random_position(added_groups[i], group.exclusion_radius,
                                                                      position_list)
                 else:
+                    # If there are no available positions, print a warning
                     print("Sheet size is not large enough!")
                     print(f"Generated sheet is missing {group.group_count - number_of_added_groups} groups")
                     break
                 number_of_added_groups += 1
-        # convert the list to a dataframe and add a column with the atom group (structural/functional)
+
+        # Convert the list of new atoms to a DataFrame
         new_atoms_df = pd.DataFrame(new_atoms)
+        # Add a column indicating that these atoms are functional groups
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
+<<<<<<< HEAD
         new_atoms_df.columns = ['Species','x','y','z','group']
         #finally add atoms to sheet
+=======
+
+        # Finally, concatenate the new atoms DataFrame to the existing structure DataFrame
+>>>>>>> 09c4ec4 ([MOD] Move "rotation_matrix_from_vectors" method to parent class to avoid code duplicates. This is probably not yet an optimal solution. It would be better to make this method static and outsource it to a utility class or a utility module, as this method does not describe the actual object.)
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
     def __add_group_on_random_position(self, added_group: List[Tuple[str, float, float, float]],
@@ -846,15 +860,15 @@ class Structure2d(Structure):
         Returns:
             List[Tuple[str, float, float, float]]: The coordinates of the added group.  # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
         """
-        # select a position to add the group on
+        # Select a position to add the group on
         selected_position = position_list[random.randint(0, len(position_list) - 1)]
-        # randomly rotate the group
+        # Randomly rotate the group
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
-        # shift the coordinates to the selected position
+        # Shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
-        #Remove positions blocked by the new group
+        # Remove positions blocked by the new group
         position_list.remove(selected_position)
         self.__remove_adjacent_positions(position_list, selected_position, exclusion_radius)
         return new_atom_coordinates
@@ -867,9 +881,9 @@ class Structure2d(Structure):
             selected_position (List[float]): The position to add the group to.
         """
         added_group = self.group_list[0].remove_anchors()
-        # randomly rotate the group
+        # Randomly rotate the group
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
-        # shift the coordinates to the selected position
+        # Shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
@@ -877,7 +891,7 @@ class Structure2d(Structure):
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
-    def __remove_adjacent_positions(self, position_list: List[List[float]],
+    def __remove_adjacent_positions(self, position_list: List[List[float]],  # ToDo: Evtl. Lösung finden diese Information direkt beim Erstellen abzuspeichern, um nicht jedes Mal aufs Neue über alle Atompositionen iterieren zu müssen
                                     selected_position: List[float],
                                     cutoff_distance: float):
         """
@@ -888,10 +902,17 @@ class Structure2d(Structure):
             selected_position (List[float]): The position to remove adjacent positions for.
             cutoff_distance (float): The cutoff distance for adjacency.
         """
+        # Initialize a list to store positions that are found to be adjacent
         adjacent_positions = []
+
+        # Iterate through each position in the list of available positions
         for position in position_list:
+            # Check if the current position is adjacent to the selected position
             if positions_are_adjacent(position, selected_position, cutoff_distance, self.sheet_size):
+                # If it is adjacent, add it to the list of adjacent positions
                 adjacent_positions.append(position)
+
+        # Remove all adjacent positions from the list of available positions
         for adjacent_position in adjacent_positions:
             position_list.remove(adjacent_position)
 
@@ -1089,62 +1110,11 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         Returns:
             npt.NDArray: The normal vector.
         """
-
-        # surface_atoms = []
-        # # find adjacent atoms
-        # for i, atom in self._structure_df.iterrows():
-        #     delta_x = atom['x']-position[0]
-        #     delta_x -= self.sheet_size[0] * round(delta_x / self.sheet_size[0])
-        #     delta_y = atom['y']-position[1]
-        #     delta_y -= self.sheet_size[1] * round(delta_y / self.sheet_size[1]) ## minimum immage distance in x-y-direction
-        #     distance = math.sqrt((delta_x)**2+(delta_y)**2+(atom['z']-position[2])**2)
-        #     if distance <= self.bond_length*1.2:
-        #         # we append the mirrored atom and not the atom itself, since
-        #         # atoms that are mirrored due to periodic boundary conditions would
-        #         # make the averages later useless if we take the positions directly
-        #         if distance >= 0.05: # We do not want to add the selected position itself
-        #             surface_atoms.append([position[0]+delta_x,position[1]+delta_y,atom['z']])
-        #
-        # # compute average position
-        # surface_atoms = np.array(surface_atoms)
-        # average_position = np.average(surface_atoms, axis=0)
-        #
-        # # this only works on curved surface (selected position and surface atoms are NOT in one plane)
-        # # on flat surfaces we have to use a different algorithm
-        #
-        # # check if the local surface is curved
-        # if (np.linalg.norm(average_position-np.array(position)) < 0.01):
-        #     print("WARNING WARNING WARNING")
-        #     print(np.linalg.norm(average_position-np.array(position)))
-        #     return(np.array([1,0,0]))
-        #
-        # # compute normal vector
-        # position=np.array(position)
-        # normal_vector = average_position-position
-
         normal_vector = np.array([self.pore_center[0] - position[0], self.pore_center[1] - position[1], 0.0])
         normal_magnitude = np.linalg.norm(normal_vector)
         normal_vector /= normal_magnitude
 
         return normal_vector
-
-    def rotation_matrix_from_vectors(self, vec2: npt.NDArray) -> npt.NDArray:  # ToDo: Gleiche Funktion schon oben? Deshalb von Structure1d bzw. Structure2d erben?
-        """
-        Finds the rotation matrix that aligns vec1 to vec2.
-
-        Args:
-            vec2 (np.ndarray): The target vector.
-
-        Returns:
-            np.ndarray: The rotation matrix.
-        """
-        vec1 = np.array([0, 0, 1])
-        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
-        v = np.cross(a, b)
-        c = np.dot(a, b)
-        s = np.linalg.norm(v)
-        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
 
 
 class Graphene(Structure2d):
@@ -1452,7 +1422,7 @@ def minimum_image_distance(position1: List[float], position2: List[float], syste
 
 
 def positions_are_adjacent(position1: List[float], position2: List[float], cutoff_distance: float,
-                           system_size: List[float]) -> bool:
+                           system_size: Tuple[float, float]) -> bool:
     """
     Checks if two positions are adjacent in a periodic system.
 
@@ -1460,7 +1430,7 @@ def positions_are_adjacent(position1: List[float], position2: List[float], cutof
         position1 (List[float]): The first position.
         position2 (List[float]): The second position.
         cutoff_distance (float): The cutoff distance for adjacency.
-        system_size (List[float]): The size of the periodic system.
+        system_size (Tuple[float, float]): The size of the periodic system.
 
     Returns:
         bool: True if the positions are adjacent, False otherwise.
