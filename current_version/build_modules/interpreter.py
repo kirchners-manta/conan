@@ -1,6 +1,6 @@
 import defdict as ddict
 from structures import *
-import build_main as main
+# import build_main as main
 import pandas as pd
 import time
 import vmd_interface as vmd

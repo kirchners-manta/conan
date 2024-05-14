@@ -196,7 +196,7 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
         pass
 
     @abc.abstractmethod
-    def __add_group_on_position(self, selected_position: List[float]):
+    def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
         orientation based on the local surface normal. This method ensures that the child classes implement this
@@ -316,10 +316,10 @@ class Structure1d(Structure):
         position = [self._structure_df.iloc[parameters['position'], 1],  # X coordinate
                     self._structure_df.iloc[parameters['position'], 2],  # Y coordinate
                     self._structure_df.iloc[parameters['position'], 3]]  # Z coordinate
-        self.__add_group_on_position(position)  # Adds the group at the calculated position
+        self._add_group_on_position(position)  # Adds the group at the calculated position
 
     # PRIVATE
-    def __add_group_on_position(self, selected_position: List[float]):
+    def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
         orientation based on the local surface normal.
@@ -758,7 +758,7 @@ class Structure2d(Structure):
         self._initialize_functional_groups(parameters)
         position = [self._structure_df.iloc[parameters['position'], 1],
                     self._structure_df.iloc[parameters['position'], 2]]
-        self.__add_group_on_position(position)
+        self._add_group_on_position(position)
 
     # PRIVATE
     def _create_sheet(self):
@@ -859,7 +859,7 @@ class Structure2d(Structure):
         self.__remove_adjacent_positions(position_list, selected_position, exclusion_radius)
         return new_atom_coordinates
 
-    def __add_group_on_position(self, selected_position: List[float]):
+    def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the sheet at a specific position.
 
@@ -936,7 +936,8 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         selected_position = [self._structure_df.iloc[parameters['position'], 1],
                              self._structure_df.iloc[parameters['position'], 2],
                              self._structure_df.iloc[parameters['position'], 3]]
-        self.__add_group_on_position(selected_position)
+        # Add the functional group to the selected position
+        self._add_group_on_position(selected_position)
 
     # PRIVATE
     def _build_pore(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
@@ -999,7 +1000,7 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         delta_y = abs(max_y - self.sheet_size[1])
         self.sheet_size[1] -= (delta_y - self.bond_length * math.cos(30 * math.pi / 180))
 
-    def __add_group_on_position(self, selected_position: List[float]) -> None:
+    def _add_group_on_position(self, selected_position: List[float]) -> None:
         """
         Adds a functional group to the pore at a specific position.
 
