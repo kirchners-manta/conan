@@ -1199,7 +1199,7 @@ class Graphene(Structure2d):
         Builds the graphene sheet from multiple unit cells.
         """
         # Set the z-coordinates of all atoms to 0 (planar sheet)
-        Z = [0.0] * 4  # All Z-coordinates are 0  # ToDo: Multiplikation mit 4 wegen 4 Atomen pro Einheit?
+        Z = [0.0] * 4  # All Z-coordinates are 0
 
         # Initialize an empty list to store the coordinates of all atoms in the sheet
         coords: List = []

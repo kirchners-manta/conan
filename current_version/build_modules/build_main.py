@@ -60,10 +60,10 @@ def read_commands_from_input(input_file, parser, interpreter):
                         interpreter.execute_command(parsed_command)
             except EOFError:
                 break  # exit when input file ends
-            except Exception as e:  # If we encounter ANY error the cleanup needs to be performed
-                #interpreter.exit() # perform cleanup
-                #    print(f"ERROR: {e}")
-                continue
+            # except Exception as e:  # If we encounter ANY error the cleanup needs to be performed
+            #     #interpreter.exit() # perform cleanup
+            #     #    print(f"ERROR: {e}")
+            #     continue
 
 
 def undo(parser, interpreter):
