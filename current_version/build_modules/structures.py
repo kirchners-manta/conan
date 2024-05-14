@@ -1203,12 +1203,13 @@ class Graphene(Structure2d):
         # Return the position of the selected center of the pore
         return selected_position
 
+    def _build_sheet(self) -> None:  # ToDo: Müsste abstrakte Methode sein
+        """
+        Builds the graphene sheet from multiple unit cells.
+        """
+        # Set the z-coordinates of all atoms to 0 (planar sheet)
+        Z = [0.0] * 4  # All Z-coordinates are 0
 
-<<<<<<< HEAD
-    def _build_sheet(self):
-        Z = [0.0]*4 # All Z-coordinates are 0
-        coords = []
-=======
         # Initialize an empty list to store the coordinates of all atoms in the sheet
         coords: List = []
 >>>>>>> 72f9751 ([MOD] Make some methods abstract to ensure that they will be implemented by the child classes. The "Structure" class was made abstract to avoid instantiation.)
