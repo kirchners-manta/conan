@@ -494,6 +494,7 @@ class Structure_2D(Structure):
         # convert the list to a dataframe and add a column with the atom group (structural/functional)
         new_atoms_df = pd.DataFrame(new_atoms)
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
+        new_atoms_df.columns = ['Species','x','y','z','group']
         #finally add atoms to sheet
         self._structure_df = pd.concat([self._structure_df,new_atoms_df])
 
