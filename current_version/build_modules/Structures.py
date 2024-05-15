@@ -766,15 +766,16 @@ class Boronnitride(Structure_2D):
         dummy_df = dummy_df[dummy_df[2] > 1.5*hole_size]
         dummy_df = dummy_df[dummy_df[0] == 'N'] # triangular holes start at N
         selected_position = dummy_df.iloc[random.randint(0,len(dummy_df[0])-1)]"""
-        dummy_df = atoms_df[atoms_df[0] == 'N']
+        print(atoms_df)
+        dummy_df = atoms_df[atoms_df['Species'] == 'N']
         selected_position = center_position(self.sheet_size, dummy_df)
         # find nearest atom in x-direction to get orientation of the triangle
-        dummy_df = atoms_df[atoms_df[0] == 'B']
-        dummy_df = dummy_df[dummy_df[2] > (selected_position[2]-0.1)]
-        dummy_df = dummy_df[dummy_df[2] < (selected_position[2]+0.1)]
+        dummy_df = atoms_df[atoms_df['Species'] == 'B']
+        dummy_df = dummy_df[dummy_df['y'] > (selected_position[2]-0.1)]
+        dummy_df = dummy_df[dummy_df['y'] < (selected_position[2]+0.1)]
         nearest_atom_df = dummy_df
-        nearest_atom_df[1] = nearest_atom_df[1].apply(lambda x: abs(x - selected_position[1]))
-        nearest_atom = atoms_df.iloc[nearest_atom_df[1].idxmin()]
+        nearest_atom_df['x'] = nearest_atom_df['x'].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom = atoms_df.iloc[nearest_atom_df['x'].idxmin()]
         # now define triangle
         orientation_vector = [
             nearest_atom[1]-selected_position[1],
