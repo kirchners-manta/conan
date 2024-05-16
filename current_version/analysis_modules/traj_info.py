@@ -415,6 +415,12 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
 
         # The length of each pore is the difference between the maximum and minimum z coordinate.
         length_pore.append(max_z_pore[i - 1] - min_z_pore[i - 1])
+
+
+        #if the pore length is less than 2.0 Ang smaller than the box size, it can be considered inifinite in z direction. The the length is set to the box size.
+        if length_pore[i - 1] > box_size[2] - 2.0:
+            length_pore[i - 1] = box_size[2]
+            print(f"Pore{i} is considered infinite in z direction.")
         ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} Ang.")
 
         # The center of each pore is the average of the minimum and maximum z coordinate.

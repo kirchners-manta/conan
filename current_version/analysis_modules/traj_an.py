@@ -196,7 +196,7 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
     ddict.printLog('(9) Calculate the radial velocity of the liquid in the CNT.')
     #ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
     analysis_choice2 = int(ddict.get_input('Which analysis should be conducted?:  ', args, 'int'))
-    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]
     if analysis_choice2 not in analysis_choice2_options:
         ddict.printLog('-> The analysis you entered is not known.')
         sys.exit(1)
@@ -287,10 +287,17 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
         from velocity import rad_velocity_analysis as analysis
         from velocity import rad_velocity_processing as post_processing
 
-    if analysis_choice2 == 10:
-        from occurrence import occurrence_prep as main_loop_preparation
-        from occurrence import occurrence_analysis as analysis
-        #from occurrence import occurrence_processing as post_processing
+    #if analysis_choice2 == 10:
+    #    from occurrence import occurrence_prep as main_loop_preparation
+    #    from occurrence import occurrence_analysis as analysis
+    #    from occurrence import occurrence_processing as post_processing
+
+    if analysis_choice2 == 15:
+        from rmsd import rmsd_prep as main_loop_preparation
+        from rmsd import rmsd_calc as analysis      
+        from rmsd import rmsd_processing as post_processing
+
+
 
     maxdisp_atom_dist = 0
     maxdisp_atom_row = None
@@ -316,7 +323,9 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
         'minimal_distance':1000,
         'minimal_distance_row':None,
         'maximal_distance':0,
-        'maximal_distance_row':None
+        'maximal_distance_row':None,
+        'number_of_frames':number_of_frames,
+        'counter':0,
     }
 
     maindict = main_loop_preparation(maindict)
