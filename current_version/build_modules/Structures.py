@@ -319,7 +319,7 @@ class Structure_1D(Structure):
         self._structure_df = pd.DataFrame(positions_tube)
         self._structure_df.insert(0, "Species", "C")
         self._structure_df.insert(4, "group", "Structure")
-        self._structure_df.insert(5, "Molecule", 1)
+        self._structure_df.insert(5, "Molecule", int(1))
         self._structure_df.columns.values[1] = "x"
         self._structure_df.columns.values[2] = "y"
         self._structure_df.columns.values[3] = "z"
@@ -580,8 +580,14 @@ class Pore(Structure):
         # move the second wall
         wall2._structure_df['z'] += max_z
         # combine the pore and the wall
-        self._structure_df = pd.concat([wall._structure_df, cnt._structure_df, wall2._structure_df])
-
+        self._structure_df = pd.concat([cnt._structure_df, wall._structure_df, wall2._structure_df])
+        self._structure_df.reset_index(inplace=True, drop=True)
+        # Insert correct values for 'Label' and 'Molecule' columns.
+        counter=1
+        for i,atom in self._structure_df.iterrows():
+            self._structure_df.at[i,'Label'] = f"C{counter}"
+            counter=counter+1
+        self._structure_df.loc[:,'Molecule'] = int(1)
         # lastly we need to correct the sheet_size to reflect the actual size of the sheet
         # 
         max_x = self._structure_df['x'].max()   # determine the maximum x-value
