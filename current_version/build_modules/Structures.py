@@ -326,7 +326,7 @@ class Structure_1D(Structure):
         self._structure_df.insert(6,"Label","X")
         counter=1
         for i,atom in self._structure_df.iterrows():
-            self._structure_df.loc[:,('Label',i)] = f"C{counter}"
+            self._structure_df.at[i,'Label'] = f"C{counter}"
             counter=counter+1
         return self._structure_df
 
@@ -766,7 +766,6 @@ class Boronnitride(Structure_2D):
         dummy_df = dummy_df[dummy_df[2] > 1.5*hole_size]
         dummy_df = dummy_df[dummy_df[0] == 'N'] # triangular holes start at N
         selected_position = dummy_df.iloc[random.randint(0,len(dummy_df[0])-1)]"""
-        print(atoms_df)
         dummy_df = atoms_df[atoms_df['Species'] == 'N']
         selected_position = center_position(self.sheet_size, dummy_df)
         # find nearest atom in x-direction to get orientation of the triangle
