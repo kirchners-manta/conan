@@ -70,9 +70,14 @@ class GrapheneGraph:
         for i in range(len(unit_cell_positions) - 1):
             self.graph.add_edge(index + i, index + i + 1, bond_length=self.bond_distance)
 
-    def get_neighbors(self, id: int) -> List[Tuple[float, float]]:
-        """Get the neighbors of a node based on its ID."""
-        return list(self.graph.neighbors(id))
+    def get_direct_neighbors(self, atom_id: int) -> List[int]:
+        """Get the direct neighbors of a node based on its ID."""
+        return list(self.graph.neighbors(atom_id))
+
+    def get_neighbors(self, atom_id: int, depth: int = 1) -> List[int]:
+        """Get neighbors of a given atom up to a certain depth."""
+        paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
+        return [node for node, length in paths.items() if length == depth]
 
     def get_color(self, element: str) -> str:
         """Get the color of an element for plotting."""
@@ -118,8 +123,16 @@ def write_xyz(graph, filename):
 
 def main():
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
-    print(f"Neighbors of C_0:", graphene.get_neighbors(0))
-    print(f"Neighbors of C_5:", graphene.get_neighbors(5))
+
+    # Find direct neighbors of a node
+    print(f"Neighbors of C_0:", graphene.get_direct_neighbors(0))
+    print(f"Neighbors of C_5:", graphene.get_direct_neighbors(5))
+
+    # Find neighbors of a node up to a certain depth
+    print(f"Neighbors of C_0 up to depth 2:", graphene.get_neighbors(0, depth=2))
+    print(f"Neighbors of C_5 up to depth 2:", graphene.get_neighbors(5, depth=2))
+
+    # Save and plot the graphene structure
     write_xyz(graphene.graph, 'graphene.xyz')
     graphene.plot_graphene(with_labels=True)
 
