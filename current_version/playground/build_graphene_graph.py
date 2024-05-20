@@ -79,6 +79,14 @@ class GrapheneGraph:
         paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
         return [node for node, length in paths.items() if length == depth]
 
+    def get_shortest_path_length(self, source: int, target: int) -> float:
+        """Get the shortest path length between two atoms based on bond lengths."""
+        return nx.dijkstra_path_length(self.graph, source, target, weight='bond_length')
+
+    def get_shortest_path(self, source: int, target: int) -> List[int]:
+        """Get the shortest path between two atoms based on bond lengths."""
+        return nx.dijkstra_path(self.graph, source, target, weight='bond_length')
+
     def get_color(self, element: str) -> str:
         """Get the color of an element for plotting."""
         colors = {'C': 'black'}
@@ -98,6 +106,25 @@ class GrapheneGraph:
             nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
         else:
             nx.draw(self.graph, pos, with_labels=with_labels, node_color=colors, node_size=200)
+        plt.show()
+
+    def plot_graphene_with_path(self, path: List[int]):
+        """Plot the graphene structure with a highlighted path using networkx and matplotlib."""
+        pos = nx.get_node_attributes(self.graph, 'position')
+        elements = nx.get_node_attributes(self.graph, 'element')
+        colors = [self.get_color(elements[node]) for node in self.graph.nodes()]
+        labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
+
+        # Draw the entire graphene structure
+        plt.figure(figsize=(12, 12))
+        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+
+        # Highlight the nodes and edges in the shortest path
+        path_edges = list(zip(path, path[1:]))
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color='yellow', node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+
         plt.show()
 
 
@@ -125,16 +152,33 @@ def main():
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
     # Find direct neighbors of a node
-    print(f"Neighbors of C_0:", graphene.get_direct_neighbors(0))
-    print(f"Neighbors of C_5:", graphene.get_direct_neighbors(5))
+    print("Neighbors of C_0:", graphene.get_direct_neighbors(0))
+    print("Neighbors of C_5:", graphene.get_direct_neighbors(5))
 
     # Find neighbors of a node up to a certain depth
-    print(f"Neighbors of C_0 up to depth 2:", graphene.get_neighbors(0, depth=2))
-    print(f"Neighbors of C_5 up to depth 2:", graphene.get_neighbors(5, depth=2))
+    print("Neighbors of C_0 up to depth 2:", graphene.get_neighbors(0, depth=2))
+    print("Neighbors of C_5 up to depth 2:", graphene.get_neighbors(5, depth=2))
 
     # Save and plot the graphene structure
     write_xyz(graphene.graph, 'graphene.xyz')
     graphene.plot_graphene(with_labels=True)
+
+    ##############################################################################################
+
+    # Find the shortest path between two atoms using the dijkstra algorithm
+    source = 0
+    target = 10
+
+    # Find the shortest path length based on bond lengths
+    path_length = graphene.get_shortest_path_length(source, target)
+    print(f"Shortest path length from C_{source} to C_{target}: {path_length}")
+
+    # Find the shortest path based on bond lengths
+    path = graphene.get_shortest_path(source, target)
+    print(f"Shortest path from C_{source} to C_{target}: {path}")
+
+    # Plot the graphene structure with the shortest path highlighted
+    graphene.plot_graphene_with_path(path)
 
 
 if __name__ == "__main__":
