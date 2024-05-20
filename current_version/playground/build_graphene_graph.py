@@ -79,6 +79,14 @@ class GrapheneGraph:
         paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
         return [node for node, length in paths.items() if length == depth]
 
+    def get_neighbors_paths(self, atom_id: int, depth: int = 1) -> List[Tuple[int, int]]:
+        """Get edges of paths to neighbors up to a certain depth."""
+        paths = nx.single_source_shortest_path(self.graph, atom_id, cutoff=depth)
+        edges = []
+        for path in paths.values():
+            edges.extend([(path[i], path[i + 1]) for i in range(len(path) - 1)])
+        return edges
+
     def get_shortest_path_length(self, source: int, target: int) -> float:
         """Get the shortest path length between two atoms based on bond lengths."""
         return nx.dijkstra_path_length(self.graph, source, target, weight='bond_length')
@@ -108,6 +116,28 @@ class GrapheneGraph:
             nx.draw(self.graph, pos, with_labels=with_labels, node_color=colors, node_size=200)
         plt.show()
 
+    def plot_graphene_with_depth_neighbors(self, atom_id: int, depth: int):
+        """Plot the graphene structure with neighbors up to a certain depth highlighted."""
+        pos = nx.get_node_attributes(self.graph, 'position')
+        elements = nx.get_node_attributes(self.graph, 'element')
+        colors = [self.get_color(elements[node]) for node in self.graph.nodes()]
+        labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
+
+        # Draw the entire graphene structure
+        plt.figure(figsize=(12, 12))
+        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+
+        # Get neighbors and paths up to a certain depth
+        neighbors = self.get_neighbors(atom_id, depth)
+        path_edges = self.get_neighbors_paths(atom_id, depth)
+
+        # Highlight the nodes and edges in the shortest path
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=neighbors, node_color='yellow', node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+
+        plt.show()
+
     def plot_graphene_with_path(self, path: List[int]):
         """Plot the graphene structure with a highlighted path using networkx and matplotlib."""
         pos = nx.get_node_attributes(self.graph, 'position')
@@ -122,6 +152,33 @@ class GrapheneGraph:
         # Highlight the nodes and edges in the shortest path
         path_edges = list(zip(path, path[1:]))
         nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color='yellow', node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+
+        plt.show()
+
+    def plot_graphene_with_depth_neighbors_based_on_bond_length(self, atom_id: int, max_distance: float):
+        """Plot the graphene structure with neighbors up to a certain distance highlighted based on bond lengths."""
+        pos = nx.get_node_attributes(self.graph, 'position')
+        elements = nx.get_node_attributes(self.graph, 'element')
+        colors = [self.get_color(elements[node]) for node in self.graph.nodes()]
+        labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
+
+        # Draw the entire graphene structure
+        plt.figure(figsize=(12, 12))
+        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+
+        # Get neighbors up to a certain distance
+        paths = nx.single_source_dijkstra_path(self.graph, atom_id, cutoff=max_distance, weight='bond_length')
+        depth_neighbors = [node for node, path in paths.items() if
+                           sum(nx.get_edge_attributes(self.graph, 'bond_length').get((path[i], path[i + 1]), 0)
+                               for i in range(len(path) - 1)) <= max_distance]
+        path_edges = [(path[i], path[i + 1]) for path in paths.values() for i in range(len(path) - 1) if
+                      sum(nx.get_edge_attributes(self.graph, 'bond_length').get((path[i], path[i + 1]), 0)
+                          for i in range(len(path) - 1)) <= max_distance]
+
+        # Highlight the nodes and edges in the shortest path
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=depth_neighbors, node_color='yellow', node_size=300)
         nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
         nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
 
@@ -151,6 +208,12 @@ def write_xyz(graph, filename):
 def main():
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
+    # Save and plot the graphene structure
+    write_xyz(graphene.graph, 'graphene.xyz')
+    graphene.plot_graphene(with_labels=True)
+
+    ##############################################################################################
+
     # Find direct neighbors of a node
     print("Neighbors of C_0:", graphene.get_direct_neighbors(0))
     print("Neighbors of C_5:", graphene.get_direct_neighbors(5))
@@ -159,9 +222,9 @@ def main():
     print("Neighbors of C_0 up to depth 2:", graphene.get_neighbors(0, depth=2))
     print("Neighbors of C_5 up to depth 2:", graphene.get_neighbors(5, depth=2))
 
-    # Save and plot the graphene structure
-    write_xyz(graphene.graph, 'graphene.xyz')
-    graphene.plot_graphene(with_labels=True)
+    # Plot the graphene structure with neighbors up to a certain depth highlighted
+    graphene.plot_graphene_with_depth_neighbors(0, depth=2)
+    graphene.plot_graphene_with_depth_neighbors(5, depth=2)
 
     ##############################################################################################
 
@@ -179,6 +242,12 @@ def main():
 
     # Plot the graphene structure with the shortest path highlighted
     graphene.plot_graphene_with_path(path)
+
+    ##############################################################################################
+
+    # Plot the graphene structure with neighbors up to a certain distance highlighted
+    max_distance = 5  # Example maximum distance (3 bonds)
+    graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(5, max_distance)
 
 
 if __name__ == "__main__":
