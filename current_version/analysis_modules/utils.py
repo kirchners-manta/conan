@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def minimum_image_distance(box_dimension, coordinates_reference, coordinates_observed):
     # coordinates_reference and coordinates_observed are pandas dataframes, that contain the columns
     # 'X_COM', 'Y_COM' and 'Z_COM' for the coordinates. For all molecules in 'coordinates_reference',
@@ -10,5 +11,5 @@ def minimum_image_distance(box_dimension, coordinates_reference, coordinates_obs
     dx = dx - box_dimension[0] * np.round(dx / box_dimension[0])
     dy = dy - box_dimension[1] * np.round(dy / box_dimension[1])
     dz = dz - box_dimension[2] * np.round(dz / box_dimension[2])
-    distances = np.sqrt(dx**2 + dy**2 + dz**2)
+    distances = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
     return distances
