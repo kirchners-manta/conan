@@ -124,7 +124,7 @@ class GrapheneGraph:
             # Randomly select a carbon atom from the list
             atom_id = random.choice(carbon_atoms)
             # Get the direct neighbors of the selected atom
-            neighbors = self.get_direct_neighbors(atom_id)
+            neighbors = self.get_neighbors(atom_id)
             # Get the elements and nitrogen species of the neighbors
             neighbor_elements = [(self.graph.nodes[neighbor]['element'],
                                   self.graph.nodes[neighbor].get('nitrogen_species')) for neighbor in neighbors]
@@ -161,17 +161,72 @@ class GrapheneGraph:
                 # Implement pyrazole nitrogen replacement
                 pass
 
-    def get_direct_neighbors(self, atom_id: int) -> List[int]:
-        """Get the direct neighbors of a node based on its ID."""
-        return list(self.graph.neighbors(atom_id))
+    def get_neighbors(self, atom_id: int, depth: int = 1, inclusive: bool = False) -> List[int]:
+        """
+        Get neighbors of a given atom up to a certain depth.
 
-    def get_neighbors(self, atom_id: int, depth: int = 1) -> List[int]:
-        """Get neighbors of a given atom up to a certain depth."""
-        paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
-        return [node for node, length in paths.items() if length == depth]
+        Parameters
+        ----------
+        atom_id : int
+            The ID of the atom (node) whose neighbors are to be found.
+        depth : int, optional
+            The depth up to which neighbors are to be found (default is 1).
+        inclusive : bool, optional
+            If True, return all neighbors up to the specified depth. If False, return only the neighbors
+            at the exact specified depth (default is False).
+
+        Returns
+        -------
+        List[int]
+            A list of IDs representing the neighbors of the specified atom up to the given depth.
+
+        Notes
+        -----
+        - If `depth` is 1, this method uses the `neighbors` function from networkx to find the immediate neighbors.
+        - If `depth` is greater than 1:
+          The function uses `nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)` from networkx.
+          This function computes the shortest path lengths from the source node (atom_id) to all other nodes in the
+          graph,up to the specified cutoff depth.
+
+          - If `inclusive` is True, the function returns all neighbors up to the specified depth, meaning it includes
+            neighbors at depth 1, 2, ..., up to the given depth.
+          - If `inclusive` is False, the function returns only the neighbors at the exact specified depth.
+        """
+
+        if depth == 1:
+            # Get immediate neighbors (directly connected nodes)
+            return list(self.graph.neighbors(atom_id))
+        else:
+            # Get neighbors up to the specified depth using shortest path lengths
+            paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
+            if inclusive:
+                # Include all neighbors up to the specified depth
+                return [node for node in paths.keys() if node != atom_id]  # Exclude the atom itself (depth 0)
+            else:
+                # Include only neighbors at the exact specified depth
+                return [node for node, length in paths.items() if length == depth]
 
     def get_neighbors_paths(self, atom_id: int, depth: int = 1) -> List[Tuple[int, int]]:
-        """Get edges of paths to neighbors up to a certain depth."""
+        """
+        Get edges of paths to neighbors up to a certain depth.
+
+        Parameters
+        ----------
+        atom_id : int
+            The ID of the atom (node) whose neighbors' paths are to be found.
+        depth : int, optional
+            The depth up to which neighbors' paths are to be found (default is 1).
+
+        Returns
+        -------
+        List[Tuple[int, int]]
+            A list of tuples representing the edges of paths to neighbors up to the given depth.
+
+        Notes
+        -----
+        This method uses the `single_source_shortest_path` function from networkx to find
+        all paths up to the specified depth and then extracts the edges from these paths.
+        """
         paths = nx.single_source_shortest_path(self.graph, atom_id, cutoff=depth)
         edges = []
         for path in paths.values():
@@ -179,15 +234,70 @@ class GrapheneGraph:
         return edges
 
     def get_shortest_path_length(self, source: int, target: int) -> float:
-        """Get the shortest path length between two atoms based on bond lengths."""
+        """
+        Get the shortest path length between two atoms based on bond lengths.
+
+        Parameters
+        ----------
+        source : int
+            The ID of the source atom (node).
+        target : int
+            The ID of the target atom (node).
+
+        Returns
+        -------
+        float
+            The shortest path length between the source and target atoms.
+
+        Notes
+        -----
+        This method uses the Dijkstra algorithm implemented in networkx to find the shortest path length.
+        """
         return nx.dijkstra_path_length(self.graph, source, target, weight='bond_length')
 
     def get_shortest_path(self, source: int, target: int) -> List[int]:
-        """Get the shortest path between two atoms based on bond lengths."""
+        """
+        Get the shortest path between two atoms based on bond lengths.
+
+        Parameters
+        ----------
+        source : int
+            The ID of the source atom (node).
+        target : int
+            The ID of the target atom (node).
+
+        Returns
+        -------
+        List[int]
+            A list of IDs representing the nodes in the shortest path from the source to the target atom.
+
+        Notes
+        -----
+        This method uses the Dijkstra algorithm implemented in networkx to find the shortest path.
+        """
         return nx.dijkstra_path(self.graph, source, target, weight='bond_length')
 
     def get_color(self, element: str, nitrogen_species: NitrogenSpecies = None) -> str:
-        """Get the color based on the element and type of nitrogen."""
+        """
+        Get the color based on the element and type of nitrogen.
+
+        Parameters
+        ----------
+        element : str
+            The chemical element of the atom (e.g., 'C' for carbon, 'N' for nitrogen).
+        nitrogen_species : NitrogenSpecies, optional
+            The type of nitrogen doping (default is None).
+
+        Returns
+        -------
+        str
+            The color associated with the element and nitrogen species.
+
+        Notes
+        -----
+        The color mapping is defined for different elements and nitrogen species to visually
+        distinguish them in plots.
+        """
         colors = {'C': 'black'}
         nitrogen_colors = {
             NitrogenSpecies.PYRIDINIC: 'blue',
@@ -200,13 +310,31 @@ class GrapheneGraph:
         return colors.get(element, 'pink')
 
     def plot_graphene(self, with_labels: bool = False):
-        """Plot the graphene structure using networkx and matplotlib."""
+        """
+        Plot the graphene structure using networkx and matplotlib.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+
+        Notes
+        -----
+        This method visualizes the graphene structure, optionally with labels indicating the
+        element type and node ID. Nodes are colored based on their element type and nitrogen species.
+        """
+        # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, 'position')
         elements = nx.get_node_attributes(self.graph, 'element')
+
+        # Determine colors for nodes, considering nitrogen species if present
         colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
                   self.graph.nodes()]
 
+        # Initialize plot
         plt.figure(figsize=(12, 12))
+
+        # Draw the graphene structure with appropriate colors
         if with_labels:
             labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
             nx.draw(self.graph, pos, labels=elements, with_labels=with_labels, node_color=colors, node_size=200,
@@ -214,48 +342,101 @@ class GrapheneGraph:
             nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
         else:
             nx.draw(self.graph, pos, with_labels=with_labels, node_color=colors, node_size=200)
+
+        # Show plot
         plt.show()
 
     def plot_graphene_with_path(self, path: List[int]):
-        """Plot the graphene structure with a highlighted path using networkx and matplotlib."""
+        """
+        Plot the graphene structure with a highlighted path.
+
+        This method plots the entire graphene structure and highlights a specific path
+        between two nodes using a different color.
+
+        Parameters
+        ----------
+        path : List[int]
+            A list of node IDs representing the path to be highlighted.
+
+        Notes
+        -----
+        The path is highlighted in yellow, while the rest of the graphene structure
+        is displayed in its default colors.
+        """
+        # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, 'position')
         elements = nx.get_node_attributes(self.graph, 'element')
+
+        # Determine colors for nodes, considering nitrogen species if present
         colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
                   self.graph.nodes()]
         labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
 
+        # Initialize plot
         plt.figure(figsize=(12, 12))
+
+        # Draw entire graphene structure with default colors
         nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
 
+        # Highlight the nodes and edges in the specified path
         path_edges = list(zip(path, path[1:]))
         nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color='yellow', node_size=300)
         nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+
+        # Draw labels for nodes
         nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
 
         plt.show()
 
     def plot_graphene_with_depth_neighbors_based_on_bond_length(self, atom_id: int, max_distance: float):
-        """Plot the graphene structure with neighbors up to a certain distance highlighted based on bond lengths."""
+        """
+        Plot the graphene structure with neighbors highlighted based on bond length.
+
+        This method plots the entire graphene structure and highlights nodes that are within
+        a specified maximum distance from a given atom, using the bond length as the distance metric.
+
+        Parameters
+        ----------
+        atom_id : int
+            The ID of the atom from which distances are measured.
+        max_distance : float
+            The maximum bond length distance within which neighbors are highlighted.
+
+        Notes
+        -----
+        The neighbors within the specified distance are highlighted in yellow, while the rest
+        of the graphene structure is displayed in its default colors.
+        """
+        # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, 'position')
         elements = nx.get_node_attributes(self.graph, 'element')
+
+        # Determine colors for nodes, considering nitrogen species if present
         colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
                   self.graph.nodes()]
         labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
 
-        # Draw the entire graphene structure
+        # Initialize plot
         plt.figure(figsize=(12, 12))
+
+        # Draw entire graphene structure with default colors
         nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
 
-        # Get neighbors up to a certain distance
+        # Compute shortest path lengths from the specified atom using bond lengths
         paths = nx.single_source_dijkstra_path_length(self.graph, atom_id, cutoff=max_distance, weight='bond_length')
+
+        # Identify neighbors within the specified maximum distance
         depth_neighbors = [node for node, length in paths.items() if length <= max_distance]
         path_edges = [(u, v) for u in depth_neighbors for v in self.graph.neighbors(u) if v in depth_neighbors]
 
-        # Highlight the nodes and edges in the shortest path
+        # Highlight the identified neighbors and their connecting edges
         nx.draw_networkx_nodes(self.graph, pos, nodelist=depth_neighbors, node_color='yellow', node_size=300)
         nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+
+        # Draw labels for nodes
         nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
 
+        # Show plot
         plt.show()
 
 
@@ -277,6 +458,18 @@ def main():
 
     # write_xyz(graphene.graph, 'graphene.xyz')
     # graphene.plot_graphene(with_labels=True)
+
+    # Find direct neighbors of a node (depth=1)
+    direct_neighbors = graphene.get_neighbors(atom_id=0, depth=1)
+    print(f"Direct neighbors of C_0: {direct_neighbors}")
+
+    # Find neighbors of a node at an exact depth (depth=2)
+    depth_neighbors = graphene.get_neighbors(atom_id=0, depth=2)
+    print(f"Neighbors of C_0 at depth 2: {depth_neighbors}")
+
+    # Find neighbors of a node up to a certain depth (inclusive=True)
+    inclusive_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=True)
+    print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
 
     graphene.add_nitrogen_doping(10, NitrogenSpecies.GRAPHITIC)
     graphene.plot_graphene(with_labels=True)
