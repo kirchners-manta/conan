@@ -157,7 +157,7 @@ class GrapheneGraph:
 
         plt.show()
 
-    def plot_graphene_with_depth_neighbors_based_on_bond_length(self, atom_id: int, max_distance: float):
+    def plot_graphene_with_neighbors_based_on_bond_length(self, atom_id: int, max_distance: float):
         """Plot the graphene structure with neighbors up to a certain distance highlighted based on bond lengths."""
         pos = nx.get_node_attributes(self.graph, 'position')
         elements = nx.get_node_attributes(self.graph, 'element')
@@ -247,7 +247,7 @@ def main():
 
     # Plot the graphene structure with neighbors up to a certain distance highlighted
     max_distance = 5  # Example maximum distance (3 bonds)
-    graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(5, max_distance)
+    graphene.plot_graphene_with_neighbors_based_on_bond_length(5, max_distance)
 
 
 if __name__ == "__main__":
