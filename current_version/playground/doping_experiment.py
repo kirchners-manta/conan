@@ -85,33 +85,22 @@ class GrapheneGraph:
     def _add_periodic_boundaries(self):
         """Add periodic boundary conditions to the graphene sheet."""
         num_nodes_x = self.num_cells_x * 4
-        num_nodes_y = self.num_cells_y * 2
 
-        # Horizontal periodic boundary conditions
+        # Add horizontal periodic boundary conditions
         for y in range(self.num_cells_y):
-            for x in range(self.num_cells_x):
-                base_index = y * num_nodes_x + x * 4
-                if x == self.num_cells_x - 1:
-                    right_edge_index_1 = base_index + 3
-                    right_edge_index_2 = base_index + 2
-                    left_edge_index_1 = y * num_nodes_x
-                    left_edge_index_2 = y * num_nodes_x + 1
-                    self.graph.add_edge(right_edge_index_1, left_edge_index_1, bond_length=self.bond_distance,
-                                        periodic=True)
+            base_index = y * num_nodes_x
+            right_edge_index = base_index + (self.num_cells_x - 1) * 4 + 3
+            left_edge_index = base_index
+            self.graph.add_edge(right_edge_index, left_edge_index, bond_length=self.bond_distance, periodic=True)
 
-        # Vertical periodic boundary conditions
+        # Add vertical periodic boundary conditions
         for x in range(self.num_cells_x):
-            for y in range(self.num_cells_y):
-                base_index = y * num_nodes_x + x * 4
-                if y == self.num_cells_y - 1:
-                    bottom_edge_index_1 = base_index + 1
-                    bottom_edge_index_2 = base_index + 2
-                    top_edge_index_1 = x * 4
-                    top_edge_index_2 = x * 4 + 3
-                    self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance,
-                                        periodic=True)
-                    self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance,
-                                        periodic=True)
+            top_edge_index_1 = x * 4
+            top_edge_index_2 = x * 4 + 3
+            bottom_edge_index_1 = top_edge_index_1 + (self.num_cells_y - 1) * num_nodes_x + 1
+            bottom_edge_index_2 = top_edge_index_2 + (self.num_cells_y - 1) * num_nodes_x - 1
+            self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance, periodic=True)
+            self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance, periodic=True)
 
     def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
         """
