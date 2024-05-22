@@ -5,6 +5,8 @@ from math import cos, sin, pi
 import random
 from enum import Enum
 
+import numpy as np
+
 
 class NitrogenSpecies(Enum):
     GRAPHITIC = 'graphitic'
@@ -86,21 +88,54 @@ class GrapheneGraph:
         """Add periodic boundary conditions to the graphene sheet."""
         num_nodes_x = self.num_cells_x * 4
 
+        # Generate base indices for horizontal boundaries
+        base_indices_y = np.arange(self.num_cells_y) * num_nodes_x
+        right_edge_indices = base_indices_y + (self.num_cells_x - 1) * 4 + 3
+        left_edge_indices = base_indices_y
+
         # Add horizontal periodic boundary conditions
-        for y in range(self.num_cells_y):
-            base_index = y * num_nodes_x
-            right_edge_index = base_index + (self.num_cells_x - 1) * 4 + 3
-            left_edge_index = base_index
-            self.graph.add_edge(right_edge_index, left_edge_index, bond_length=self.bond_distance, periodic=True)
+        self.graph.add_edges_from(
+            zip(right_edge_indices, left_edge_indices),
+            bond_length=self.bond_distance,
+            periodic=True
+        )
+
+        # Generate base indices for vertical boundaries
+        top_indices = np.arange(self.num_cells_x) * 4
+        bottom_indices_1 = top_indices + (self.num_cells_y - 1) * num_nodes_x + 1
+        bottom_indices_2 = top_indices + (self.num_cells_y - 1) * num_nodes_x + 2
 
         # Add vertical periodic boundary conditions
-        for x in range(self.num_cells_x):
-            top_edge_index_1 = x * 4
-            top_edge_index_2 = x * 4 + 3
-            bottom_edge_index_1 = top_edge_index_1 + (self.num_cells_y - 1) * num_nodes_x + 1
-            bottom_edge_index_2 = top_edge_index_2 + (self.num_cells_y - 1) * num_nodes_x - 1
-            self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance, periodic=True)
-            self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance, periodic=True)
+        self.graph.add_edges_from(
+            zip(bottom_indices_1, top_indices),
+            bond_length=self.bond_distance,
+            periodic=True
+        )
+        self.graph.add_edges_from(
+            zip(bottom_indices_2, top_indices + 3),
+            bond_length=self.bond_distance,
+            periodic=True
+        )
+
+    # def _add_periodic_boundaries(self):
+    #     """Add periodic boundary conditions to the graphene sheet."""
+    #     num_nodes_x = self.num_cells_x * 4
+    #
+    #     # Add horizontal periodic boundary conditions
+    #     for y in range(self.num_cells_y):
+    #         base_index = y * num_nodes_x
+    #         right_edge_index = base_index + (self.num_cells_x - 1) * 4 + 3
+    #         left_edge_index = base_index
+    #         self.graph.add_edge(right_edge_index, left_edge_index, bond_length=self.bond_distance, periodic=True)
+    #
+    #     # Add vertical periodic boundary conditions
+    #     for x in range(self.num_cells_x):
+    #         top_edge_index_1 = x * 4
+    #         top_edge_index_2 = x * 4 + 3
+    #         bottom_edge_index_1 = top_edge_index_1 + (self.num_cells_y - 1) * num_nodes_x + 1
+    #         bottom_edge_index_2 = top_edge_index_2 + (self.num_cells_y - 1) * num_nodes_x - 1
+    #         self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance, periodic=True)
+    #         self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance, periodic=True)
 
     def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
         """
