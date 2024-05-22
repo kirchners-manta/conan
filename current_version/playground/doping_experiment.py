@@ -43,7 +43,12 @@ class GrapheneGraph:
         return int(self.sheet_size[1] // (2 * self.cc_y_distance))
 
     def _build_graphene_sheet(self):
-        """Build the graphene sheet structure by creating nodes and edges."""
+        """
+        Build the graphene sheet structure by creating nodes and edges (using graph theory via networkx).
+
+        This method iterates over the entire sheet, adding nodes and edges for each unit cell.
+        It also connects adjacent unit cells and adds periodic boundary conditions.
+        """
         index = 0
         for y in range(self.num_cells_y):
             for x in range(self.num_cells_x):
@@ -64,11 +69,23 @@ class GrapheneGraph:
 
                 index += 4
 
-            # Add periodic boundary conditions
-            self._add_periodic_boundaries()
+        # Add periodic boundary conditions
+        self._add_periodic_boundaries()
 
     def _add_unit_cell(self, index: int, x_offset: float, y_offset: float):
-        """Add nodes and internal bonds within a unit cell."""
+        """
+        Add nodes and internal bonds within a unit cell.
+
+        Parameters
+        ----------
+        index : int
+            The starting index for the nodes in the unit cell.
+        x_offset : float
+            The x-coordinate offset for the unit cell.
+        y_offset : float
+            The y-coordinate offset for the unit cell.
+        """
+        # Define relative positions of atoms within the unit cell
         unit_cell_positions = [
             (x_offset, y_offset),
             (x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
@@ -76,16 +93,21 @@ class GrapheneGraph:
             (x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset)
         ]
 
-        # Add nodes
-        for i, pos in enumerate(unit_cell_positions):
-            self.graph.add_node(index + i, element='C', position=pos)
+        # Add nodes with positions and element type (carbon)
+        nodes = [(index + i, {'element': 'C', 'position': pos}) for i, pos in enumerate(unit_cell_positions)]
+        self.graph.add_nodes_from(nodes)
 
         # Add internal bonds within the unit cell
-        for i in range(len(unit_cell_positions) - 1):
-            self.graph.add_edge(index + i, index + i + 1, bond_length=self.bond_distance)
+        edges = [(index + i, index + i + 1, {'bond_length': self.bond_distance}) for i in
+                 range(len(unit_cell_positions) - 1)]
+        self.graph.add_edges_from(edges)
 
     def _add_periodic_boundaries(self):
-        """Add periodic boundary conditions to the graphene sheet."""
+        """
+        Add periodic boundary conditions to the graphene sheet.
+
+        This method connects the edges of the sheet to simulate an infinite sheet.
+        """
         num_nodes_x = self.num_cells_x * 4
 
         # Generate base indices for horizontal boundaries
@@ -101,41 +123,21 @@ class GrapheneGraph:
         )
 
         # Generate base indices for vertical boundaries
-        top_indices = np.arange(self.num_cells_x) * 4
-        bottom_indices_1 = top_indices + (self.num_cells_y - 1) * num_nodes_x + 1
-        bottom_indices_2 = top_indices + (self.num_cells_y - 1) * num_nodes_x + 2
+        top_left_indices = np.arange(self.num_cells_x) * 4
+        bottom_left_indices = top_left_indices + (self.num_cells_y - 1) * num_nodes_x + 1
+        bottom_right_indices = top_left_indices + (self.num_cells_y - 1) * num_nodes_x + 2
 
         # Add vertical periodic boundary conditions
         self.graph.add_edges_from(
-            zip(bottom_indices_1, top_indices),
+            zip(bottom_left_indices, top_left_indices),
             bond_length=self.bond_distance,
             periodic=True
         )
         self.graph.add_edges_from(
-            zip(bottom_indices_2, top_indices + 3),
+            zip(bottom_right_indices, top_left_indices + 3),
             bond_length=self.bond_distance,
             periodic=True
         )
-
-    # def _add_periodic_boundaries(self):
-    #     """Add periodic boundary conditions to the graphene sheet."""
-    #     num_nodes_x = self.num_cells_x * 4
-    #
-    #     # Add horizontal periodic boundary conditions
-    #     for y in range(self.num_cells_y):
-    #         base_index = y * num_nodes_x
-    #         right_edge_index = base_index + (self.num_cells_x - 1) * 4 + 3
-    #         left_edge_index = base_index
-    #         self.graph.add_edge(right_edge_index, left_edge_index, bond_length=self.bond_distance, periodic=True)
-    #
-    #     # Add vertical periodic boundary conditions
-    #     for x in range(self.num_cells_x):
-    #         top_edge_index_1 = x * 4
-    #         top_edge_index_2 = x * 4 + 3
-    #         bottom_edge_index_1 = top_edge_index_1 + (self.num_cells_y - 1) * num_nodes_x + 1
-    #         bottom_edge_index_2 = top_edge_index_2 + (self.num_cells_y - 1) * num_nodes_x - 1
-    #         self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance, periodic=True)
-    #         self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance, periodic=True)
 
     def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
         """
