@@ -426,11 +426,17 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
         # The center of each pore is the average of the minimum and maximum z coordinate.
         center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
 
-        # The pore consists of a CNT in the center. To classify the CNT, we should get its radius. For this we just take the atoms in the pore dataframe closest to the center of the pore (with a small tolerance).
+        # The pore consists of a CNT or even multiple CNTs. To classify the CNT, we need the radius. For this we just take the atoms in the pore dataframe closest to the center of the pore (with a small tolerance).
         pore.loc[:, 'z_distance'] = abs(pore['z'] - center_pore[i - 1])
         pore = pore.sort_values(by = ['z_distance'])
         lowest_z = pore.iloc[0]['z_distance'] + 0.02
         CNT_ring = pore[pore['z_distance'] <= lowest_z].copy()
+
+
+        with open(f"CNT_ring{i}.xyz", 'w') as f:
+            f.write(f"{len(CNT_ring)}\n\n")  # write the number of atoms and an empty line
+
+        CNT_ring.to_csv(f"CNT_ring{i}.xyz", mode='a', sep=' ', columns=['Element', 'x', 'y', 'z'], header=False, index=False)
 
         # Delete all atoms in the CNT_ring dataframe, which are more than 0.1 angstrom away in the z direction from the first atom in the CNT_ring dataframe.
         CNT_ring.loc[:, 'z_distance'] = abs(CNT_ring['z'] - CNT_ring.iloc[0]['z'])

@@ -6,7 +6,9 @@ import sys
 import math
 
 import axial_dens as axdens
+import utils as ut
 import defdict as ddict
+
 
 '''
 With this tool the velocity of every atom at every time step is calculated.
@@ -250,7 +252,7 @@ def velocity_processing(inputdict):
     ddict.printLog(f'The maximum velocity is: {max(grid_points_average_velocities)} ')
     #write a cube file from the grid_points_velocities
     inputdict['grid_point_densities'] = grid_points_average_velocities
-    axdens.write_cube_file(inputdict, filename='velocity.cube')
+    ut.write_cube_file(inputdict, filename='velocity.cube')
 
     # Reshape the velocity data
     velocities = np.array(grid_points_average_velocities).reshape(inputdict['x_incr'], inputdict['y_incr'], inputdict['z_incr'])

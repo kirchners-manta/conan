@@ -1,0 +1,83 @@
+/home/dick/Desktop/GitHub/AK-Kirchner/conan_development/current_version/CONAN.py -f /home/dick/Desktop/Pore_Diffusion/2.diffusion_in_pore/1010/5.calc/single_pore/unity/prod.lammpstrj
+
+###########################################
+##                                       ##
+##   #####  #####  #   #  #####  #   #   ##
+##   #      #   #  ##  #  #   #  ##  #   ##
+##   #      #   #  # # #  #####  # # #   ##
+##   #      #   #  #  ##  #   #  #  ##   ##
+##   #####  #####  #   #  #   #  #   #   ##
+##                                       ##
+###########################################
+
+Find the documentation on the CONAn website: http://con-an.readthedocs.io
+If you use CONAN in your research, please cite the following paper:
+doi.org/10.1021/acs.jcim.3c01075
+
+
+
+The simulation box dimensions are [Ang]: 30.000 x 30.000 x 61.460
+
+Total number of atoms: 1408
+
+Structure 1 is a pore, labeled Pore1
+
+
+Total number of structures: 1
+Number of walls: 0
+Number of pores: 1
+
+The length of Pore1 is 61.46 Ang.
+The center of Pore1 is at (-0.00, -0.00, 30.11) Ang.
+The radius of Pore1 is 6.79 Ang.
+The volume of Pore1 is 8908.69 Ang^3.
+
+(1) Produce xyz files of the simulation box or pore structure.
+(2) Analyze the trajectory.
+Picture or analysis mode?:  2
+
+ANALYSIS mode.
+
+(1) Calculate the radial density inside the CNT
+(2) Calculate the radial charge density inside the CNT (if charges are provided)
+(3) Calculate the accessibe volume of the CNT
+(4) Calculate the average density along the z axis of the simulation box
+(5) Calculate the coordination number
+(6) Calculate the distance between liquid and pore atoms
+(7) Calculate the density of the liquid in the simulation box.
+(8) Calculate the velocity of the liquid in the simulation box.
+(9) Calculate the radial velocity of the liquid in the CNT.
+Which analysis should be conducted?:   7
+
+ 
++---------+------------------+---------------+------------------------+
+| Species | Chemical formula | No. molecules | No. atoms per molecule |
++---------+------------------+---------------+------------------------+
+|    1    |       B1F4       |       17      |           5            |
+|    2    |      C1000       |       1       |          1000          |
+|    3    |     C6H11N2      |       17      |           19           |
++---------+------------------+---------------+------------------------+
+
+Do you want to perform the analysis for a specific molecule kind? (y/n)  y
+Which species to analyze? (1-3)  1
+Which atoms to analyze? [default:all]  
+
+-> Species 1 and atom type ['all'] will be analyzed.
+
+-> Reading the trajectory.
+
++------------+------------+--------------+
+|            | Trajectory |   Chunk(3)   |
++------------+------------+--------------+
+| Size in MB |   211.9    | 100.0 (12.0) |
+|   Frames   |    5001    |  2359(283)   |
+|   Lines    |  7086417   |   3342703    |
++------------+------------+--------------+
+
+How many increments do you want to use in the x direction?  30
+How many increments do you want to use in the y direction?  30
+How many increments do you want to use in the z direction?  100
+Incrementation distance in x direction: 0.300 Ang
+Incrementation distance in y direction: 0.300 Ang
+Incrementation distance in z direction: 2.049 Ang
+Total number of grid points: 300000

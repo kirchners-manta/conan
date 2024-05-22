@@ -1,0 +1,92 @@
+/home/dick/Desktop/GitHub/AK-Kirchner/conan_development/current_version/CONAN.py -i inp -f ../example_trajectories/traj.lmp
+
+###########################################
+##                                       ##
+##   #####  #####  #   #  #####  #   #   ##
+##   #      #   #  ##  #  #   #  ##  #   ##
+##   #      #   #  # # #  #####  # # #   ##
+##   #      #   #  #  ##  #   #  #  ##   ##
+##   #####  #####  #   #  #   #  #   #   ##
+##                                       ##
+###########################################
+
+Find the documentation on the CONAn website: http://con-an.readthedocs.io
+If you use CONAN in your research, please cite the following paper:
+doi.org/10.1021/acs.jcim.3c01075
+
+
+
+The simulation box dimensions are [Ang]: 38.340 x 39.352 x 190.183
+
+Total number of atoms: 19610
+
+Structure 1 is a wall, labeled Wall1
+The wall extends in xy direction at z = 93.73 Ang.
+
+Structure 2 is a pore, labeled Pore1
+
+
+Total number of structures: 2
+Number of walls: 1
+Number of pores: 1
+
+The length of Pore1 is 36.92 Ang.
+The center of Pore1 is at (-0.58, -17.73, -2.14) Ang.
+The radius of Pore1 is 7.06 Ang.
+The volume of Pore1 is 5789.09 Ang^3.
+
+(1) Produce xyz files of the simulation box or pore structure.
+(2) Analyze the trajectory.
+Picture or analysis mode?:  2
+
+ANALYSIS mode.
+
+(1) Calculate the radial density inside the CNT
+(2) Calculate the radial charge density inside the CNT (if charges are provided)
+(3) Calculate the accessibe volume of the CNT
+(4) Calculate the average density along the z axis of the simulation box
+(5) Calculate the coordination number
+(6) Calculate the distance between liquid and pore atoms
+(7) Calculate the density of the liquid in the simulation box.
+(8) Calculate the velocity of the liquid in the simulation box.
+(9) Calculate the radial velocity of the liquid in the CNT.
+Which analysis should be conducted?:   15
+
+ 
++---------+------------------+---------------+------------------------+
+| Species | Chemical formula | No. molecules | No. atoms per molecule |
++---------+------------------+---------------+------------------------+
+|    1    |      C1626       |       1       |          1626          |
+|    2    |    C2F6N1O4S2    |      512      |           15           |
+|    3    |       C576       |       1       |          576           |
+|    4    |     C6H11N2      |      512      |           19           |
++---------+------------------+---------------+------------------------+
+
+Do you want to perform the analysis for a specific molecule kind? (y/n)  n
+-> Reading the trajectory.
+
++------------+------------+-------------+
+|            | Trajectory |   Chunk(1)  |
++------------+------------+-------------+
+| Size in MB |    6.4     | 100.0 (6.4) |
+|   Frames   |     10     |   156(10)   |
+|   Lines    |   196190   |   3060564   |
++------------+------------+-------------+
+
+New array called displacements_2 created of size (512, 10, 3)
+New array called displacements_4 created of size (512, 10, 3)
+Do you want the calculation to be performed in a specific region? [y/n]  n
+
+Finished processing the trajectory. 10 frames were processed.
+
+Do you want to calculate the [1] MSD or the [2] RMSD?   1
+Calculating MSD values for each species...
+MSD values for species 2:
+[0.         0.00910868 0.01218225 0.06768057 0.09355    0.07148821
+ 0.0522065  0.05380877 0.08410935 0.18100226]
+MSD values for species 4:
+[0.         0.00129972 0.00463537 0.00722497 0.01000541 0.01226656
+ 0.01580834 0.01862164 0.02042775 0.02365616]
+The main loop took 43.567 seconds to run
+
+The program took 53.598 seconds to run.

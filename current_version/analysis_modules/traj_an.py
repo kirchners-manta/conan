@@ -293,9 +293,9 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
     #    from occurrence import occurrence_processing as post_processing
 
     if analysis_choice2 == 15:
-        from rmsd import rmsd_prep as main_loop_preparation
-        from rmsd import rmsd_calc as analysis      
-        from rmsd import rmsd_processing as post_processing
+        from rmsd import msd_prep as main_loop_preparation
+        from rmsd import msd_calc as analysis      
+        from rmsd import msd_processing as post_processing
 
 
 
