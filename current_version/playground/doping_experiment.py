@@ -62,6 +62,9 @@ class GrapheneGraph:
 
                 index += 4
 
+            # Add periodic boundary conditions
+            self._add_periodic_boundaries()
+
     def _add_unit_cell(self, index: int, x_offset: float, y_offset: float):
         """Add nodes and internal bonds within a unit cell."""
         unit_cell_positions = [
@@ -78,6 +81,37 @@ class GrapheneGraph:
         # Add internal bonds within the unit cell
         for i in range(len(unit_cell_positions) - 1):
             self.graph.add_edge(index + i, index + i + 1, bond_length=self.bond_distance)
+
+    def _add_periodic_boundaries(self):
+        """Add periodic boundary conditions to the graphene sheet."""
+        num_nodes_x = self.num_cells_x * 4
+        num_nodes_y = self.num_cells_y * 2
+
+        # Horizontal periodic boundary conditions
+        for y in range(self.num_cells_y):
+            for x in range(self.num_cells_x):
+                base_index = y * num_nodes_x + x * 4
+                if x == self.num_cells_x - 1:
+                    right_edge_index_1 = base_index + 3
+                    right_edge_index_2 = base_index + 2
+                    left_edge_index_1 = y * num_nodes_x
+                    left_edge_index_2 = y * num_nodes_x + 1
+                    self.graph.add_edge(right_edge_index_1, left_edge_index_1, bond_length=self.bond_distance,
+                                        periodic=True)
+
+        # Vertical periodic boundary conditions
+        for x in range(self.num_cells_x):
+            for y in range(self.num_cells_y):
+                base_index = y * num_nodes_x + x * 4
+                if y == self.num_cells_y - 1:
+                    bottom_edge_index_1 = base_index + 1
+                    bottom_edge_index_2 = base_index + 2
+                    top_edge_index_1 = x * 4
+                    top_edge_index_2 = x * 4 + 3
+                    self.graph.add_edge(bottom_edge_index_1, top_edge_index_1, bond_length=self.bond_distance,
+                                        periodic=True)
+                    self.graph.add_edge(bottom_edge_index_2, top_edge_index_2, bond_length=self.bond_distance,
+                                        periodic=True)
 
     def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
         """
@@ -322,6 +356,7 @@ class GrapheneGraph:
         -----
         This method visualizes the graphene structure, optionally with labels indicating the
         element type and node ID. Nodes are colored based on their element type and nitrogen species.
+        Periodic boundary condition edges are shown with dashed lines.
         """
         # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, 'position')
@@ -331,17 +366,23 @@ class GrapheneGraph:
         colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
                   self.graph.nodes()]
 
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get('periodic')]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('periodic')]
+
         # Initialize plot
         plt.figure(figsize=(12, 12))
 
-        # Draw the graphene structure with appropriate colors
+        # Draw the regular edges
+        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw periodic edges with dashed lines
+        nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style='dashed', edge_color='gray')
+
+        # Add labels if specified
         if with_labels:
             labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
-            nx.draw(self.graph, pos, labels=elements, with_labels=with_labels, node_color=colors, node_size=200,
-                    font_size=8)
             nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
-        else:
-            nx.draw(self.graph, pos, with_labels=with_labels, node_color=colors, node_size=200)
 
         # Show plot
         plt.show()
