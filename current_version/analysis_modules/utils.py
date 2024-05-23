@@ -14,8 +14,6 @@ def minimum_image_distance(box_dimension, coordinates_reference, coordinates_obs
     distances = np.sqrt(dx**2 + dy**2 + dz**2)
     return distances
 
-
-
 def calculate_com(molecule_df, box_size):
     total_mass = molecule_df['Mass'].sum()
     positions = molecule_df[['X', 'Y', 'Z']].values
@@ -28,7 +26,7 @@ def calculate_com(molecule_df, box_size):
         vector = positions[i] - com / masses[i-1]
         vector_divided = vector / box_size_array
         vector_rounded = np.around(vector_divided.astype(np.double))
-        # apply minimum image convention
+        # minimum image convention
         vector -= vector_rounded * box_size_array  
         com += vector * masses[i]
 
@@ -67,14 +65,14 @@ def grid_generator(inputdict):
     y_grid = y_grid + (y_incr_dist / 2)
     z_grid = z_grid + (z_incr_dist / 2)
 
-    # now create a meshgrid
+    # create a meshgrid
     x_mesh, y_mesh, z_mesh = np.meshgrid(x_grid, y_grid, z_grid)
 
-    # now print the grid information
+    # print the grid information
     ddict.printLog('Incrementation distance in x direction: %0.3f Ang' % (x_incr_dist))
     ddict.printLog('Incrementation distance in y direction: %0.3f Ang' % (y_incr_dist))
     ddict.printLog('Incrementation distance in z direction: %0.3f Ang' % (z_incr_dist))
-    #total number of grid points
+    # total number of grid points
     number_grid_points = x_incr * y_incr * z_incr
     ddict.printLog('Total number of grid points: %d' % (number_grid_points))
 
@@ -98,7 +96,9 @@ def grid_generator(inputdict):
 
 
 def write_cube_file(inputdict, filename):
+
     box_size = inputdict['box_size']
+
     # Extract necessary data from outputdict
     xbin_edges = box_size[0] / inputdict['x_incr'] * np.arange(inputdict['x_incr'])
     ybin_edges = box_size[1] / inputdict['y_incr'] * np.arange(inputdict['y_incr'])
@@ -106,6 +106,7 @@ def write_cube_file(inputdict, filename):
     
     grid_point_densities = inputdict['grid_point_densities']
     id_frame = inputdict['id_frame']
+
     #drop all lines in the id_frame which are labeled 'Liquid' in the 'Struc' column
     id_frame = id_frame[id_frame['Struc'] != 'Liquid']
 
@@ -129,7 +130,6 @@ def write_cube_file(inputdict, filename):
         for index, row in id_frame.iterrows():
             file.write(f"12 {row['Charge']} {row['x']} {row['y']} {row['z']}\n")
             
-
         # Write the volumetric data
         for i, density in enumerate(grid_point_densities):
             file.write(f"{density:.5f} ")
