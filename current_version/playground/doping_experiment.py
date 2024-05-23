@@ -369,7 +369,7 @@ class GrapheneGraph:
             return nitrogen_colors[nitrogen_species]
         return colors.get(element, 'pink')
 
-    def plot_graphene(self, with_labels: bool = False):
+    def plot_graphene(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
         """
         Plot the graphene structure using networkx and matplotlib.
 
@@ -377,12 +377,14 @@ class GrapheneGraph:
         ----------
         with_labels : bool, optional
             Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
 
         Notes
         -----
         This method visualizes the graphene structure, optionally with labels indicating the
         element type and node ID. Nodes are colored based on their element type and nitrogen species.
-        Periodic boundary condition edges are shown with dashed lines.
+        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
         """
         # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, 'position')
@@ -402,8 +404,9 @@ class GrapheneGraph:
         # Draw the regular edges
         nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
 
-        # Draw periodic edges with dashed lines
-        nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style='dashed', edge_color='gray')
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style='dashed', edge_color='gray')
 
         # Add labels if specified
         if with_labels:
@@ -539,7 +542,7 @@ def main():
     print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
 
     graphene.add_nitrogen_doping(10, NitrogenSpecies.GRAPHITIC)
-    graphene.plot_graphene(with_labels=True)
+    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
     target = 10
