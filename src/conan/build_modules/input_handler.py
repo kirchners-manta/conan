@@ -1,6 +1,4 @@
 from ply import lex
-import defdict as ddict
-import sys
 
 
 class InvalidCommand(Exception):

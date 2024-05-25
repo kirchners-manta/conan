@@ -1,10 +1,10 @@
-import networkx as nx
-import matplotlib.pyplot as plt
-from typing import Tuple, List
-from math import cos, sin, pi
 import random
 from enum import Enum
+from math import cos, sin, pi
+from typing import Tuple, List
 
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 
 

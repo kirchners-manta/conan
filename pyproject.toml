@@ -115,6 +115,8 @@ classifiers = [
 #
 # For an analysis of this field vs pip's requirements files see:
 # https://packaging.python.org/discussions/install-requires-vs-requirements/
+# TODO: check minimal supported versions
+# TODO: Check if all dependencies are necessary
 dependencies = [
     "numpy",
     "scipy",
@@ -124,6 +126,7 @@ dependencies = [
     "prettytable",
     "MDAnalysis",
     "ply",
+    "rdkit",
 ]
 
 # List additional groups of dependencies here (e.g. development
@@ -162,7 +165,7 @@ dev = ["conan[test,doc,lint]"]
 # The following would provide a command line executable called `sample`
 # which executes the function `main` from this package when invoked.
 [project.scripts]
-# conan = "conan:main" todo
+CONAN = "conan.CONAN:main"
 
 
 # This is configuration specific to the `setuptools` build backend.

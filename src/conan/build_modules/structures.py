@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 import abc
+import copy
 import math
 import os
-from abc import ABC
-from typing import Union, List, Dict, Tuple
-from numpy import typing as npt
-
-import defdict as ddict
-import copy
-import sys
 import random
+from abc import ABC
+from typing import Union, List, Dict, Tuple, Optional
+
 import numpy as np
 import pandas as pd
-import analysis_modules.utils as utils
+from numpy import typing as npt
+
+import conan.defdict as ddict
 
 
 class Atom:  # ToDo: Evtl. abstrakte Klasse oder Datenklasse?

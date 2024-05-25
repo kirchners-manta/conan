@@ -1,20 +1,19 @@
 # The program is written by Leonard Dick, 2023
 
-# MODULES
-import MDAnalysis as mda
-import networkx as nx
-from collections import Counter
-import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import Draw
 import re
 import sys
-import numpy as np
+from collections import Counter
 from typing import Tuple
+
+import MDAnalysis as mda
+import networkx as nx
+import numpy as np
+import pandas as pd
 from prettytable import PrettyTable
+from rdkit import Chem
 from scipy.spatial import cKDTree
-# ----- Own modules ----- #
-import defdict as ddict
+
+import conan.defdict as ddict
 
 #ARGUMENTS
 args = ddict.read_commandline()

@@ -1,7 +1,7 @@
 import socket
 import subprocess
-import os
-import defdict as ddict
+
+import conan.defdict as ddict
 
 
 def start_vmd():
