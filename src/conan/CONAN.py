@@ -5,10 +5,9 @@ import os
 import sys
 import time
 
-import conan
 import conan.defdict as ddict
-from conan.build_modules import build_main
 from conan import simbox
+from conan.build_modules import build_main
 
 
 def main():
@@ -65,8 +64,6 @@ def main():
 
     # SIMULATION SETUP SECTION
     if args['box']:
-        import conan.simbox
-
         simbox.simbox_mode(args)
 
     # TRAJECTORY ANALYSIS SECTION

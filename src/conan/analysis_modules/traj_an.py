@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from prettytable import PrettyTable
 
-from conan.analysis_modules import traj_info
 import conan.defdict as ddict
+from conan.analysis_modules import traj_info
 
 # ARGUMENTS
 args = ddict.read_commandline()
@@ -244,52 +244,66 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
 
     # Analysis preperation.
     if analysis_choice2 == 1 or analysis_choice2 == 2:
-        from conan.analysis_modules.rad_dens import raddens_prep as main_loop_preparation
+        from conan.analysis_modules.rad_dens import \
+            raddens_prep as main_loop_preparation
         if analysis_choice2 == 1:
-            from conan.analysis_modules.rad_dens import radial_density_analysis as analysis
+            from conan.analysis_modules.rad_dens import \
+                radial_density_analysis as analysis
         if analysis_choice2 == 2:
             from conan.analysis_modules.rad_dens import radial_charge_density_analysis as analysis
-        from conan.analysis_modules.rad_dens import raddens_post_processing as post_processing
+        from conan.analysis_modules.rad_dens import \
+            raddens_post_processing as post_processing
 
     if analysis_choice2 == 3:
-        from conan.analysis_modules.axial_dens import accessible_volume_prep as main_loop_preparation
-        from conan.analysis_modules.axial_dens import accessible_volume_analysis as analysis
-        from conan.analysis_modules.axial_dens import accessible_volume_processing as post_processing
+        from conan.analysis_modules.axial_dens import \
+            accessible_volume_analysis as analysis
+        from conan.analysis_modules.axial_dens import \
+            accessible_volume_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import \
+            accessible_volume_processing as post_processing
 
     if  analysis_choice2 == 4:
-        from conan.analysis_modules.axial_dens import axial_density_prep as main_loop_preparation
-        from conan.analysis_modules.axial_dens import axial_density_analysis as analysis
-        from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
+        from conan.analysis_modules.axial_dens import \
+            axial_density_analysis as analysis
+        from conan.analysis_modules.axial_dens import \
+            axial_density_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import \
+            axial_density_processing as post_processing
 
     if analysis_choice2 == 5:
-        from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
-        from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
-        from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
-        from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
+        from conan.analysis_modules.coordination_number import \
+            Coord_chunk_processing as chunk_processing
+        from conan.analysis_modules.coordination_number import \
+            Coord_number_analysis as analysis
+        from conan.analysis_modules.coordination_number import \
+            Coord_number_prep as main_loop_preparation
+        from conan.analysis_modules.coordination_number import \
+            Coord_post_processing as post_processing
 
     if analysis_choice2 == 6:
-        from axial_dens import distance_search_prep as main_loop_preparation
         from axial_dens import distance_search_analysis as analysis
+        from axial_dens import distance_search_prep as main_loop_preparation
         from axial_dens import distance_search_processing as post_processing
 
     if analysis_choice2 == 7:
-        from axial_dens import density_analysis_prep as main_loop_preparation
         from axial_dens import density_analysis_analysis as analysis
+        from axial_dens import density_analysis_prep as main_loop_preparation
         from axial_dens import density_analysis_processing as post_processing
 
     if analysis_choice2 == 8:
-        from velocity import velocity_prep as main_loop_preparation
         from velocity import velocity_analysis as analysis
+        from velocity import velocity_prep as main_loop_preparation
         from velocity import velocity_processing as post_processing
         
     if analysis_choice2 == 9:
-        from velocity import rad_velocity_prep as main_loop_preparation
         from velocity import rad_velocity_analysis as analysis
+        from velocity import rad_velocity_prep as main_loop_preparation
         from velocity import rad_velocity_processing as post_processing
 
     if analysis_choice2 == 10:
-        from occurrence import occurrence_prep as main_loop_preparation
         from occurrence import occurrence_analysis as analysis
+        from occurrence import occurrence_prep as main_loop_preparation
+
         #from occurrence import occurrence_processing as post_processing
 
     maxdisp_atom_dist = 0
@@ -323,9 +337,12 @@ def trajectory_analysis(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, 
 
     if analysis_choice2 == 5:
         if maindict['do_xyz_analysis'] == 'y':
-            from coordination_number import Coord_number_xyz_analysis as analysis
-            from coordination_number import Coord_xyz_chunk_processing as chunk_processing
-            from coordination_number import Coord_xyz_post_processing as post_processing
+            from coordination_number import \
+                Coord_number_xyz_analysis as analysis
+            from coordination_number import \
+                Coord_xyz_chunk_processing as chunk_processing
+            from coordination_number import \
+                Coord_xyz_post_processing as post_processing
 
     maindict['counter'] = counter
     maindict['box_dimension'] = np.array(maindict['box_size']) # needed for fast calculation of minimal image convention

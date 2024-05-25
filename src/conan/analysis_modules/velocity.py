@@ -1,12 +1,12 @@
 import gc
 import sys
 
-import conan.defdict as ddict
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
+import conan.defdict as ddict
 
 '''
 With this tool the velocity of every atom at every time step is calculated.

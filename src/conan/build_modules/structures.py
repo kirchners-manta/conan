@@ -6,7 +6,7 @@ import math
 import os
 import random
 from abc import ABC
-from typing import Union, List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd

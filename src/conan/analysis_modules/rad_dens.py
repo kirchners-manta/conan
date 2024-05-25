@@ -7,7 +7,6 @@ import pandas as pd
 
 import conan.defdict as ddict
 
-
 # Radial density
 
 def raddens_prep(inputdict):
