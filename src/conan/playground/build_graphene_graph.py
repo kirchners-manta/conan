@@ -1,5 +1,5 @@
-from math import cos, sin, pi
-from typing import Tuple, List
+from math import cos, pi, sin
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx

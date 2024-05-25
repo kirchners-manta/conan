@@ -1,5 +1,7 @@
-import pytest
 import random
+
+import pytest
+
 from conan.playground.doping_experiment import GrapheneGraph, NitrogenSpecies
 
 

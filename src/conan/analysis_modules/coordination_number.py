@@ -848,8 +848,9 @@ def Coord_xyz_chunk_processing(inputdict):
 
 
 def Coord_xyz_post_processing(inputdict):
-    import matplotlib.pyplot as plt
     import os
+
+    import matplotlib.pyplot as plt
 
     processed_coord_df = inputdict['processed_coord_df']
     coord_bin_edges = inputdict['coord_bin_edges']
@@ -1185,8 +1186,9 @@ def Coord_pore_chunk_processing(inputdict):
 
 
 def Coord_pore_post_processing(inputdict):
-    import matplotlib.pyplot as plt
     import os
+
+    import matplotlib.pyplot as plt
 
     processed_coord_df = inputdict['processed_coord_df']
     coord_bulk_bin_edges = inputdict['coord_bulk_bin_edges']

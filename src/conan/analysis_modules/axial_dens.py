@@ -9,7 +9,6 @@ import scipy
 
 import conan.defdict as ddict
 
-
 # Accessible volume
 
 def accessible_volume_prep(inputdict):

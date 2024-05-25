@@ -6,6 +6,7 @@
 import argparse
 import sys
 
+
 # DEFINITIONS
 # Read command line arguments.
 def read_commandline() -> dict:
