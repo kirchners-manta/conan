@@ -2,8 +2,8 @@
 import pandas as pd
 
 import conan.build_modules.vmd_interface as vmd
-from conan.build_modules.structures import Graphene, Boronnitride, Structure1d, Pore
 import conan.defdict as ddict
+from conan.build_modules.structures import Boronnitride, Graphene, Pore, Structure1d
 
 
 class Interpreter:

@@ -6,7 +6,6 @@ from conan.playground.doping_experiment import GrapheneGraph
 
 
 class TestGraphene:
-
     @pytest.fixture
     def graphene(self):
         """
