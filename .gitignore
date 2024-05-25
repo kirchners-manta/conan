@@ -1,3 +1,7 @@
+.command_file
+structures/
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/pycharm+all,visualstudiocode,venv,visualstudio
 # Edit at https://www.toptal.com/developers/gitignore?templates=pycharm+all,visualstudiocode,venv,visualstudio
 
