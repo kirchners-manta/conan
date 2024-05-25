@@ -21,3 +21,9 @@ For usage
 ```bash
 pip install .
 ```
+
+## Usage
+After installing the package conan is available via the command line.
+```bash
+CONAN -h
+```
