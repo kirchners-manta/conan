@@ -8,6 +8,13 @@ import os
 # ----- Own modules ----- #
 import defdict as ddict 
 
+# Add the 'build_module' directory to the import path
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+target_directory = os.path.join(current_script_dir, 'build_modules')
+sys.path.append(target_directory)
+target_directory = os.path.join(current_script_dir, 'analysis_modules')
+sys.path.append(target_directory)
+
 # RUNTIME
 start_time = time.time()
 
@@ -50,7 +57,7 @@ args = ddict.read_commandline()
 
 # CBUILD SECTION
 if args['cbuild']:
-    import build 
+    src.conan.build_modules.build_main.main(args)
 
 # SIMULATION SETUP SECTION
 if args['box']:
@@ -58,15 +65,15 @@ if args['box']:
     simbox.simbox_mode(args)
 
 # TRAJECTORY ANALYSIS SECTION
-if args['trajectoryfile']and args['cbuild'] == False and args['box'] == False:
+if args['trajectoryfile']:
     ddict.printLog('')
     # Load the atom data.
-    import traj_info
+    import analysis_modules.traj_info as traj_info
     atoms, id_frame, id_frame2, box_size = traj_info.read_first_frame(args["trajectoryfile"])
     id_frame, min_z_pore, max_z_pore, length_pore, CNT_centers, tuberadii, CNT_volumes, CNT_atoms, Walls_positions \
         = traj_info.structure_recognition(id_frame, box_size)
 
-    import traj_an 
+    import analysis_modules.traj_an as traj_an 
 
     traj_an.analysis_opt(id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions)
 
