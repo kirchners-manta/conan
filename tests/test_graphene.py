@@ -39,7 +39,8 @@ class TestGraphene:
         direct_neighbors = graphene.get_neighbors(atom_id=0, depth=1)
         expected_neighbors = graphene.get_neighbors(0)
         assert set(direct_neighbors) == set(
-            expected_neighbors), f"Expected {expected_neighbors}, but got {direct_neighbors}"
+            expected_neighbors
+        ), f"Expected {expected_neighbors}, but got {direct_neighbors}"
 
     def test_get_neighbors_at_exact_depth(self, graphene: GrapheneGraph):
         """
@@ -58,7 +59,8 @@ class TestGraphene:
         depth_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=False)
         expected_neighbors = []  # ToDo: Add expected neighbors
         assert set(depth_neighbors) == set(
-            expected_neighbors), f"Expected {expected_neighbors}, but got {depth_neighbors}"
+            expected_neighbors
+        ), f"Expected {expected_neighbors}, but got {depth_neighbors}"
 
     def test_get_neighbors_up_to_depth(self, graphene: GrapheneGraph):
         """
@@ -77,4 +79,5 @@ class TestGraphene:
         inclusive_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=True)
         expected_neighbors = []  # ToDo: Add expected neighbors
         assert set(inclusive_neighbors) == set(
-            expected_neighbors), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
+            expected_neighbors
+        ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"

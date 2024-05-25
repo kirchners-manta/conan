@@ -112,15 +112,16 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
             structure_library_path (str): Path to the structure library.
         """
         # Extract and set the name of the group from the parameters
-        self.group_name = group_parameters['group']
+        self.group_name = group_parameters["group"]
         # Convert the string count to an integer and set it
-        self.group_count = int(group_parameters['group_count'])
+        self.group_count = int(group_parameters["group_count"])
         # Set the exclusion radius if specified in the parameters
-        if 'exclusion_radius' in group_parameters:
-            self.exclusion_radius = float(group_parameters['exclusion_radius'])
+        if "exclusion_radius" in group_parameters:
+            self.exclusion_radius = float(group_parameters["exclusion_radius"])
         # Load the positions of atoms in this functional group from an external library file
-        self.atom_positions: List[Tuple[str, float, float, float]] = (
-            self.__read_positions_from_library(structure_library_path))
+        self.atom_positions: List[Tuple[str, float, float, float]] = self.__read_positions_from_library(
+            structure_library_path
+        )
 
     def remove_anchors(self) -> List[Tuple[str, float, float, float]]:
         """
@@ -136,7 +137,9 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         # return atom_positions_without_anchor
 
         # Filter out atoms that are designates as anchors using a list comprehension (typically marked with 'X')
-        return [pos for pos in self.atom_positions if pos[0] != 'X']  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
+        return [
+            pos for pos in self.atom_positions if pos[0] != "X"
+        ]  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
 
     # PRIVATE
     def __read_positions_from_library(self, structure_library_path: str) -> List[Tuple[str, float, float, float]]:
@@ -150,10 +153,10 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
             List[Tuple[str, float, float, float]]: List of atom positions.
         """
         # Build the full path to the group's file using its name
-        group_path = os.path.join(structure_library_path, f'{self.group_name}.xyz')
+        group_path = os.path.join(structure_library_path, f"{self.group_name}.xyz")
         atom_list = []
         # Open the file and read the contents
-        with open(group_path, 'r') as file:
+        with open(group_path, "r") as file:
             # First line is the number of atoms
             number_of_lines = int(file.readline().strip())
             # Skip the comment line
@@ -245,7 +248,7 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
         with open(filepath, "w") as xyz:
             xyz.write(f"   {len(coordinates)}\n")  # Writes the number of atoms
             xyz.write("# Generated with CONAN\n")  # Comment line in XYZ format
-            coordinates.to_csv(xyz, sep='\t', header=False, index=False, float_format='%.3f')  # Writes the coordinates
+            coordinates.to_csv(xyz, sep="\t", header=False, index=False, float_format="%.3f")  # Writes the coordinates
 
     def _initialize_functional_groups(self, parameters: Dict[str, Union[str, int, float]]):
         """
@@ -257,13 +260,51 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
         # Depending on whether build_main is called from CONAN.py
         # or as standalone module, the structure library is somewhere else
         base_path = os.path.dirname(os.path.abspath(__file__))  # Base path of the script
-        structure_library_path = os.path.join(base_path, 'structure_lib')  # Default path to the structure library
+        structure_library_path = os.path.join(base_path, "structure_lib")  # Default path to the structure library
         if not os.path.exists(structure_library_path):
-            structure_library_path = os.path.join(base_path, '..', 'structure_lib')  # Alternative path
+            structure_library_path = os.path.join(base_path, "..", "structure_lib")  # Alternative path
         structure_library_path = os.path.normpath(structure_library_path)  # Normalizes the path
 
         self.group_list = []
-        self.group_list.append(FunctionalGroup(parameters, structure_library_path))   # Adds a new functional group
+        self.group_list.append(FunctionalGroup(parameters, structure_library_path))  # Adds a new functional group
+
+    def rotation_matrix_from_vectors(
+        self, vec2: npt.NDArray
+    ) -> (
+        npt.NDArray
+    ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
+        """
+        Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
+        vector (vec2).
+
+        Args:
+            vec2 (np.ndarray): The target vector to align with the z-axis.
+
+        Returns:
+            np.ndarray: The rotation matrix that when multiplied by vec1 results in vec2.
+        """
+        # Define the default vector vec1 as the positive z-axis
+        vec1 = np.array([0, 0, 1])
+
+        # Normalize both vectors to ensure they are unit vectors
+        a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+
+        # Compute the cross product of vec1 and vec2 to find the axis of rotation
+        v = np.cross(a, b)
+
+        # Calculate the dot product, which gives the cosine of the angle between vec1 and vec2
+        c = np.dot(a, b)
+
+        # Calculate the sine of the angle using the magnitude of the cross product vector
+        s = np.linalg.norm(v)
+
+        # The skew-symmetric cross-product matrix of vector v
+        kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+        # Calculate the rotation matrix using the Rodrigues' rotation formula:
+        # R = I + sin(theta) * K + (1 - cos(theta)) * K^2
+        # This formula is derived for rotating one vector onto another.
+        return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s**2))
 
 
 class Structure1d(Structure):
@@ -285,7 +326,7 @@ class Structure1d(Structure):
         """
         super().__init__()
         # Set the bond length from parameters
-        self.bond_length: float = parameters['bond_length']
+        self.bond_length: float = parameters["bond_length"]
         # Method to construct the CNT based on provided parameters and keywords
         self._build_CNT(parameters, keywords)
 
@@ -309,12 +350,14 @@ class Structure1d(Structure):
             parameters (Dict[str, Union[str, int, float]]):
                 Parameters including the position and details about the group to be added.
         """
-        parameters['group_count'] = 1  # Assuming only one group is added at a time
+        parameters["group_count"] = 1  # Assuming only one group is added at a time
         self._initialize_functional_groups(parameters)  # Initializes functional groups based on provided parameters
         # Extract position from the structure DataFrame to place the new group
-        position = [self._structure_df.iloc[parameters['position'], 1],  # X coordinate
-                    self._structure_df.iloc[parameters['position'], 2],  # Y coordinate
-                    self._structure_df.iloc[parameters['position'], 3]]  # Z coordinate
+        position = [
+            self._structure_df.iloc[parameters["position"], 1],  # X coordinate
+            self._structure_df.iloc[parameters["position"], 2],  # Y coordinate
+            self._structure_df.iloc[parameters["position"], 3],
+        ]  # Z coordinate
         self._add_group_on_position(position)  # Adds the group at the calculated position
 
     # PRIVATE
@@ -340,7 +383,7 @@ class Structure1d(Structure):
         for atom in new_atom_coordinates:
             atom_coords = np.array(atom[1:4], dtype=float)  # ensure that atom_coords has the right datatype
             rotated_coord = np.dot(rotation_matrix, atom_coords)
-            rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], 'functional'])
+            rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
 
         # Shift the rotated coordinates so that they are correctly positioned at the selected location
         for atom in rotated_coordinates:
@@ -349,8 +392,9 @@ class Structure1d(Structure):
             atom[3] += selected_position[2]
 
         # Create a new DataFrame with the rotated and shifted atom coordinates
-        new_atoms_df = pd.DataFrame(rotated_coordinates,
-                                    columns=['Species', 'x', 'y', 'z', 'group'])  # Update columns as needed
+        new_atoms_df = pd.DataFrame(
+            rotated_coordinates, columns=["Species", "x", "y", "z", "group"]
+        )  # Update columns as needed
         # Concatenate this new DataFrame to the main structure DataFrame to update the structure with the new group
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
@@ -370,14 +414,16 @@ class Structure1d(Structure):
         # Iterate through each atom in the DataFrame to find atoms near the specified position
         for i, atom in self._structure_df.iterrows():
             # Calculate the Cartesian distance from the current atom to the specified position
-            delta_x = atom['x'] - position[0]
-            delta_y = atom['y'] - position[1]
-            distance = math.sqrt((delta_x) ** 2 + (delta_y) ** 2 + (atom['z'] - position[2]) ** 2)
+            delta_x = atom["x"] - position[0]
+            delta_y = atom["y"] - position[1]
+            distance = math.sqrt((delta_x) ** 2 + (delta_y) ** 2 + (atom["z"] - position[2]) ** 2)
             # Include atoms that are within a certain threshold distance (e.g., 120% of bond length)
-            if distance <= self.bond_length * 1.2:  # ToDo: Warum 1.2? Sollte das wirklich ein harter Wert sein oder sollte das ein Parameter sein?
+            if (
+                distance <= self.bond_length * 1.2
+            ):  # ToDo: Warum 1.2? Sollte das wirklich ein harter Wert sein oder sollte das ein Parameter sein?
                 # Exclude the position itself to avoid zero vector in calculations
                 if distance >= 0.05:  # Ensure it's not the exact same point
-                    surface_atoms.append([atom['x'], atom['y'], atom['z']])
+                    surface_atoms.append([atom["x"], atom["y"], atom["z"]])
 
         # Convert list of surface atoms into a NumPy array for vector operations
         surface_atoms = np.array(surface_atoms)
@@ -445,20 +491,22 @@ class Structure1d(Structure):
             pd.DataFrame: The DataFrame containing the structure data.
         """
         # Determine the type of carbon nanotube based on the keywords
-        if 'armchair' in keywords:
+        if "armchair" in keywords:
             tube_kind = 1
-        elif 'zigzag' in keywords:
+        elif "zigzag" in keywords:
             tube_kind = 2
         else:
             ddict.printLog("No valid tube kind found in arguments, use 'zigzag' or 'armchair'")
-            return None        
+            return None
 
-        tube_size = parameters['tube_size']  # Number of hexagonal units around the circumference
-        tube_length = parameters['tube_length']  # Length of the tube in the z-direction
+        tube_size = parameters["tube_size"]  # Number of hexagonal units around the circumference
+        tube_length = parameters["tube_length"]  # Length of the tube in the z-direction
 
         # Load the provided bond length and calculate the distance between two hexagonal vertices
-        distance = float(parameters['bond_length'])
-        hex_d = distance * math.cos(30 * math.pi / 180) * 2  # Distance between two hexagonal centers in the lattice  # ToDo: Überprüfen?
+        distance = float(parameters["bond_length"])
+        hex_d = (
+            distance * math.cos(30 * math.pi / 180) * 2
+        )  # Distance between two hexagonal centers in the lattice  # ToDo: Überprüfen?
 
         # If the tube is of the armchair configuration
         if tube_kind == 1:
@@ -468,9 +516,9 @@ class Structure1d(Structure):
             radius = distance / (2 * math.sin((angle_carbon_bond * math.pi / 180) / 2))
 
             # Calculate the z distance steps in the tube
-            distx = (radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180))
-            disty = (0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180))
-            zstep = (distance ** 2 - distx ** 2 - disty ** 2) ** 0.5
+            distx = radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180)
+            disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
+            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
             # Initialize list for tube positions and angles
             positions_tube = []
@@ -525,9 +573,9 @@ class Structure1d(Structure):
             radius = hex_d / (2 * math.sin((symmetry_angle * math.pi / 180) / 2))
 
             # Calculate the z distances in the tube
-            distx = (radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180))
-            disty = (0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180))
-            zstep = (distance ** 2 - distx ** 2 - disty ** 2) ** 0.5
+            distx = radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180)
+            disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
+            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
             # Initialize list for tube positions and angles
             positions_tube = []
@@ -591,7 +639,9 @@ class Structure1d(Structure):
             counter=counter+1
         return self._structure_df
 
-    def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:  # ToDo: Warum ist das in Structure1d? Ist doch jetzt nicht mehr eindimensional?
+    def _stack_CNTs(
+        self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]
+    ) -> pd.DataFrame:  # ToDo: Warum ist das in Structure1d? Ist doch jetzt nicht mehr eindimensional?
         """
         Stacks carbon nanotubes in the structure.
 
@@ -603,7 +653,7 @@ class Structure1d(Structure):
             pd.DataFrame: The DataFrame containing the stacked structure.
         """
         # Define the distance between the tubes
-        distance_tubes = parameters['tube_distance']
+        distance_tubes = parameters["tube_distance"]
         radius_distance = self.radius + distance_tubes / 2
 
         # Retrieve the current positions of the tube atoms
@@ -640,8 +690,8 @@ class Structure1d(Structure):
                 unit_cell.iloc[i, 2] = unit_cell.iloc[i, 2] + unit_cell_y
 
         # Now multiply the unit cell in x and y direction to fill the whole simulation box.
-        multiplicity_x = parameters['multiplicity'][0]
-        multiplicity_y = parameters['multiplicity'][1]
+        multiplicity_x = parameters["multiplicity"][0]
+        multiplicity_y = parameters["multiplicity"][1]
 
         # The positions of the atoms in the unit cell are copied and shifted in x and y direction.
         super_cell = unit_cell.copy()
@@ -661,11 +711,11 @@ class Structure1d(Structure):
             supercell_y.iloc[:, 4] = supercell_y.iloc[:, 4] + max_molecule * i
             super_cell = pd.concat([super_cell, supercell_y], ignore_index=True)
 
-        #check for duplicates in the supercell. If there have been any, give a warning, then drop them.
-        duplicates = super_cell.duplicated(subset=['x', 'y', 'z'], keep='first')
+        # check for duplicates in the supercell. If there have been any, give a warning, then drop them.
+        duplicates = super_cell.duplicated(subset=["x", "y", "z"], keep="first")
         if duplicates.any():
-            ddict.printLog(f'[WARNING] Duplicates found in the supercell. Dropping them.')
-        super_cell = super_cell.drop_duplicates(subset=['x', 'y', 'z'], keep='first')
+            ddict.printLog(f"[WARNING] Duplicates found in the supercell. Dropping them.")
+        super_cell = super_cell.drop_duplicates(subset=["x", "y", "z"], keep="first")
 
         # Now the supercell is written to positions_tube.
         positions_tube = super_cell.copy()
@@ -675,13 +725,13 @@ class Structure1d(Structure):
         # The according column names are 'Species', 'Molecule' and 'Label'. The first two are floats, the last one is a string.
         # In case of the label the sorting should be done like C1, C2, C3, ... C10, C11, ... C100, C101, ... C1000, C1001, ...
         # Extract the numerical part from the 'Label' column and convert it to integer
-        positions_tube['Label_num'] = positions_tube['Label'].str.extract('(\d+)').astype(int)
+        positions_tube["Label_num"] = positions_tube["Label"].str.extract("(\d+)").astype(int)
 
         # Sort the dataframe by 'Element', 'Molecule', and 'Label_num'
-        positions_tube = positions_tube.sort_values(by=['Species', 'Molecule', 'Label_num'])
+        positions_tube = positions_tube.sort_values(by=["Species", "Molecule", "Label_num"])
 
         # Drop the 'Label_num' column as it's no longer needed
-        positions_tube = positions_tube.drop(columns=['Label_num'])
+        positions_tube = positions_tube.drop(columns=["Label_num"])
 
         # Finally compute the PBC size of the simulation box. It is given by the multiplicity in x and y direction times the unit cell size.
         pbc_size_x = multiplicity_x * unit_cell_x
@@ -704,7 +754,9 @@ class Structure2d(Structure):
         _number_of_unit_cells (Tuple[int, int]): The number of unit cells in x and y directions.
     """
 
-    def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):  # ToDo: Der superclass Aufruf hat gefehlt. Habe ich hier mal hinzu gefügt
+    def __init__(
+        self, bond_distance: float, sheet_size: Tuple[float, float]
+    ):  # ToDo: Der superclass Aufruf hat gefehlt. Habe ich hier mal hinzu gefügt
         """
         Initializes a Structure2D instance.
 
@@ -737,26 +789,34 @@ class Structure2d(Structure):
     #         available_positions.append([position[1], position[2], position[3]])
     #     return available_positions
 
-    def available_positions(self) -> List[Tuple[float, float, float]]:  # ToDo: Ist Methode für Anbringung der Gruppen? Sicher dann in Structure2d?
+    def available_positions(
+        self,
+    ) -> List[Tuple[float, float, float]]:  # ToDo: Ist Methode für Anbringung der Gruppen? Sicher dann in Structure2d?
         """
         Gets the available positions on the sheet.
 
         Returns:
             List[Tuple[float, float, float]]: The list of available positions.
         """
-        return [(position[1], position[2], position[3]) for _, position in self._structure_df.iterrows()]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr übersichtlich. Evtl. in Datenklasse auslagern?
+        return [
+            (position[1], position[2], position[3]) for _, position in self._structure_df.iterrows()
+        ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr übersichtlich. Evtl. in Datenklasse auslagern?
 
-    def add(self, parameters: Dict[str, Union[str, int, float]]):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden; Methode evtl. auch besser wo anders hin verlagern?
+    def add(
+        self, parameters: Dict[str, Union[str, int, float]]
+    ):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden; Methode evtl. auch besser wo anders hin verlagern?
         """
         Adds a functional group to the structure.
 
         Args:
             parameters (Dict[str, Union[str, int, float]]): The parameters for the addition.
         """
-        parameters['group_count'] = 1
+        parameters["group_count"] = 1
         self._initialize_functional_groups(parameters)
-        position = [self._structure_df.iloc[parameters['position'], 1],
-                    self._structure_df.iloc[parameters['position'], 2]]
+        position = [
+            self._structure_df.iloc[parameters["position"], 1],
+            self._structure_df.iloc[parameters["position"], 2],
+        ]
         self._add_group_on_position(position)
 
     # PRIVATE
@@ -778,28 +838,29 @@ class Structure2d(Structure):
         # Define the unit cell vectors:
         # - x-direction vector length: sum of twice the bond distance and twice the x-distance between rows
         # - y-direction vector length: twice the y-distance between rows
-        self._unit_cell_vectors = [2 * self.bond_distance + 2 * C_C_x_distance,  # Length of unit vector in x-direction
-                                   2 * C_C_y_distance  # Length of unit vector in y-direction
-                                   ]
+        self._unit_cell_vectors = [
+            2 * self.bond_distance + 2 * C_C_x_distance,  # Length of unit vector in x-direction
+            2 * C_C_y_distance,  # Length of unit vector in y-direction
+        ]
 
         # Create a list for the atomic positions inside the unit cell.
         self._positions_unitcell: List[Tuple] = [
             (0, 0, 0),  # Position of the first atom
             (C_C_x_distance, C_C_y_distance, 0),  # Position of the second atom
             (C_C_x_distance + self.bond_distance, C_C_y_distance, 0),  # Position of the third atom
-            (2 * C_C_x_distance + self.bond_distance, 0, 0)   # Position of the fourth atom
+            (2 * C_C_x_distance + self.bond_distance, 0, 0),  # Position of the fourth atom
         ]
 
         # Calculate the number of unit cells that fit into the sheet in the x and y directions
         self._number_of_unit_cells = [
             math.floor(self.sheet_size[0] / self._unit_cell_vectors[0]),  # Number of unit cells in x-direction
-            math.floor(self.sheet_size[1] / self._unit_cell_vectors[1])  # Number of unit cells in y-direction
+            math.floor(self.sheet_size[1] / self._unit_cell_vectors[1]),  # Number of unit cells in y-direction
         ]
 
         # Adjust the sheet size to fit an integer number of unit cells
         self.sheet_size = [
             self._unit_cell_vectors[0] * self._number_of_unit_cells[0],  # Adjusted size in x-direction
-            self._unit_cell_vectors[1] * self._number_of_unit_cells[1]  # Adjusted size in y-direction
+            self._unit_cell_vectors[1] * self._number_of_unit_cells[1],  # Adjusted size in y-direction
         ]
 
     def __add_groups_to_sheet(self):  # ToDo: wirklich hier in Klasse?
@@ -817,8 +878,10 @@ class Structure2d(Structure):
             number_of_added_groups = 0
             for j in range(group.group_count):
                 if position_list:
-                    new_atoms += self.__add_group_on_random_position(added_groups[i], group.exclusion_radius,
-                                                                     position_list)
+                    # Add a group to a random position on the sheet
+                    new_atoms += self.__add_group_on_random_position(
+                        added_groups[i], group.exclusion_radius, position_list
+                    )
                 else:
                     print("Sheet size is not large enough!")
                     print(f"Generated sheet is missing {group.group_count - number_of_added_groups} groups")
@@ -831,9 +894,12 @@ class Structure2d(Structure):
         #finally add atoms to sheet
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
-    def __add_group_on_random_position(self, added_group: List[Tuple[str, float, float, float]],
-                                       exclusion_radius: float,
-                                       position_list: List[List[float]]) -> List[Tuple[str, float, float, float]]:
+    def __add_group_on_random_position(
+        self,
+        added_group: List[Tuple[str, float, float, float]],
+        exclusion_radius: float,
+        position_list: List[List[float]],
+    ) -> List[Tuple[str, float, float, float]]:
         """
         Adds a functional group to a random position on the sheet.
 
@@ -872,13 +938,18 @@ class Structure2d(Structure):
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species', 'x', 'y', 'z'])
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
-    def __remove_adjacent_positions(self, position_list: List[List[float]],
-                                    selected_position: List[float],
-                                    cutoff_distance: float):
+    def __remove_adjacent_positions(
+        self,
+        position_list: List[
+            List[float]
+        ],  # ToDo: Evtl. Lösung finden diese Information direkt beim Erstellen abzuspeichern, um nicht jedes Mal aufs Neue über alle Atompositionen iterieren zu müssen
+        selected_position: List[float],
+        cutoff_distance: float,
+    ):
         """
         Removes positions adjacent to a given position from the list of available positions.
 
@@ -895,7 +966,9 @@ class Structure2d(Structure):
             position_list.remove(adjacent_position)
 
 
-class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht von Structure2d wie Graphene? -> Pore wird aus Graphenwand und CNT aufgebaut
+class Pore(
+    Structure
+):  # ToDo: Erbt das wirklich nur von Structure und nicht von Structure2d wie Graphene? -> Pore wird aus Graphenwand und CNT aufgebaut
     """
     Represents a pore structure.
 
@@ -929,12 +1002,16 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         Args:
             parameters (Dict[str, Union[str, int, float]]): The parameters for the addition.
         """
-        parameters['group_count'] = 1
+        # Set the group_count to 1 for the addition of one functional group
+        parameters["group_count"] = 1
+        # Initialize functional groups based on the given parameters
         self._initialize_functional_groups(parameters)
-        # get the coordinates of the selected position
-        selected_position = [self._structure_df.iloc[parameters['position'], 1],
-                             self._structure_df.iloc[parameters['position'], 2],
-                             self._structure_df.iloc[parameters['position'], 3]]
+        # Get the coordinates of the selected position from the structure DataFrame
+        selected_position = [
+            self._structure_df.iloc[parameters["position"], 1],
+            self._structure_df.iloc[parameters["position"], 2],
+            self._structure_df.iloc[parameters["position"], 3],
+        ]
         # Add the functional group to the selected position
         self._add_group_on_position(selected_position)
 
@@ -947,14 +1024,22 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
             parameters (Dict[str, Union[str, int, float]]): The parameters for the pore.
             keywords (List[str]): The keywords for the pore.
         """
-        self.bond_length = parameters['bond_length']
-        self.sheet_size = parameters['sheet_size']
-        if 'closed' in keywords:
-            pore_kind = 2
+        # Set the bond length and sheet size from the parameters
+        self.bond_length = parameters["bond_length"]
+        self.sheet_size = parameters["sheet_size"]
+
+        # Determine the type of pore (closed or open) based on the keywords
+        if "closed" in keywords:  # ToDo: Evtl. besser über Enums lösen
+            pore_kind = 2  # Closed pore
         else:
-            pore_kind = 1
+            pore_kind = 1  # Open pore
+
         # Generate substructures
-        wall = Graphene(parameters['bond_length'], parameters['sheet_size'])
+        # Create a graphene wall
+        wall = Graphene(parameters["bond_length"], parameters["sheet_size"])
+        # Initialize a second wall for the open/closed pore
+        wall2: Optional[Graphene] = None
+        # Create a carbon nanotube (CNT)
         cnt = Structure1d(parameters, keywords)
         # If the user wants a closed pore, we copy the wall now without the hole
         if pore_kind == 2:
@@ -962,42 +1047,41 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         self._structure_df = wall._structure_df
         # make a hole in the wall
         pore_position = wall.make_pores(cnt.radius + 1.0)
-        # shift cnt position to hole
-        cnt._structure_df['x'] += pore_position[1]
-        cnt._structure_df['y'] += pore_position[2]
+
+        # Shift the CNT position to align with the hole in the wall
+        cnt._structure_df["x"] += pore_position[1]
+        cnt._structure_df["y"] += pore_position[2]
+
+        # Set the center and radius of the pore
         self.pore_center = [pore_position[1], pore_position[2]]
         self.cnt_radius = [cnt.radius]
         # If the user wants an open pore, we copy it now with the hole
         if pore_kind == 1:
             wall2 = copy.deepcopy(wall)
-        # 'clip off' te ends of the cnt for a smoother transition
-        cnt._structure_df = cnt._structure_df[cnt._structure_df['z'] > 0.2]
-        max_z = cnt._structure_df['z'].max()
-        cnt._structure_df = cnt._structure_df[cnt._structure_df['z'] < (max_z-0.2)]
-        # move the second wall
-        wall2._structure_df['z'] += max_z
-        # combine the pore and the wall
-        self._structure_df = pd.concat([cnt._structure_df, wall._structure_df, wall2._structure_df])
-        self._structure_df.reset_index(inplace=True, drop=True)
-        # Insert correct values for 'Label' and 'Molecule' columns.
-        counter=1
-        for i,atom in self._structure_df.iterrows():
-            self._structure_df.at[i,'Label'] = f"C{counter}"
-            counter=counter+1
-        self._structure_df.loc[:,'Molecule'] = int(1)
-        # lastly we need to correct the sheet_size to reflect the actual size of the sheet
-        # 
-        max_x = self._structure_df['x'].max()   # determine the maximum x-value
-        delta_x = abs(max_x - self.sheet_size[0]) # minimum image distance in x-direction
-        # the sheet size needs to be scaled down so that the minimum image distance
-        # is equal to the bond length
-        self.sheet_size[0] -= (delta_x - self.bond_length)
 
-        # we do the same in y direction. The only difference is that
-        # the distance should not be equal to one bond length
-        max_y = self._structure_df['y'].max()
+        # 'Clip off' the ends of the CNT for a smoother transition
+        cnt._structure_df = cnt._structure_df[cnt._structure_df["z"] > 0.2]
+        max_z = cnt._structure_df["z"].max()
+        cnt._structure_df = cnt._structure_df[cnt._structure_df["z"] < (max_z - 0.2)]
+
+        # Move the second wall to the end of the CNT
+        wall2._structure_df["z"] += max_z
+
+        # Combine the wall, the CNT, and the second wall to form the complete pore structure
+        self._structure_df = pd.concat([wall._structure_df, cnt._structure_df, wall2._structure_df])
+
+        # Correct the sheet_size to reflect the actual size of the sheet
+        max_x = self._structure_df["x"].max()  # Determine the maximum x-value
+        delta_x = abs(max_x - self.sheet_size[0])  # Minimum image distance in x-direction
+
+        # Adjust the sheet size to ensure the minimum image distance is equal to the bond length
+        self.sheet_size[0] -= delta_x - self.bond_length
+
+        # Do the same adjustment in the y direction. The only difference is that the distance should not be equal to one
+        # bond length
+        max_y = self._structure_df["y"].max()
         delta_y = abs(max_y - self.sheet_size[1])
-        self.sheet_size[1] -= (delta_y - self.bond_length * math.cos(30 * math.pi / 180))
+        self.sheet_size[1] -= delta_y - self.bond_length * math.cos(30 * math.pi / 180)
 
     def _add_group_on_position(self, selected_position: List[float]) -> None:
         """
@@ -1010,9 +1094,10 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         # give the group a random orientation first
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
 
-        # find out if the position is inside the pore or on a wall
-        distance_to_center = math.sqrt((selected_position[0] - self.pore_center[0]) ** 2
-                                       + (selected_position[1] - self.pore_center[1]) ** 2)
+        # Calculate the distance from the selected positioin to the center of the pore
+        distance_to_center = math.sqrt(
+            (selected_position[0] - self.pore_center[0]) ** 2 + (selected_position[1] - self.pore_center[1]) ** 2
+        )
 
         if distance_to_center < self.cnt_radius[0] + 0.4:
             self.add_group_in_pore(new_atom_coordinates, selected_position)
@@ -1028,8 +1113,8 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
             selected_position (List[float]): The position to add the group to.
         """
 
-        # find out which wall the selected position belongs to
-        structure_center_z = self._structure_df['z'].max() / 2.0
+        # Find out which wall the selected position belongs to by comparing its z-coordinate
+        structure_center_z = self._structure_df["z"].max() / 2.0
 
         # if the position is on the wall with z~0.0, we have to invert the group
         # otherwise we do not change anything
@@ -1041,15 +1126,18 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
 
         # move the group to the position
         for atom in new_atom_coordinates:
-            atom[1] += selected_position[0]
-            atom[2] += selected_position[1]
-            atom[3] += selected_position[2]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=['Species', 'x', 'y', 'z'])
+            atom[1] += selected_position[0]  # Shift x-coordinate
+            atom[2] += selected_position[1]  # Shift y-coordinate
+            atom[3] += selected_position[2]  # Shift z-coordinate
+
+        # Create a DataFrame for the new atoms and specify they are functional groups
+        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
-    def add_group_in_pore(self, new_atom_coordinates: List[Tuple[str, float, float, float]],
-                          selected_position: List[float]) -> None:
+    def add_group_in_pore(
+        self, new_atom_coordinates: List[Tuple[str, float, float, float]], selected_position: List[float]
+    ) -> None:
         """
         Adds a functional group inside the pore.
 
@@ -1066,17 +1154,20 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         for atom in new_atom_coordinates:
             atom_coords = np.array(atom[1:4], dtype=float)  # ensure that atom_coords has the right datatype
             rotated_coord = np.dot(rotation_matrix, atom_coords)
-            rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], 'functional'])
+            rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
 
         # shift the coordinates to the selected position
         for atom in rotated_coordinates:
-            atom[1] += selected_position[0]
-            atom[2] += selected_position[1]
-            atom[3] += selected_position[2]
+            atom[1] += selected_position[0]  # Shift x-coordinate
+            atom[2] += selected_position[1]  # Shift y-coordinate
+            atom[3] += selected_position[2]  # Shift z-coordinate
 
-        new_atoms_df = pd.DataFrame(rotated_coordinates,
-                                    columns=['Species', 'x', 'y', 'z', 'group'])  # Update columns as needed
-        #new_atoms_df["group"] = "functional"
+        # Create a DataFrame for the rotated and shifted atoms and mark them as functional groups
+        new_atoms_df = pd.DataFrame(
+            rotated_coordinates, columns=["Species", "x", "y", "z", "group"]
+        )  # Update columns as needed
+
+        # Concatenate the new atoms with the existing structure
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
 
     def find_surface_normal_vector(self, position: List[float]) -> npt.NDArray:
@@ -1089,41 +1180,15 @@ class Pore(Structure):  # ToDo: Erbt das wirklich nur von Structure und nicht vo
         Returns:
             npt.NDArray: The normal vector.
         """
+        # Calculate the vector from the pore center to the given position
+        normal_vector = np.array(
+            [self.pore_center[0] - position[0], self.pore_center[1] - position[1], 0.0]  # x-component  # y-component
+        )  # z-component is 0 because we are assuming a 2D surface in xy-plane
 
-        # surface_atoms = []
-        # # find adjacent atoms
-        # for i, atom in self._structure_df.iterrows():
-        #     delta_x = atom['x']-position[0]
-        #     delta_x -= self.sheet_size[0] * round(delta_x / self.sheet_size[0])
-        #     delta_y = atom['y']-position[1]
-        #     delta_y -= self.sheet_size[1] * round(delta_y / self.sheet_size[1]) ## minimum immage distance in x-y-direction
-        #     distance = math.sqrt((delta_x)**2+(delta_y)**2+(atom['z']-position[2])**2)
-        #     if distance <= self.bond_length*1.2:
-        #         # we append the mirrored atom and not the atom itself, since
-        #         # atoms that are mirrored due to periodic boundary conditions would
-        #         # make the averages later useless if we take the positions directly
-        #         if distance >= 0.05: # We do not want to add the selected position itself
-        #             surface_atoms.append([position[0]+delta_x,position[1]+delta_y,atom['z']])
-        #
-        # # compute average position
-        # surface_atoms = np.array(surface_atoms)
-        # average_position = np.average(surface_atoms, axis=0)
-        #
-        # # this only works on curved surface (selected position and surface atoms are NOT in one plane)
-        # # on flat surfaces we have to use a different algorithm
-        #
-        # # check if the local surface is curved
-        # if (np.linalg.norm(average_position-np.array(position)) < 0.01):
-        #     print("WARNING WARNING WARNING")
-        #     print(np.linalg.norm(average_position-np.array(position)))
-        #     return(np.array([1,0,0]))
-        #
-        # # compute normal vector
-        # position=np.array(position)
-        # normal_vector = average_position-position
-
-        normal_vector = np.array([self.pore_center[0] - position[0], self.pore_center[1] - position[1], 0.0])
+        # Compute the magnitude of the normal vector
         normal_magnitude = np.linalg.norm(normal_vector)
+
+        # Normalize the vector to make it a unit vector
         normal_vector /= normal_magnitude
 
         return normal_vector
@@ -1152,7 +1217,7 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
-    #INTERFACE
+    # INTERFACE
     def make_pores(self, pore_size: float) -> pd.Series:
         """
         Creates circular pores in the graphene sheet.
@@ -1192,8 +1257,10 @@ class Graphene(Structure2d):
             atom_position = [atom[1], atom[2]]
 
             # Calculate the minimum image distance from the selected center to the current atom
-            if minimum_image_distance(atom_position, [selected_position[1], selected_position[2]],
-                                      self.sheet_size) <= pore_size:
+            if (
+                minimum_image_distance(atom_position, [selected_position[1], selected_position[2]], self.sheet_size)
+                <= pore_size
+            ):
                 # If the atom is within the pore size, add it to the removal list
                 atoms_to_remove.append(i)
         # Remove the atoms that are marked for removal
@@ -1216,16 +1283,20 @@ class Graphene(Structure2d):
         # Build the graphene sheet from multiple unit cells
         for i in range(self._number_of_unit_cells[0]):
             # Calculate the x-coordinates for the four atoms in a single unit cell
-            X = [self._positions_unitcell[0][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[1][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[2][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[3][0] + i * self._unit_cell_vectors[0], ]
+            X = [
+                self._positions_unitcell[0][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[1][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[2][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[3][0] + i * self._unit_cell_vectors[0],
+            ]
             for j in range(self._number_of_unit_cells[1]):
                 # Calculate the y-coordinates for the four atoms in a single unit cell
-                Y = [self._positions_unitcell[0][1] + j * self._unit_cell_vectors[1],
-                     self._positions_unitcell[1][1] + j * self._unit_cell_vectors[1],
-                     self._positions_unitcell[2][1] + j * self._unit_cell_vectors[1],
-                     self._positions_unitcell[3][1] + j * self._unit_cell_vectors[1], ]
+                Y = [
+                    self._positions_unitcell[0][1] + j * self._unit_cell_vectors[1],
+                    self._positions_unitcell[1][1] + j * self._unit_cell_vectors[1],
+                    self._positions_unitcell[2][1] + j * self._unit_cell_vectors[1],
+                    self._positions_unitcell[3][1] + j * self._unit_cell_vectors[1],
+                ]
                 # Add the coordinates for the four atoms in the current unit cell to the list
                 coords.append(["C", X[0], Y[0], Z[0], "Structure"])
                 coords.append(["C", X[1], Y[1], Z[1], "Structure"])
@@ -1234,7 +1305,7 @@ class Graphene(Structure2d):
         # Create a DataFrame from the list of coordinates
         self._structure_df = pd.DataFrame(coords)
         # Set appropriate column names for the DataFrame
-        self._structure_df.columns = ['Species', 'x', 'y', 'z', 'group']
+        self._structure_df.columns = ["Species", "x", "y", "z", "group"]
 
 
 class Boronnitride(Structure2d):
@@ -1262,15 +1333,7 @@ class Boronnitride(Structure2d):
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
-        dummy_df = atoms_df[atoms_df[0] == 'N']  # Select nitrogen atoms
-        # ensure that the hole is not placed at the  border
-        """dummy_df = atoms_df[atoms_df[1] < self.sheet_size[0] - 1.5*hole_size]
-        dummy_df = dummy_df[dummy_df[2] < self.sheet_size[1] - 1.5*hole_size]
-        dummy_df = dummy_df[dummy_df[1] > 1.5*hole_size]
-        dummy_df = dummy_df[dummy_df[2] > 1.5*hole_size]
-        dummy_df = dummy_df[dummy_df[0] == 'N'] # triangular holes start at N
-        selected_position = dummy_df.iloc[random.randint(0,len(dummy_df[0])-1)]"""
-        dummy_df = atoms_df[atoms_df['Species'] == 'N']
+        dummy_df = atoms_df[atoms_df[0] == "N"]  # Select nitrogen atoms
         selected_position = center_position(self.sheet_size, dummy_df)
         # find nearest atom in x-direction to get orientation of the triangle
         dummy_df = atoms_df[atoms_df['Species'] == 'B']
@@ -1278,24 +1341,32 @@ class Boronnitride(Structure2d):
         dummy_df = dummy_df[dummy_df['y'] < (selected_position[2]+0.1)]
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
-        dummy_df = atoms_df[atoms_df[0] == 'B']  # Select boron atoms
-        dummy_df = dummy_df[dummy_df[2] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis  # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
+        dummy_df = atoms_df[atoms_df[0] == "B"]  # Select boron atoms
+        dummy_df = dummy_df[
+            dummy_df[2] > (selected_position[2] - 0.1)
+        ]  # Narrow down to those close in the y-axis  # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
         dummy_df = dummy_df[dummy_df[2] < (selected_position[2] + 0.1)]
         nearest_atom_df = dummy_df
+        nearest_atom_df[1] = nearest_atom_df[1].apply(
+            lambda x: abs(x - selected_position[1])
+        )  # ToDo: nearest_atom_df['x']?
+        nearest_atom = atoms_df.iloc[nearest_atom_df[1].idxmin()]
         nearest_atom_df['x'] = nearest_atom_df['x'].apply(lambda x: abs(x - selected_position[1]))  # ToDo: nearest_atom_df['x']?
         nearest_atom = atoms_df.iloc[nearest_atom_df['x'].idxmin()]
 
         # Calculate the vector for one side of the triangle based on the nearest atom
         orientation_vector = [
             nearest_atom[1] - selected_position[1],  # ToDo: nearest_atom['x']?
-            nearest_atom[2] - selected_position[2]  # ToDo: nearest_atom['y']?
+            nearest_atom[2] - selected_position[2],  # ToDo: nearest_atom['y']?
         ]
         magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / pore_size
         # orientation_vector[0] /= magnitude
         # orientation_vector[1] /= magnitude
         # orientation_vector[0] *= pore_size
         # orientation_vector[1] *= pore_size
-        orientation_vector = [component / magnitude * pore_size for component in orientation_vector]  # ToDo: So besser lesbar als oben?
+        orientation_vector = [
+            component / magnitude * pore_size for component in orientation_vector
+        ]  # ToDo: So besser lesbar als oben?
 
         # Determine the triangle tips based on the starting position and calculated orientation vector
         # triangle_position = [selected_position[1], selected_position[2]]
@@ -1328,40 +1399,56 @@ class Boronnitride(Structure2d):
         # Loop through each unit cell in the x-direction
         for i in range(self._number_of_unit_cells[0]):
             # Calculate the x-coordinates for the four atoms in one unit cell
-            X = [self._positions_unitcell[0][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[1][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[2][0] + i * self._unit_cell_vectors[0],
-                 self._positions_unitcell[3][0] + i * self._unit_cell_vectors[0], ]
+            X = [
+                self._positions_unitcell[0][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[1][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[2][0] + i * self._unit_cell_vectors[0],
+                self._positions_unitcell[3][0] + i * self._unit_cell_vectors[0],
+            ]
 
             # Loop through each unit cell in the y-direction
             for j in range(self._number_of_unit_cells[1]):
-                Y = [self._positions_unitcell[0][1] + j * self._unit_cell_vectors[1],
+                Y = [
+                    self._positions_unitcell[0][1] + j * self._unit_cell_vectors[1],
                     self._positions_unitcell[1][1] + j * self._unit_cell_vectors[1],
                     self._positions_unitcell[2][1] + j * self._unit_cell_vectors[1],
-                    self._positions_unitcell[3][1] + j * self._unit_cell_vectors[1],]
-                    # Append the coordinates for each atom to the coords list
+                    self._positions_unitcell[3][1] + j * self._unit_cell_vectors[1],
+                ]
+
+                # Append the coordinates for each atom to the coords list
                 # Alternating between Boron and Nitrogen based on their positions in the unit cell
-                coords.append(["B",X[0],Y[0],Z[0],"Structure"])
-                coords.append(["N",X[1],Y[1],Z[1],"Structure"])
-                coords.append(["B",X[2],Y[2],Z[2],"Structure"])
-                coords.append(["N",X[3],Y[3],Z[3],"Structure"])
-        self._structure_df = pd.DataFrame(coords)
+                coords.append(["B", X[0], Y[0], Z[0], "Structure"])
+                coords.append(["N", X[1], Y[1], Z[1], "Structure"])
+                coords.append(["B", X[2], Y[2], Z[2], "Structure"])
+                coords.append(["N", X[3], Y[3], Z[3], "Structure"])
 
-def center_position(sheet_size, atoms_df):
-    # This function returns the coordinates of the atom that
-    # is closest to the sheet center
-    center_point = [
-        sheet_size[0]/2,
-        sheet_size[1]/2
-    ]
-    distance_to_center_point = []
-    for i,atom in atoms_df.iterrows():
-        distance_to_center_point.append(minimum_image_distance(center_point,[atom[1],atom[2]],sheet_size))
-    center_position_index=distance_to_center_point.index(min(distance_to_center_point))
-    center_position = atoms_df.iloc[int(center_position_index)]
-    return center_position
+        # Create a DataFrame from the list of coordinates
+        # This DataFrame represents the complete boron nitride sheet
+        self._structure_df = pd.DataFrame(
+            coords, columns=["Species", "x", "y", "z", "group"]
+        )  # ToDo: Habe hier mal die Spaltennamen hinzugefügt, sodass man verständlicher auf die Elemente zugreifen kann
 
-def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> pd.Series:  # ToDo: Sollte das gleiche tun wie Methode oben drüber, aber evtl. etwas lesbarer
+
+# def center_position(sheet_size, atoms_df):
+#     # This function returns the coordinates of the atom that
+#     # is closest to the sheet center
+#     center_point = [
+#         sheet_size[0] / 2,
+#         sheet_size[1] / 2
+#     ]
+#     distance_to_center_point = []
+#     for i, atom in atoms_df.iterrows():
+#         distance_to_center_point.append(minimum_image_distance(center_point, [atom[1], atom[2]], sheet_size))
+#     center_position_index = distance_to_center_point.index(min(distance_to_center_point))
+#     center_position = atoms_df.iloc[int(center_position_index)]
+#     return center_position
+
+# ToDo: In einer sauberen Codebasis sollten die folgenden Funktionen in eine utils.py ausgelagert werden
+
+
+def center_position(
+    sheet_size: Tuple[float, float], atoms_df: pd.DataFrame
+) -> pd.Series:  # ToDo: Sollte das gleiche tun wie Methode oben drüber, aber evtl. etwas lesbarer
     """
     Returns the coordinates of the atom that is closest to the sheet center.
 
@@ -1391,7 +1478,16 @@ def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
         np.ndarray: The rotated vector.
     """
     rad = np.radians(angle)
-    rotation_matrix = np.array([[np.cos(rad), -np.sin(rad)], [np.sin(rad), np.cos(rad)]])
+
+    # Create a 2D rotation matrix
+    rotation_matrix = np.array(
+        [
+            [np.cos(rad), -np.sin(rad)],  # First row of the rotation matrix
+            [np.sin(rad), np.cos(rad)],  # Second row of the rotation matrix
+        ]
+    )
+
+    # Rotate the vector by multiplying it with the rotation matrix
     return np.dot(rotation_matrix, vec)
 
 
@@ -1433,7 +1529,9 @@ def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray
 #     return np.sqrt(np.sum(delta ** 2))
 
 
-def minimum_image_distance(position1: List[float], position2: List[float], system_size: Tuple[float, float]) -> float:  # ToDo: Methode auch leicht abgeändert. Sollte das Gleiche tun wie obige?
+def minimum_image_distance(
+    position1: List[float], position2: List[float], system_size: Tuple[float, float]
+) -> float:  # ToDo: Methode auch leicht abgeändert. Sollte das Gleiche tun wie obige?
     """
     Calculates the minimum image distance between two positions in a periodic system.
 
@@ -1445,15 +1543,20 @@ def minimum_image_distance(position1: List[float], position2: List[float], syste
     Returns:
         float: The minimum image distance between the two positions.
     """
-    delta = np.array([
-        position1[i] - position2[i] - system_size[i] * round((position1[i] - position2[i]) / system_size[i])
-        for i in range(2)
-    ])
-    return np.sqrt(np.sum(delta ** 2))
+    # Calculate the difference vector, adjusted for periodic boundaries
+    delta = np.array(
+        [
+            position1[i] - position2[i] - system_size[i] * round((position1[i] - position2[i]) / system_size[i])
+            for i in range(2)
+        ]
+    )
+    # Return the Euclidean distance between the two positions
+    return np.sqrt(np.sum(delta**2))
 
 
-def positions_are_adjacent(position1: List[float], position2: List[float], cutoff_distance: float,
-                           system_size: List[float]) -> bool:
+def positions_are_adjacent(
+    position1: List[float], position2: List[float], cutoff_distance: float, system_size: Tuple[float, float]
+) -> bool:
     """
     Checks if two positions are adjacent in a periodic system.
 
@@ -1492,17 +1595,17 @@ def random_rotate_group_list(group_list: List[List[Union[str, float]]]) -> List[
         List[List[Union[str, float]]]: The randomly rotated group.
     """
     rotation_matrix = random_rotation_matrix_2d()
-    rotated_group_list = [
-        [atom[0]] + (rotation_matrix.dot(atom[1:3])).tolist() + [atom[3]]
-        for atom in group_list
-    ]
+
+    # Apply the rotation to each atom's x and y coordinates in the group list
+    rotated_group_list = [[atom[0]] + (rotation_matrix.dot(atom[1:3])).tolist() + [atom[3]] for atom in group_list]
+
+    # Return the list of rotated atoms
     return rotated_group_list
 
 
-def is_point_inside_triangle(tip1: List[float],
-                             tip2: List[float],
-                             tip3: List[float],
-                             point: Tuple[float, float]) -> bool:
+def is_point_inside_triangle(
+    tip1: List[float], tip2: List[float], tip3: List[float], point: Tuple[float, float]
+) -> bool:
     """
     Checks if a point is inside a triangle.
 
@@ -1515,6 +1618,7 @@ def is_point_inside_triangle(tip1: List[float],
     Returns:
         bool: True if the point is inside the triangle, False otherwise.
     """
+
     def area(a: List[float], b: List[float], c: List[float]) -> float:
         return 0.5 * abs((a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]))
 

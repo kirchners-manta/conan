@@ -11,7 +11,8 @@ def start_vmd():
     with open(".socket.tcl", "w") as file:
         file.write(tcl_script)  # write script to file
     process = subprocess.Popen(
-        ["gnome-terminal", "--", "vmd", "-e", ".socket.tcl"])  # start vmd with the script in new terminal
+        ["gnome-terminal", "--", "vmd", "-e", ".socket.tcl"]
+    )  # start vmd with the script in new terminal
     return process  # return the process id so we can try to close it later
 
 
@@ -38,7 +39,7 @@ def vmd_socket():
     # as soon as something connects to the socket
     #
     # fconfigure $sock sets a few options for the generated socket,
-    # - "-blocking 0" keeps the program from hanging up if an empty 
+    # - "-blocking 0" keeps the program from hanging up if an empty
     # command is entered
     # - "-buffering line" reads lines of input (input stops at \n)
     #

@@ -12,18 +12,18 @@ def main(args):
     parser = Parser()
     interpreter = Interpreter()
 
-    if args['input']:
-        read_commands_from_input(args['input'], parser, interpreter)
+    if args["input"]:
+        read_commands_from_input(args["input"], parser, interpreter)
     while True:
         try:
             # get command
-            command = prompt('CONAN-build: ', history=history)
+            command = prompt("CONAN-build: ", history=history)
             if not command:  # if the command is empty we skip it
                 continue
-            if command == 'exit':
+            if command == "exit":
                 print("exiting...")
                 break
-            elif command == 'undo':
+            elif command == "undo":
                 undo(parser, interpreter)
             else:
                 # parse input
@@ -36,27 +36,27 @@ def main(args):
             print("exiting...")
             break  # exit when the user hits 'Ctrl C'
         except Exception as e:  # If we encounter ANY error the cleanup needs to be performed
-            #interpreter.exit() # perform cleanup
+            # interpreter.exit() # perform cleanup
             print(f"ERROR: {e}")
             continue
 
 
 def read_commands_from_input(input_file, parser, interpreter):
-    with open(input_file, 'r') as file:
+    with open(input_file, "r") as file:
         for line in file:
             try:
                 # get command
                 command = line.strip()
                 if not command:  # if the command is empty we skip it
                     continue
-                if command == 'exit':
+                if command == "exit":
                     print("exiting...")
                     interpreter.exit()
                     sys.exit()
                 else:
                     # parse input
                     parsed_command = parser.parse(command)
-                    #print(parsed_command)
+                    # print(parsed_command)
                     # execute command
                     if parser.parsing_successful:
                         interpreter.execute_command(parsed_command)

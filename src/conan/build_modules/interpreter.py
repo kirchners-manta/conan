@@ -9,30 +9,30 @@ class Interpreter:
     # INTERFACE
     def execute_command(self, parsed_command):
         # CONAN commands
-        if parsed_command['COMMAND'] == 'build':
-            self.__build(parsed_command['PARAMETERS'], parsed_command['KEYWORDS'])
-        elif parsed_command['COMMAND'] == 'functionalize':
-            self.__functionalize(parsed_command['PARAMETERS'])
-        elif parsed_command['COMMAND'] == 'defects':
-            self.__defects(parsed_command['PARAMETERS'])
-        elif parsed_command['COMMAND'] == 'stack':
-            self.current_structure.stack(parsed_command['PARAMETERS'], parsed_command['KEYWORDS'])
+        if parsed_command["COMMAND"] == "build":
+            self.__build(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
+        elif parsed_command["COMMAND"] == "functionalize":
+            self.__functionalize(parsed_command["PARAMETERS"])
+        elif parsed_command["COMMAND"] == "defects":
+            self.__defects(parsed_command["PARAMETERS"])
+        elif parsed_command["COMMAND"] == "stack":
+            self.current_structure.stack(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
             self.current_structure.print_xyz_file(".tmp")
             if self.vmd_is_running:
                 vmd.update_structure()
-        elif parsed_command['COMMAND'] == 'remove':
-            self._remove_atom(parsed_command['PARAMETERS'], parsed_command['KEYWORDS'])
-        elif parsed_command['COMMAND'] == 'add':
-            self.current_structure.add(parsed_command['PARAMETERS'], parsed_command['KEYWORDS'])
+        elif parsed_command["COMMAND"] == "remove":
+            self._remove_atom(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
+        elif parsed_command["COMMAND"] == "add":
+            self.current_structure.add(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
             self.current_structure.print_xyz_file(".tmp")
             if self.vmd_is_running:
                 vmd.update_structure()
-        elif parsed_command['COMMAND'] == 'load':
-            self._load_structure(parsed_command['KEYWORDS'])
+        elif parsed_command["COMMAND"] == "load":
+            self._load_structure(parsed_command["KEYWORDS"])
 
-        #VMD interface
-        if parsed_command['COMMAND'] == 'vmd':
-            if 'show_index' in parsed_command['KEYWORDS']:
+        # VMD interface
+        if parsed_command["COMMAND"] == "vmd":
+            if "show_index" in parsed_command["KEYWORDS"]:
                 vmd.send_command("show_index")
             else:
                 self.vmd_process = vmd.start_vmd()
@@ -57,8 +57,8 @@ class Interpreter:
 
     # PRIVATE
     def _remove_atom(self, parameters, keywords):
-        if 'atom' in keywords:
-            self.current_structure.remove_atom_by_index(parameters['index'])
+        if "atom" in keywords:
+            self.current_structure.remove_atom_by_index(parameters["index"])
             self.current_structure.print_xyz_file(".tmp")
             if self.vmd_is_running:
                 vmd.update_structure()
@@ -76,7 +76,7 @@ class Interpreter:
             return
         path_to_structure = keywords[0]
         try:
-            with open(path_to_structure, 'r') as file:
+            with open(path_to_structure, "r") as file:
                 lines = file.readlines()
 
             atom_data = lines[2:]  # Skip the first two lines (atom count and comment)
@@ -88,7 +88,7 @@ class Interpreter:
                     x, y, z = map(float, parts[1:4])
                     atoms.append([atom_type, x, y, z])
 
-            self.df = pd.DataFrame(atoms, columns=['Atom', 'X', 'Y', 'Z'])
+            self.df = pd.DataFrame(atoms, columns=["Atom", "X", "Y", "Z"])
 
         except Exception as e:
             ddict.printLog(f"Failed to load structure from {path_to_structure}: {e}")
@@ -101,9 +101,9 @@ class Interpreter:
         if "pore_size" not in parameters:
             ddict.printLog("'pore_size' parameter is missing")
             return
-        self.current_structure.make_pores(parameters['pore_size'])
+        self.current_structure.make_pores(parameters["pore_size"])
         self.current_structure.print_xyz_file(".tmp")
-        #ddict.printLog("Structure changed")
+        # ddict.printLog("Structure changed")
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure()
@@ -115,7 +115,7 @@ class Interpreter:
         self.current_structure.functionalize_sheet(parameters)
         # print to temporary .xyz file
         self.current_structure.print_xyz_file(".tmp")
-        #ddict.printLog("Structure functionalization finished")
+        # ddict.printLog("Structure functionalization finished")
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure()
@@ -132,28 +132,28 @@ class Interpreter:
 
         # set defaults
         if "bond_length" not in parameters:
-            parameters['bond_length'] = default_bond_length
-            #ddict.printLog(f"bond_length parameter set to default. ({default_bond_length})")
+            parameters["bond_length"] = default_bond_length
+            # ddict.printLog(f"bond_length parameter set to default. ({default_bond_length})")
         if "sheet_size" not in parameters:
-            parameters['sheet_size'] = default_sheet_size
-            #ddict.printLog(f"sheet_size parameter set to default. ({default_sheet_size[0]}x{default_sheet_size[1]})")
+            parameters["sheet_size"] = default_sheet_size
+            # ddict.printLog(f"sheet_size parameter set to default. ({default_sheet_size[0]}x{default_sheet_size[1]})")
 
-        if parameters['type'] == "graphene":
-            self.current_structure = Graphene(parameters['bond_length'], parameters['sheet_size'])
-        elif parameters['type'] == "boronnitride":
-            self.current_structure = Boronnitride(parameters['bond_length'], parameters['sheet_size'])
-        elif parameters['type'] == "cnt":
+        if parameters["type"] == "graphene":
+            self.current_structure = Graphene(parameters["bond_length"], parameters["sheet_size"])
+        elif parameters["type"] == "boronnitride":
+            self.current_structure = Boronnitride(parameters["bond_length"], parameters["sheet_size"])
+        elif parameters["type"] == "cnt":
             self.current_structure = Structure1d(parameters, keywords)
-        elif parameters['type'] == "pore":
+        elif parameters["type"] == "pore":
             self.current_structure = Pore(parameters, keywords)
         else:
             raise InvalidCommand(f"unknown structure type '{parameters['type']}'.")
 
-        self.number_of_structural_atoms = len(self.current_structure._structure_df['group'])
+        self.number_of_structural_atoms = len(self.current_structure._structure_df["group"])
 
         # print to temporary .xyz file
         self.current_structure.print_xyz_file(".tmp")
-        #ddict.printLog("Structure build finished")
+        # ddict.printLog("Structure build finished")
 
         # load updated structure into vmd
         if self.vmd_is_running:
