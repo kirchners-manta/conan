@@ -1,15 +1,16 @@
+import os
+import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import utils
-import sys
 import scipy
-import matplotlib.pyplot as plt
-import os
+
+import conan.defdict as ddict
+from conan.analysis_modules import utils
 
 
 def Coord_number_prep(inputdict):
-    import defdict as ddict
-
     # Get values from inputdict
     min_z_pore = inputdict['min_z_pore']
     max_z_pore = inputdict['max_z_pore']
@@ -53,7 +54,7 @@ def Coord_number_prep(inputdict):
                 poresonly = ddict.get_input('Do you want to calculte the coordination number only inside a pore? [y/n]',
                                             args, 'string')
                 if poresonly == 'n':
-                    #Calculate z-coordinates of all pores that need to be considered (4 pores for one CNT)
+                    # Calculate z-coordinates of all pores that need to be considered (4 pores for one CNT)
                     z_referencepoint = [0] * 4
                     if len(CNT_centers) != 0:
                         z_referencepoint[0] = max_z_pore[0] - box_size[

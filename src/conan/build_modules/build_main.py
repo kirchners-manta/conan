@@ -1,8 +1,10 @@
+import sys
+
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
-import sys
-from input_handler import Parser
-from interpreter import Interpreter
+
+from conan.build_modules.input_handler import Parser
+from conan.build_modules.interpreter import Interpreter
 
 
 def main(args):

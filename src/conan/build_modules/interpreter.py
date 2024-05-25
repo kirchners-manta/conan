@@ -1,9 +1,7 @@
-import defdict as ddict
-from structures import *
 # import build_main as main
-import pandas as pd
-import time
-import vmd_interface as vmd
+
+import conan.build_modules.vmd_interface as vmd
+from conan.build_modules.structures import *
 
 
 class Interpreter:

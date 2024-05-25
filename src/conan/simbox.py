@@ -11,12 +11,13 @@ If the file is not found in the current directory, the program searches in the s
 If the file is not found in the cbuild directory, the program exits.
 '''
 
-# MODULES
-import sys
 import os
+import sys
+
 import pandas as pd
-# ----- Own modules ----- #
-import defdict as ddict
+
+import conan.defdict as ddict
+
 
 def simbox_mode(args) -> None:
 
