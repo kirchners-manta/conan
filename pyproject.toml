@@ -136,7 +136,12 @@ dependencies = [
 # referred to as "extras". For a more extensive definition see:
 # https://packaging.python.org/en/latest/specifications/dependency-specifiers/#extras
 [project.optional-dependencies]
-test = ["pytest", "coverage", "tox"]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-html",
+    "tox"
+]
 doc = ["sphinx"]
 lint = ["flake8"]
 dev = ["conan[test,doc,lint]"]
