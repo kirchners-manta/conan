@@ -13,6 +13,7 @@ If the file is not found in the cbuild directory, the program exits.
 
 import os
 import sys
+import traceback
 
 import pandas as pd
 
@@ -20,14 +21,14 @@ import conan.defdict as ddict
 
 
 def simbox_mode(args) -> None:
-
     ddict.printLog("")
     ddict.printLog("SIMBOX mode", color="red")
     ddict.printLog("")
     ddict.printLog("This program adds solid structures and liquid bulk xyz files to one simulation box.")
     ddict.printLog("P stands for pore, B for liquid bulk, and W for wall.")
     ddict.printLog(
-        "If pore_left and pore_right from the cbuild section are used, enter L for the left pore and R for the right pore."
+        "If pore_left and pore_right from the cbuild section are used, enter L for the left pore and R for the right "
+        "pore."
     )
     combination = ddict.get_input(
         "Please enter the wanted combination for the simulation box [eg.: BPBW]: ", args, "string"
@@ -61,13 +62,19 @@ def simbox_mode(args) -> None:
             file_name = "%s.xyz" % (file_name_list[i])
             try:
                 # Read file to dataframe.
-                df = pd.read_csv(file_name, sep="\s+", header=None, skiprows=2, names=["atom", "x", "y", "z"])
-            except:
+                # TODO: Whats the point of that code? It is not used anywhere.
+                pd.read_csv(file_name, sep=r"\s+", header=None, skiprows=2, names=["atom", "x", "y", "z"])
+            except FileNotFoundError:  # TODO add errors if necessary
+                traceback.format_exc()
                 try:
-                    df = pd.read_csv(
-                        "structures/%s" % (file_name), sep="\s+", header=None, skiprows=2, names=["atom", "x", "y", "z"]
+                    pd.read_csv(
+                        "structures/%s" % (file_name),
+                        sep=r"\s+",
+                        header=None,
+                        skiprows=2,
+                        names=["atom", "x", "y", "z"],
                     )
-                except:
+                except FileNotFoundError:
                     ddict.printLog("The %s file could not be found. Exiting..." % (i))
                     sys.exit(1)
             # Rename the dataframe variable to the file name.
@@ -92,17 +99,16 @@ def simbox_mode(args) -> None:
     # Now start building the simulation box by setting up an empty dataframe with the correct column names.
     simbox = pd.DataFrame(columns=["atom", "x", "y", "z"])
     tmp = []
-    simbox_max_z = 0
+    # simbox_max_z = 0
     for i in combination_list:
-
         # Make a dummy dataframe.
         exec("%s_dummy = %s.copy()" % (file_name_list[i], file_name_list[i]))
         # Shift the dataframe in z direction by simbox_max_z.
         exec("%s_dummy['z'] = %s_dummy['z'] + simbox_max_z" % (file_name_list[i], file_name_list[i]))
         # Append the dataframe to the tmp list.
         exec("tmp.append(%s_dummy)" % (file_name_list[i]))
-        # Find the maximum z value in the tmp list.
-        simbox_max_z = max([df["z"].max() for df in tmp]) + 3
+        # # Find the maximum z value in the tmp list.
+        # simbox_max_z = max([df["z"].max() for df in tmp]) + 3
 
     # Concatenate the tmp list to the simbox dataframe.
     simbox = pd.concat(tmp, ignore_index=True)

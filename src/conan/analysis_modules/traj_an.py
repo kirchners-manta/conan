@@ -108,7 +108,8 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
 
     if analysis1_choice == 1:
         ddict.printLog("\n-> Pics of box.")
-        # Write the xyz file. The first line has the number of atoms (column in the first_drame), the second line is empty.
+        # Write the xyz file. The first line has the number of atoms (column in the first_drame), the second line is
+        # empty.
         id_frame_print = open("simbox_frame.xyz", "w")
         id_frame_print.write("%d\n#Made with CONAN\n" % len(id_frame))
         for index, row in id_frame.iterrows():
@@ -120,7 +121,8 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
         ddict.printLog("\n-> Pics of pore structure(s).")
         # Loop over the number of entries in the tuberadius numpy array.
         for i in range(len(CNT_centers)):
-            # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the id_frame. They are labeled Pore1, Pore2... in the Struc column.
+            # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the
+            # id_frame. They are labeled Pore1, Pore2... in the Struc column.
             CNT_atoms_pic = id_frame.loc[id_frame["Struc"] == "Pore%d" % (i + 1)]
             # Remove all columns except the Element, x, y, and z columns.
             ddict.printLog(CNT_atoms_pic)
@@ -146,7 +148,8 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
         ddict.printLog("\n-> Tube pictures.")
 
         for i in range(len(CNT_centers)):
-            # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the id_frame.
+            # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the
+            # id_frame.
             CNT_atoms_pic = pd.DataFrame(id_frame.loc[id_frame["CNT"] == i + 1])
             # Remove all columns except the Element, x, y, and z columns.
             CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule"], axis=1)
@@ -253,17 +256,17 @@ def trajectory_analysis(
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
     id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
-    species_max = id_frame["Species"].max()
+    # species_max = id_frame["Species"].max()
     spec_molecule = 0
     spec_atom = []
     ddict.printLog("")
     analysis_spec_molecule = ddict.get_input(
-        f"Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
+        "Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
     )
     if analysis_spec_molecule == "y":
-        spec_molecule = int(ddict.get_input(f"Which species to analyze? (1-{species_max}) ", args, "int"))
+        spec_molecule = int(ddict.get_input("Which species to analyze? (1-{species_max}) ", args, "int"))
         # Ask user for the atom type to analyze. Multiple options are possible, default is 'all'.
-        spec_atom = ddict.get_input(f"Which atoms to analyze? [default:all] ", args, "string")
+        spec_atom = ddict.get_input("Which atoms to analyze? [default:all] ", args, "string")
 
         if spec_atom == "" or spec_atom == "[default:all]":
             spec_atom = "all"

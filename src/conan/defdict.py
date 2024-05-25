@@ -161,7 +161,8 @@ def dict_covalent() -> dict:
 
 # Cutoff distances for bond identification.
 def dict_cutoff() -> dict:
-    # Set up a dictionary with cutoff distances for the molecule identification by combining the covalent radii of all element combinations.
+    # Set up a dictionary with cutoff distances for the molecule identification by combining the covalent radii of all
+    # element combinations.
     comb_cutoff = dict()
 
     # Get the covalent radii
@@ -175,7 +176,8 @@ def dict_cutoff() -> dict:
     dist_comb = [elem_covalent[elem_comb[i][0]] + elem_covalent[elem_comb[i][1]] for i in range(len(elem_comb))]
     comb_cutoff = dict(zip(dist_comb, elem_comb))
 
-    # Add a tolerance of 0.6 to the cutoff distances. This needs to be done to identify molecules, where some bonds are stretched.
+    # Add a tolerance of 0.6 to the cutoff distances. This needs to be done to identify molecules, where some bonds are
+    # stretched.
     comb_cutoff = {k + 0.6: v for k, v in comb_cutoff.items()}
 
     return comb_cutoff

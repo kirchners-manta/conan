@@ -106,8 +106,8 @@ class Parser:
     def __init__(self):
         self.lexer = Lexer()
         self.undo = False
-        with open(".command_file", "w") as file:
-            pass  # generates the command file (needed for the undo command)
+        # with open(".command_file", "w") as file:
+        #     pass  # generates the command file (needed for the undo command)
 
 
 class Lexer:
@@ -124,14 +124,14 @@ class Lexer:
 
     # PRIVATE
     def __initialize_lexer(self):
-        tokens = [
-            "COMMAND",
-            "KEYWORD",
-            "VALUE",
-            "OPERATOR",
-        ]  # all token types have to be listed here
+        # tokens = [
+        #     "COMMAND",
+        #     "KEYWORD",
+        #     "VALUE",
+        #     "OPERATOR",
+        # ]  # all token types have to be listed here
 
-        t_ignore = " \t"  # Ignore spaces and tabs between tokens
+        # t_ignore = " \t"  # Ignore spaces and tabs between tokens
 
         # next we define all token types listed above
         def t_COMMAND(t):

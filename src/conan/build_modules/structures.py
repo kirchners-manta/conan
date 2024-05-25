@@ -139,7 +139,8 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         # Filter out atoms that are designates as anchors using a list comprehension (typically marked with 'X')
         return [
             pos for pos in self.atom_positions if pos[0] != "X"
-        ]  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
+        ]  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von
+        # O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
 
     # PRIVATE
     def __read_positions_from_library(self, structure_library_path: str) -> List[Tuple[str, float, float, float]]:
@@ -272,7 +273,8 @@ class Structure(ABC):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, 
         self, vec2: npt.NDArray
     ) -> (
         npt.NDArray
-    ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
+    ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische
+        # Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
         """
         Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
         vector (vec2).
@@ -504,9 +506,8 @@ class Structure1d(Structure):
 
         # Load the provided bond length and calculate the distance between two hexagonal vertices
         distance = float(parameters["bond_length"])
-        hex_d = (
-            distance * math.cos(30 * math.pi / 180) * 2
-        )  # Distance between two hexagonal centers in the lattice  # ToDo: Überprüfen?
+        hex_d = distance * math.cos(30 * math.pi / 180) * 2  # Distance between two hexagonal centers in the lattice
+        # ToDo: Überprüfen?
 
         # If the tube is of the armchair configuration
         if tube_kind == 1:
@@ -674,11 +675,13 @@ class Structure1d(Structure):
         unit_cell = pd.concat([positions_tube, tube_two], ignore_index=True)
 
         # Now build the periodic unit cell from the given atoms.
-        # The dimensions of the unit cell are 2*radius_distance in x direction and 2*radius_distance*math.sqrt(3) in y direction.
+        # The dimensions of the unit cell are 2*radius_distance in x direction and 2*radius_distance*math.sqrt(3) in y
+        # direction.
         unit_cell_x = float(2 * radius_distance)
         unit_cell_y = float(2 * radius_distance * math.sqrt(3))
 
-        # Check all atoms in the positions_tube dataframe and shift all atoms that are outside the unit cell to the inside of the unit cell.
+        # Check all atoms in the positions_tube dataframe and shift all atoms that are outside the unit cell to the
+        # inside of the unit cell.
         for i in range(0, len(unit_cell)):
             if unit_cell.iloc[i, 1] > unit_cell_x:
                 unit_cell.iloc[i, 1] = unit_cell.iloc[i, 1] - unit_cell_x
@@ -714,18 +717,21 @@ class Structure1d(Structure):
         # check for duplicates in the supercell. If there have been any, give a warning, then drop them.
         duplicates = super_cell.duplicated(subset=["x", "y", "z"], keep="first")
         if duplicates.any():
-            ddict.printLog(f"[WARNING] Duplicates found in the supercell. Dropping them.")
+            ddict.printLog("[WARNING] Duplicates found in the supercell. Dropping them.")
         super_cell = super_cell.drop_duplicates(subset=["x", "y", "z"], keep="first")
 
         # Now the supercell is written to positions_tube.
         positions_tube = super_cell.copy()
         positions_tube = pd.DataFrame(positions_tube)
 
-        # now within the dataframe, the molcules need to be sorted by the following criteria: Species number -> Molecule number -> Label.
-        # The according column names are 'Species', 'Molecule' and 'Label'. The first two are floats, the last one is a string.
-        # In case of the label the sorting should be done like C1, C2, C3, ... C10, C11, ... C100, C101, ... C1000, C1001, ...
+        # now within the dataframe, the molcules need to be sorted by the following criteria: Species number -> Molecule
+        # number -> Label.
+        # The according column names are 'Species', 'Molecule' and 'Label'. The first two are floats, the last one is a
+        # string.
+        # In case of the label the sorting should be done like C1, C2, C3, ... C10, C11, ... C100, C101, ... C1000,
+        # C1001, ...
         # Extract the numerical part from the 'Label' column and convert it to integer
-        positions_tube["Label_num"] = positions_tube["Label"].str.extract("(\d+)").astype(int)
+        positions_tube["Label_num"] = positions_tube["Label"].str.extract(r"(\d+)").astype(int)
 
         # Sort the dataframe by 'Element', 'Molecule', and 'Label_num'
         positions_tube = positions_tube.sort_values(by=["Species", "Molecule", "Label_num"])
@@ -733,9 +739,10 @@ class Structure1d(Structure):
         # Drop the 'Label_num' column as it's no longer needed
         positions_tube = positions_tube.drop(columns=["Label_num"])
 
-        # Finally compute the PBC size of the simulation box. It is given by the multiplicity in x and y direction times the unit cell size.
-        pbc_size_x = multiplicity_x * unit_cell_x
-        pbc_size_y = multiplicity_y * unit_cell_y
+        # # Finally compute the PBC size of the simulation box. It is given by the multiplicity in x and y direction
+        # times the unit cell size.
+        # pbc_size_x = multiplicity_x * unit_cell_x
+        # pbc_size_y = multiplicity_y * unit_cell_y
 
         self._structure_df = positions_tube
 
@@ -800,11 +807,13 @@ class Structure2d(Structure):
         """
         return [
             (position[1], position[2], position[3]) for _, position in self._structure_df.iterrows()
-        ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr übersichtlich. Evtl. in Datenklasse auslagern?
+        ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr
+        # übersichtlich. Evtl. in Datenklasse auslagern?
 
     def add(
         self, parameters: Dict[str, Union[str, int, float]]
-    ):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert werden; Methode evtl. auch besser wo anders hin verlagern?
+    ):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert
+        # werden; Methode evtl. auch besser wo anders hin verlagern?
         """
         Adds a functional group to the structure.
 
@@ -909,7 +918,8 @@ class Structure2d(Structure):
             position_list (List[List[float]]): The list of available positions.
 
         Returns:
-            List[Tuple[str, float, float, float]]: The coordinates of the added group.  # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
+            List[Tuple[str, float, float, float]]: The coordinates of the added group.
+            # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
         """
         # select a position to add the group on
         selected_position = position_list[random.randint(0, len(position_list) - 1)]
@@ -944,9 +954,7 @@ class Structure2d(Structure):
 
     def __remove_adjacent_positions(
         self,
-        position_list: List[
-            List[float]
-        ],  # ToDo: Evtl. Lösung finden diese Information direkt beim Erstellen abzuspeichern, um nicht jedes Mal aufs Neue über alle Atompositionen iterieren zu müssen
+        position_list: List[List[float]],
         selected_position: List[float],
         cutoff_distance: float,
     ):
@@ -968,7 +976,8 @@ class Structure2d(Structure):
 
 class Pore(
     Structure
-):  # ToDo: Erbt das wirklich nur von Structure und nicht von Structure2d wie Graphene? -> Pore wird aus Graphenwand und CNT aufgebaut
+):  # ToDo: Erbt das wirklich nur von Structure und nicht von Structure2d wie Graphene? -> Pore wird aus Graphenwand
+    # und CNT aufgebaut
     """
     Represents a pore structure.
 
@@ -1342,9 +1351,8 @@ class Boronnitride(Structure2d):
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
         dummy_df = atoms_df[atoms_df[0] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[
-            dummy_df[2] > (selected_position[2] - 0.1)
-        ]  # Narrow down to those close in the y-axis  # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
+        dummy_df = dummy_df[dummy_df[2] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
+        # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
         dummy_df = dummy_df[dummy_df[2] < (selected_position[2] + 0.1)]
         nearest_atom_df = dummy_df
         nearest_atom_df[1] = nearest_atom_df[1].apply(

@@ -119,7 +119,7 @@ def vmd_socket():
 
                         # Draw a label at the adjusted position showing its index
                         draw text $coord "$index"
-                }          
+                }
             }
         }
     }

@@ -178,8 +178,10 @@ def raddens_post_processing(inputdict):
     # The center of the bin is the average of the bin edges.
     results_rd_df["Bin_center"] = (raddens_bin_edges[1:] + raddens_bin_edges[:-1]) / 2
 
-    # Calculate the Volume of each bin. By setting the length of the CNT as length of a cylinder, and the radius of the bin as the radius of the cylinder.
-    # Subtract the volume of the smaller cylinder from the volume of the larger cylinder (next larger bin). The volume of a cylinder is pi*r^2*h.
+    # Calculate the Volume of each bin. By setting the length of the CNT as length of a cylinder, and the radius of the
+    # bin as the radius of the cylinder.
+    # Subtract the volume of the smaller cylinder from the volume of the larger cylinder (next larger bin). The volume
+    # of a cylinder is pi*r^2*h.
     vol_increment = math.pi * (raddens_bin_edges[1:] ** 2 - raddens_bin_edges[:-1] ** 2) * CNT_length
     results_rd_df["Volume"] = vol_increment
 
@@ -199,7 +201,8 @@ def raddens_post_processing(inputdict):
     results_rd_df.insert(0, "Bin", results_rd_df.index + 1)
 
     # Now for the initial raw_data frame raddens_df -> Make new dataframe with the mass/charge densities for each bin.
-    # To do this we divide the mass/charge of each bin (column in raddens_df) by the volume of the bin it is in (row in results_rd_df).
+    # To do this we divide the mass/charge of each bin (column in raddens_df) by the volume of the bin it is in
+    # (row in results_rd_df).
     raddens_df_density = pd.DataFrame()
     for i in range(len(results_rd_df)):
         raddens_df_density[i] = raddens_df.iloc[:, i + 1] / results_rd_df.loc[i, "Volume"]
@@ -232,7 +235,8 @@ def raddens_post_processing(inputdict):
         # Mirroring the data.
         mirror = ddict.get_input("Do you want to mirror the plot? (y/n) ", args, "string")
         if mirror == "y":
-            # Mirror the data by multiplying the bin center by -1. Then sort the dataframe by the bin center values and combine the dataframes.
+            # Mirror the data by multiplying the bin center by -1. Then sort the dataframe by the bin center values and
+            # combine the dataframes.
             results_rd_dummy = results_rd_df.copy()
             results_rd_dummy["Bin_center"] = results_rd_df["Bin_center"] * (-1)
             results_rd_dummy.sort_values(by=["Bin_center"], inplace=True)

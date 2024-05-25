@@ -2,7 +2,8 @@ import numpy as np
 
 import conan.defdict as ddict
 
-"""This function computes the occurence of finding atom Y at a distance to atom X. The maximum distance is set by te user.
+"""
+This function computes the occurence of finding atom Y at a distance to atom X. The maximum distance is set by te user.
 The function returns a dictionary with the occurence of finding atom Y at a distance to atom X.
 The occurence function thus gives a porbability of finding an atom Y at a distance to atom X.
 """
@@ -22,7 +23,8 @@ def occurrence_prep(inputdict):
     # set up an array with all the distance increments.
     dist_array = np.linspace(0, max_dist, intervals)
 
-    # set up an array with 2 entries per distance increment. The first entry is the distance increment and the second entry is the total number of atoms found at that distance.
+    # set up an array with 2 entries per distance increment. The first entry is the distance increment and the second
+    # entry is the total number of atoms found at that distance.
     occ_array = np.zeros((intervals, 2))
 
     # ask the user which species should be used as reference species
@@ -52,16 +54,16 @@ def occurrence_prep(inputdict):
 
 def occurrence_analysis(inputdict):
     # get the data from the inputdict
-    args = inputdict["args"]
-    max_dist = inputdict["max_dist"]
-    intervals = inputdict["intervals"]
+    # args = inputdict["args"]
+    # max_dist = inputdict["max_dist"]
+    # intervals = inputdict["intervals"]
     species_ref = inputdict["species_ref"]
     atom_ref = inputdict["atom_ref"]
     species_obs = inputdict["species_obs"]
     atom_obs = inputdict["atom_obs"]
     split_frame = inputdict["split_frame"]
-    dist_array = inputdict["dist_array"]
-    occ_array = inputdict["occ_array"]
+    # dist_array = inputdict["dist_array"]
+    # occ_array = inputdict["occ_array"]
 
     # make a new datafram with only the reference atoms from the reference species
     ref_frame = split_frame[split_frame["Species"] == species_ref]
