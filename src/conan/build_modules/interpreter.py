@@ -1,7 +1,9 @@
 # import build_main as main
+import pandas as pd
 
 import conan.build_modules.vmd_interface as vmd
-from conan.build_modules.structures import *
+from conan.build_modules.structures import Graphene, Boronnitride, Structure1d, Pore
+import conan.defdict as ddict
 
 
 class Interpreter:
@@ -126,7 +128,7 @@ class Interpreter:
         default_sheet_size = [20.0, 20.0]
 
         # check if all necessary parameters have been assigned
-        if not "type" in parameters:
+        if "type" not in parameters:
             ddict.printLog("\033[31m 'type' parameter is missing \033[37m")
             return None
 

@@ -191,8 +191,8 @@ def distance_search_processing(inputdict):
     minimal_distance_row = inputdict["minimal_distance_row"]
     maximal_distance_row = inputdict["maximal_distance_row"]
 
-    print(f"The closest atom is: ", minimal_distance_row["Atom"], " with a distance of: ", round(minimal_distance, 3))
-    print(f"The furthest atom is: ", maximal_distance_row["Atom"], " with a distance of: ", round(maximal_distance, 3))
+    print("The closest atom is: ", minimal_distance_row["Atom"], " with a distance of: ", round(minimal_distance, 3))
+    print("The furthest atom is: ", maximal_distance_row["Atom"], " with a distance of: ", round(maximal_distance, 3))
 
 
 # Axial density profile
@@ -214,7 +214,8 @@ def axial_density_prep(inputdict):
         )
     )
     ddict.printLog(
-        "\nNote here, that the simulation box is subdivided between two bulk phases and the pore. \nThe number of increments set here is the number of increments for each section.\n",
+        "\nNote here, that the simulation box is subdivided between two bulk phases and the pore. \nThe number of "
+        "increments set here is the number of increments for each section.\n",
         color="red",
     )
     # Initialize arrays
@@ -307,7 +308,8 @@ def axial_density_analysis(inputdict):
     # Make an array from split_frame['Z'].
     split_frame["Z_bin"] = pd.cut(split_frame["Z"].astype(float).values, bins=z_bin_edges, labels=z_bin_labels)
 
-    # Add all masses of the atoms in each bin to the corresponding bin. Then add a new first column with the index+1 of the bin.
+    # Add all masses of the atoms in each bin to the corresponding bin. Then add a new first column with the index+1 of
+    # the bin.
     zdens_df_temp = (
         split_frame.groupby(pd.cut(split_frame["Z"].astype(float), z_bin_edges))["Mass"]
         .sum()
@@ -327,7 +329,8 @@ def axial_density_analysis(inputdict):
         zdens_df.loc[counter, "Bin %d" % (i + 1)] = zdens_df_temp.loc[i, "Weighted_counts"]
 
     # TUBE SECTION -> displacement for accessible volume.
-    # All atoms are dropped which have a z coordinate larger than the maximum z coordinate of the CNT or smaller than the minimum z coordinate of the CNT.
+    # All atoms are dropped which have a z coordinate larger than the maximum z coordinate of the CNT or smaller than
+    # the minimum z coordinate of the CNT.
     split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
     split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
 
@@ -378,7 +381,8 @@ def axial_density_processing(inputdict):
     # The center of the bin is the average of its bin edges.
     results_zd_df["Bin_center"] = (bin_edges[1:] + bin_edges[:-1]) / 2
     which_radius = ddict.get_input(
-        "Do you want to use the accessible radius (1) or the CNT radius (2) to compute the increments' volume? [1/2] ",
+        "Do you want to use the accessible radius (1) or the CNT radius (2) to compute the increments' volume? "
+        "[1/2] ",
         args,
         "string",
     )
@@ -403,7 +407,8 @@ def axial_density_processing(inputdict):
         if which_radius == "2":
             used_radius = tuberadii[0]
 
-    # Calculate the volume of each bin. For the bulk sections, the volume is defined by the x and y values of the simbox, multiplied by the bin width. For the tube sections, the volume is defined by the pi*r^2*bin width.
+    # Calculate the volume of each bin. For the bulk sections, the volume is defined by the x and y values of the
+    # simbox, multiplied by the bin width. For the tube sections, the volume is defined by the pi*r^2*bin width.
     vol_increment = []
     for i in range(num_increments):
         if bin_edges[i] < min_z_pore or bin_edges[i + 1] > max_z_pore:
@@ -428,11 +433,13 @@ def axial_density_processing(inputdict):
         for i in range(num_increments):
             if bin_edges[i] >= min_z_pore and bin_edges[i + 1] <= max_z_pore:
                 inside_CNT.append(i)
-        # Make dataframe with one column named 'Density [u/Ang^3]' and the same number of rows as the number of bins inside the CNT.
+        # Make dataframe with one column named 'Density [u/Ang^3]' and the same number of rows as the number of bins
+        # inside the CNT.
         inside_CNT_df = pd.DataFrame()
         inside_CNT_df["Density [u/Ang^3]"] = results_zd_df["Density [u/Ang^3]"][inside_CNT]
 
-        # Take the first and last bin that are inside the CNT and average the density of the two bins. Then do this for the second and second last bin, and so on.
+        # Take the first and last bin that are inside the CNT and average the density of the two bins. Then do this for
+        # the second and second last bin, and so on.
         for i in range(int(len(inside_CNT))):
             inside_CNT_df["Density [u/Ang^3]"][inside_CNT[i]] = (
                 (
@@ -580,8 +587,8 @@ def grid_generator(inputdict):
 
 def wrapping_coordinates(box_size, frame):
     # in this function we wrap the coordinates of the atoms in the split_frame.
-    # We check if there are atoms outside the simulation box and wrap them to the other side of the box. Then we check again if it worked
-    # and if not we wrap them again. We do this until all atoms are inside the simulation box.
+    # We check if there are atoms outside the simulation box and wrap them to the other side of the box. Then we check
+    # again if it worked and if not we wrap them again. We do this until all atoms are inside the simulation box.
 
     # now get the coordinates of the split_frame
     split_frame_coords = frame[["X", "Y", "Z"]].astype(float).values
@@ -606,7 +613,7 @@ def symbols_to_masses(symbols):
 # 3D density analysis
 """ What this function is about:
 
-    This function is used to calculate the 3D density of the system. 
+    This function is used to calculate the 3D density of the system.
     First it creates a 3D grid with the dimensions of the simulation box.
     The incrementation is set by the user.
     Then the atoms are assigned to the grid.
@@ -634,15 +641,18 @@ def density_analysis_prep(inputdict):
     cube_array = np.zeros((x_incr * y_incr * z_incr))
 
     # kdtree from all grid points
-    # for this we need to get the coordinates of all grid points, we simply use the x_mesh, y_mesh and z_mesh arrays for this
+    # for this we need to get the coordinates of all grid points, we simply use the x_mesh, y_mesh and z_mesh arrays
+    # for this
     grid_points = np.vstack((x_mesh.flatten(), y_mesh.flatten(), z_mesh.flatten())).T
     grid_points_tree = scipy.spatial.KDTree(grid_points)
 
-    # We also store a list with as many entries as there are grid points. Each entry is a list with the atom labels of the atoms which are in the grid point.
+    # We also store a list with as many entries as there are grid points. Each entry is a list with the atom labels of
+    # the atoms which are in the grid point.
     # We need this to calculate the density of each grid point.
     grid_points_atom_labels = [[] for i in range(len(grid_points))]
 
-    # Also set up a list for each bin. It contains the information about how often each atom label is present in the bin.
+    # Also set up a list for each bin. It contains the information about how often each atom label is present in the
+    # bin.
     grid_point_chunk_atom_labels = [[] for i in range(len(grid_points))]
 
     outputdict = inputdict
@@ -700,7 +710,8 @@ def density_analysis_analysis(inputdict):
     # now find the corresponding grid point for each atom
     closest_grid_point_dist, closest_grid_point_idx = grid_points_tree.query(split_frame_coords)
 
-    # now print the corresponding atom label to the cube_array. If there is already an atom label, add the new atom label to the existing one.
+    # now print the corresponding atom label to the cube_array. If there is already an atom label, add the new atom
+    # label to the existing one.
     cube_array[closest_grid_point_idx] = split_frame["Mass"].values
 
     # now add the atom label to the grid_point_atom_labels list
@@ -739,7 +750,8 @@ def density_analysis_processing(inputdict):
     # add a new column with the atom masses. The Elements are stored in lists in the Atoms_sym column.
     unique_molecule_frame["Masses"] = unique_molecule_frame["Atoms_sym"].apply(symbols_to_masses)
 
-    # now write a new file with the masses of each atom grouped with the corresponding label, like this: example = ['H1':1.008, 'H2':1.008,...]
+    # now write a new file with the masses of each atom grouped with the corresponding label, like this:
+    # example = ['H1':1.008, 'H2':1.008,...]
     list_of_masses = []
     for index, row in unique_molecule_frame.iterrows():
         list_of_masses.append(dict(zip(row["Labels"], row["Masses"])))
@@ -797,12 +809,14 @@ def density_analysis_processing(inputdict):
     sum_gp_y = int(inputdict["x_incr"] * inputdict["z_incr"])
     sum_gp_z = int(inputdict["x_incr"] * inputdict["y_incr"])
 
-    # divide each value in the density profiles by the number of grid points in the corresponding direction * the volume of each grid point
+    # divide each value in the density profiles by the number of grid points in the corresponding direction * the volume
+    # of each grid point
     x_dens_profile = x_dens_profile / sum_gp_x
     y_dens_profile = y_dens_profile / sum_gp_y
     z_dens_profile = z_dens_profile / sum_gp_z
 
-    # now we print the density profiles to dataframes. The first column is the x (y,z) coordinate of the grid point, the second column is the density
+    # now we print the density profiles to dataframes. The first column is the x (y,z) coordinate of the grid point,
+    # the second column is the density
     x_dens_profile_df = pd.DataFrame()
     x_dens_profile_df["x"] = inputdict["x_grid"]
     x_dens_profile_df["Density [u/Ang^3]"] = x_dens_profile

@@ -10,7 +10,8 @@ import conan.defdict as ddict
 
 """
 With this tool the velocity of every atom at every time step is calculated.
-Then the velocity information is transfered to a 3 dimensional grid. THereby we gain information of the veloicity of every atom over the different regions of the system.
+Then the velocity information is transfered to a 3 dimensional grid. THereby we gain information of the veloicity of
+every atom over the different regions of the system.
 """
 
 
@@ -123,7 +124,8 @@ def velocity_calc_atom(inputdict):
 
 def velocity_calc_molecule(
     inputdict,
-):  # -> something is still wrong here, the velocity is not calculated correctly probably due too the COM calculation and the wrapping afterwards
+):  # -> something is still wrong here, the velocity is not calculated correctly probably due too the COM calculation
+    # and the wrapping afterwards
 
     box_size = inputdict["box_size"]
 
@@ -167,7 +169,8 @@ def velocity_analysis_chunk_processing(inputdict):
 
     chunk_occurances = [len(grid_points_velocities[i]) for i in range(len(grid_points_velocities))]
 
-    # now calculate the mean velocity for each grid point for the chunk, if there is no velocity, set the mean velocity to zero
+    # now calculate the mean velocity for each grid point for the chunk, if there is no velocity, set the mean velocity
+    # to zero
     chunk_mean_velocities = [
         np.mean(grid_points_velocities[i]) if len(grid_points_velocities[i]) != 0 else 0
         for i in range(len(grid_points_velocities))
@@ -363,7 +366,8 @@ def rad_velocity_prep(inputdict):
     # first ask the user how large the time step is in the trajectory
     dt = ddict.get_input("What is the time step in the trajectory? [fs]  ", args, "float")
 
-    # make a new dataframe with two columns, the first is the Bin number and the second is the total count of velocities in that bin
+    # make a new dataframe with two columns, the first is the Bin number and the second is the total count of velocities
+    # in that bin
     velocity_bin_counter = pd.DataFrame({"Bin": velocity_bin_labels, "Total count": 0})
 
     # Prepare output dict
@@ -413,7 +417,8 @@ def rad_velocity_analysis(inputdict):
         velocity_frame["Distance"], bins=velocity_bin_edges, labels=velocity_bin_labels
     )
 
-    # We need to store two values for each bin: the total number of atoms counted for each bin and the sum of the velocities for each bin
+    # We need to store two values for each bin: the total number of atoms counted for each bin and the sum of the
+    # velocities for each bin
     # We will use these values to calculate the average velocity for each bin, after the loop
     velocity_bin_counter_temp = velocity_frame.groupby("Distance_bin")["velocity"].count().reset_index()
 
@@ -509,8 +514,8 @@ def rad_velocity_processing(inputdict):
             color="black",
         )
         ax.set(
-            xlabel="Distance from tube center / $\mathrm{\AA}$",
-            ylabel="Velocity / $\mathrm{\AA/fs}$",
+            xlabel=r"Distance from tube center / $\mathrm{\AA}$",
+            ylabel=r"Velocity / $\mathrm{\AA/fs}$",
             title="Radial Velocity Profile",
         )
         ax.grid()
