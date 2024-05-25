@@ -1,6 +1,6 @@
 import pytest
 import random
-from ..playground.doping_experiment import GrapheneGraph, NitrogenSpecies
+from src.conan.playground.doping_experiment import GrapheneGraph, NitrogenSpecies
 
 
 @pytest.fixture
