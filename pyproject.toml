@@ -179,6 +179,9 @@ CONAN = "conan.CONAN:main"
 [tool.black]
 line-length = 120
 
+[tool.isort]
+line_length = 120
+
 # This is configuration specific to the `setuptools` build backend.
 # If you are using a different build backend, you will need to change this.
 [tool.setuptools]
