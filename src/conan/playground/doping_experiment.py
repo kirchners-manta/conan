@@ -9,10 +9,10 @@ import numpy as np
 
 
 class NitrogenSpecies(Enum):
-    GRAPHITIC = 'graphitic'
-    PYRIDINIC = 'pyridinic'
-    PYRROLIC = 'pyrrolic'
-    PYRAZOLE = 'pyrazole'
+    GRAPHITIC = "graphitic"
+    PYRIDINIC = "pyridinic"
+    PYRROLIC = "pyrrolic"
+    PYRAZOLE = "pyrazole"
 
 
 class GrapheneGraph:
@@ -90,16 +90,17 @@ class GrapheneGraph:
             (x_offset, y_offset),
             (x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
             (x_offset + self.cc_x_distance + self.bond_distance, y_offset + self.cc_y_distance),
-            (x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset)
+            (x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset),
         ]
 
         # Add nodes with positions and element type (carbon)
-        nodes = [(index + i, {'element': 'C', 'position': pos}) for i, pos in enumerate(unit_cell_positions)]
+        nodes = [(index + i, {"element": "C", "position": pos}) for i, pos in enumerate(unit_cell_positions)]
         self.graph.add_nodes_from(nodes)
 
         # Add internal bonds within the unit cell
-        edges = [(index + i, index + i + 1, {'bond_length': self.bond_distance}) for i in
-                 range(len(unit_cell_positions) - 1)]
+        edges = [
+            (index + i, index + i + 1, {"bond_length": self.bond_distance}) for i in range(len(unit_cell_positions) - 1)
+        ]
         self.graph.add_edges_from(edges)
 
     def _add_periodic_boundaries(self):
@@ -117,9 +118,7 @@ class GrapheneGraph:
 
         # Add horizontal periodic boundary conditions
         self.graph.add_edges_from(
-            zip(right_edge_indices, left_edge_indices),
-            bond_length=self.bond_distance,
-            periodic=True
+            zip(right_edge_indices, left_edge_indices), bond_length=self.bond_distance, periodic=True
         )
 
         # Generate base indices for vertical boundaries
@@ -129,14 +128,10 @@ class GrapheneGraph:
 
         # Add vertical periodic boundary conditions
         self.graph.add_edges_from(
-            zip(bottom_left_indices, top_left_indices),
-            bond_length=self.bond_distance,
-            periodic=True
+            zip(bottom_left_indices, top_left_indices), bond_length=self.bond_distance, periodic=True
         )
         self.graph.add_edges_from(
-            zip(bottom_right_indices, top_left_indices + 3),
-            bond_length=self.bond_distance,
-            periodic=True
+            zip(bottom_right_indices, top_left_indices + 3), bond_length=self.bond_distance, periodic=True
         )
 
     def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
@@ -167,14 +162,15 @@ class GrapheneGraph:
         if not isinstance(nitrogen_species, NitrogenSpecies):
             raise ValueError(
                 f"Invalid nitrogen type: {nitrogen_species}. Valid types are: "
-                f"{', '.join([e.value for e in NitrogenSpecies])}")
+                f"{', '.join([e.value for e in NitrogenSpecies])}"
+            )
 
         # Calculate the number of nitrogen atoms to add based on the given percentage
         num_atoms = self.graph.number_of_nodes()
         num_nitrogen = int(num_atoms * percentage / 100)
 
         # Get a list of all carbon atoms in the graphene sheet
-        carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data['element'] == 'C']
+        carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
 
         # Initialize an empty list to store the chosen atoms for nitrogen doping
         chosen_atoms = []
@@ -186,17 +182,21 @@ class GrapheneGraph:
             # Get the direct neighbors of the selected atom
             neighbors = self.get_neighbors(atom_id)
             # Get the elements and nitrogen species of the neighbors
-            neighbor_elements = [(self.graph.nodes[neighbor]['element'],
-                                  self.graph.nodes[neighbor].get('nitrogen_species')) for neighbor in neighbors]
+            neighbor_elements = [
+                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
+                for neighbor in neighbors
+            ]
 
             # Check if all neighbors are not graphitic nitrogen atoms
-            if all(elem != 'N' or (elem == 'N' and n_type != NitrogenSpecies.GRAPHITIC) for elem, n_type in
-                   neighbor_elements):
+            if all(
+                elem != "N" or (elem == "N" and n_type != NitrogenSpecies.GRAPHITIC)
+                for elem, n_type in neighbor_elements
+            ):
                 # Add the selected atom to the list of chosen atoms
                 chosen_atoms.append(atom_id)
                 # Update the selected atom's element to nitrogen and set its nitrogen species
-                self.graph.nodes[atom_id]['element'] = 'N'
-                self.graph.nodes[atom_id]['nitrogen_species'] = nitrogen_species
+                self.graph.nodes[atom_id]["element"] = "N"
+                self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
                 # Remove the selected atom and its neighbors from the list of potential carbon atoms
                 carbon_atoms.remove(atom_id)
                 for neighbor in neighbors:
@@ -313,7 +313,7 @@ class GrapheneGraph:
         -----
         This method uses the Dijkstra algorithm implemented in networkx to find the shortest path length.
         """
-        return nx.dijkstra_path_length(self.graph, source, target, weight='bond_length')
+        return nx.dijkstra_path_length(self.graph, source, target, weight="bond_length")
 
     def get_shortest_path(self, source: int, target: int) -> List[int]:
         """
@@ -335,7 +335,7 @@ class GrapheneGraph:
         -----
         This method uses the Dijkstra algorithm implemented in networkx to find the shortest path.
         """
-        return nx.dijkstra_path(self.graph, source, target, weight='bond_length')
+        return nx.dijkstra_path(self.graph, source, target, weight="bond_length")
 
     def get_color(self, element: str, nitrogen_species: NitrogenSpecies = None) -> str:
         """
@@ -358,16 +358,16 @@ class GrapheneGraph:
         The color mapping is defined for different elements and nitrogen species to visually
         distinguish them in plots.
         """
-        colors = {'C': 'black'}
+        colors = {"C": "black"}
         nitrogen_colors = {
-            NitrogenSpecies.PYRIDINIC: 'blue',
-            NitrogenSpecies.GRAPHITIC: 'red',
-            NitrogenSpecies.PYRROLIC: 'cyan',
-            NitrogenSpecies.PYRAZOLE: 'green'
+            NitrogenSpecies.PYRIDINIC: "blue",
+            NitrogenSpecies.GRAPHITIC: "red",
+            NitrogenSpecies.PYRROLIC: "cyan",
+            NitrogenSpecies.PYRAZOLE: "green",
         }
         if nitrogen_species in nitrogen_colors:
             return nitrogen_colors[nitrogen_species]
-        return colors.get(element, 'pink')
+        return colors.get(element, "pink")
 
     def plot_graphene(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
         """
@@ -387,16 +387,18 @@ class GrapheneGraph:
         Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
         """
         # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, 'position')
-        elements = nx.get_node_attributes(self.graph, 'element')
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
 
         # Determine colors for nodes, considering nitrogen species if present
-        colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
-                  self.graph.nodes()]
+        colors = [
+            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
+        ]
 
         # Separate periodic edges and regular edges
-        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get('periodic')]
-        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('periodic')]
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
 
         # Initialize plot
         plt.figure(figsize=(12, 12))
@@ -406,12 +408,12 @@ class GrapheneGraph:
 
         # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
         if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style='dashed', edge_color='gray')
+            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
         # Add labels if specified
         if with_labels:
-            labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
-            nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+            labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
+            nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
 
         # Show plot
         plt.show()
@@ -434,13 +436,15 @@ class GrapheneGraph:
         is displayed in its default colors.
         """
         # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, 'position')
-        elements = nx.get_node_attributes(self.graph, 'element')
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
 
         # Determine colors for nodes, considering nitrogen species if present
-        colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
-                  self.graph.nodes()]
-        labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
+        colors = [
+            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
+        ]
+        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
 
         # Initialize plot
         plt.figure(figsize=(12, 12))
@@ -450,11 +454,11 @@ class GrapheneGraph:
 
         # Highlight the nodes and edges in the specified path
         path_edges = list(zip(path, path[1:]))
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color='yellow', node_size=300)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color="yellow", node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
 
         # Draw labels for nodes
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
 
         plt.show()
 
@@ -478,13 +482,15 @@ class GrapheneGraph:
         of the graphene structure is displayed in its default colors.
         """
         # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, 'position')
-        elements = nx.get_node_attributes(self.graph, 'element')
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
 
         # Determine colors for nodes, considering nitrogen species if present
-        colors = [self.get_color(elements[node], self.graph.nodes[node].get('nitrogen_species')) for node in
-                  self.graph.nodes()]
-        labels = {node: f'{elements[node]}{node}' for node in self.graph.nodes()}
+        colors = [
+            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
+        ]
+        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
 
         # Initialize plot
         plt.figure(figsize=(12, 12))
@@ -493,30 +499,30 @@ class GrapheneGraph:
         nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
 
         # Compute shortest path lengths from the specified atom using bond lengths
-        paths = nx.single_source_dijkstra_path_length(self.graph, atom_id, cutoff=max_distance, weight='bond_length')
+        paths = nx.single_source_dijkstra_path_length(self.graph, atom_id, cutoff=max_distance, weight="bond_length")
 
         # Identify neighbors within the specified maximum distance
         depth_neighbors = [node for node, length in paths.items() if length <= max_distance]
         path_edges = [(u, v) for u in depth_neighbors for v in self.graph.neighbors(u) if v in depth_neighbors]
 
         # Highlight the identified neighbors and their connecting edges
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=depth_neighbors, node_color='yellow', node_size=300)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color='yellow', width=2)
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=depth_neighbors, node_color="yellow", node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
 
         # Draw labels for nodes
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color='cyan', font_weight='bold')
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
 
         # Show plot
         plt.show()
 
 
 def write_xyz(graph, filename):
-    with open(filename, 'w') as file:
+    with open(filename, "w") as file:
         file.write(f"{graph.number_of_nodes()}\n")
         file.write("XYZ file generated from GrapheneGraph\n")
         for node_id, node_data in graph.nodes(data=True):
-            x, y = node_data['position']
-            element = node_data['element']
+            x, y = node_data["position"]
+            element = node_data["element"]
             file.write(f"{element} {x:.3f} {y:.3f} 0.000\n")
 
 
