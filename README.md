@@ -11,12 +11,23 @@ Read the manual here:
 https://con-an.readthedocs.io
 
 ## Install
-For development use
+### For development use:
 ```bash
 pip install -e '.[dev]'
 ```
+After installing the package use the following command to setup the pre-commit hooks.
+```bash
+pre-commit install
+```
+This will make sure that contributor will only commit code that is formatted according to
+pep 8 code style guideline.
 
-For usage
+You can test your current code using the following command
+```bash
+ pre-commit run --all-files
+```
+
+### For usage:
 
 ```bash
 pip install .
