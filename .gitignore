@@ -1,5 +1,5 @@
 .command_file
-structures/
+/structures/
 reports/
 .socket.tcl
 _autosummary/
