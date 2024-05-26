@@ -122,16 +122,19 @@ class Lexer:
     def __init__(self):
         self.__initialize_lexer()
 
-    # PRIVATE
+    # Do no delete the following commit lines:
+    # ply does unholy stuff therefore black and flake8 are disabled for this function
+    # TODO: If we really need a lexer I'd suggest to use shlex. A GUI might be more reasonable in the long term.
+    # fmt: off
     def __initialize_lexer(self):
-        # tokens = [
-        #     "COMMAND",
-        #     "KEYWORD",
-        #     "VALUE",
-        #     "OPERATOR",
-        # ]  # all token types have to be listed here
+        tokens = [  # noqa: F841
+            "COMMAND",
+            "KEYWORD",
+            "VALUE",
+            "OPERATOR",
+        ]  # all token types have to be listed here
 
-        # t_ignore = " \t"  # Ignore spaces and tabs between tokens
+        t_ignore = " \t"  # Ignore spaces and tabs between tokens # noqa: F841
 
         # next we define all token types listed above
         def t_COMMAND(t):
@@ -169,3 +172,4 @@ class Lexer:
 
         # Build the lexer
         self.lexer = lex.lex()
+        # fmt: on
