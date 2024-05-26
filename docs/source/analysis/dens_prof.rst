@@ -2,7 +2,7 @@ Density Profiles
 ================
 
 Radial Denstity
--------------------
+---------------
 Compute the radial density profile of the liquid inside the pore structure.
 The pore is automatically identified in the trajectory and subdivided into the wall and the CNT part.
 With the center line of the CNT set as the origin, the space around the center is cut into increments of the users' choice, up to the tubes' wall.
@@ -15,7 +15,7 @@ The raw data is saved as ``Radial_density_function.csv``.
 The analysis can be performed individually for all unique molecules and atoms.
 
 Axial Density Profile
--------------------
+---------------------
 Compute an axial density profile over the whole simulation box. The pore has to be oriented along the z axis to use this analysis.
 Again, as for the radial density, the CNT and all carbon structures are identified automatically in the trajectory.
 The volume of the CNT is either calculated with the accessible radius :math:`r_{acc}`, which is computed on the fly (see accessible volume) or with the radius :math:`r_{CNT}` of the CNT.

@@ -41,4 +41,4 @@ The final simulation box will be saved as simbox.xyz in the present folder.
    :width: 90%
    :class: align-center
 
-    Simulation box of an ionic liquid between carbon walls and a pore, built with the simulation box generator.
+   Simulation box of an ionic liquid between carbon walls and a pore, built with the simulation box generator.
