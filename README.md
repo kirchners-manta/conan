@@ -45,4 +45,4 @@ To generate the documentation locally, run:
 ```bash
 tox -e docs
 ```
-The built documentation can be found [here](docs/build/html/index.html).
+The built documentation can be found here: docs/build/html/index.html.
