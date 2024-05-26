@@ -12,13 +12,9 @@ from prettytable import PrettyTable
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 
-# ARGUMENTS
-args = ddict.read_commandline()
-
 
 # Information on the trajectory / cutting the frames into chunks
 def traj_chunk_info(id_frame):
-
     # GENERAL INFORMATION ON CHUNKS
     ddict.printLog("-> Reading the trajectory.\n")
     trajectory_file_size = os.path.getsize(args["trajectoryfile"])
@@ -77,7 +73,6 @@ def traj_chunk_info(id_frame):
 def analysis_opt(
     id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
 ) -> None:
-
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
@@ -136,7 +131,7 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
                     CNT_centers[0][1],
                     CNT_centers[0][2],
                 ]
-            CNT_atoms_print = open(f"pore{i+1}.xyz", "w")
+            CNT_atoms_print = open(f"pore{i + 1}.xyz", "w")
             CNT_atoms_print.write("%d\n#Made with CONAN\n" % len(CNT_atoms_pic))
             # Print the CNT_atoms dataframe to a xyz file. Just the atoms, x, y, and z column.
             for index, row in CNT_atoms_pic.iterrows():
@@ -208,7 +203,7 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
 
             else:
                 add_centerpoint = ddict.get_input(
-                    f"Add the center point of the CNT{i+1} to the file? [y/n] ", args, "string"
+                    f"Add the center point of the CNT{i + 1} to the file? [y/n] ", args, "string"
                 )
                 if add_centerpoint == "y":
                     CNT_atoms_pic.loc[len(CNT_atoms_pic.index)] = [
@@ -234,7 +229,6 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
 def trajectory_analysis(
     id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
 ) -> None:
-
     # Analysis choice.
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
@@ -476,3 +470,8 @@ def trajectory_analysis(
     post_processing(maindict)
 
     ddict.printLog("The main loop took %0.3f seconds to run" % (time.time() - Main_time))
+
+
+if __name__ == "__main__":
+    # ARGUMENTS
+    args = ddict.read_commandline()

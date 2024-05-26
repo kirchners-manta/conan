@@ -1,5 +1,5 @@
 Input & Output
-============
+==============
 
 The program can also be executed using an input file by specifying the ``-i`` flag and the input file in the command line.
 
