@@ -23,11 +23,11 @@ class TestGraphene:
 
     def test_get_direct_neighbors(self, graphene: GrapheneGraph):
         """
-        Test to verify the direct neighbors of an atom.
+        Test to verify the direct neighbors of an atom while considering periodic boundary conditions.
 
         Parameters
         ----------
-        setup_graphene : GrapheneGraph
+        graphene : GrapheneGraph
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -43,11 +43,11 @@ class TestGraphene:
 
     def test_get_neighbors_at_exact_depth(self, graphene: GrapheneGraph):
         """
-        Test to verify the neighbors of an atom at an exact depth.
+        Test to verify the neighbors of an atom at an exact depth while considering periodic boundary conditions.
 
         Parameters
         ----------
-        setup_graphene : GrapheneGraph
+        graphene : GrapheneGraph
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -56,18 +56,18 @@ class TestGraphene:
         """
         graphene = graphene
         depth_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=False)
-        expected_neighbors = []  # ToDo: Add expected neighbors
+        expected_neighbors = [2, 16, 14, 126, 112, 114]
         assert set(depth_neighbors) == set(
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {depth_neighbors}"
 
     def test_get_neighbors_up_to_depth(self, graphene: GrapheneGraph):
         """
-        Test to verify the neighbors of an atom up to a certain depth.
+        Test to verify the neighbors of an atom up to a certain depth while considering periodic boundary conditions.
 
         Parameters
         ----------
-        setup_graphene : GrapheneGraph
+        graphene : GrapheneGraph
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -76,7 +76,7 @@ class TestGraphene:
         """
         graphene = graphene
         inclusive_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=True)
-        expected_neighbors = []  # ToDo: Add expected neighbors
+        expected_neighbors = [1, 15, 113, 2, 16, 14, 126, 112, 114]
         assert set(inclusive_neighbors) == set(
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
