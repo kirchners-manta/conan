@@ -1,5 +1,6 @@
 import numpy as np
-import defdict as ddict
+
+import conan.defdict as ddict
 
 
 def minimum_image_distance(box_dimension, coordinates_reference, coordinates_observed):

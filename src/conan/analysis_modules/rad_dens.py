@@ -115,6 +115,13 @@ def radial_density_analysis(inputdict):
     CNT_centers = inputdict["CNT_centers"]
     max_z_pore = inputdict["max_z_pore"]
     min_z_pore = inputdict["min_z_pore"]
+    box_size = inputdict["box_size"]
+
+    #instead of checking the global coordinates, we should consider the PBC and check the modulus of the box_size
+    split_frame["X"] = split_frame["X"].astype(float) % box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % box_size[2]
+
 
     split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
     split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
@@ -352,6 +359,14 @@ def radial_charge_density_analysis(inputdict):
     CNT_centers = inputdict["CNT_centers"]
     max_z_pore = inputdict["max_z_pore"]
     min_z_pore = inputdict["min_z_pore"]
+    box_size = inputdict["box_size"]
+
+    #instead of checking the global coordinates, we should consider the PBC and check the modulus of the box_size
+    split_frame["X"] = split_frame["X"].astype(float) % box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % box_size[2]
+
+
 
     split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
     split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]

@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import utils as ut
-import defdict as ddict
+import conan.defdict as ddict
+from conan.analysis_modules import utils as ut
 
 # with this module the rmsd of the molecules in the system is computed (for all liquid species)
 def msd_prep(inputdict):
