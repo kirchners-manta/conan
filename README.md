@@ -11,30 +11,38 @@ Read the manual here:
 https://con-an.readthedocs.io
 
 ## Install
-### For development use:
+### For Development Usage
+To install the package for development:
 ```bash
 pip install -e '.[dev]'
 ```
-After installing the package use the following command to setup the pre-commit hooks.
+After installing the package, set up the pre-commit hooks with the following command:
 ```bash
 pre-commit install
 ```
-This will make sure that contributor will only commit code that is formatted according to
-pep 8 code style guideline.
+This ensures that contributors only commit code formatted according to
+PEP 8 guidelines.
 
-You can test your current code using the following command
+You can test your current code using:
 ```bash
  pre-commit run --all-files
 ```
 
-### For usage:
-
+### For Regular Usage:
+To install the package for regular usage:
 ```bash
 pip install .
 ```
 
 ## Usage
-After installing the package conan is available via the command line.
+After installing the package, conan is available via the command line:
 ```bash
 CONAN -h
 ```
+
+## Build Documentation
+To generate the documentation locally, run:
+```bash
+tox -e docs
+```
+The built documentation can be found here: docs/build/html/index.html.

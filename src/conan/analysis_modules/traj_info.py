@@ -15,13 +15,6 @@ from scipy.spatial import cKDTree
 
 import conan.defdict as ddict
 
-# ARGUMENTS
-args = ddict.read_commandline()
-
-pd.options.mode.chained_assignment = (
-    None  # default='warn'. Enabling this warning gices a false positive in molecular_recognition().
-)
-
 
 # FUNCTIONS
 def read_lammps_frame(f, atom_positions):
@@ -49,7 +42,6 @@ def read_lammps_frame(f, atom_positions):
 
 
 def read_first_frame(file) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
-
     # If file is in XYZ format:
     if file.endswith(".xyz"):
 
@@ -274,7 +266,6 @@ def minimum_image_distance(position1, position2, box_size) -> float:
 
 # Function to identify molecular bonds from a distance search using a k-d tree.
 def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[list, list]:
-
     # Get the covalent radii
     covalent_radii = ddict.dict_covalent()
 
@@ -548,7 +539,6 @@ def SortTuple(tup):
 
 # Molecule recognition section.
 def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
-
     # Convert the first dataframe to a list of dictionaries.
     str_liquid_list = []
     for index, row in id_frame.iterrows():
@@ -837,7 +827,6 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
 
 # Edit a frame in pdb format.
 def pdb(frame, element_masses, id_frame) -> pd.DataFrame:
-
     # drop the first and last line
     frame = frame.drop(frame.index[[0, len(frame) - 1]])
     # Split the frame into columns  and label them
@@ -868,7 +857,6 @@ def pdb(frame, element_masses, id_frame) -> pd.DataFrame:
 
 # Edit a frame in xyz format.
 def xyz(frame, element_masses, id_frame) -> pd.DataFrame:
-
     # drop the first two lines
     frame = frame.drop(frame.index[[0, 1]])
 
@@ -893,7 +881,6 @@ def xyz(frame, element_masses, id_frame) -> pd.DataFrame:
 
 # Edit a frame in lammps format.
 def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
-
     # Extract the header information
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
@@ -930,3 +917,12 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
         split_frame["Charge"] = split_frame[atom_charge_pos].astype(float)
 
     return split_frame
+
+
+if __name__ == "__main__":
+    # ARGUMENTS
+    args = ddict.read_commandline()
+
+    pd.options.mode.chained_assignment = (
+        None  # default='warn'. Enabling this warning gices a false positive in molecular_recognition().
+    )

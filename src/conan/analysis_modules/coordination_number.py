@@ -959,7 +959,7 @@ def Coord_xyz_post_processing(inputdict):
         with open(cube_filename, "w") as f:
 
             # The first two lines of a .cube file are comments
-            f.write("Cube file generated using CONAn\n")
+            f.write("Cube file generated using CONAN\n")
             f.write("#\n")
 
             # The third line contains the number of atoms as well as the coordinates of the origin
