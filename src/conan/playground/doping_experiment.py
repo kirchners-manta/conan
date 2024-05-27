@@ -6,6 +6,7 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from scipy.spatial import KDTree
 
 
 class NitrogenSpecies(Enum):
@@ -17,10 +18,42 @@ class NitrogenSpecies(Enum):
 
 class GrapheneGraph:
     def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
+        """
+        Initialize the GrapheneGraph with given bond distance and sheet size.
+
+        Parameters
+        ----------
+        bond_distance : float
+            The bond distance between carbon atoms in the graphene sheet.
+        sheet_size : Tuple[float, float]
+            The size of the graphene sheet in the x and y directions.
+        """
         self.bond_distance = bond_distance
+        """The bond distance between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
+        """The size of the graphene sheet in the x and y directions."""
         self.graph = nx.Graph()
+        """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
+
+        # Initialize positions and KDTree for efficient neighbor search
+        self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
+        """The positions of atoms in the graphene sheet."""
+        self._kdtree = KDTree(self._positions)
+        """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
+        spatial queries, such as searching for neighbors within a certain Euclidean distance. Such queries are often
+        computationally intensive when performed over a graph, especially when dealing with direct distance rather than
+        path lengths in the graph."""
+
+    @property
+    def positions(self):
+        return self._positions
+
+    @positions.setter
+    def positions(self, new_positions):
+        """Update the positions of atoms and rebuild the KDTree for efficient spatial queries."""
+        self._positions = new_positions
+        self._kdtree = KDTree(new_positions)
 
     @property
     def cc_x_distance(self):
@@ -180,7 +213,7 @@ class GrapheneGraph:
             # Randomly select a carbon atom from the list
             atom_id = random.choice(carbon_atoms)
             # Get the direct neighbors of the selected atom
-            neighbors = self.get_neighbors(atom_id)
+            neighbors = self.get_neighbors_via_edges(atom_id)
             # Get the elements and nitrogen species of the neighbors
             neighbor_elements = [
                 (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
@@ -221,9 +254,48 @@ class GrapheneGraph:
                 # Implement pyrazole nitrogen replacement
                 pass
 
-    def get_neighbors(self, atom_id: int, depth: int = 1, inclusive: bool = False) -> List[int]:
+    # def get_neighbors_within_distance(self, atom_id: int, max_distance: float) -> List[int]:
+    #     """
+    #     Get all nodes within a certain Euclidean distance from the source node.
+    #
+    #     Parameters
+    #     ----------
+    #     atom_id : int
+    #         The source node ID.
+    #     max_distance : float
+    #         The maximum distance.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         A list of node IDs within the specified distance from the source node.
+    #     """
+    #     ego_graph = nx.ego_graph(self.graph, atom_id, radius=max_distance, distance='bond_length')
+    #     return list(ego_graph.nodes)
+
+    def get_neighbors_within_distance(self, atom_id: int, distance: float) -> List[int]:
         """
-        Get neighbors of a given atom up to a certain depth.
+        Find all neighbors within a given distance from the specified atom.
+
+        Parameters
+        ----------
+        atom_id : int
+            The ID of the atom (node) from which distances are measured.
+        distance : float
+            The maximum distance to search for neighbors.
+
+        Returns
+        -------
+        List[int]
+            A list of IDs representing the neighbors within the given distance from the source node.
+        """
+        atom_position = self.graph.nodes[atom_id]["position"]
+        indices = self._kdtree.query_ball_point(atom_position, distance)
+        return [list(self.graph.nodes)[index] for index in indices]
+
+    def get_neighbors_via_edges(self, atom_id: int, depth: int = 1, inclusive: bool = False) -> List[int]:
+        """
+        Get connected neighbors of a given atom up to a certain depth.
 
         Parameters
         ----------
@@ -268,7 +340,7 @@ class GrapheneGraph:
 
     def get_neighbors_paths(self, atom_id: int, depth: int = 1) -> List[Tuple[int, int]]:
         """
-        Get edges of paths to neighbors up to a certain depth.
+        Get edges of paths to connected neighbors up to a certain depth.
 
         Parameters
         ----------
@@ -295,7 +367,7 @@ class GrapheneGraph:
 
     def get_shortest_path_length(self, source: int, target: int) -> float:
         """
-        Get the shortest path length between two atoms based on bond lengths.
+        Get the shortest path length between two connected atoms based on bond lengths.
 
         Parameters
         ----------
@@ -317,7 +389,7 @@ class GrapheneGraph:
 
     def get_shortest_path(self, source: int, target: int) -> List[int]:
         """
-        Get the shortest path between two atoms based on bond lengths.
+        Get the shortest path between two connected atoms based on bond lengths.
 
         Parameters
         ----------
@@ -536,15 +608,15 @@ def main():
     # graphene.plot_graphene(with_labels=True)
 
     # Find direct neighbors of a node (depth=1)
-    direct_neighbors = graphene.get_neighbors(atom_id=0, depth=1)
+    direct_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=1)
     print(f"Direct neighbors of C_0: {direct_neighbors}")
 
     # Find neighbors of a node at an exact depth (depth=2)
-    depth_neighbors = graphene.get_neighbors(atom_id=0, depth=2)
+    depth_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=2)
     print(f"Neighbors of C_0 at depth 2: {depth_neighbors}")
 
     # Find neighbors of a node up to a certain depth (inclusive=True)
-    inclusive_neighbors = graphene.get_neighbors(atom_id=0, depth=2, inclusive=True)
+    inclusive_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=2, inclusive=True)
     print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
 
     graphene.add_nitrogen_doping(10, NitrogenSpecies.GRAPHITIC)
@@ -557,6 +629,12 @@ def main():
     graphene.plot_graphene_with_path(path)
 
     graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(0, 5)
+
+    # Find nodes within a certain distance from a source node
+    atom_id = 5
+    max_distance = 5
+    nodes_within_distance = graphene.get_neighbors_within_distance(atom_id, max_distance)
+    print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
 
 
 if __name__ == "__main__":
