@@ -1313,7 +1313,7 @@ class Boronnitride(Structure2d):
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
-        dummy_df = atoms_df[atoms_df[0] == "N"]  # Select nitrogen atoms
+        dummy_df = atoms_df[atoms_df["Species"] == "N"]  # Select nitrogen atoms
         selected_position = center_position(self.sheet_size, dummy_df)
         # find nearest atom in x-direction to get orientation of the triangle
         dummy_df = atoms_df[atoms_df["Species"] == "B"]
@@ -1321,22 +1321,19 @@ class Boronnitride(Structure2d):
         dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
-        dummy_df = atoms_df[atoms_df[0] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[dummy_df[2] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
-        # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
-        dummy_df = dummy_df[dummy_df[2] < (selected_position[2] + 0.1)]
+        dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
+        dummy_df = dummy_df[dummy_df["y"] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
+        dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
         nearest_atom_df = dummy_df
-        nearest_atom_df[1] = nearest_atom_df[1].apply(
-            lambda x: abs(x - selected_position[1])
-        )  # ToDo: nearest_atom_df['x']?
-        nearest_atom = atoms_df.iloc[nearest_atom_df[1].idxmin()]
+        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
         nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
         nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
 
         # Calculate the vector for one side of the triangle based on the nearest atom
         orientation_vector = [
-            nearest_atom[1] - selected_position[1],  # ToDo: nearest_atom['x']?
-            nearest_atom[2] - selected_position[2],  # ToDo: nearest_atom['y']?
+            nearest_atom["x"] - selected_position["x"],
+            nearest_atom["y"] - selected_position["y"],
         ]
         magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / pore_size
         # orientation_vector[0] /= magnitude
@@ -1348,10 +1345,8 @@ class Boronnitride(Structure2d):
         ]  # ToDo: So besser lesbar als oben?
 
         # Determine the triangle tips based on the starting position and calculated orientation vector
-        # triangle_position = [selected_position[1], selected_position[2]]
         tip1 = [selected_position[1] + orientation_vector[0], selected_position[2] + orientation_vector[1]]
-        # tip2, tip3 = find_triangle_tips(triangle_position, tip1)
-        tip2, tip3 = find_triangle_tips(selected_position.values, tip1)
+        tip2, tip3 = find_triangle_tips([selected_position[1], selected_position[2]], np.array(tip1))
 
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
