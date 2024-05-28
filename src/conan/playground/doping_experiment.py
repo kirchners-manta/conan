@@ -39,7 +39,7 @@ class GrapheneGraph:
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
         """The positions of atoms in the graphene sheet."""
-        self._kdtree = KDTree(self._positions)
+        self._kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
         """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
         spatial queries, such as searching for neighbors within a certain Euclidean distance. Such queries are often
         computationally intensive when performed over a graph, especially when dealing with direct distance rather than
@@ -253,25 +253,6 @@ class GrapheneGraph:
             elif nitrogen_species == NitrogenSpecies.PYRAZOLE:
                 # Implement pyrazole nitrogen replacement
                 pass
-
-    # def get_neighbors_within_distance(self, atom_id: int, max_distance: float) -> List[int]:
-    #     """
-    #     Get all nodes within a certain Euclidean distance from the source node.
-    #
-    #     Parameters
-    #     ----------
-    #     atom_id : int
-    #         The source node ID.
-    #     max_distance : float
-    #         The maximum distance.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of node IDs within the specified distance from the source node.
-    #     """
-    #     ego_graph = nx.ego_graph(self.graph, atom_id, radius=max_distance, distance='bond_length')
-    #     return list(ego_graph.nodes)
 
     def get_neighbors_within_distance(self, atom_id: int, distance: float) -> List[int]:
         """
@@ -605,7 +586,7 @@ def main():
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
     # write_xyz(graphene.graph, 'graphene.xyz')
-    # graphene.plot_graphene(with_labels=True)
+    graphene.plot_graphene(with_labels=True)
 
     # Find direct neighbors of a node (depth=1)
     direct_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=1)
