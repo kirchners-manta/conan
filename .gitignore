@@ -1,5 +1,6 @@
 .command_file
 /structures/
+./src/conan/structures/
 reports/
 .socket.tcl
 _autosummary/
