@@ -372,6 +372,8 @@ def trajectory_analysis(
         "minimal_distance_row": None,
         "maximal_distance": 0,
         "maximal_distance_row": None,
+        "number_of_frames": number_of_frames,
+        "counter": 0,
     }
 
     maindict = main_loop_preparation(maindict)
