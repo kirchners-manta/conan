@@ -15,7 +15,7 @@ This mode is started with the ``-c`` flag.
 
 .. code-block:: none
 
-    $ python3.10 CONAN.py -c
+    $ CONAN -c
 
 Once the mode is started, a console opens that takes in commands to build the structures:
 
