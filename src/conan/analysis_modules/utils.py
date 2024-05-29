@@ -16,25 +16,27 @@ def minimum_image_distance(box_dimension, coordinates_reference, coordinates_obs
     distances = np.sqrt(dx**2 + dy**2 + dz**2)
     return distances
 
+
 def calculate_com(molecule_df, box_size):
-    total_mass = molecule_df['Mass'].sum()
-    positions = molecule_df[['X', 'Y', 'Z']].values
+    total_mass = molecule_df["Mass"].sum()
+    positions = molecule_df[["X", "Y", "Z"]].values
     # make masses a column vector
-    masses = molecule_df['Mass'].values[:, np.newaxis]
+    masses = molecule_df["Mass"].values[:, np.newaxis]
     box_size_array = np.array(box_size, dtype=float)
 
     com = masses[0] * positions[0]
     for i in range(1, len(molecule_df)):
-        vector = positions[i] - com / masses[i-1]
+        vector = positions[i] - com / masses[i - 1]
         vector_divided = vector / box_size_array
         vector_rounded = np.around(vector_divided.astype(np.double))
         # minimum image convention
-        vector -= vector_rounded * box_size_array  
+        vector -= vector_rounded * box_size_array
         com += vector * masses[i]
 
     com /= total_mass
 
     return com
+
 
 def symbols_to_masses(symbols):
     mass_dict = ddict.dict_mass()
@@ -44,13 +46,13 @@ def symbols_to_masses(symbols):
 def grid_generator(inputdict):
 
     # first get the inputdict
-    box_size = inputdict['box_size']
-    args = inputdict['args']
+    box_size = inputdict["box_size"]
+    args = inputdict["args"]
 
     # now get the input from the user
-    x_incr = ddict.get_input('How many increments do you want to use in the x direction? ', args, 'int')
-    y_incr = ddict.get_input('How many increments do you want to use in the y direction? ', args, 'int')
-    z_incr = ddict.get_input('How many increments do you want to use in the z direction? ', args, 'int')
+    x_incr = ddict.get_input("How many increments do you want to use in the x direction? ", args, "int")
+    y_incr = ddict.get_input("How many increments do you want to use in the y direction? ", args, "int")
+    z_incr = ddict.get_input("How many increments do you want to use in the z direction? ", args, "int")
 
     # now calculate the incrementation distance
     x_incr_dist = box_size[0] / x_incr
@@ -62,7 +64,7 @@ def grid_generator(inputdict):
     y_grid = np.arange(0, box_size[1], y_incr_dist)
     z_grid = np.arange(0, box_size[2], z_incr_dist)
 
-    #dhift the grid by half the incrementation distance
+    # dhift the grid by half the incrementation distance
     x_grid = x_grid + (x_incr_dist / 2)
     y_grid = y_grid + (y_incr_dist / 2)
     z_grid = z_grid + (z_incr_dist / 2)
@@ -71,54 +73,54 @@ def grid_generator(inputdict):
     x_mesh, y_mesh, z_mesh = np.meshgrid(x_grid, y_grid, z_grid)
 
     # print the grid information
-    ddict.printLog('Incrementation distance in x direction: %0.3f Ang' % (x_incr_dist))
-    ddict.printLog('Incrementation distance in y direction: %0.3f Ang' % (y_incr_dist))
-    ddict.printLog('Incrementation distance in z direction: %0.3f Ang' % (z_incr_dist))
+    ddict.printLog("Incrementation distance in x direction: %0.3f Ang" % (x_incr_dist))
+    ddict.printLog("Incrementation distance in y direction: %0.3f Ang" % (y_incr_dist))
+    ddict.printLog("Incrementation distance in z direction: %0.3f Ang" % (z_incr_dist))
     # total number of grid points
     number_grid_points = x_incr * y_incr * z_incr
-    ddict.printLog('Total number of grid points: %d' % (number_grid_points))
+    ddict.printLog("Total number of grid points: %d" % (number_grid_points))
 
     # now return the inputdict
     outputdict = inputdict
-    outputdict['x_incr'] = x_incr
-    outputdict['y_incr'] = y_incr
-    outputdict['z_incr'] = z_incr
-    outputdict['x_incr_dist'] = x_incr_dist
-    outputdict['y_incr_dist'] = y_incr_dist
-    outputdict['z_incr_dist'] = z_incr_dist
-    outputdict['x_grid'] = x_grid
-    outputdict['y_grid'] = y_grid
-    outputdict['z_grid'] = z_grid
-    outputdict['x_mesh'] = x_mesh
-    outputdict['y_mesh'] = y_mesh
-    outputdict['z_mesh'] = z_mesh
-    outputdict['number_grid_points'] = number_grid_points
+    outputdict["x_incr"] = x_incr
+    outputdict["y_incr"] = y_incr
+    outputdict["z_incr"] = z_incr
+    outputdict["x_incr_dist"] = x_incr_dist
+    outputdict["y_incr_dist"] = y_incr_dist
+    outputdict["z_incr_dist"] = z_incr_dist
+    outputdict["x_grid"] = x_grid
+    outputdict["y_grid"] = y_grid
+    outputdict["z_grid"] = z_grid
+    outputdict["x_mesh"] = x_mesh
+    outputdict["y_mesh"] = y_mesh
+    outputdict["z_mesh"] = z_mesh
+    outputdict["number_grid_points"] = number_grid_points
 
     return outputdict
 
 
 def write_cube_file(inputdict, filename):
 
-    box_size = inputdict['box_size']
+    box_size = inputdict["box_size"]
 
     # Extract necessary data from outputdict
-    xbin_edges = box_size[0] / inputdict['x_incr'] * np.arange(inputdict['x_incr'])
-    ybin_edges = box_size[1] / inputdict['y_incr'] * np.arange(inputdict['y_incr'])
-    zbin_edges = box_size[2] / inputdict['z_incr'] * np.arange(inputdict['z_incr'])
-    
-    grid_point_densities = inputdict['grid_point_densities']
-    id_frame = inputdict['id_frame']
+    xbin_edges = box_size[0] / inputdict["x_incr"] * np.arange(inputdict["x_incr"])
+    ybin_edges = box_size[1] / inputdict["y_incr"] * np.arange(inputdict["y_incr"])
+    zbin_edges = box_size[2] / inputdict["z_incr"] * np.arange(inputdict["z_incr"])
 
-    #drop all lines in the id_frame which are labeled 'Liquid' in the 'Struc' column
-    id_frame = id_frame[id_frame['Struc'] != 'Liquid']
+    grid_point_densities = inputdict["grid_point_densities"]
+    id_frame = inputdict["id_frame"]
+
+    # drop all lines in the id_frame which are labeled 'Liquid' in the 'Struc' column
+    id_frame = id_frame[id_frame["Struc"] != "Liquid"]
 
     number_of_atoms = len(id_frame)
 
     # Open file to write
-    with open(filename, 'w') as file:
+    with open(filename, "w") as file:
         # Write the header
-        file.write('Cube file generated by density_analysis\n')
-        file.write('OUTER loop: X, MIDDLE loop: Y, INNER loop: Z\n')
+        file.write("Cube file generated by density_analysis\n")
+        file.write("OUTER loop: X, MIDDLE loop: Y, INNER loop: Z\n")
 
         # Write the number of atoms and origin
         file.write(f"{number_of_atoms} 0.00 0.00 0.00\n")
@@ -131,9 +133,30 @@ def write_cube_file(inputdict, filename):
         # Write atom information of the atoms in the id_frame
         for index, row in id_frame.iterrows():
             file.write(f"12 {row['Charge']} {row['x']} {row['y']} {row['z']}\n")
-            
+
         # Write the volumetric data
         for i, density in enumerate(grid_point_densities):
             file.write(f"{density:.5f} ")
             if (i + 1) % 6 == 0:  # 6 densities per line
                 file.write("\n")
+
+
+def wrapping_coordinates(box_size, frame):
+    # in this function we wrap the coordinates of the atoms in the split_frame.
+    # We check if there are atoms outside the simulation box and wrap them to the other side of the box.
+    # Then we check again if it worked
+    # and if not we wrap them again. We do this until all atoms are inside the simulation box.
+
+    # now get the coordinates of the split_frame
+    split_frame_coords = frame[["X", "Y", "Z"]].astype(float).values
+
+    # now check if there are atoms outside the simulation box
+    while (split_frame_coords > box_size).any() or (split_frame_coords < 0).any():
+        # now wrap the coordinates
+        split_frame_coords = np.where(split_frame_coords > box_size, split_frame_coords - box_size, split_frame_coords)
+        split_frame_coords = np.where(split_frame_coords < 0, split_frame_coords + box_size, split_frame_coords)
+
+    # now print the wrapped coordinates to the split_frame
+    frame[["X", "Y", "Z"]] = split_frame_coords
+
+    return frame

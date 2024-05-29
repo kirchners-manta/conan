@@ -133,7 +133,6 @@ def distance_search_prep(inputdict):
     structure_atoms = inputdict["id_frame"]
     # drop all rows, which are labeled 'Liquid' in the 'Struc' column
     structure_atoms = structure_atoms[structure_atoms["Struc"] != "Liquid"]
-    print(structure_atoms)
 
     # now transform the CNT atoms into a kd-tree
     structure_atoms_tree = scipy.spatial.KDTree(structure_atoms[["x", "y", "z"]].values)
@@ -141,15 +140,27 @@ def distance_search_prep(inputdict):
     # now add the structure_atoms_tree to the inputdict
     inputdict["structure_atoms_tree"] = structure_atoms_tree
 
+    inputdict["minimal_distance"] = 1000
+    inputdict["minimal_distance_row"] = None
+    inputdict["maximal_distance"] = 0
+    inputdict["maximal_distance_row"] = None
+
+    inputdict["minimal_distance_vdW"] = 1000
+    inputdict["minimal_distance_row_vdW"] = None
+    inputdict["maximal_distance_vdW"] = 0
+    inputdict["maximal_distance_row_vdW"] = None
+
     # now return the inputdict
     return inputdict
 
 
 def distance_search_analysis(inputdict):
-    # now get the inputdict
+    # get the structure atoms from the inputdict
     structure_atoms_tree = inputdict["structure_atoms_tree"]
     split_frame = inputdict["split_frame"]
-    element_radii = ddict.dict_vdW()
+
+    # check if there are any atoms outside the simulation box
+    split_frame = ut.wrapping_coordinates(inputdict["box_size"], split_frame)
 
     # now get the coordinates of the split_frame
     split_frame_coords = split_frame[["X", "Y", "Z"]].values
@@ -159,13 +170,6 @@ def distance_search_analysis(inputdict):
 
     # print the distance to an extra column in the split_frame
     split_frame["Distance"] = closest_atom_dist
-
-    # also print the closest atom to an extra column in the split_frame
-    split_frame["Closest_atom"] = closest_atom_idx
-
-    # now substrat the element radii from the distance
-    split_frame["new_Distance"] = split_frame["Distance"] - split_frame["Atom"].map(element_radii).astype(float)
-    split_frame["new_Distance"] = split_frame["Distance"] - split_frame["Closest_atom"].map(element_radii).astype(float)
 
     min_dist = split_frame["Distance"].min()
     max_dist = split_frame["Distance"].max()
@@ -192,8 +196,12 @@ def distance_search_processing(inputdict):
     minimal_distance_row = inputdict["minimal_distance_row"]
     maximal_distance_row = inputdict["maximal_distance_row"]
 
-    print("The closest atom is: ", minimal_distance_row["Atom"], " with a distance of: ", round(minimal_distance, 3))
-    print("The furthest atom is: ", maximal_distance_row["Atom"], " with a distance of: ", round(maximal_distance, 3))
+    ddict.printLog(
+        "The closest atom is: ", minimal_distance_row["Atom"], " with a distance of: ", round(minimal_distance, 2)
+    )
+    ddict.printLog(
+        "The furthest atom is: ", maximal_distance_row["Atom"], " with a distance of: ", round(maximal_distance, 2)
+    )
 
 
 # Axial density profile
@@ -300,7 +308,7 @@ def axial_density_analysis(inputdict):
     maxdisp_atom_dist = inputdict["maxdisp_atom_dist"]
     maxdisp_atom_row = inputdict["maxdisp_atom_row"]
 
-    split_frame = wrapping_coordinates(inputdict["box_size"], split_frame)
+    split_frame = ut.wrapping_coordinates(inputdict["box_size"], split_frame)
 
     # For now we concentate the edges/bins (This has to be changed in the future for the analysis on multiple CNTs).
     z_bin_edges = np.ravel(z_bin_edges)
@@ -492,30 +500,6 @@ def axial_density_processing(inputdict):
         ddict.printLog("Raw data saved as Axial_mass_dist_raw.csv")
 
 
-
-
-def wrapping_coordinates(box_size, frame):
-    # in this function we wrap the coordinates of the atoms in the split_frame.
-    # We check if there are atoms outside the simulation box and wrap them to the other side of the box. Then we check again if it worked
-    # and if not we wrap them again. We do this until all atoms are inside the simulation box.
-
-    # now get the coordinates of the split_frame
-    split_frame_coords = frame[['X', 'Y', 'Z']].astype(float).values
-
-    # now check if there are atoms outside the simulation box
-    while (split_frame_coords > box_size).any() or (split_frame_coords < 0).any():
-        # now wrap the coordinates
-        split_frame_coords = np.where(split_frame_coords > box_size, split_frame_coords - box_size, split_frame_coords)
-        split_frame_coords = np.where(split_frame_coords < 0, split_frame_coords + box_size, split_frame_coords)
-
-    # now print the wrapped coordinates to the split_frame
-    frame[['X', 'Y', 'Z']] = split_frame_coords
-
-
-    return frame
-
-
-
 # 3D density analysis
 """ What this function is about:
 
@@ -601,7 +585,7 @@ def density_analysis_analysis(inputdict):
     split_frame = inputdict["split_frame"]
     box_size = inputdict["box_size"]
     # first wrap the coordinates
-    split_frame = wrapping_coordinates(box_size, split_frame)
+    split_frame = ut.wrapping_coordinates(box_size, split_frame)
     cube_array = inputdict["cube_array"]
     grid_points_tree = inputdict["grid_points_tree"]
     grid_point_atom_labels = inputdict["grid_point_atom_labels"]

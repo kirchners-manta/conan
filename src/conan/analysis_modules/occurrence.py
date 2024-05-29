@@ -3,7 +3,7 @@ import numpy as np
 import conan.defdict as ddict
 
 """
-This function computes the occurence of finding atom Y at a distance to atom X. The maximum distance is set by te user.
+This function computes the occurence of finding atom Y at a distance to atom X. The maximum distance is set by the user.
 The function returns a dictionary with the occurence of finding atom Y at a distance to atom X.
 The occurence function thus gives a porbability of finding an atom Y at a distance to atom X.
 """
