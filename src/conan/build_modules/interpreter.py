@@ -25,7 +25,7 @@ class Interpreter:
         elif parsed_command["COMMAND"] == "remove":
             self._remove_atom(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
         elif parsed_command["COMMAND"] == "add":
-            self.current_structure.add(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
+            self.current_structure.add(parsed_command["PARAMETERS"])
             self.current_structure.print_xyz_file(".tmp")
             if self.vmd_is_running:
                 vmd.update_structure()
