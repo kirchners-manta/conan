@@ -3,7 +3,7 @@ defects
 
 The ``defects`` command currrently only creates holes in
 graphene or boronnitride sheets. For graphene the generated pores are circular
-while for boronnitride the pores are triangular. The argument ``pore_size=``
+while for boronnitride the pores are triangular. The argument ``pore_size``
 specifies  the distance between the center of the pore and the border in angstrom.
 
 example builds:
