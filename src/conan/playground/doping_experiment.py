@@ -568,6 +568,53 @@ class GrapheneGraph:
         # Show plot
         plt.show()
 
+    def plot_nodes_within_distance(self, nodes_within_distance: List[int]):
+        """
+        Plot the graphene structure with neighbors highlighted based on distance.
+
+        This method plots the entire graphene structure and highlights nodes that are within
+        a specified maximum distance from a given atom, using the bond length as the distance metric.
+
+        Parameters
+        ----------
+        nodes_within_distance : List[int]
+            A list of node IDs representing the neighbors within the given distance.
+
+        Notes
+        -----
+        The neighbors within the specified distance are highlighted in yellow, while the rest
+        of the graphene structure is displayed in its default colors.
+        """
+        # Get positions and elements of nodes
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
+
+        # Determine colors for nodes, considering nitrogen species if present
+        colors = [
+            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
+        ]
+        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
+
+        # Draw entire graphene structure with default colors
+        plt.figure(figsize=(12, 12))
+        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+
+        # Compute edges within the specified distance
+        path_edges = [
+            (u, v) for u in nodes_within_distance for v in self.graph.neighbors(u) if v in nodes_within_distance
+        ]
+
+        # Highlight the identified neighbors and their connecting edges
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=nodes_within_distance, node_color="yellow", node_size=300)
+        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
+
+        # Draw labels for nodes
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
+
+        # Show plot
+        plt.show()
+
 
 def write_xyz(graph, filename):
     with open(filename, "w") as file:
@@ -616,6 +663,9 @@ def main():
     max_distance = 5
     nodes_within_distance = graphene.get_neighbors_within_distance(atom_id, max_distance)
     print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
+
+    # Plot the nodes within the specified distance
+    graphene.plot_nodes_within_distance(nodes_within_distance)
 
 
 if __name__ == "__main__":
