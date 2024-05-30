@@ -471,7 +471,7 @@ class GrapheneGraph:
         # Show plot
         plt.show()
 
-    def plot_graphene_with_path(self, path: List[int]):
+    def plot_graphene_with_path(self, path: List[int], visualize_periodic_bonds: bool = True):
         """
         Plot the graphene structure with a highlighted path.
 
@@ -482,11 +482,14 @@ class GrapheneGraph:
         ----------
         path : List[int]
             A list of node IDs representing the path to be highlighted.
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
 
         Notes
         -----
         The path is highlighted in yellow, while the rest of the graphene structure
-        is displayed in its default colors.
+        is displayed in its default colors. Periodic boundary condition edges are
+        shown with dashed lines if visualize_periodic_bonds is True.
         """
         # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, "position")
@@ -499,11 +502,19 @@ class GrapheneGraph:
         ]
         labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
 
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
         # Initialize plot
         plt.figure(figsize=(12, 12))
 
-        # Draw entire graphene structure with default colors
-        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+        # Draw the regular edges
+        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
         # Highlight the nodes and edges in the specified path
         path_edges = list(zip(path, path[1:]))
@@ -515,7 +526,9 @@ class GrapheneGraph:
 
         plt.show()
 
-    def plot_graphene_with_depth_neighbors_based_on_bond_length(self, atom_id: int, max_distance: float):
+    def plot_graphene_with_depth_neighbors_based_on_bond_length(
+        self, atom_id: int, max_distance: float, visualize_periodic_bonds: bool = True
+    ):
         """
         Plot the graphene structure with neighbors highlighted based on bond length.
 
@@ -528,11 +541,14 @@ class GrapheneGraph:
             The ID of the atom from which distances are measured.
         max_distance : float
             The maximum bond length distance within which neighbors are highlighted.
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
 
         Notes
         -----
         The neighbors within the specified distance are highlighted in yellow, while the rest
-        of the graphene structure is displayed in its default colors.
+        of the graphene structure is displayed in its default colors. Periodic boundary condition edges are
+        shown with dashed lines if visualize_periodic_bonds is True.
         """
         # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, "position")
@@ -545,11 +561,19 @@ class GrapheneGraph:
         ]
         labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
 
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
         # Initialize plot
         plt.figure(figsize=(12, 12))
 
-        # Draw entire graphene structure with default colors
-        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+        # Draw the regular edges
+        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
         # Compute shortest path lengths from the specified atom using bond lengths
         paths = nx.single_source_dijkstra_path_length(self.graph, atom_id, cutoff=max_distance, weight="bond_length")
@@ -568,7 +592,7 @@ class GrapheneGraph:
         # Show plot
         plt.show()
 
-    def plot_nodes_within_distance(self, nodes_within_distance: List[int]):
+    def plot_nodes_within_distance(self, nodes_within_distance: List[int], visualize_periodic_bonds: bool = True):
         """
         Plot the graphene structure with neighbors highlighted based on distance.
 
@@ -579,11 +603,14 @@ class GrapheneGraph:
         ----------
         nodes_within_distance : List[int]
             A list of node IDs representing the neighbors within the given distance.
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
 
         Notes
         -----
         The neighbors within the specified distance are highlighted in yellow, while the rest
-        of the graphene structure is displayed in its default colors.
+        of the graphene structure is displayed in its default colors. Periodic boundary condition edges are
+        shown with dashed lines if visualize_periodic_bonds is True.
         """
         # Get positions and elements of nodes
         pos = nx.get_node_attributes(self.graph, "position")
@@ -596,9 +623,19 @@ class GrapheneGraph:
         ]
         labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
 
-        # Draw entire graphene structure with default colors
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
+        # Initialize plot
         plt.figure(figsize=(12, 12))
-        nx.draw(self.graph, pos, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw the regular edges
+        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
         # Compute edges within the specified distance
         path_edges = [
