@@ -2,7 +2,7 @@ build
 =====
 
 
-The build command is used to build the initial structure. The type of generated structure is controlled using the ``type=`` argument.
+The build command is used to build the initial structure. The type of generated structure is controlled using the ``type`` argument.
 Currently available structures:
 
 * graphene  (creates a 2D-graphene sheet)
