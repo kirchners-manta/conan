@@ -162,7 +162,10 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         return atom_list
 
 
-class Structure(ABC):
+class Structure(
+    ABC
+):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, sodass diese nicht selbst instanziiert werden kann, sondern
+    # nur die abgeleiteten Klassen
     """
     Represents a molecular structure. This class serves as a base for managing molecular data, designed to be abstract
     to support specific structure types derived from it.
@@ -594,7 +597,7 @@ class Structure1d(Structure):
         self._structure_df.insert(6, "Label", "X")
         counter = 1
         for i, atom in self._structure_df.iterrows():
-            self._structure_df.loc[:, ("Label", i)] = f"C{counter}"
+            self._structure_df.at[i, "Label"] = f"C{counter}"
             counter = counter + 1
         return self._structure_df
 
@@ -865,6 +868,7 @@ class Structure2d(Structure):
         new_atoms_df = pd.DataFrame(new_atoms)
         # Add a column indicating that these atoms are functional groups
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
+        new_atoms_df.columns = ["Species", "x", "y", "z", "group"]
 
         # Finally, concatenate the new atoms DataFrame to the existing structure DataFrame
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
@@ -887,11 +891,11 @@ class Structure2d(Structure):
             List[Tuple[str, float, float, float]]: The coordinates of the added group.
             # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
         """
-        # Select a position to add the group on
+        # select a position to add the group on
         selected_position = position_list[random.randint(0, len(position_list) - 1)]
-        # Randomly rotate the group
+        # randomly rotate the group
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
-        # Shift the coordinates to the selected position
+        # shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
@@ -908,9 +912,9 @@ class Structure2d(Structure):
             selected_position (List[float]): The position to add the group to.
         """
         added_group = self.group_list[0].remove_anchors()
-        # Randomly rotate the group
+        # randomly rotate the group
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
-        # Shift the coordinates to the selected position
+        # shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
@@ -974,7 +978,6 @@ class Pore(
             keywords (List[str]): The keywords for the pore.
         """
         super().__init__()  # ToDo: Superklasse wurde hier mit aufgerufen im Gegensatz zu obigem Code
-        # Call the method to build the pore structure
         self._build_pore(parameters, keywords)
 
     # INTERFACE
@@ -1025,11 +1028,11 @@ class Pore(
         # Create a carbon nanotube (CNT)
         cnt = Structure1d(parameters, keywords)
 
-        # If the user wants a closed pore, make a copy of the wall without the hole
+        # If the user wants a closed pore, we copy the wall now without the hole
         if pore_kind == 2:
             wall2 = copy.deepcopy(wall)
 
-        # Store the initial structure of the wall
+        #  Store the initial structure of the wall
         self._structure_df = wall._structure_df
 
         # Create a hole in the wall
@@ -1044,7 +1047,7 @@ class Pore(
         self.pore_center = [pore_position[1], pore_position[2]]
         self.cnt_radius = [cnt.radius]
 
-        # If the user wants an open pore, make a copy of the wall with the hole
+        # If the user wants an open pore, we copy it now with the hole
         if pore_kind == 1:
             wall2 = copy.deepcopy(wall)
 
@@ -1110,15 +1113,15 @@ class Pore(
         # Find out which wall the selected position belongs to by comparing its z-coordinate
         structure_center_z = self._structure_df["z"].max() / 2.0
 
-        # If the position is on the wall near z = 0.0, invert the group coordinates
-        # This ensures the group faces the correct direction relative to the pore's wall
+        # if the position is on the wall with z~0.0, we have to invert the group
+        # otherwise we do not change anything
         if selected_position[2] < structure_center_z:
             for atom in new_atom_coordinates:
-                atom[1] *= -1.0  # Invert x-coordinate
-                atom[2] *= -1.0  # Invert y-coordinate
-                atom[3] *= -1.0  # Invert z-coordinate
+                atom[1] *= -1.0
+                atom[2] *= -1.0
+                atom[3] *= -1.0
 
-        # Move the group to the selected position by shifting its coordinates
+        # move the group to the position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]  # Shift x-coordinate
             atom[2] += selected_position[1]  # Shift y-coordinate
@@ -1141,18 +1144,18 @@ class Pore(
             new_atom_coordinates (List[Tuple[str, float, float, float]]): The coordinates of the functional group.
             selected_position (List[float]): The position to add the group to.
         """
-        # Find the right orientation relative to the local surface normal
+        # find the right orientation relative to local surface
         normal_vector = self.find_surface_normal_vector(selected_position)
         rotation_matrix = self.rotation_matrix_from_vectors(normal_vector)
 
-        # Rotate the group according to the calculated rotation matrix
+        # finally rotate the group
         rotated_coordinates = []
         for atom in new_atom_coordinates:
-            atom_coords = np.array(atom[1:4], dtype=float)  # Ensure that atom_coords has the right datatype
+            atom_coords = np.array(atom[1:4], dtype=float)  # ensure that atom_coords has the right datatype
             rotated_coord = np.dot(rotation_matrix, atom_coords)
             rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
 
-        # Shift the rotated coordinates to the selected position
+        # shift the coordinates to the selected position
         for atom in rotated_coordinates:
             atom[1] += selected_position[0]  # Shift x-coordinate
             atom[2] += selected_position[1]  # Shift y-coordinate
@@ -1310,24 +1313,27 @@ class Boronnitride(Structure2d):
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
-        dummy_df = atoms_df[atoms_df[0] == "N"]  # Select nitrogen atoms
+        dummy_df = atoms_df[atoms_df["Species"] == "N"]  # Select nitrogen atoms
         selected_position = center_position(self.sheet_size, dummy_df)
+        # find nearest atom in x-direction to get orientation of the triangle
+        dummy_df = atoms_df[atoms_df["Species"] == "B"]
+        dummy_df = dummy_df[dummy_df["y"] > (selected_position[2] - 0.1)]
+        dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
-        dummy_df = atoms_df[atoms_df[0] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[dummy_df[2] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
-        # ToDo: dummy_df[2] ist nicht sehr lesbar -> dummy_df['y']?
-        dummy_df = dummy_df[dummy_df[2] < (selected_position[2] + 0.1)]
+        dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
+        dummy_df = dummy_df[dummy_df["y"] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
+        dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
         nearest_atom_df = dummy_df
-        nearest_atom_df[1] = nearest_atom_df[1].apply(
-            lambda x: abs(x - selected_position[1])
-        )  # ToDo: nearest_atom_df['x']?
-        nearest_atom = atoms_df.iloc[nearest_atom_df[1].idxmin()]
+        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
+        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
 
         # Calculate the vector for one side of the triangle based on the nearest atom
         orientation_vector = [
-            nearest_atom[1] - selected_position[1],  # ToDo: nearest_atom['x']?
-            nearest_atom[2] - selected_position[2],  # ToDo: nearest_atom['y']?
+            nearest_atom["x"] - selected_position["x"],
+            nearest_atom["y"] - selected_position["y"],
         ]
         magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / pore_size
         # orientation_vector[0] /= magnitude
@@ -1339,10 +1345,8 @@ class Boronnitride(Structure2d):
         ]  # ToDo: So besser lesbar als oben?
 
         # Determine the triangle tips based on the starting position and calculated orientation vector
-        # triangle_position = [selected_position[1], selected_position[2]]
         tip1 = [selected_position[1] + orientation_vector[0], selected_position[2] + orientation_vector[1]]
-        # tip2, tip3 = find_triangle_tips(triangle_position, tip1)
-        tip2, tip3 = find_triangle_tips(selected_position.values, tip1)
+        tip2, tip3 = find_triangle_tips([selected_position[1], selected_position[2]], np.array(tip1))
 
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
@@ -1449,7 +1453,7 @@ def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
     Rotates a vector by a given angle.
 
     Args:
-        vec (np.ndarray): The vector to rotate in degrees.
+        vec (np.ndarray): The vector to rotate.
         angle (float): The angle by which to rotate the vector.
 
     Returns:
