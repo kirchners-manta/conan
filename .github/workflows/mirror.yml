@@ -1,0 +1,42 @@
+name: Mirror to Public Repository
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    if: github.repository == 'kirchners-manta/conan_development'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MIRROR_ACCESS_TOKEN }}" > ~/.ssh/id_ed25519
+          cat ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cat ~/.ssh/known_hosts
+
+      - name: test checkout
+        run: |
+          ls -la
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+
+      - name: Commit and push changes to public repository
+        env:
+          GIT_SSH_COMMAND: 'ssh -i ~/.ssh/id_ed25519'
+        run: |
+          ssh -T git@github.com || true
+          git remote set-url origin git@github.com:kirchners-manta/conan.git
+          git push origin main --force
