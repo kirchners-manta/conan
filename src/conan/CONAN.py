@@ -88,7 +88,7 @@ def main():
         from conan.analysis_modules import traj_an
 
         traj_an.analysis_opt(
-            id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
+            id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
         )
 
     ddict.printLog("The program took %0.3f seconds to run." % (time.time() - start_time))

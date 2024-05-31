@@ -2,7 +2,7 @@
 
 name: check
 on:
-  pull_request:
+  push:  # ToDo: Change to 'pull_request' after the workflow is established
 
 concurrency:
   group: check-${{ github.ref }}
