@@ -3,8 +3,8 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import utils as ut
 
+import conan.analysis_modules.utils as ut
 import conan.defdict as ddict
 
 """
