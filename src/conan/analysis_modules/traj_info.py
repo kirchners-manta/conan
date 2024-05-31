@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from prettytable import PrettyTable
 from rdkit import Chem
+from rdkit.Chem import Draw
 from scipy.spatial import cKDTree
 
 import conan.defdict as ddict
@@ -146,7 +147,7 @@ def read_first_frame(file) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tu
         # Read the first frame into a dataframe. Just consider columns 3 as the atom type, 4 as the molecule and 5 6 7
         # for the (x y z) position.
         id_frame = pd.read_csv(
-            args["trajectoryfile"],
+            file,
             sep=r"\s+",
             nrows=num_atoms,
             header=None,
@@ -162,7 +163,7 @@ def read_first_frame(file) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tu
 
         # Also read the second frame into a dataframe.
         id_frame2 = pd.read_csv(
-            args["trajectoryfile"],
+            file,
             sep=r"\s+",
             nrows=num_atoms,
             header=None,
@@ -339,7 +340,7 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
     # A wall extends in two dimensions, a pore in all three dimensions.
     # First make a new dataframe with just the structure atoms.
     id_frame["Molecule"] = None
-    structure_frame = id_frame[id_frame["Struc"] is True]
+    structure_frame = id_frame[id_frame["Struc"]].copy()
 
     # if the structure_frame is empty, then there are no structures in the simulation box.
     if structure_frame.empty:
@@ -453,20 +454,29 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
 
         # The length of each pore is the difference between the maximum and minimum z coordinate.
         length_pore.append(max_z_pore[i - 1] - min_z_pore[i - 1])
+
+        # If the pore length is less than 2.0 Ang smaller than the box size,
+        # it can be considered inifinite in z direction.
+        # The the length is set to the box size.
+        if length_pore[i - 1] > box_size[2] - 2.0:
+            length_pore[i - 1] = box_size[2]
+            ddict.printLog(f"Pore{i} is considered infinite in z direction.")
         ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} Ang.")
 
         # The center of each pore is the average of the minimum and maximum z coordinate.
         center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
 
-        # The pore consists of a CNT in the center. To classify the CNT, we should get its radius. For this we just take
-        # the atoms in the pore dataframe closest to the center of the pore (with a small tolerance).
+        # The pore consists of a CNT or even multiple CNTs.
+        # To classify the CNT, we need the radius.
+        # For this we just take the atoms in the pore dataframe closest to the center of the pore.
+        # A small tolerance is added.
         pore.loc[:, "z_distance"] = abs(pore["z"] - center_pore[i - 1])
         pore = pore.sort_values(by=["z_distance"])
         lowest_z = pore.iloc[0]["z_distance"] + 0.02
         CNT_ring = pore[pore["z_distance"] <= lowest_z].copy()
 
-        # Delete all atoms in the CNT_ring dataframe, which are more than 0.1 angstrom away in the z direction from the
-        # first atom in the CNT_ring dataframe.
+        # Delete all atoms in the CNT_ring dataframe, which are more than 0.1 angstrom away in the z direction
+        # from the first atom in the CNT_ring dataframe.
         CNT_ring.loc[:, "z_distance"] = abs(CNT_ring["z"] - CNT_ring.iloc[0]["z"])
         CNT_ring = CNT_ring[CNT_ring["z_distance"] <= 0.1]
 
@@ -524,13 +534,10 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
 
 
 def SortTuple(tup):
-    # Getting the length of list
-    # of tuples
     n = len(tup)
 
     for i in range(n):
         for j in range(n - i - 1):
-
             if tup[j][0] > tup[j + 1][0]:
                 tup[j], tup[j + 1] = tup[j + 1], tup[j]
 
@@ -647,13 +654,13 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
     for i, row in unique_molecule_frame.iterrows():
         row["Atoms_sym"] = SortTuple(row["Atoms_sym"])
 
-    # Now get the chemical formulas of the unique molecules by simply counting the number of atoms of each element in
-    # the Atoms_sym column
+    # Get the chemical formulas of the unique molecules by simply counting the number of atoms of each element
+    # in the Atoms_sym column
     unique_molecule_frame["Molecule"] = unique_molecule_frame["Atoms_sym"].apply(
         lambda x: "".join(f"{element}{count}" for element, count in Counter(x).items())
     )
 
-    # Now adjust the labels in molecule_frame to include the molecule kind.
+    # Adjust the labels in molecule_frame to include the molecule kind.
     for i, row in unique_molecule_frame.iterrows():
         for i2, row2 in molecule_frame.iterrows():
             if sorted(row["Bonds_sym"]) == sorted(row2["Bonds_sym"]):
@@ -672,11 +679,11 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
 
     old_max_species = max_species
 
-    # Finally identify which atoms in the id_frame are not identified yet (single atoms/ions). They have no entry in
-    # the Species column.
-    # All atom of the same element ('Element') column should have the same species ('Species') number. If not, they are
-    # assigned a new species number.
-    # Loop thorough all elements in the id_frame, if they have None in the Species column, assign a new species number.
+    # Identify which atoms in the id_frame are not identified yet (single atoms/ions).
+    # They have no entry in the Species column.
+    # All atom of the same element ('Element') column should have the same species ('Species') number.
+    # If not, they are assigned a new species number.
+    # Loop through all elements in the id_frame, if they have None in the Species column, assign a new species number.
     for element in id_frame["Element"].unique():
         if id_frame[id_frame["Element"] == element]["Species"].isnull().any():
             id_frame.loc[id_frame["Element"] == element, "Species"] = int(max_species) + 1
@@ -727,14 +734,11 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
     # make a new dataframe with the columns 'Species' and 'Atom_count' and 'Molecule_count'
     molecule_count = pd.DataFrame()
     molecule_count["Atom_count"] = id_frame["Species"].value_counts()
-
-    # Reset the index
     molecule_count.reset_index(inplace=True)
 
     # Now 'Species' is no longer an index, so we can create the column
     molecule_count.rename(columns={"index": "Species"}, inplace=True)
 
-    # molecule_count = molecule_count.sort_values(by='Species')
     molecule_count = molecule_count.sort_values(by="Species").reset_index(drop=True)
 
     # Now the number of molecules is the Atom_count divided by the number of atoms in each species. Therefore we need
@@ -745,23 +749,21 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
     # Change the molecule count to integer values.
     molecule_count["Molecule_count"] = molecule_count["Molecule_count"].astype(int)
 
-    # Set the index in the dataframes to +=1.
     unique_molecule_frame.index += 1
     molecule_count.index += 1
 
-    # Print this information in a nice table
+    # Print the information
     table = PrettyTable()
     table.field_names = ["Species", "Chemical formula", "No. molecules", "No. atoms per molecule"]
 
     for i, row in unique_molecule_frame.iterrows():
         table.add_row([i, row["Molecule"], int(molecule_count["Molecule_count"][i]), len(row["Atoms"])])
 
-    # Print the results
     ddict.printLog(" ")
     ddict.printLog(table)
 
     for i, row in unique_molecule_frame.iterrows():
-        # Create a new graph if the molecule is smaller than 50
+        # Create a new graph (if the molecule is smaller than 50)
         if len(row["Atoms"]) < 50 and len(row["Atoms"]) > 1:
             mol = nx.Graph()
 
@@ -801,7 +803,7 @@ def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
 
             # Generate a 2D depiction
             rdkit_mol.UpdatePropertyCache(strict=False)
-            Chem.Draw.rdDepictor.Compute2DCoords(rdkit_mol)
+            Draw.rdDepictor.Compute2DCoords(rdkit_mol)
 
             # Create a drawer with atom options
             drawer = Chem.Draw.rdMolDraw2D.MolDraw2DCairo(500, 500)
