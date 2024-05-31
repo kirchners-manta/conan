@@ -1,6 +1,6 @@
 name: doc
 on:
-  pull_request:
+  push:  # ToDo: Change to 'pull_request' after the workflow is established
 
 jobs:
   doc:
