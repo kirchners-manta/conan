@@ -14,7 +14,7 @@ from conan.analysis_modules import traj_info
 
 
 # Information on the trajectory / cutting the frames into chunks
-def traj_chunk_info(id_frame):
+def traj_chunk_info(id_frame, args):
     # GENERAL INFORMATION ON CHUNKS
     ddict.printLog("-> Reading the trajectory.\n")
     trajectory_file_size = os.path.getsize(args["trajectoryfile"])
@@ -71,7 +71,7 @@ def traj_chunk_info(id_frame):
 
 # MAIN
 def analysis_opt(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
+    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
 ) -> None:
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
@@ -80,12 +80,12 @@ def analysis_opt(
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(id_frame, CNT_centers, box_size)
+        generating_pictures(id_frame, CNT_centers, box_size, args)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
             trajectory_analysis(
-                id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
+                id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
             )
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
@@ -95,7 +95,7 @@ def analysis_opt(
 
 
 # Generating pictures.
-def generating_pictures(id_frame, CNT_centers, box_size) -> None:
+def generating_pictures(id_frame, CNT_centers, box_size, args) -> None:
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
     ddict.printLog("(3) Produce xyz file of the pore structures' tube.")
@@ -227,18 +227,18 @@ def generating_pictures(id_frame, CNT_centers, box_size) -> None:
 
 # Analysis of the trajectory.
 def trajectory_analysis(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions
+    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
 ) -> None:
     # Analysis choice.
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
-    ddict.printLog("(3) Calculate the accessibe volume of the CNT")
-    ddict.printLog("(4) Calculate the average density along the z axis of the simulation box")
-    ddict.printLog("(5) Calculate the coordination number")
-    ddict.printLog("(6) Calculate the distance between liquid and pore atoms")
-    ddict.printLog("(7) Calculate the density of the liquid in the simulation box.")
-    ddict.printLog("(8) Calculate the velocity of the liquid in the simulation box.")
-    ddict.printLog("(9) Calculate the radial velocity of the liquid in the CNT.")
+    ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
+    ddict.printLog("(4) Calculate the accessibe volume of the CNT")
+    ddict.printLog("(5) Calculate the average density along the z axis of the simulation box")
+    ddict.printLog("(6) Calculate the coordination number")
+    ddict.printLog("(7) Calculate the distance between liquid and pore atoms")
+    ddict.printLog("(8) Calculate the density of the liquid in the simulation box.")
+
     # ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
     analysis_choice2 = int(ddict.get_input("Which analysis should be conducted?:  ", args, "int"))
     analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -276,7 +276,7 @@ def trajectory_analysis(
         number_of_chunks,
         chunk_size,
         last_chunk_size,
-    ) = traj_chunk_info(id_frame)
+    ) = traj_chunk_info(id_frame, args)
 
     # PREPERATION
     # Main loop preperation.
@@ -306,44 +306,35 @@ def trajectory_analysis(
         from conan.analysis_modules.rad_dens import raddens_post_processing as post_processing
 
     if analysis_choice2 == 3:
+        from conan.analysis_modules.rad_velocity import rad_velocity_analysis as analysis
+        from conan.analysis_modules.rad_velocity import rad_velocity_prep as main_loop_preparation
+        from conan.analysis_modules.rad_velocity import rad_velocity_processing as post_processing
+
+    if analysis_choice2 == 4:
         from conan.analysis_modules.axial_dens import accessible_volume_analysis as analysis
         from conan.analysis_modules.axial_dens import accessible_volume_prep as main_loop_preparation
         from conan.analysis_modules.axial_dens import accessible_volume_processing as post_processing
 
-    if analysis_choice2 == 4:
+    if analysis_choice2 == 5:
         from conan.analysis_modules.axial_dens import axial_density_analysis as analysis
         from conan.analysis_modules.axial_dens import axial_density_prep as main_loop_preparation
         from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
 
-    if analysis_choice2 == 5:
+    if analysis_choice2 == 6:
         from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
         from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
         from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
         from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
 
-    if analysis_choice2 == 6:
+    if analysis_choice2 == 7:
         from axial_dens import distance_search_analysis as analysis
         from axial_dens import distance_search_prep as main_loop_preparation
         from axial_dens import distance_search_processing as post_processing
 
-    if analysis_choice2 == 7:
+    if analysis_choice2 == 8:
         from axial_dens import density_analysis_analysis as analysis
         from axial_dens import density_analysis_prep as main_loop_preparation
         from axial_dens import density_analysis_processing as post_processing
-
-    if analysis_choice2 == 8:
-        from velocity import velocity_analysis as analysis
-        from velocity import velocity_prep as main_loop_preparation
-        from velocity import velocity_processing as post_processing
-
-    if analysis_choice2 == 9:
-        from velocity import rad_velocity_analysis as analysis
-        from velocity import rad_velocity_prep as main_loop_preparation
-        from velocity import rad_velocity_processing as post_processing
-
-    if analysis_choice2 == 10:
-        from occurrence import occurrence_analysis as analysis
-        from occurrence import occurrence_prep as main_loop_preparation
 
         # from occurrence import occurrence_processing as post_processing
 
@@ -368,10 +359,8 @@ def trajectory_analysis(
         "maxdisp_atom_dist": maxdisp_atom_dist,
         "id_frame": id_frame,
         "do_xyz_analysis": "n",
-        "minimal_distance": 1000,
-        "minimal_distance_row": None,
-        "maximal_distance": 0,
-        "maximal_distance_row": None,
+        "number_of_frames": number_of_frames,
+        "counter": 0,
     }
 
     maindict = main_loop_preparation(maindict)
@@ -469,7 +458,7 @@ def trajectory_analysis(
     # DATA PROCESSING
     post_processing(maindict)
 
-    ddict.printLog("The main loop took %0.3f seconds to run" % (time.time() - Main_time))
+    ddict.printLog("The main loop took %0.3f seconds to run." % (time.time() - Main_time))
 
 
 if __name__ == "__main__":
