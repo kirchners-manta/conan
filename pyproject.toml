@@ -148,7 +148,8 @@ doc = [
     "sphinx-rtd-theme==2.0.0",
 ]
 lint = [
-    "flake8"
+    "flake8",
+    "black",
 ]
 code-style = [
     "isort",
