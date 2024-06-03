@@ -12,6 +12,10 @@ from scipy.spatial import KDTree
 class NitrogenSpecies(Enum):
     GRAPHITIC = "graphitic"
     PYRIDINIC = "pyridinic"
+    PYRIDINIC_1 = "pyridinic_1"
+    PYRIDINIC_2 = "pyridinic_2"
+    PYRIDINIC_3 = "pyridinic_3"
+    PYRIDINIC_4 = "pyridinic_4"
     PYRROLIC = "pyrrolic"
     PYRAZOLE = "pyrazole"
 
@@ -167,7 +171,7 @@ class GrapheneGraph:
             zip(bottom_right_indices, top_left_indices + 3), bond_length=self.bond_distance, periodic=True
         )
 
-    def add_nitrogen_doping(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
+    def add_nitrogen_doping_old(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
         """
         Add nitrogen doping to the graphene sheet.
 
@@ -253,6 +257,153 @@ class GrapheneGraph:
             elif nitrogen_species == NitrogenSpecies.PYRAZOLE:
                 # Implement pyrazole nitrogen replacement
                 pass
+
+    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+        """
+        Add nitrogen doping to the graphene sheet.
+
+        Parameters
+        ----------
+        total_percentage : float, optional
+            The total percentage of carbon atoms to replace with nitrogen atoms.
+        percentages : dict, optional
+            A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
+            values and values should be the percentages for the corresponding species.
+
+        Raises
+        ------
+        ValueError
+            If the specific percentages are not valid.
+        """
+        if percentages:
+            if total_percentage is None:
+                total_percentage = sum(percentages.values())
+            else:
+                specific_total_percentage = sum(percentages.values())
+                if specific_total_percentage != total_percentage:
+                    raise ValueError(
+                        f"The total specific percentages {specific_total_percentage}% do not match the total_percentage"
+                        f" {total_percentage}%."
+                    )
+        else:
+            if total_percentage is None:
+                total_percentage = 10  # Default total percentage
+            # Default distribution if no specific percentages are provided
+            percentages = {
+                NitrogenSpecies.GRAPHITIC: total_percentage * 0.5,
+                NitrogenSpecies.PYRIDINIC_1: total_percentage * 0.075,
+                NitrogenSpecies.PYRIDINIC_2: total_percentage * 0.075,
+                NitrogenSpecies.PYRIDINIC_3: total_percentage * 0.075,
+                NitrogenSpecies.PYRIDINIC_4: total_percentage * 0.075,
+                NitrogenSpecies.PYRROLIC: total_percentage * 0.1,
+                NitrogenSpecies.PYRAZOLE: total_percentage * 0.05,
+            }
+
+        # Calculate the number of nitrogen atoms to add based on the given percentage
+        num_atoms = self.graph.number_of_nodes()
+        specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
+
+        # Add nitrogen atoms for each specified nitrogen species
+        for species, num_nitrogen_atoms in specific_num_nitrogen.items():
+            self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+
+    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species):
+        """
+        Add nitrogen atoms of a specific species to the graphene sheet.
+
+        Parameters
+        ----------
+        num_nitrogen : int
+            The number of nitrogen atoms to add.
+        nitrogen_species : NitrogenSpecies or PyridinicTypes
+            The type of nitrogen doping to add.
+
+        Notes
+        -----
+        This method randomly replaces carbon atoms with nitrogen atoms of the specified species.
+        """
+        # Get a list of all carbon atoms in the graphene sheet
+        carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
+
+        # Initialize an empty list to store the chosen atoms for nitrogen doping
+        chosen_atoms = []
+
+        # Randomly select carbon atoms to replace with nitrogen, ensuring proximity constraints
+        while len(chosen_atoms) < num_nitrogen and carbon_atoms:
+            # Randomly select a carbon atom from the list
+            atom_id = random.choice(carbon_atoms)
+            # Get the direct neighbors of the selected atom
+            neighbors = self.get_neighbors_via_edges(atom_id)
+            # Get the elements and nitrogen species of the neighbors
+            neighbor_elements = [
+                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
+                for neighbor in neighbors
+            ]
+
+            # Check if all neighbors are not nitrogen atoms
+            if all(elem != "N" for elem, _ in neighbor_elements):
+                # self._implement_species_specific_changes(chosen_atoms, nitrogen_species)
+
+                # Implement species-specific changes for nitrogen doping
+                if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+                    # Add the selected atom to the list of chosen atoms
+                    chosen_atoms.append(atom_id)
+                    # Update the selected atom's element to nitrogen and set its nitrogen species
+                    self.graph.nodes[atom_id]["element"] = "N"
+                    self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
+                    # Remove the selected atom and its neighbors from the list of potential carbon atoms
+                    carbon_atoms.remove(atom_id)
+                    for neighbor in neighbors:
+                        if neighbor in carbon_atoms:
+                            carbon_atoms.remove(neighbor)
+
+        # Warn if not all requested nitrogen atoms could be placed
+        if len(chosen_atoms) < num_nitrogen:
+            print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
+
+    def _implement_species_specific_changes(self, chosen_atoms, nitrogen_species):
+        """
+        Implement species-specific changes for nitrogen doping.
+
+        Parameters
+        ----------
+        chosen_atoms : list
+            List of atom IDs where nitrogen doping has been applied.
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping applied.
+
+        Notes
+        -----
+        This method modifies the graphene structure based on the type of nitrogen doping.
+        """
+        if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            return
+        elif nitrogen_species in {
+            NitrogenSpecies.PYRIDINIC_1,
+            NitrogenSpecies.PYRIDINIC_2,
+            NitrogenSpecies.PYRIDINIC_3,
+            NitrogenSpecies.PYRIDINIC_4,
+        }:
+            for atom_id in chosen_atoms:
+                # neighbors = self.get_neighbors_via_edges(atom_id)
+                if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+                    # Replace 1 carbon atom to form pyridinic nitrogen structure
+                    pass
+                elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+                    # Replace 2 carbon atoms to form pyridinic nitrogen structure
+                    pass
+                elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
+                    # Replace 3 carbon atoms to form pyridinic nitrogen structure
+                    pass
+                elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+                    # Replace 4 carbon atoms to form pyridinic nitrogen structure
+                    pass
+        elif nitrogen_species == NitrogenSpecies.PYRROLIC:
+            # Implement pyrrolic nitrogen replacement
+            pass
+        elif nitrogen_species == NitrogenSpecies.PYRAZOLE:
+            # Implement pyrazole nitrogen replacement
+            pass
 
     def get_neighbors_within_distance(self, atom_id: int, distance: float) -> List[int]:
         """
@@ -665,7 +816,7 @@ def write_xyz(graph, filename):
 
 def main():
     # Set seed for reproducibility
-    # random.seed(42)
+    random.seed(42)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -684,7 +835,10 @@ def main():
     inclusive_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=2, inclusive=True)
     print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
 
-    graphene.add_nitrogen_doping(10, NitrogenSpecies.GRAPHITIC)
+    # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
