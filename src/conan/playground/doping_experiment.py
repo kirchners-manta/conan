@@ -307,7 +307,7 @@ class GrapheneGraph:
         for species, num_nitrogen_atoms in specific_num_nitrogen.items():
             self._add_nitrogen_atoms(num_nitrogen_atoms, species)
 
-    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species):
+    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
         """
         Add nitrogen atoms of a specific species to the graphene sheet.
 
@@ -378,7 +378,12 @@ class GrapheneGraph:
                         pass
                     elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                         # Replace 2 carbon atoms to form pyridinic nitrogen structure
-                        pass
+                        selected_neighbors = random.sample(neighbors, 2)
+                        for neighbor in selected_neighbors:
+                            self.graph.nodes[neighbor]["element"] = "N"
+                            self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                            # Add the neighbor to the list of chosen atoms
+                            chosen_atoms.append(neighbor)
                     elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
                         # Replace 3 carbon atoms to form pyridinic nitrogen structure
                         for neighbor in neighbors:
@@ -849,7 +854,7 @@ def write_xyz(graph, filename):
 
 def main():
     # Set seed for reproducibility
-    random.seed(42)
+    # random.seed(42)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -871,7 +876,7 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 10})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
