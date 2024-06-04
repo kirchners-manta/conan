@@ -603,6 +603,10 @@ class GrapheneGraph:
         colors = {"C": "black"}
         nitrogen_colors = {
             NitrogenSpecies.PYRIDINIC: "blue",
+            NitrogenSpecies.PYRIDINIC_1: "blue",
+            NitrogenSpecies.PYRIDINIC_2: "blue",
+            NitrogenSpecies.PYRIDINIC_3: "blue",
+            NitrogenSpecies.PYRIDINIC_4: "blue",
             NitrogenSpecies.GRAPHITIC: "red",
             NitrogenSpecies.PYRROLIC: "cyan",
             NitrogenSpecies.PYRAZOLE: "green",
