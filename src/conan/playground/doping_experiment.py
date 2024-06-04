@@ -323,15 +323,15 @@ class GrapheneGraph:
         This method randomly replaces carbon atoms with nitrogen atoms of the specified species.
         """
         # Get a list of all carbon atoms in the graphene sheet
-        carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
+        possible_carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
 
         # Initialize an empty list to store the chosen atoms for nitrogen doping
         chosen_atoms = []
 
         # Randomly select carbon atoms to replace with nitrogen, ensuring proximity constraints
-        while len(chosen_atoms) < num_nitrogen and carbon_atoms:
+        while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms:
             # Randomly select a carbon atom from the list
-            atom_id = random.choice(carbon_atoms)
+            atom_id = random.choice(possible_carbon_atoms)
             # Get the direct neighbors of the selected atom
             neighbors = self.get_neighbors_via_edges(atom_id)
             # Get the elements and nitrogen species of the neighbors
@@ -350,10 +350,10 @@ class GrapheneGraph:
                     self.graph.nodes[atom_id]["element"] = "N"
                     self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
                     # Remove the selected atom and its neighbors from the list of potential carbon atoms
-                    carbon_atoms.remove(atom_id)
+                    possible_carbon_atoms.remove(atom_id)
                     for neighbor in neighbors:
-                        if neighbor in carbon_atoms:
-                            carbon_atoms.remove(neighbor)
+                        if neighbor in possible_carbon_atoms:
+                            possible_carbon_atoms.remove(neighbor)
             elif nitrogen_species in {
                 NitrogenSpecies.PYRIDINIC_1,
                 NitrogenSpecies.PYRIDINIC_2,
@@ -364,14 +364,20 @@ class GrapheneGraph:
                 neighbors_len_2 = self.get_neighbors_via_edges(atom_id, depth=2, inclusive=True)
                 # Check if all neighbors until length two are not nitrogen atoms
                 if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_2]):
-                    # Remove the selected atom and its neighbors of length two from the list of potential carbon atoms
-                    carbon_atoms.remove(atom_id)
-                    for neighbor in neighbors_len_2:
-                        if neighbor in carbon_atoms:
-                            carbon_atoms.remove(neighbor)
-
                     # Remove the selected atom from the graph
                     self.graph.remove_node(atom_id)
+
+                    # # Remove the selected atom and its neighbors of length two from the list of potential carbon atoms
+                    # possible_carbon_atoms.remove(atom_id)
+                    # for neighbor in neighbors_len_2:
+                    #     if neighbor in possible_carbon_atoms:
+                    #         possible_carbon_atoms.remove(neighbor)
+
+                    # Remove the selected atom and the atoms in the built cycle from the list of potential carbon atoms
+                    # nodes_to_exclude = self.find_specific_cycle(neighbors_len_2)
+                    nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors_len_2)
+                    possible_carbon_atoms.remove(atom_id)
+                    possible_carbon_atoms.remove(nodes_to_exclude)
 
                     if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
                         # Replace 1 carbon atom to form pyridinic nitrogen structure
@@ -398,6 +404,72 @@ class GrapheneGraph:
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
             print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
+
+    def find_specific_cycle(self, neighbors):
+        """
+        Find the specific cycle in the graph that includes all the given neighbors.
+
+        Parameters
+        ----------
+        graph : nx.Graph
+            The graph in which to find the cycle.
+        neighbors : list
+            A list of nodes (neighbors) that should be included in the cycle.
+
+        Returns
+        -------
+        list
+            The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+        """
+        # Find all cycles in the graph
+        cycle = nx.find_cycle(self.graph, neighbors)
+
+        return cycle
+
+    def find_min_cycle_including_neighbors(self, neighbors):
+        """
+        Find the minimum cycle in the graph that includes all the given neighbors.
+
+        Parameters
+        ----------
+        neighbors : list
+            A list of nodes (neighbors) that should be included in the cycle.
+
+        Returns
+        -------
+        list
+            The minimum cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+        """
+
+        def bfs_min_cycle(graph, start_node, target_nodes):
+            visited = {start_node: None}
+            queue = [start_node]
+
+            while queue:
+                current_node = queue.pop(0)
+                for neighbor in graph.neighbors(current_node):
+                    if neighbor not in visited:
+                        visited[neighbor] = current_node
+                        queue.append(neighbor)
+                    elif visited[current_node] != neighbor and visited[neighbor] != current_node:
+                        cycle = [current_node, neighbor]
+                        # Backtrack to form the cycle
+                        while current_node != start_node:
+                            current_node = visited[current_node]
+                            cycle.append(current_node)
+                        return cycle
+
+            return None
+
+        min_cycle = None
+
+        for neighbor in neighbors:
+            cycle = bfs_min_cycle(self.graph, neighbor, neighbors)
+            if cycle:
+                if min_cycle is None or len(cycle) < len(min_cycle):
+                    min_cycle = cycle
+
+        return min_cycle if min_cycle else []
 
     def _implement_species_specific_changes(self, chosen_atoms, nitrogen_species):
         """
@@ -858,7 +930,7 @@ def write_xyz(graph, filename):
 
 def main():
     # Set seed for reproducibility
-    # random.seed(42)
+    random.seed(42)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -880,7 +952,7 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 10})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
