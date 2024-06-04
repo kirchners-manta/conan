@@ -315,7 +315,7 @@ class GrapheneGraph:
         ----------
         num_nitrogen : int
             The number of nitrogen atoms to add.
-        nitrogen_species : NitrogenSpecies or PyridinicTypes
+        nitrogen_species : NitrogenSpecies
             The type of nitrogen doping to add.
 
         Notes
@@ -340,12 +340,10 @@ class GrapheneGraph:
                 for neighbor in neighbors
             ]
 
-            # Check if all neighbors are not nitrogen atoms
-            if all(elem != "N" for elem, _ in neighbor_elements):
-                # self._implement_species_specific_changes(chosen_atoms, nitrogen_species)
-
-                # Implement species-specific changes for nitrogen doping
-                if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            # Implement species-specific changes for nitrogen doping
+            if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+                # Check if all neighbors are not nitrogen atoms
+                if all(elem != "N" for elem, _ in neighbor_elements):
                     # Add the selected atom to the list of chosen atoms
                     chosen_atoms.append(atom_id)
                     # Update the selected atom's element to nitrogen and set its nitrogen species
@@ -356,6 +354,41 @@ class GrapheneGraph:
                     for neighbor in neighbors:
                         if neighbor in carbon_atoms:
                             carbon_atoms.remove(neighbor)
+            elif nitrogen_species in {
+                NitrogenSpecies.PYRIDINIC_1,
+                NitrogenSpecies.PYRIDINIC_2,
+                NitrogenSpecies.PYRIDINIC_3,
+                NitrogenSpecies.PYRIDINIC_4,
+            }:
+                # Get the neighbors until length two of the selected atom
+                neighbors_len_2 = self.get_neighbors_via_edges(atom_id, depth=2, inclusive=True)
+                # Check if all neighbors until length two are not nitrogen atoms
+                if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_2]):
+                    # Remove the selected atom and its neighbors of length two from the list of potential carbon atoms
+                    carbon_atoms.remove(atom_id)
+                    for neighbor in neighbors_len_2:
+                        if neighbor in carbon_atoms:
+                            carbon_atoms.remove(neighbor)
+
+                    # Remove the selected atom from the graph
+                    self.graph.remove_node(atom_id)
+
+                    if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+                        # Replace 1 carbon atom to form pyridinic nitrogen structure
+                        pass
+                    elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+                        # Replace 2 carbon atoms to form pyridinic nitrogen structure
+                        pass
+                    elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
+                        # Replace 3 carbon atoms to form pyridinic nitrogen structure
+                        for neighbor in neighbors:
+                            self.graph.nodes[neighbor]["element"] = "N"
+                            self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                            # Add the neighbor to the list of chosen atoms
+                            chosen_atoms.append(neighbor)
+                    elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+                        # Replace 4 carbon atoms to form pyridinic nitrogen structure
+                        pass
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -838,7 +871,7 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
