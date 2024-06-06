@@ -249,7 +249,7 @@ def trajectory_analysis(
 
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
-    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
+    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
     # species_max = id_frame["Species"].max()
     spec_molecule = 0
     spec_atom = []

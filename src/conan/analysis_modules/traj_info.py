@@ -42,7 +42,8 @@ def read_lammps_frame(f, atom_positions):
     return id_frame, data_list
 
 
-def read_first_frame(file) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
+def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
+    file = args["trajectoryfile"]
     # If file is in XYZ format:
     if file.endswith(".xyz"):
 
@@ -335,7 +336,9 @@ def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[lis
 
 
 # Structure recognition section.
-def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list, list, list, list, list, list, list]:
+def structure_recognition(
+    id_frame, box_size, args
+) -> Tuple[pd.DataFrame, list, list, list, list, list, list, list, list]:
     # Identify all solid structures in the simulation box and identify if it is a wall or a pore.
     # A wall extends in two dimensions, a pore in all three dimensions.
     # First make a new dataframe with just the structure atoms.
@@ -345,192 +348,201 @@ def structure_recognition(id_frame, box_size) -> Tuple[pd.DataFrame, list, list,
     # if the structure_frame is empty, then there are no structures in the simulation box.
     if structure_frame.empty:
         ddict.printLog(
-            "No structures were found in the simulation box. If there are structures, make sure they are not moving."
+            "No structures were found in the simulation box. If there are structures, make sure they are not moving.\n",
+            color="red",
         )
         sys.exit()
+        # define_struc = ddict.get_input("Manually define the structures? [y/n]: ", args, "str")
+        # if define_struc == "n":
+        #    sys.exit()
+        # else:
+        #    id_frame, unique_molecule_frame = molecule_recognition(id_frame, box_size, args)
+    else:
+        # convert the first dataframe to a list of dictionaries. We also need to store the atom index.
+        str_atom_list = []
+        for index, row in structure_frame.iterrows():
+            entry = {
+                "Atom": index,
+                "element": str(row["Element"]),
+                "x": float(row["x"]),
+                "y": float(row["y"]),
+                "z": float(row["z"]),
+            }
+            str_atom_list.append(entry)
 
-    # convert the first dataframe to a list of dictionaries. We also need to store the atom index.
-    str_atom_list = []
-    for index, row in structure_frame.iterrows():
-        entry = {
-            "Atom": index,
-            "element": str(row["Element"]),
-            "x": float(row["x"]),
-            "y": float(row["y"]),
-            "z": float(row["z"]),
-        }
-        str_atom_list.append(entry)
+        # Identify the structures and the bonds
+        molecules_struc, molecule_bonds_struc = identify_molecules_and_bonds(str_atom_list, box_size)
 
-    # Identify the structures and the bonds
-    molecules_struc, molecule_bonds_struc = identify_molecules_and_bonds(str_atom_list, box_size)
+        for i, molecule in enumerate(molecules_struc):
+            id_frame.loc[molecule, "Molecule"] = i + 1
+            structure_frame.loc[molecule, "Molecule"] = i + 1
 
-    for i, molecule in enumerate(molecules_struc):
-        id_frame.loc[molecule, "Molecule"] = i + 1
-        structure_frame.loc[molecule, "Molecule"] = i + 1
+        # Identify the wall and the pore
+        CNTs = []
+        counter_pore = 0
+        Walls = []
+        Walls_positions = []
+        counter_wall = 0
 
-    # Identify the wall and the pore
-    CNTs = []
-    counter_pore = 0
-    Walls = []
-    Walls_positions = []
-    counter_wall = 0
+        # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
+        structure_frame_copy = structure_frame.copy()
 
-    # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
-    structure_frame_copy = structure_frame.copy()
+        # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each
+        # respective one.
+        # If the difference in x, y and z is larger than 1.0, it is a pore.
+        # If it is smaller in one direction, it is a wall.
+        for i in range(1, len(molecules_struc) + 1):
+            x_max = structure_frame.loc[structure_frame["Molecule"] == i, "x"].max()
+            x_min = structure_frame.loc[structure_frame["Molecule"] == i, "x"].min()
+            y_max = structure_frame.loc[structure_frame["Molecule"] == i, "y"].max()
+            y_min = structure_frame.loc[structure_frame["Molecule"] == i, "y"].min()
+            z_max = structure_frame.loc[structure_frame["Molecule"] == i, "z"].max()
+            z_min = structure_frame.loc[structure_frame["Molecule"] == i, "z"].min()
+            if (x_max - x_min) > 1.0 and (y_max - y_min) > 1.0 and (z_max - z_min) > 1.0:
 
-    # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each
-    # respective one.
-    # If the difference in x, y and z is larger than 1.0, it is a pore. If it is smaller in one direction, it is a wall.
-    for i in range(1, len(molecules_struc) + 1):
-        x_max = structure_frame.loc[structure_frame["Molecule"] == i, "x"].max()
-        x_min = structure_frame.loc[structure_frame["Molecule"] == i, "x"].min()
-        y_max = structure_frame.loc[structure_frame["Molecule"] == i, "y"].max()
-        y_min = structure_frame.loc[structure_frame["Molecule"] == i, "y"].min()
-        z_max = structure_frame.loc[structure_frame["Molecule"] == i, "z"].max()
-        z_min = structure_frame.loc[structure_frame["Molecule"] == i, "z"].min()
-        if (x_max - x_min) > 1.0 and (y_max - y_min) > 1.0 and (z_max - z_min) > 1.0:
+                # If the structure consists of Gold or silver atoms, it is a wall (with a certain thickness)
+                if structure_frame.loc[structure_frame["Molecule"] == i, "Element"].isin(["Au", "Ag"]).any():
+                    counter_wall += 1
+                    ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}\n")
+                    structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Wall{counter_wall}"
+                    Walls.append(f"Wall{counter_wall}")
+                    # Get the z position of the wall (max and min)
 
-            # If the structure consists of Gold or silver atoms, it is a wall (with a certain thickness)
-            if structure_frame.loc[structure_frame["Molecule"] == i, "Element"].isin(["Au", "Ag"]).any():
+                    Walls_positions.append(z_min)
+                    continue
+
+                counter_pore += 1
+                ddict.printLog(f"Structure {i} is a pore, labeled Pore{counter_pore}\n")
+
+                # Change the structure column to pore{i}
+                structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Pore{counter_pore}"
+                CNTs.append(f"Pore{counter_pore}")
+
+            # If the difference in x, y and z is smaller than 1.0, it is a wall.
+            elif (x_max - x_min) < 1.0 or (y_max - y_min) < 1.0 or (z_max - z_min) < 1.0:
                 counter_wall += 1
-                ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}\n")
+                ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
+                if (x_max - x_min) < 1.0:
+                    ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} Ang.\n")
+                if (y_max - y_min) < 1.0:
+                    ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} Ang.\n")
+                if (z_max - z_min) < 1.0:
+                    ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} Ang.\n")
+                    Walls_positions.append(z_min)
                 structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Wall{counter_wall}"
                 Walls.append(f"Wall{counter_wall}")
-                # Get the z position of the wall (max and min)
 
-                Walls_positions.append(z_min)
-                continue
+        # Copy the structure frame back to the original structure frame.
+        structure_frame = structure_frame_copy
 
-            counter_pore += 1
-            ddict.printLog(f"Structure {i} is a pore, labeled Pore{counter_pore}\n")
+        # Finally put the structure information back into the original dataframe.
+        id_frame.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
-            # Change the structure column to pore{i}
-            structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Pore{counter_pore}"
-            CNTs.append(f"Pore{counter_pore}")
+        # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
+        id_frame["Struc"].replace(False, "Liquid", inplace=True)
 
-        # If the difference in x, y and z is smaller than 1.0, it is a wall.
-        elif (x_max - x_min) < 1.0 or (y_max - y_min) < 1.0 or (z_max - z_min) < 1.0:
-            counter_wall += 1
-            ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
-            if (x_max - x_min) < 1.0:
-                ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} Ang.\n")
-            if (y_max - y_min) < 1.0:
-                ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} Ang.\n")
-            if (z_max - z_min) < 1.0:
-                ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} Ang.\n")
-                Walls_positions.append(z_min)
-            structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Wall{counter_wall}"
-            Walls.append(f"Wall{counter_wall}")
+        # Print the structure information .
+        ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
+        ddict.printLog(f"Number of walls: {len(Walls)}")
+        ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
-    # Copy the structure frame back to the original structure frame.
-    structure_frame = structure_frame_copy
+        # Pore section
+        # Classify the pores in the system. First we find the minimum and maximum z coordinates of the pores.
+        min_z_pore = []
+        max_z_pore = []
+        length_pore = []
+        center_pore = []
+        CNT_centers = []
+        tuberadii = []
+        CNT_volumes = []
+        CNT_atoms = []
 
-    # Finally put the structure information back into the original dataframe.
-    id_frame.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
+        for i in range(1, len(CNTs) + 1):
+            pore = id_frame[id_frame["Struc"] == f"Pore{i}"].copy()
+            min_z_pore.append(pore["z"].min())
+            max_z_pore.append(pore["z"].max())
 
-    # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
-    id_frame["Struc"].replace(False, "Liquid", inplace=True)
+            # The length of each pore is the difference between the maximum and minimum z coordinate.
+            length_pore.append(max_z_pore[i - 1] - min_z_pore[i - 1])
 
-    # Print the structure information .
-    ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
-    ddict.printLog(f"Number of walls: {len(Walls)}")
-    ddict.printLog(f"Number of pores: {len(CNTs)}\n")
+            # If the pore length is less than 2.0 Ang smaller than the box size,
+            # it can be considered inifinite in z direction.
+            # The the length is set to the box size.
+            if length_pore[i - 1] > box_size[2] - 2.0:
+                length_pore[i - 1] = box_size[2]
+                ddict.printLog(f"Pore{i} is considered infinite in z direction.")
+            ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} Ang.")
 
-    # Pore section
-    # Classify the pores in the system. First we find the minimum and maximum z coordinates of the pores.
-    min_z_pore = []
-    max_z_pore = []
-    length_pore = []
-    center_pore = []
-    CNT_centers = []
-    tuberadii = []
-    CNT_volumes = []
-    CNT_atoms = []
+            # The center of each pore is the average of the minimum and maximum z coordinate.
+            center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
 
-    for i in range(1, len(CNTs) + 1):
-        pore = id_frame[id_frame["Struc"] == f"Pore{i}"].copy()
-        min_z_pore.append(pore["z"].min())
-        max_z_pore.append(pore["z"].max())
+            # The pore consists of a CNT or even multiple CNTs.
+            # To classify the CNT, we need the radius.
+            # For this we just take the atoms in the pore dataframe closest to the center of the pore.
+            # A small tolerance is added.
+            pore.loc[:, "z_distance"] = abs(pore["z"] - center_pore[i - 1])
+            pore = pore.sort_values(by=["z_distance"])
+            lowest_z = pore.iloc[0]["z_distance"] + 0.02
+            CNT_ring = pore[pore["z_distance"] <= lowest_z].copy()
 
-        # The length of each pore is the difference between the maximum and minimum z coordinate.
-        length_pore.append(max_z_pore[i - 1] - min_z_pore[i - 1])
+            # Delete all atoms in the CNT_ring dataframe, which are more than 0.1 angstrom away in the z direction
+            # from the first atom in the CNT_ring dataframe.
+            CNT_ring.loc[:, "z_distance"] = abs(CNT_ring["z"] - CNT_ring.iloc[0]["z"])
+            CNT_ring = CNT_ring[CNT_ring["z_distance"] <= 0.1]
 
-        # If the pore length is less than 2.0 Ang smaller than the box size,
-        # it can be considered inifinite in z direction.
-        # The the length is set to the box size.
-        if length_pore[i - 1] > box_size[2] - 2.0:
-            length_pore[i - 1] = box_size[2]
-            ddict.printLog(f"Pore{i} is considered infinite in z direction.")
-        ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} Ang.")
+            # Calculate the average x and y coordinate of the atoms in the CNT_ring dataframe.
+            x_center = CNT_ring["x"].mean()
+            y_center = CNT_ring["y"].mean()
+            ddict.printLog(
+                f"The center of Pore{i} is at ({x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) Ang."
+            )
+            # Combine the x, y and z centers to a numpy array.
+            center = np.array([x_center, y_center, center_pore[i - 1]])
+            CNT_centers.append(center)
 
-        # The center of each pore is the average of the minimum and maximum z coordinate.
-        center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
+            # Calculate the radius of the CNT_ring.
+            tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
+            tuberadii.append(tuberadius)
+            ddict.printLog(f"The radius of Pore{i} is {tuberadius:.2f} Ang.")
 
-        # The pore consists of a CNT or even multiple CNTs.
-        # To classify the CNT, we need the radius.
-        # For this we just take the atoms in the pore dataframe closest to the center of the pore.
-        # A small tolerance is added.
-        pore.loc[:, "z_distance"] = abs(pore["z"] - center_pore[i - 1])
-        pore = pore.sort_values(by=["z_distance"])
-        lowest_z = pore.iloc[0]["z_distance"] + 0.02
-        CNT_ring = pore[pore["z_distance"] <= lowest_z].copy()
+            # Calculate the volume of the CNT_ring.
+            pore_volume = np.pi * tuberadius**2 * length_pore[i - 1]
+            ddict.printLog(f"The volume of Pore{i} is {pore_volume:.2f} Ang^3.\n")
+            CNT_volumes.append(pore_volume)
 
-        # Delete all atoms in the CNT_ring dataframe, which are more than 0.1 angstrom away in the z direction
-        # from the first atom in the CNT_ring dataframe.
-        CNT_ring.loc[:, "z_distance"] = abs(CNT_ring["z"] - CNT_ring.iloc[0]["z"])
-        CNT_ring = CNT_ring[CNT_ring["z_distance"] <= 0.1]
+            # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms.
+            # If they are smaller/equal as the tuberadius, they belong to the CNT.
+            id_frame.loc[id_frame["Struc"] == f"Pore{i}", "xy_distance"] = np.sqrt(
+                (id_frame.loc[id_frame["Struc"] == f"Pore{i}", "x"] - x_center) ** 2
+                + (id_frame.loc[id_frame["Struc"] == f"Pore{i}", "y"] - y_center) ** 2
+            )
+            id_frame.loc[id_frame["Struc"] == f"Pore{i}", "xy_distance"] = id_frame.loc[
+                id_frame["Struc"] == f"Pore{i}", "xy_distance"
+            ].round(2)
 
-        # Calculate the average x and y coordinate of the atoms in the CNT_ring dataframe.
-        x_center = CNT_ring["x"].mean()
-        y_center = CNT_ring["y"].mean()
-        ddict.printLog(f"The center of Pore{i} is at ({x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) Ang.")
-        # Combine the x, y and z centers to a numpy array.
-        center = np.array([x_center, y_center, center_pore[i - 1]])
-        CNT_centers.append(center)
+            # Save the information about the CNT in the structure dataframe, by adding a new column 'CNT' with the CNT
+            # number, if the xy_distance is smaller/equal the tuberadius. 0.05 is a tolerance.
+            id_frame.loc[id_frame["Struc"] == f"Pore{i}", "CNT"] = 0
+            id_frame.loc[(id_frame["Struc"] == f"Pore{i}") & (id_frame["xy_distance"] <= tuberadius + 0.05), "CNT"] = i
 
-        # Calculate the radius of the CNT_ring.
-        tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
-        tuberadii.append(tuberadius)
-        ddict.printLog(f"The radius of Pore{i} is {tuberadius:.2f} Ang.")
+            # Delete the xy_distance column again.
+            id_frame.drop(columns=["xy_distance"], inplace=True)
 
-        # Calculate the volume of the CNT_ring.
-        pore_volume = np.pi * tuberadius**2 * length_pore[i - 1]
-        ddict.printLog(f"The volume of Pore{i} is {pore_volume:.2f} Ang^3.\n")
-        CNT_volumes.append(pore_volume)
+        # check if there is a 'CNT' column in the dataframe (if there are CNTs present). If not, add an empty column.
+        if "CNT" not in id_frame.columns:
+            id_frame["CNT"] = None
 
-        # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms. If they are smaller/equal as the
-        # tuberadius, they belong to the CNT.
-        id_frame.loc[id_frame["Struc"] == f"Pore{i}", "xy_distance"] = np.sqrt(
-            (id_frame.loc[id_frame["Struc"] == f"Pore{i}", "x"] - x_center) ** 2
-            + (id_frame.loc[id_frame["Struc"] == f"Pore{i}", "y"] - y_center) ** 2
+        return (
+            id_frame,
+            min_z_pore,
+            max_z_pore,
+            length_pore,
+            CNT_centers,
+            tuberadii,
+            CNT_volumes,
+            CNT_atoms,
+            Walls_positions,
         )
-        id_frame.loc[id_frame["Struc"] == f"Pore{i}", "xy_distance"] = id_frame.loc[
-            id_frame["Struc"] == f"Pore{i}", "xy_distance"
-        ].round(2)
-
-        # Save the information about the CNT in the structure dataframe, by adding a new column 'CNT' with the CNT
-        # number, if the xy_distance is smaller/equal the tuberadius. 0.05 is a tolerance.
-        id_frame.loc[id_frame["Struc"] == f"Pore{i}", "CNT"] = 0
-        id_frame.loc[(id_frame["Struc"] == f"Pore{i}") & (id_frame["xy_distance"] <= tuberadius + 0.05), "CNT"] = i
-
-        # Delete the xy_distance column again.
-        id_frame.drop(columns=["xy_distance"], inplace=True)
-
-    # check if there is a 'CNT' column in the dataframe (if there are CNTs present). If not, add an empty column.
-    if "CNT" not in id_frame.columns:
-        id_frame["CNT"] = None
-
-    return (
-        id_frame,
-        min_z_pore,
-        max_z_pore,
-        length_pore,
-        CNT_centers,
-        tuberadii,
-        CNT_volumes,
-        CNT_atoms,
-        Walls_positions,
-    )
 
 
 def SortTuple(tup):
@@ -545,7 +557,7 @@ def SortTuple(tup):
 
 
 # Molecule recognition section.
-def molecule_recognition(id_frame, box_size) -> pd.DataFrame:
+def molecule_recognition(id_frame, box_size, args) -> pd.DataFrame:
     # Convert the first dataframe to a list of dictionaries.
     str_liquid_list = []
     for index, row in id_frame.iterrows():
