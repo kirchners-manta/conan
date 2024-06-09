@@ -375,7 +375,7 @@ class GrapheneGraph:
 
                     # Remove the selected atom and the atoms in the built cycle from the list of potential carbon atoms
                     # nodes_to_exclude = self.find_specific_cycle(neighbors_len_2)
-                    nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors_len_2)
+                    nodes_to_exclude = self.find_specific_cycle(atom_id, neighbors_len_2)
                     possible_carbon_atoms.remove(atom_id)
                     possible_carbon_atoms.remove(nodes_to_exclude)
 
@@ -405,26 +405,52 @@ class GrapheneGraph:
         if len(chosen_atoms) < num_nitrogen:
             print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
 
-    def find_specific_cycle(self, neighbors):
+    def find_specific_cycle(self, atom_id, neighbors: List[int]) -> List[int]:
         """
-        Find the specific cycle in the graph that includes all the given neighbors.
+        Find the specific cycle in the graph that includes the selected atom and its neighbors.
 
         Parameters
         ----------
-        graph : nx.Graph
-            The graph in which to find the cycle.
-        neighbors : list
-            A list of nodes (neighbors) that should be included in the cycle.
+        neighbors : List[int]
+            The IDs of the neighbors of the selected atom.
 
         Returns
         -------
-        list
-            The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+        List[int]
+            A list of node IDs representing the specific cycle.
         """
-        # Find all cycles in the graph
-        cycle = nx.find_cycle(self.graph, neighbors)
+        # Create a subgraph that includes the selected atom and its neighbors
+        subgraph_nodes = self.get_neighbors_via_edges(atom_id, depth=2, inclusive=True)
+        subgraph = self.graph.subgraph(subgraph_nodes)
 
-        return cycle
+        # Find all simple cycles in the subgraph
+        cycles = list(nx.simple_cycles(subgraph))
+
+        # Select the smallest cycle that includes the selected atom
+        specific_cycle = min((cycle for cycle in cycles if atom_id in cycle), key=len)
+
+        return specific_cycle
+
+    # def find_specific_cycle(self, neighbors):
+    #     """
+    #     Find the specific cycle in the graph that includes all the given neighbors.
+    #
+    #     Parameters
+    #     ----------
+    #     graph : nx.Graph
+    #         The graph in which to find the cycle.
+    #     neighbors : list
+    #         A list of nodes (neighbors) that should be included in the cycle.
+    #
+    #     Returns
+    #     -------
+    #     list
+    #         The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+    #     """
+    #     # Find all cycles in the graph
+    #     cycle = nx.find_cycle(self.graph, neighbors)
+    #
+    #     return cycle
 
     def find_min_cycle_including_neighbors(self, neighbors):
         """
