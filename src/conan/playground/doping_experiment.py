@@ -367,14 +367,9 @@ class GrapheneGraph:
                     # Remove the selected atom from the graph
                     self.graph.remove_node(atom_id)
 
-                    # # Remove the selected atom and its neighbors of length two from the list of potential carbon atoms
-                    # possible_carbon_atoms.remove(atom_id)
-                    # for neighbor in neighbors_len_2:
-                    #     if neighbor in possible_carbon_atoms:
-                    #         possible_carbon_atoms.remove(neighbor)
-
                     # Find the specific cycle that includes all neighbors
                     nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
+                    # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
                     possible_carbon_atoms.remove(atom_id)
                     for node in nodes_to_exclude:
                         if node in possible_carbon_atoms:
