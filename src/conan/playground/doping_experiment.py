@@ -1,7 +1,7 @@
 import random
 from enum import Enum
 from math import cos, pi, sin
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -401,37 +401,42 @@ class GrapheneGraph:
         if len(chosen_atoms) < num_nitrogen:
             print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
 
-    def find_min_cycle_including_neighbors(self, neighbors):
+    def find_min_cycle_including_neighbors(self, neighbors: List[int]):
         """
         Find the shortest cycle in the graph that includes all the given neighbors.
 
         Parameters
         ----------
-        neighbors : list
+        neighbors : List[int]
             A list of nodes that should be included in the cycle.
 
         Returns
         -------
-        list
+        List[int]
             The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
         """
         # Initialize the subgraph with the neighbors and their edges
         subgraph = nx.Graph()
         subgraph.add_nodes_from(neighbors)
+
+        # Add edges from each neighbor to the subgraph
         for node in neighbors:
             subgraph.add_edges_from(self.graph.edges(node))
 
-        visited_edges = set(subgraph.edges)
+        # Keep track of visited edges to avoid unwanted cycles
+        visited_edges: Set[Tuple[int, int]] = set(subgraph.edges)
 
         # Expand the subgraph until the cycle is found
         while True:
-            cycles = list(nx.cycle_basis(subgraph))
+            # Find all cycles in the current subgraph
+            cycles: List[List[int]] = list(nx.cycle_basis(subgraph))
             for cycle in cycles:
+                # Check if the current cycle includes all the neighbors
                 if all(neighbor in cycle for neighbor in neighbors):
                     return cycle
 
             # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
-            new_edges = set()
+            new_edges: Set[Tuple[int, int]] = set()
             for node in subgraph.nodes:
                 new_edges.update(self.graph.edges(node))
 
@@ -440,6 +445,7 @@ class GrapheneGraph:
             if not new_edges:
                 return []
 
+            # Add the new edges to the subgraph and update the visited edges
             subgraph.add_edges_from(new_edges)
             visited_edges.update(new_edges)
 
