@@ -373,11 +373,12 @@ class GrapheneGraph:
                     #     if neighbor in possible_carbon_atoms:
                     #         possible_carbon_atoms.remove(neighbor)
 
-                    # Remove the selected atom and the atoms in the built cycle from the list of potential carbon atoms
-                    # nodes_to_exclude = self.find_specific_cycle(neighbors_len_2)
-                    nodes_to_exclude = self.find_specific_cycle(atom_id, neighbors_len_2)
+                    # Find the specific cycle that includes all neighbors
+                    nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
                     possible_carbon_atoms.remove(atom_id)
-                    possible_carbon_atoms.remove(nodes_to_exclude)
+                    for node in nodes_to_exclude:
+                        if node in possible_carbon_atoms:
+                            possible_carbon_atoms.remove(node)
 
                     if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
                         # Replace 1 carbon atom to form pyridinic nitrogen structure
@@ -405,56 +406,222 @@ class GrapheneGraph:
         if len(chosen_atoms) < num_nitrogen:
             print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
 
-    def find_specific_cycle(self, atom_id, neighbors: List[int]) -> List[int]:
-        """
-        Find the specific cycle in the graph that includes the selected atom and its neighbors.
-
-        Parameters
-        ----------
-        neighbors : List[int]
-            The IDs of the neighbors of the selected atom.
-
-        Returns
-        -------
-        List[int]
-            A list of node IDs representing the specific cycle.
-        """
-        # Create a subgraph that includes the selected atom and its neighbors
-        subgraph_nodes = self.get_neighbors_via_edges(atom_id, depth=2, inclusive=True)
-        subgraph = self.graph.subgraph(subgraph_nodes)
-
-        # Find all simple cycles in the subgraph
-        cycles = list(nx.simple_cycles(subgraph))
-
-        # Select the smallest cycle that includes the selected atom
-        specific_cycle = min((cycle for cycle in cycles if atom_id in cycle), key=len)
-
-        return specific_cycle
-
-    # def find_specific_cycle(self, neighbors):
+    # def find_min_cycle_including_neighbors(self, neighbors):
     #     """
-    #     Find the specific cycle in the graph that includes all the given neighbors.
+    #     Find the shortest cycle in the graph that includes all the given neighbors.
     #
     #     Parameters
     #     ----------
-    #     graph : nx.Graph
-    #         The graph in which to find the cycle.
     #     neighbors : list
     #         A list of nodes (neighbors) that should be included in the cycle.
     #
     #     Returns
     #     -------
     #     list
-    #         The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty
+    #         list.
     #     """
-    #     # Find all cycles in the graph
-    #     cycle = nx.find_cycle(self.graph, neighbors)
+    #     # Get the union of the edges of the neighbors
+    #     subgraph_edges = set()
+    #     for node in neighbors:
+    #         subgraph_edges.update(self.graph.edges(node))
     #
-    #     return cycle
+    #     # Create a subgraph from the union of these edges
+    #     subgraph = nx.Graph()
+    #     subgraph.add_edges_from(subgraph_edges)
+    #
+    #     # Find all cycles in the subgraph
+    #     cycles = list(nx.cycle_basis(subgraph))
+    #
+    #     # Filter cycles to find the one that includes all the given neighbors
+    #     for cycle in cycles:
+    #         if all(neighbor in cycle for neighbor in neighbors):
+    #             return cycle
+    #
+    #     return []
+
+    # def find_min_cycle_including_neighbors(self, neighbors):
+    #     """
+    #     Find the shortest cycle in the graph that includes all the given neighbors.
+    #
+    #     Parameters
+    #     ----------
+    #     neighbors : list
+    #         A list of nodes that should be included in the cycle.
+    #
+    #     Returns
+    #     -------
+    #     list
+    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty
+    #         list.
+    #     """
+    #     # Start with the set of neighbors and their edges
+    #     subgraph_edges = set()
+    #     subgraph_nodes = set(neighbors)
+    #
+    #     for node in neighbors:
+    #         subgraph_edges.update(self.graph.edges(node))
+    #
+    #     # Create a subgraph from the edges
+    #     subgraph = nx.Graph()
+    #     subgraph.add_edges_from(subgraph_edges)
+    #
+    #     # Expand the subgraph until the cycle is found
+    #     found_cycle = []
+    #     while not found_cycle and subgraph_nodes:
+    #         # Find all cycles in the subgraph
+    #         cycles = list(nx.cycle_basis(subgraph))
+    #         for cycle in cycles:
+    #             cycle_set = set(cycle)
+    #             if all(neighbor in cycle_set for neighbor in neighbors):
+    #                 found_cycle = cycle
+    #                 break
+    #
+    #         # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+    #         if not found_cycle:
+    #             new_nodes = set()
+    #             for node in subgraph_nodes:
+    #                 new_nodes.update(self.graph.neighbors(node))
+    #             subgraph_nodes.update(new_nodes)
+    #             for node in new_nodes:
+    #                 subgraph_edges.update(self.graph.edges(node))
+    #             subgraph.add_edges_from(subgraph_edges)
+    #
+    #     return found_cycle
+
+    # def find_min_cycle_including_neighbors(self, neighbors):
+    #     """
+    #     Find the shortest cycle in the graph that includes all the given neighbors.
+    #
+    #     Parameters
+    #     ----------
+    #     neighbors : list
+    #         A list of nodes that should be included in the cycle.
+    #
+    #     Returns
+    #     -------
+    #     list
+    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty
+    #         list.
+    #     """
+    #     # Initialize the subgraph with the neighbors and their edges
+    #     subgraph = nx.Graph()
+    #     subgraph.add_nodes_from(neighbors)
+    #     # for node in neighbors:
+    #     #     subgraph.add_edges_from(self.graph.edges(node))
+    #
+    #     # Expand the subgraph until the cycle is found
+    #     while True:
+    #         cycles = list(nx.cycle_basis(subgraph))
+    #         for cycle in cycles:
+    #             if all(neighbor in cycle for neighbor in neighbors):
+    #                 return cycle
+    #
+    #         # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+    #         new_nodes = set()
+    #         for node in subgraph.nodes:
+    #             new_nodes.update(self.graph.neighbors(node))
+    #         new_nodes.difference_update(subgraph.nodes)
+    #
+    #         if not new_nodes:
+    #             return []
+    #
+    #         subgraph.add_nodes_from(new_nodes)
+    #         for node in new_nodes:
+    #             subgraph.add_edges_from(self.graph.edges(node))
+
+    # def find_min_cycle_including_neighbors(self, neighbors):
+    #     """
+    #     Find the shortest cycle in the graph that includes all the given neighbors.
+    #
+    #     Parameters
+    #     ----------
+    #     neighbors : list
+    #         A list of nodes that should be included in the cycle.
+    #
+    #     Returns
+    #     -------
+    #     list
+    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty
+    #         list.
+    #     """
+    #     # Initialize the set of edges for the subgraph
+    #     subgraph_edges = set()
+    #     for node in neighbors:
+    #         subgraph_edges.update(self.graph.edges(node))
+    #
+    #     # Create a subgraph from the edges
+    #     subgraph = nx.Graph()
+    #     subgraph.add_edges_from(subgraph_edges)
+    #
+    #     # Expand the subgraph until the cycle is found
+    #     while True:
+    #         # Find all cycles in the subgraph
+    #         cycles = list(nx.cycle_basis(subgraph))
+    #         for cycle in cycles:
+    #             if all(neighbor in cycle for neighbor in neighbors):
+    #                 return cycle
+    #
+    #         # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+    #         new_edges = set()
+    #         for edge in subgraph_edges:
+    #             for neighbor in edge:
+    #                 new_edges.update(self.graph.edges(neighbor))
+    #
+    #         # Only add the new edges that are not already in the subgraph
+    #         new_edges.difference_update(subgraph_edges)
+    #
+    #         if not new_edges:
+    #             return []
+    #
+    #         subgraph_edges.update(new_edges)
+    #         subgraph.add_edges_from(new_edges)
 
     def find_min_cycle_including_neighbors(self, neighbors):
         """
-        Find the minimum cycle in the graph that includes all the given neighbors.
+        Find the shortest cycle in the graph that includes all the given neighbors.
+
+        Parameters
+        ----------
+        neighbors : list
+            A list of nodes that should be included in the cycle.
+
+        Returns
+        -------
+        list
+            The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+        """
+        # Initialize the subgraph with the neighbors and their edges
+        subgraph = nx.Graph()
+        subgraph.add_nodes_from(neighbors)
+        for node in neighbors:
+            subgraph.add_edges_from(self.graph.edges(node))
+
+        visited_edges = set(subgraph.edges)
+
+        # Expand the subgraph until the cycle is found
+        while True:
+            cycles = list(nx.cycle_basis(subgraph))
+            for cycle in cycles:
+                if all(neighbor in cycle for neighbor in neighbors):
+                    return cycle
+
+            # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+            new_edges = set()
+            for node in subgraph.nodes:
+                new_edges.update(self.graph.edges(node))
+
+            # Only add new edges that haven't been visited
+            new_edges.difference_update(visited_edges)
+            if not new_edges:
+                return []
+
+            subgraph.add_edges_from(new_edges)
+            visited_edges.update(new_edges)
+
+    def find_specific_cycle(self, neighbors):
+        """
+        Find the specific cycle in the graph that includes all the given neighbors.
 
         Parameters
         ----------
@@ -464,38 +631,12 @@ class GrapheneGraph:
         Returns
         -------
         list
-            The minimum cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+            The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
         """
+        # Find all cycles in the graph
+        cycle = nx.find_cycle(self.graph, neighbors)
 
-        def bfs_min_cycle(graph, start_node, target_nodes):
-            visited = {start_node: None}
-            queue = [start_node]
-
-            while queue:
-                current_node = queue.pop(0)
-                for neighbor in graph.neighbors(current_node):
-                    if neighbor not in visited:
-                        visited[neighbor] = current_node
-                        queue.append(neighbor)
-                    elif visited[current_node] != neighbor and visited[neighbor] != current_node:
-                        cycle = [current_node, neighbor]
-                        # Backtrack to form the cycle
-                        while current_node != start_node:
-                            current_node = visited[current_node]
-                            cycle.append(current_node)
-                        return cycle
-
-            return None
-
-        min_cycle = None
-
-        for neighbor in neighbors:
-            cycle = bfs_min_cycle(self.graph, neighbor, neighbors)
-            if cycle:
-                if min_cycle is None or len(cycle) < len(min_cycle):
-                    min_cycle = cycle
-
-        return min_cycle if min_cycle else []
+        return cycle
 
     def _implement_species_specific_changes(self, chosen_atoms, nitrogen_species):
         """
