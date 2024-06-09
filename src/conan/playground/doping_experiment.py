@@ -360,10 +360,10 @@ class GrapheneGraph:
                 NitrogenSpecies.PYRIDINIC_3,
                 NitrogenSpecies.PYRIDINIC_4,
             }:
-                # Get the neighbors until length two of the selected atom
-                neighbors_len_2 = self.get_neighbors_via_edges(atom_id, depth=2, inclusive=True)
-                # Check if all neighbors until length two are not nitrogen atoms
-                if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_2]):
+                # Get the neighbors until length three of the selected atom
+                neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
+                # Check if all neighbors until length three are not nitrogen atoms
+                if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3]):
                     # Remove the selected atom from the graph
                     self.graph.remove_node(atom_id)
 
@@ -927,7 +927,7 @@ def write_xyz(graph, filename):
 
 def main():
     # Set seed for reproducibility
-    random.seed(42)
+    # random.seed(42)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
