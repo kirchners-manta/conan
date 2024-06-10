@@ -303,9 +303,20 @@ class GrapheneGraph:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
-        # Add nitrogen atoms for each specified nitrogen species
-        for species, num_nitrogen_atoms in specific_num_nitrogen.items():
-            self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+        # # Add nitrogen atoms for each specified nitrogen species
+        # for species, num_nitrogen_atoms in specific_num_nitrogen.items():
+        #     self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+
+        for species in [
+            NitrogenSpecies.PYRIDINIC_1,
+            NitrogenSpecies.PYRIDINIC_2,
+            NitrogenSpecies.PYRIDINIC_3,
+            NitrogenSpecies.PYRIDINIC_4,
+            NitrogenSpecies.GRAPHITIC,
+        ]:
+            if species in specific_num_nitrogen:
+                num_nitrogen_atoms = specific_num_nitrogen[species]
+                self._add_nitrogen_atoms(num_nitrogen_atoms, species)
 
     def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
         """
