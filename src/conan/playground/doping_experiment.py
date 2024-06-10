@@ -449,25 +449,6 @@ class GrapheneGraph:
             subgraph.add_edges_from(new_edges)
             visited_edges.update(new_edges)
 
-    def find_specific_cycle(self, neighbors):
-        """
-        Find the specific cycle in the graph that includes all the given neighbors.
-
-        Parameters
-        ----------
-        neighbors : list
-            A list of nodes (neighbors) that should be included in the cycle.
-
-        Returns
-        -------
-        list
-            The cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
-        """
-        # Find all cycles in the graph
-        cycle = nx.find_cycle(self.graph, neighbors)
-
-        return cycle
-
     def _implement_species_specific_changes(self, chosen_atoms, nitrogen_species):
         """
         Implement species-specific changes for nitrogen doping.
