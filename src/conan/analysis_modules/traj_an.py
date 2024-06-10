@@ -365,7 +365,7 @@ def trajectory_analysis(
 
     maindict = main_loop_preparation(maindict)
 
-    if analysis_choice2 == 5:
+    if analysis_choice2 == 6:
         if maindict["do_xyz_analysis"] == "y":
             from coordination_number import Coord_number_xyz_analysis as analysis
             from coordination_number import Coord_xyz_chunk_processing as chunk_processing
@@ -448,7 +448,7 @@ def trajectory_analysis(
             print("Frame %d of %d" % (counter, number_of_frames), end="\r")
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-        if analysis_choice2 == 5:
+        if analysis_choice2 == 6:
             maindict = chunk_processing(maindict)
 
     ddict.printLog("")
