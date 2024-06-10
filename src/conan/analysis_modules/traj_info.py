@@ -336,11 +336,12 @@ def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[lis
 
 
 # Structure recognition section.
-def structure_recognition(
-    id_frame, box_size, args
-) -> Tuple[pd.DataFrame, list, list, list, list, list, list, list, list]:
-    # Identify all solid structures in the simulation box and identify if it is a wall or a pore.
-    # A wall extends in two dimensions, a pore in all three dimensions.
+def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, list, list, list, list, list]:
+
+    id_frame = maindict["id_frame"]
+    box_size = maindict["box_size"]
+    args = maindict["args"]
+
     # First make a new dataframe with just the structure atoms.
     id_frame["Molecule"] = None
     structure_frame = id_frame[id_frame["Struc"]].copy()
@@ -348,15 +349,16 @@ def structure_recognition(
     # if the structure_frame is empty, then there are no structures in the simulation box.
     if structure_frame.empty:
         ddict.printLog(
-            "No structures were found in the simulation box. If there are structures, make sure they are not moving.\n",
+            "No structures were found in the simulation box. \n",
             color="red",
         )
-        sys.exit()
-        # define_struc = ddict.get_input("Manually define the structures? [y/n]: ", args, "str")
-        # if define_struc == "n":
-        #    sys.exit()
-        # else:
-        #    id_frame, unique_molecule_frame = molecule_recognition(id_frame, box_size, args)
+        # sys.exit()
+        define_struc = ddict.get_input("Manually define the structures? [y/n]: ", args, "str")
+        if define_struc == "n":
+            sys.exit()
+        else:
+            id_frame, unique_molecule_frame = molecule_recognition(id_frame, box_size, args)
+
     else:
         # convert the first dataframe to a list of dictionaries. We also need to store the atom index.
         str_atom_list = []
@@ -392,23 +394,26 @@ def structure_recognition(
         # If the difference in x, y and z is larger than 1.0, it is a pore.
         # If it is smaller in one direction, it is a wall.
         for i in range(1, len(molecules_struc) + 1):
+
+            # Get the maximum and minimum x, y and z coordinates for each molecule.
             x_max = structure_frame.loc[structure_frame["Molecule"] == i, "x"].max()
             x_min = structure_frame.loc[structure_frame["Molecule"] == i, "x"].min()
             y_max = structure_frame.loc[structure_frame["Molecule"] == i, "y"].max()
             y_min = structure_frame.loc[structure_frame["Molecule"] == i, "y"].min()
             z_max = structure_frame.loc[structure_frame["Molecule"] == i, "z"].max()
             z_min = structure_frame.loc[structure_frame["Molecule"] == i, "z"].min()
+
+            # If the difference in x, y and z is larger than 1.0, it is a pore (not the case for Ag and Au walls)
             if (x_max - x_min) > 1.0 and (y_max - y_min) > 1.0 and (z_max - z_min) > 1.0:
 
-                # If the structure consists of Gold or silver atoms, it is a wall (with a certain thickness)
+                # If the structure consists of Gold or silver atoms, we define it as a wall (with a certain thickness).
                 if structure_frame.loc[structure_frame["Molecule"] == i, "Element"].isin(["Au", "Ag"]).any():
                     counter_wall += 1
                     ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}\n")
                     structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Wall{counter_wall}"
                     Walls.append(f"Wall{counter_wall}")
-                    # Get the z position of the wall (max and min)
-
                     Walls_positions.append(z_min)
+
                     continue
 
                 counter_pore += 1
@@ -446,6 +451,23 @@ def structure_recognition(
         ddict.printLog(f"Number of walls: {len(Walls)}")
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
+        which_pores = []
+        CNT_pore_question = ddict.get_input("Does one of the pore structures contain CNTs? [y/n]: ", args, "str")
+        if CNT_pore_question == "y":
+            if len(CNTs) == 0:
+                ddict.printLog("There are no pores in the system.\n", color="red")
+                sys.exit()
+            # if len(CNTs) == 1:
+            #    which_pores = [1]
+            else:
+                which_pores = ddict.get_input(f"Which pores contains a CNT? [1-{len(CNTs)}]: ", args, "str")
+                ddict.printLog("")
+
+                # split the input string into a list of integers. They are divided by a comma.
+                which_pores = [int(i) for i in which_pores.split(",")]
+                # keep all entries, which are equal or smaller than the number of pores.
+                which_pores = [i for i in which_pores if i <= len(CNTs)]
+
         # Pore section
         # Classify the pores in the system. First we find the minimum and maximum z coordinates of the pores.
         min_z_pore = []
@@ -456,7 +478,9 @@ def structure_recognition(
         tuberadii = []
         CNT_atoms = []
 
-        for i in range(1, len(CNTs) + 1):
+        # for i in range(1, len(CNTs) + 1):
+        # loop through all pores containing a CNT
+        for i in which_pores:
             pore = id_frame[id_frame["Struc"] == f"Pore{i}"].copy()
             min_z_pore.append(pore["z"].min())
             max_z_pore.append(pore["z"].max())
@@ -475,7 +499,7 @@ def structure_recognition(
             # The center of each pore is the average of the minimum and maximum z coordinate.
             center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
 
-            # The pore potentiallyconsists of a CNT.
+            # The pore potentially consists of a CNT.
             # To classify the CNT, we need the radius.
             # For this we just take the atoms in the pore dataframe closest to the center of the pore.
             # A small tolerance is added.
@@ -493,7 +517,10 @@ def structure_recognition(
             x_center = CNT_ring["x"].mean()
             y_center = CNT_ring["y"].mean()
             ddict.printLog(
-                f"The center of Pore{i} is at ({x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) Ang."
+                (
+                    f"The center of the CNT in Pore{i} is at "
+                    f"{x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) Ang."
+                )
             )
             # Combine the x, y and z centers to a numpy array.
             center = np.array([x_center, y_center, center_pore[i - 1]])
@@ -502,7 +529,7 @@ def structure_recognition(
             # Calculate the radius of the CNT_ring.
             tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
             tuberadii.append(tuberadius)
-            ddict.printLog(f"The radius of Pore{i} is {tuberadius:.2f} Ang.")
+            ddict.printLog(f"The radius of the CNT in Pore{i} is {tuberadius:.2f} Ang.\n")
 
             # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms.
             # If they are smaller/equal as the tuberadius, they belong to the CNT.
@@ -526,16 +553,17 @@ def structure_recognition(
         if "CNT" not in id_frame.columns:
             id_frame["CNT"] = None
 
-        return (
-            id_frame,
-            min_z_pore,
-            max_z_pore,
-            length_pore,
-            CNT_centers,
-            tuberadii,
-            CNT_atoms,
-            Walls_positions,
-        )
+        outputdict = maindict
+        outputdict["id_frame"] = id_frame
+        outputdict["min_z_pore"] = min_z_pore
+        outputdict["max_z_pore"] = max_z_pore
+        outputdict["length_pore"] = length_pore
+        outputdict["CNT_centers"] = CNT_centers
+        outputdict["tuberadii"] = tuberadii
+        outputdict["CNT_atoms"] = CNT_atoms
+        outputdict["Walls_positions"] = Walls_positions
+
+        return outputdict
 
 
 def SortTuple(tup):

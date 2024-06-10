@@ -70,9 +70,12 @@ def traj_chunk_info(id_frame, args):
 
 
 # MAIN
-def analysis_opt(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-) -> None:
+def analysis_opt(maindict) -> None:
+
+    # id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
+    CNT_centers = maindict["CNT_centers"]
+    args = maindict["args"]
+
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
@@ -80,13 +83,11 @@ def analysis_opt(
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(id_frame, CNT_centers, box_size, args)
+        generating_pictures(maindict)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
-            trajectory_analysis(
-                id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-            )
+            trajectory_analysis(maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -95,7 +96,12 @@ def analysis_opt(
 
 
 # Generating pictures.
-def generating_pictures(id_frame, CNT_centers, box_size, args) -> None:
+def generating_pictures(maindict) -> None:
+
+    id_frame = maindict["id_frame"]
+    CNT_centers = maindict["CNT_centers"]
+    box_size = maindict["box_size"]
+    args = maindict["args"]
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
     ddict.printLog("(3) Produce xyz file of the pore structures' tube.")
@@ -226,9 +232,12 @@ def generating_pictures(id_frame, CNT_centers, box_size, args) -> None:
 
 
 # Analysis of the trajectory.
-def trajectory_analysis(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-) -> None:
+def trajectory_analysis(inputdict) -> None:
+
+    id_frame = inputdict["id_frame"]
+    box_size = inputdict["box_size"]
+    args = inputdict["args"]
+
     # Analysis choice.
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
@@ -280,9 +289,8 @@ def trajectory_analysis(
 
     # PREPERATION
     # Main loop preperation.
-    counter = 0
     Main_time = time.time()
-    maindict = {}
+    counter = 0
 
     # Get atomic masses.
     element_masses = ddict.dict_mass()
@@ -336,32 +344,15 @@ def trajectory_analysis(
         from axial_dens import density_analysis_prep as main_loop_preparation
         from axial_dens import density_analysis_processing as post_processing
 
-        # from occurrence import occurrence_processing as post_processing
-
-    maxdisp_atom_dist = 0
-    maxdisp_atom_row = None
-
-    maindict = {
-        "unique_molecule_frame": unique_molecule_frame,
-        "box_size": box_size,
-        "min_z_pore": min_z_pore,
-        "max_z_pore": max_z_pore,
-        "box_size": box_size,
-        "CNT_centers": CNT_centers,
-        "Walls_positions": Walls_positions,
-        "args": args,
-        "tuberadii": tuberadii,
-        "number_of_frames": number_of_frames,
-        "analysis_choice2": analysis_choice2,
-        "length_pore": length_pore,
-        "CNT_atoms": CNT_atoms,
-        "maxdisp_atom_row": maxdisp_atom_row,
-        "maxdisp_atom_dist": maxdisp_atom_dist,
-        "id_frame": id_frame,
-        "do_xyz_analysis": "n",
-        "number_of_frames": number_of_frames,
-        "counter": 0,
-    }
+    maindict = inputdict
+    maindict["counter"] = counter
+    maindict["unique_molecule_frame"] = unique_molecule_frame
+    maindict["CNT_atoms"] = CNT_atoms
+    maindict["maxdisp_atom_row"] = None
+    maindict["maxdisp_atom_dist"] = 0
+    maindict["number_of_frames"] = number_of_frames
+    maindict["analysis_choice2"] = analysis_choice2
+    maindict["do_xyz_analysis"] = "n"
 
     maindict = main_loop_preparation(maindict)
 
@@ -371,7 +362,6 @@ def trajectory_analysis(
             from coordination_number import Coord_xyz_chunk_processing as chunk_processing
             from coordination_number import Coord_xyz_post_processing as post_processing
 
-    maindict["counter"] = counter
     maindict["box_dimension"] = np.array(
         maindict["box_size"]
     )  # needed for fast calculation of minimal image convention
