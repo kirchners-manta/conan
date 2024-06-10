@@ -413,12 +413,13 @@ class GrapheneGraph:
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
                 # Get the neighbors until length three of the selected atom
                 neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
+                # Find a direct neighbor that also needs to be removed
+                selected_neighbor = random.sample(neighbors, 1)[0]
+                neighbors_len_3 += self.get_neighbors_via_edges(selected_neighbor, depth=3, inclusive=True)
                 # Check if all neighbors until length three are not nitrogen atoms
                 if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3]):
                     # Remove the selected atom from the graph
                     self.graph.remove_node(atom_id)
-                    # Find a direct neighbor that also needs to be removed
-                    selected_neighbor = random.sample(neighbors, 1)[0]
                     # Remove the selected neighbor from the list of neighbors
                     neighbors.remove(selected_neighbor)
                     # Get direct neighbors of the selected neighbor excluding the selected atom
@@ -953,8 +954,8 @@ def write_xyz(graph, filename):
 
 def main():
     # Set seed for reproducibility
-    random.seed(42)
-    # random.seed(1)
+    # random.seed(42)
+    random.seed(4)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -983,7 +984,7 @@ def main():
     #                                           NitrogenSpecies.GRAPHITIC: 5})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 10})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 15})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
