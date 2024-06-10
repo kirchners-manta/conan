@@ -454,7 +454,6 @@ def structure_recognition(
         center_pore = []
         CNT_centers = []
         tuberadii = []
-        CNT_volumes = []
         CNT_atoms = []
 
         for i in range(1, len(CNTs) + 1):
@@ -476,7 +475,7 @@ def structure_recognition(
             # The center of each pore is the average of the minimum and maximum z coordinate.
             center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
 
-            # The pore consists of a CNT or even multiple CNTs.
+            # The pore potentiallyconsists of a CNT.
             # To classify the CNT, we need the radius.
             # For this we just take the atoms in the pore dataframe closest to the center of the pore.
             # A small tolerance is added.
@@ -504,11 +503,6 @@ def structure_recognition(
             tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
             tuberadii.append(tuberadius)
             ddict.printLog(f"The radius of Pore{i} is {tuberadius:.2f} Ang.")
-
-            # Calculate the volume of the CNT_ring.
-            pore_volume = np.pi * tuberadius**2 * length_pore[i - 1]
-            ddict.printLog(f"The volume of Pore{i} is {pore_volume:.2f} Ang^3.\n")
-            CNT_volumes.append(pore_volume)
 
             # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms.
             # If they are smaller/equal as the tuberadius, they belong to the CNT.
@@ -539,7 +533,6 @@ def structure_recognition(
             length_pore,
             CNT_centers,
             tuberadii,
-            CNT_volumes,
             CNT_atoms,
             Walls_positions,
         )

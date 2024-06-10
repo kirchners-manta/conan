@@ -80,7 +80,6 @@ def main():
             length_pore,
             CNT_centers,
             tuberadii,
-            CNT_volumes,
             CNT_atoms,
             Walls_positions,
         ) = traj_info.structure_recognition(id_frame, box_size, args)
