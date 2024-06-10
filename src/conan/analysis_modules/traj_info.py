@@ -255,7 +255,7 @@ def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tu
     )
     ddict.printLog(f"\nTotal number of atoms: {len(data_list)}\n")
 
-    return data_list, id_frame, id_frame2, box_size
+    return id_frame, box_size
 
 
 # Function to calculate the minimum distance between two positions.
@@ -452,7 +452,7 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
         which_pores = []
-        CNT_pore_question = ddict.get_input("Does one of the pore structures contain CNTs? [y/n]: ", args, "str")
+        CNT_pore_question = ddict.get_input("Does one of the pores contain CNTs? [y/n]: ", args, "str")
         if CNT_pore_question == "y":
             if len(CNTs) == 0:
                 ddict.printLog("There are no pores in the system.\n", color="red")

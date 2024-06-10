@@ -290,18 +290,6 @@ def trajectory_analysis(inputdict) -> None:
     # PREPERATION
     # Main loop preperation.
     Main_time = time.time()
-    counter = 0
-
-    # Get atomic masses.
-    element_masses = ddict.dict_mass()
-
-    # First it is necessary to get the molecule number of each atom to attach it to every frame later in the loop.
-    molecule_id = id_frame["Molecule"].values
-    molecule_species = id_frame["Species"].values
-    molecule_structure = id_frame["Struc"].values
-    molecule_label = id_frame["Label"].values
-
-    CNT_atoms = id_frame[id_frame["CNT"].notnull()]
 
     # Analysis preperation.
     if analysis_choice2 == 1 or analysis_choice2 == 2:
@@ -344,6 +332,9 @@ def trajectory_analysis(inputdict) -> None:
         from axial_dens import density_analysis_prep as main_loop_preparation
         from axial_dens import density_analysis_processing as post_processing
 
+    counter = 0
+    CNT_atoms = id_frame[id_frame["CNT"].notnull()]
+
     maindict = inputdict
     maindict["counter"] = counter
     maindict["unique_molecule_frame"] = unique_molecule_frame
@@ -362,9 +353,7 @@ def trajectory_analysis(inputdict) -> None:
             from coordination_number import Coord_xyz_chunk_processing as chunk_processing
             from coordination_number import Coord_xyz_post_processing as post_processing
 
-    maindict["box_dimension"] = np.array(
-        maindict["box_size"]
-    )  # needed for fast calculation of minimal image convention
+    maindict["box_dimension"] = np.array(maindict["box_size"])
 
     # Ask if the analysis should be performed in a specific region
     maindict["regional"] = ddict.get_input(
@@ -381,13 +370,22 @@ def trajectory_analysis(inputdict) -> None:
     maindict["regions"] = regions
 
     # MAIN LOOP
-    # Define which function to use reading the trajectory file. Pull definition from traj_info.py.
+    # Define which function to use reading the trajectory file (from traj_info.py).
     if args["trajectoryfile"].endswith(".xyz"):
         from traj_info import xyz as run
     elif args["trajectoryfile"].endswith(".pdb"):
         from traj_info import pdb as run
     elif args["trajectoryfile"].endswith(".lmp") or args["trajectoryfile"].endswith(".lammpstrj"):
         from traj_info import lammpstrj as run
+
+    # Atomic masses.
+    element_masses = ddict.dict_mass()
+
+    # Molecule information.
+    molecule_id = id_frame["Molecule"].values
+    molecule_species = id_frame["Species"].values
+    molecule_structure = id_frame["Struc"].values
+    molecule_label = id_frame["Label"].values
 
     # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
     trajectory = pd.read_csv(args["trajectoryfile"], chunksize=number_of_lines_per_chunk, header=None)

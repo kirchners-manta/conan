@@ -73,7 +73,7 @@ def main():
         # Load the atom data.
         from conan.analysis_modules import traj_info
 
-        atoms, id_frame, id_frame2, box_size = traj_info.read_first_frame(args)
+        id_frame, box_size = traj_info.read_first_frame(args)
 
         maindict = {"id_frame": id_frame, "box_size": box_size, "args": args}
 
