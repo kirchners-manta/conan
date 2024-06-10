@@ -72,7 +72,7 @@ def main():
         # Load the atom data.
         from conan.analysis_modules import traj_info
 
-        atoms, id_frame, id_frame2, box_size = traj_info.read_first_frame(args["trajectoryfile"])
+        atoms, id_frame, id_frame2, box_size = traj_info.read_first_frame(args)
         (
             id_frame,
             min_z_pore,
@@ -80,10 +80,9 @@ def main():
             length_pore,
             CNT_centers,
             tuberadii,
-            CNT_volumes,
             CNT_atoms,
             Walls_positions,
-        ) = traj_info.structure_recognition(id_frame, box_size)
+        ) = traj_info.structure_recognition(id_frame, box_size, args)
 
         from conan.analysis_modules import traj_an
 

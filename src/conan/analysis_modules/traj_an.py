@@ -249,8 +249,8 @@ def trajectory_analysis(
 
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
-    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
-    # species_max = id_frame["Species"].max()
+    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
+    species_max = id_frame["Species"].max()
     spec_molecule = 0
     spec_atom = []
     ddict.printLog("")
@@ -258,7 +258,7 @@ def trajectory_analysis(
         "Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
     )
     if analysis_spec_molecule == "y":
-        spec_molecule = int(ddict.get_input("Which species to analyze? (1-{species_max}) ", args, "int"))
+        spec_molecule = int(ddict.get_input(f"Which species to analyze? (1-{species_max}) ", args, "int"))
         # Ask user for the atom type to analyze. Multiple options are possible, default is 'all'.
         spec_atom = ddict.get_input("Which atoms to analyze? [default:all] ", args, "string")
 
