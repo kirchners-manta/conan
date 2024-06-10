@@ -449,6 +449,8 @@ class GrapheneGraph:
                         neighbors.remove(selected_neighbor)
                         # Get direct neighbors of the selected neighbor excluding the selected atom
                         neighbors_of_neighbor = self.get_neighbors_via_edges(selected_neighbor)
+                        if atom_id in neighbors_of_neighbor:
+                            neighbors_of_neighbor.remove(atom_id)
                         neighbors += neighbors_of_neighbor
                         # Remove the selected neighbor from the graph
                         self.graph.remove_node(selected_neighbor)
@@ -458,14 +460,13 @@ class GrapheneGraph:
                         nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
                         # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
                         # potential carbon atoms
+                        self.possible_carbon_atoms.remove(atom_id)
                         self.possible_carbon_atoms.remove(selected_neighbor)
                         for node in nodes_to_exclude:
                             if node in self.possible_carbon_atoms:
                                 self.possible_carbon_atoms.remove(node)
 
                         # Insert a new binding between the `neighbors_of_neighbor`
-                        if atom_id in neighbors_of_neighbor:
-                            neighbors_of_neighbor.remove(atom_id)
                         self.graph.add_edge(
                             neighbors_of_neighbor[0], neighbors_of_neighbor[1], bond_length=self.bond_distance
                         )  # ToDo: bond_length needs to be adjusted
@@ -1029,7 +1030,7 @@ def main():
     print(f"Shortest path from C_{source} to C_{target}: {path}")
     graphene.plot_graphene_with_path(path)
 
-    graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(0, 5)
+    graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(0, 4)
 
     # Find nodes within a certain distance from a source node
     atom_id = 5
