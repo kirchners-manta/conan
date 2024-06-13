@@ -1,7 +1,7 @@
 import random
 from enum import Enum
 from math import cos, pi, sin
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -349,7 +349,7 @@ class GrapheneGraph:
             # Randomly select a carbon atom from the shuffled list without replacement
             atom_id = possible_carbon_atoms_shuffled.pop(0)
 
-            if not self.valid_doping_position(atom_id, nitrogen_species) or atom_id in invalid_positions:
+            if atom_id in invalid_positions or not self._valid_doping_position(nitrogen_species, atom_id):
                 continue
 
             # Atom is valid, proceed with nitrogen doping
@@ -426,6 +426,12 @@ class GrapheneGraph:
                 # Find a direct neighbor that also needs to be removed
                 selected_neighbor = random.sample(neighbors, 1)[0]
 
+                # Also check if the selected neighbor is a valid doping position
+                if selected_neighbor in invalid_positions or not self._valid_doping_position(
+                    nitrogen_species, atom_id, selected_neighbor
+                ):
+                    continue
+
                 # Remove the selected atom from the graph
                 self.graph.remove_node(atom_id)
                 # Remove the selected neighbor from the list of neighbors
@@ -463,16 +469,20 @@ class GrapheneGraph:
                 f"due to proximity constraints."
             )
 
-    def valid_doping_position(self, atom_id: int, nitrogen_species: NitrogenSpecies):
-        # Get the direct neighbors of the selected atom
-        neighbors = self.get_neighbors_via_edges(atom_id)
-        neighbor_elements = [
-            (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
-            for neighbor in neighbors
-        ]
+    def _valid_doping_position(
+        self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
+    ) -> bool:
+
         # Check the proximity constraints
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            # Get the direct neighbors of the selected atom
+            neighbors = self.get_neighbors_via_edges(atom_id)
+            neighbor_elements = [
+                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
+                for neighbor in neighbors
+            ]
             return all(elem != "N" for elem, _ in neighbor_elements)
+
         elif nitrogen_species in {
             NitrogenSpecies.PYRIDINIC_1,
             NitrogenSpecies.PYRIDINIC_2,
@@ -480,11 +490,13 @@ class GrapheneGraph:
         }:
             neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
             return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
+
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
             neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
-            selected_neighbor = random.choice(neighbors)
-            neighbors_len_3 += self.get_neighbors_via_edges(selected_neighbor, depth=3, inclusive=True)
+            if neighbor_id:
+                neighbors_len_3 += self.get_neighbors_via_edges(neighbor_id, depth=3, inclusive=True)
             return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
+
         return False
 
     def find_min_cycle_including_neighbors(self, neighbors: List[int]):
@@ -979,8 +991,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
@@ -989,10 +1001,10 @@ def main():
     #                                           NitrogenSpecies.GRAPHITIC: 5})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 15})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
+    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 20})
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     source = 0
