@@ -367,6 +367,7 @@ class GrapheneGraph:
                         if neighbor in self.possible_carbon_atoms:
                             self.possible_carbon_atoms.remove(neighbor)
             elif nitrogen_species in {
+                NitrogenSpecies.PYRIDINIC_1,
                 NitrogenSpecies.PYRIDINIC_2,
                 NitrogenSpecies.PYRIDINIC_3,
             }:
@@ -386,7 +387,23 @@ class GrapheneGraph:
                         if node in self.possible_carbon_atoms:
                             self.possible_carbon_atoms.remove(node)
 
-                    if nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+                    if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+                        # Replace 1 carbon atom to form pyridinic nitrogen structure
+                        selected_neighbor = random.choice(neighbors)
+                        self.graph.nodes[selected_neighbor]["element"] = "N"
+                        self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
+                        # Add the selected atom to the list of chosen atoms
+                        chosen_atoms.append(selected_neighbor)
+
+                        # Remove the selected neighbor from the list of neighbors
+                        neighbors.remove(selected_neighbor)
+
+                        # Insert a new binding between the `neighbors_of_neighbor`
+                        self.graph.add_edge(
+                            neighbors[0], neighbors[1], bond_length=self.bond_distance
+                        )  # ToDo: bond_length needs to be adjusted
+
+                    elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                         # Replace 2 carbon atoms to form pyridinic nitrogen structure
                         selected_neighbors = random.sample(neighbors, 2)
                         for neighbor in selected_neighbors:
@@ -394,6 +411,7 @@ class GrapheneGraph:
                             self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                             # Add the neighbor to the list of chosen atoms
                             chosen_atoms.append(neighbor)
+
                     elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
                         # Replace 3 carbon atoms to form pyridinic nitrogen structure
                         for neighbor in neighbors:
@@ -401,12 +419,6 @@ class GrapheneGraph:
                             self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                             # Add the neighbor to the list of chosen atoms
                             chosen_atoms.append(neighbor)
-                    # elif nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
-                    #     # Replace 1 carbon atom to form pyridinic nitrogen structure
-                    #     pass
-                    # elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-                    #     # Replace 4 carbon atoms to form pyridinic nitrogen structure
-                    #     pass
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
                 # Get the neighbors until length three of the selected atom
@@ -443,47 +455,6 @@ class GrapheneGraph:
                         self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                         # Add the neighbor to the list of chosen atoms
                         chosen_atoms.append(neighbor)
-
-            elif nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
-                # Get the neighbors until length three of the selected atom
-                neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
-                # Find a direct neighbor that also needs to be removed
-                selected_neighbor = random.sample(neighbors, 1)[0]
-                neighbors_len_3 += self.get_neighbors_via_edges(selected_neighbor, depth=3, inclusive=True)
-                # Check if all neighbors until length three are not nitrogen atoms
-                if all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3]):
-
-                    # Remove the selected neighbor from the list of neighbors
-                    neighbors.remove(selected_neighbor)
-                    # Get direct neighbors of the selected neighbor excluding the selected atom
-                    neighbors_of_neighbor = self.get_neighbors_via_edges(selected_neighbor)
-                    if atom_id in neighbors_of_neighbor:
-                        neighbors_of_neighbor.remove(atom_id)
-                    neighbors += neighbors_of_neighbor
-                    # Remove the selected neighbor from the graph
-                    self.graph.remove_node(selected_neighbor)
-
-                    # Find the specific cycle that includes all neighbors that should be removed from the possible
-                    # carbon atoms
-                    nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
-                    # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
-                    # potential carbon atoms
-                    self.possible_carbon_atoms.remove(atom_id)
-                    self.possible_carbon_atoms.remove(selected_neighbor)
-                    for node in nodes_to_exclude:
-                        if node in self.possible_carbon_atoms:
-                            self.possible_carbon_atoms.remove(node)
-
-                    # Insert a new binding between the `neighbors_of_neighbor`
-                    self.graph.add_edge(
-                        neighbors_of_neighbor[0], neighbors_of_neighbor[1], bond_length=self.bond_distance
-                    )  # ToDo: bond_length needs to be adjusted
-
-                    # Replace 1 carbon atom to form pyridinic nitrogen structure
-                    self.graph.nodes[atom_id]["element"] = "N"
-                    self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
-                    # Add the selected atom to the list of chosen atoms
-                    chosen_atoms.append(atom_id)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
