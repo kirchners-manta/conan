@@ -493,6 +493,12 @@ class GrapheneGraph:
         """
         Find the shortest cycle in the graph that includes all the given neighbors.
 
+        This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
+        iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
+        is found.
+        The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
+        incrementally expanded.
+
         Parameters
         ----------
         neighbors : List[int]
