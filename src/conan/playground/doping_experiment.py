@@ -423,13 +423,23 @@ class GrapheneGraph:
                         chosen_atoms.append(neighbor)
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-                # Find a direct neighbor that also needs to be removed
-                selected_neighbor = random.sample(neighbors, 1)[0]
 
-                # Also check if the selected neighbor is a valid doping position
-                if selected_neighbor in invalid_positions or not self._valid_doping_position(
-                    nitrogen_species, atom_id, selected_neighbor
-                ):
+                # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
+                selected_neighbor = None
+                temp_neighbors = neighbors.copy()
+                while temp_neighbors and not selected_neighbor:
+                    # Find a direct neighbor that also needs to be removed randomly
+                    selected_neighbor = random.choice(temp_neighbors)
+                    temp_neighbors.remove(selected_neighbor)
+
+                    # Check if the selected neighbor is a valid doping position
+                    if selected_neighbor in invalid_positions or not self._valid_doping_position(
+                        nitrogen_species, atom_id, selected_neighbor
+                    ):
+                        continue
+
+                if not selected_neighbor:
+                    # No valid neighbor found
                     continue
 
                 # Remove the selected atom from the graph
