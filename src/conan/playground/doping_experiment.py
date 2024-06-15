@@ -286,6 +286,16 @@ class GrapheneGraph:
                 NitrogenSpecies.PYRIDINIC_2,
                 NitrogenSpecies.PYRIDINIC_3,
             }:
+                # Add a flag to control the flow
+                invalid_neighbor_found = False
+                for neighbor in neighbors:
+                    if neighbor in invalid_positions:
+                        invalid_neighbor_found = True
+                        break  # Exit the for loop as soon as an invalid neighbor is found
+
+                if invalid_neighbor_found:
+                    continue  # Skip the rest of the while loop iteration and proceed to the next one
+
                 # Remove the selected atom from the graph
                 self.graph.remove_node(atom_id)
 
