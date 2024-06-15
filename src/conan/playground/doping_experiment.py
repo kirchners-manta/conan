@@ -174,93 +174,6 @@ class GrapheneGraph:
             zip(bottom_right_indices, top_left_indices + 3), bond_length=self.bond_distance, periodic=True
         )
 
-    def add_nitrogen_doping_old(self, percentage: float, nitrogen_species: NitrogenSpecies = NitrogenSpecies.GRAPHITIC):
-        """
-        Add nitrogen doping to the graphene sheet.
-
-        This method randomly replaces a specified percentage of carbon atoms with nitrogen atoms of a given species.
-        It ensures that there is always at least one carbon atom between two graphitic nitrogen atoms.
-
-        Parameters
-        ----------
-        percentage : float
-            The percentage of carbon atoms to replace with nitrogen atoms.
-        nitrogen_species : NitrogenSpecies, optional
-            The type of nitrogen doping to add. Default is NitrogenSpecies.GRAPHITIC.
-
-        Raises
-        ------
-        ValueError
-            If the nitrogen_species is not a valid NitrogenSpecies enum value.
-
-        Notes
-        -----
-        If the specified percentage of nitrogen atoms cannot be placed due to proximity constraints,
-        a warning will be printed.
-        """
-        # Check if the provided nitrogen_species is valid
-        if not isinstance(nitrogen_species, NitrogenSpecies):
-            raise ValueError(
-                f"Invalid nitrogen type: {nitrogen_species}. Valid types are: "
-                f"{', '.join([e.value for e in NitrogenSpecies])}"
-            )
-
-        # Calculate the number of nitrogen atoms to add based on the given percentage
-        num_atoms = self.graph.number_of_nodes()
-        num_nitrogen = int(num_atoms * percentage / 100)
-
-        # Get a list of all carbon atoms in the graphene sheet
-        carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
-
-        # Initialize an empty list to store the chosen atoms for nitrogen doping
-        chosen_atoms = []
-
-        # Randomly select carbon atoms to replace with nitrogen, ensuring proximity constraints
-        while len(chosen_atoms) < num_nitrogen and carbon_atoms:
-            # Randomly select a carbon atom from the list
-            atom_id = random.choice(carbon_atoms)
-            # Get the direct neighbors of the selected atom
-            neighbors = self.get_neighbors_via_edges(atom_id)
-            # Get the elements and nitrogen species of the neighbors
-            neighbor_elements = [
-                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
-                for neighbor in neighbors
-            ]
-
-            # Check if all neighbors are not graphitic nitrogen atoms
-            if all(
-                elem != "N" or (elem == "N" and n_type != NitrogenSpecies.GRAPHITIC)
-                for elem, n_type in neighbor_elements
-            ):
-                # Add the selected atom to the list of chosen atoms
-                chosen_atoms.append(atom_id)
-                # Update the selected atom's element to nitrogen and set its nitrogen species
-                self.graph.nodes[atom_id]["element"] = "N"
-                self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
-                # Remove the selected atom and its neighbors from the list of potential carbon atoms
-                carbon_atoms.remove(atom_id)
-                for neighbor in neighbors:
-                    if neighbor in carbon_atoms:
-                        carbon_atoms.remove(neighbor)
-
-        # Warn if not all requested nitrogen atoms could be placed
-        if len(chosen_atoms) < num_nitrogen:
-            print(f"Warning: Only {len(chosen_atoms)} nitrogen atoms could be placed due to proximity constraints.")
-
-        # Implement specific changes for other types of nitrogen doping if needed
-        for atom_id in chosen_atoms:
-            if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-                continue
-            elif nitrogen_species == NitrogenSpecies.PYRIDINIC:
-                # Implement pyridinic nitrogen replacement
-                pass
-            elif nitrogen_species == NitrogenSpecies.PYRROLIC:
-                # Implement pyrrolic nitrogen replacement
-                pass
-            elif nitrogen_species == NitrogenSpecies.PYRAZOLE:
-                # Implement pyrazole nitrogen replacement
-                pass
-
     def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
         """
         Add nitrogen doping to the graphene sheet.
@@ -291,6 +204,7 @@ class GrapheneGraph:
         else:
             if total_percentage is None:
                 total_percentage = 10  # Default total percentage
+
             # Default distribution if no specific percentages are provided
             percentages = {
                 NitrogenSpecies.GRAPHITIC: total_percentage * 0.5,
@@ -306,10 +220,7 @@ class GrapheneGraph:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
-        # # Add nitrogen atoms for each specified nitrogen species
-        # for species, num_nitrogen_atoms in specific_num_nitrogen.items():
-        #     self._add_nitrogen_atoms(num_nitrogen_atoms, species)
-
+        # Define the order of nitrogen doping
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
             NitrogenSpecies.PYRIDINIC_1,
@@ -1010,8 +921,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
