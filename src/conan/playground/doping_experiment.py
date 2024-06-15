@@ -474,10 +474,11 @@ class GrapheneGraph:
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
-            print(
-                f"\nWarning: Only {len(chosen_atoms)} nitrogen atoms of species {nitrogen_species} could be placed "
-                f"due to proximity constraints."
+            warning_message = (
+                f"\nWarning: Only {len(chosen_atoms)} nitrogen atoms of species {nitrogen_species} could "
+                f"be placed due to proximity constraints."
             )
+            print_warning(warning_message)
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -976,6 +977,14 @@ def write_xyz(graph, filename):
             file.write(f"{element} {x:.3f} {y:.3f} 0.000\n")
 
 
+def print_warning(message: str):
+    # ANSI escape code for red color
+    RED = "\033[91m"
+    # ANSI escape code to reset color
+    RESET = "\033[0m"
+    print(f"{RED}{message}{RESET}")
+
+
 def main():
     # Set seed for reproducibility
     # random.seed(42)
@@ -1011,8 +1020,11 @@ def main():
     #                                           NitrogenSpecies.GRAPHITIC: 5})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
