@@ -249,8 +249,8 @@ def trajectory_analysis(
 
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
-    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
-    # species_max = id_frame["Species"].max()
+    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
+    species_max = id_frame["Species"].max()
     spec_molecule = 0
     spec_atom = []
     ddict.printLog("")
@@ -258,7 +258,7 @@ def trajectory_analysis(
         "Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
     )
     if analysis_spec_molecule == "y":
-        spec_molecule = int(ddict.get_input("Which species to analyze? (1-{species_max}) ", args, "int"))
+        spec_molecule = int(ddict.get_input(f"Which species to analyze? (1-{species_max}) ", args, "int"))
         # Ask user for the atom type to analyze. Multiple options are possible, default is 'all'.
         spec_atom = ddict.get_input("Which atoms to analyze? [default:all] ", args, "string")
 
@@ -365,7 +365,7 @@ def trajectory_analysis(
 
     maindict = main_loop_preparation(maindict)
 
-    if analysis_choice2 == 5:
+    if analysis_choice2 == 6:
         if maindict["do_xyz_analysis"] == "y":
             from coordination_number import Coord_number_xyz_analysis as analysis
             from coordination_number import Coord_xyz_chunk_processing as chunk_processing
@@ -448,7 +448,7 @@ def trajectory_analysis(
             print("Frame %d of %d" % (counter, number_of_frames), end="\r")
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-        if analysis_choice2 == 5:
+        if analysis_choice2 == 6:
             maindict = chunk_processing(maindict)
 
     ddict.printLog("")
