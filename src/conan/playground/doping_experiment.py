@@ -213,8 +213,6 @@ class GrapheneGraph:
                 NitrogenSpecies.PYRIDINIC_2: total_percentage * 0.075,
                 NitrogenSpecies.PYRIDINIC_3: total_percentage * 0.075,
                 NitrogenSpecies.PYRIDINIC_4: total_percentage * 0.075,
-                NitrogenSpecies.PYRROLIC: total_percentage * 0.1,
-                NitrogenSpecies.PYRAZOLE: total_percentage * 0.05,
             }
 
         # Calculate the number of nitrogen atoms to add based on the given percentage
@@ -244,10 +242,12 @@ class GrapheneGraph:
         }
 
         # Display the results in a DataFrame
-        df = pd.DataFrame.from_dict(actual_percentages, orient="index", columns=["Actual Percentage"])
-        df.index.name = "Nitrogen Species"
-        df.reset_index(inplace=True)
-        print(f"\n{df}")
+        doping_percentages_df = pd.DataFrame.from_dict(
+            actual_percentages, orient="index", columns=["Actual Percentage"]
+        )
+        doping_percentages_df.index.name = "Nitrogen Species"
+        doping_percentages_df.reset_index(inplace=True)
+        print(f"\n{doping_percentages_df}")
 
     def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
         """
@@ -263,7 +263,7 @@ class GrapheneGraph:
         Returns
         -------
         int
-            The number of nitrogen atoms actually added.
+            The number of nitrogen atoms of the species actually added.
 
         Notes
         -----
