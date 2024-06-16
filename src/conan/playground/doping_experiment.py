@@ -480,15 +480,15 @@ class GrapheneGraph:
         # Update edge weights in the subgraph
         for u, v, d in subgraph.edges(data=True):
             if (u, v) in bond_lengths:
-                d["weight"] = bond_lengths[(u, v)]
+                d["bond_length"] = bond_lengths[(u, v)]
             elif (v, u) in bond_lengths:
-                d["weight"] = bond_lengths[(v, u)]
+                d["bond_length"] = bond_lengths[(v, u)]
 
         # Calculate new positions using spring_layout
-        new_positions = nx.spring_layout(subgraph, weight="weight", iterations=100)
+        new_positions = nx.spring_layout(subgraph, weight="bond_length", iterations=100)
 
         # Update the graph with new positions
-        nx.set_node_attributes(self.graph, new_positions, name="pos")
+        nx.set_node_attributes(self.graph, new_positions, name="position")
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
