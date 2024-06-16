@@ -6,18 +6,19 @@ from typing import List, Optional, Set, Tuple
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 from scipy.spatial import KDTree
 
 
 class NitrogenSpecies(Enum):
     GRAPHITIC = "graphitic"
-    PYRIDINIC = "pyridinic"
+    # PYRIDINIC = "pyridinic"
     PYRIDINIC_1 = "pyridinic_1"
     PYRIDINIC_2 = "pyridinic_2"
     PYRIDINIC_3 = "pyridinic_3"
     PYRIDINIC_4 = "pyridinic_4"
-    PYRROLIC = "pyrrolic"
-    PYRAZOLE = "pyrazole"
+    # PYRROLIC = "pyrrolic"
+    # PYRAZOLE = "pyrazole"
 
 
 class GrapheneGraph:
@@ -220,7 +221,10 @@ class GrapheneGraph:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
-        # Define the order of nitrogen doping
+        # Dictionary to keep track of actually added nitrogen atoms
+        added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
+
+        # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
             NitrogenSpecies.PYRIDINIC_1,
@@ -230,7 +234,20 @@ class GrapheneGraph:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
-                self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                added_nitrogen_counts[species] += self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+
+        # Calculate and print the actual percentages of added nitrogen species
+        total_atoms = self.graph.number_of_nodes()
+        actual_percentages = {
+            species: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
+            for species, count in added_nitrogen_counts.items()
+        }
+
+        # Display the results in a DataFrame
+        df = pd.DataFrame.from_dict(actual_percentages, orient="index", columns=["Actual Percentage"])
+        df.index.name = "Nitrogen Species"
+        df.reset_index(inplace=True)
+        print(f"\n{df}")
 
     def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
         """
@@ -242,6 +259,11 @@ class GrapheneGraph:
             The number of nitrogen atoms to add.
         nitrogen_species : NitrogenSpecies
             The type of nitrogen doping to add.
+
+        Returns
+        -------
+        int
+            The number of nitrogen atoms actually added.
 
         Notes
         -----
@@ -400,6 +422,8 @@ class GrapheneGraph:
                 f"be placed due to proximity constraints."
             )
             print_warning(warning_message)
+
+        return len(chosen_atoms)
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -644,14 +668,14 @@ class GrapheneGraph:
         """
         colors = {"C": "black"}
         nitrogen_colors = {
-            NitrogenSpecies.PYRIDINIC: "blue",
+            # NitrogenSpecies.PYRIDINIC: "blue",
             NitrogenSpecies.PYRIDINIC_1: "blue",
             NitrogenSpecies.PYRIDINIC_2: "blue",
             NitrogenSpecies.PYRIDINIC_3: "blue",
             NitrogenSpecies.PYRIDINIC_4: "blue",
             NitrogenSpecies.GRAPHITIC: "red",
-            NitrogenSpecies.PYRROLIC: "cyan",
-            NitrogenSpecies.PYRAZOLE: "green",
+            # NitrogenSpecies.PYRROLIC: "cyan",
+            # NitrogenSpecies.PYRAZOLE: "green",
         }
         if nitrogen_species in nitrogen_colors:
             return nitrogen_colors[nitrogen_species]
@@ -931,8 +955,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
