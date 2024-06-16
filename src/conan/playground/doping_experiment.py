@@ -415,6 +415,9 @@ class GrapheneGraph:
                     # Add the neighbor to the list of chosen atoms
                     chosen_atoms.append(neighbor)
 
+                # Adjust the positions of atoms in the cycle to optimize the structure
+                self._adjust_atom_positions(nodes_to_exclude)
+
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
             warning_message = (
@@ -424,6 +427,68 @@ class GrapheneGraph:
             print_warning(warning_message)
 
         return len(chosen_atoms)
+
+    def _adjust_atom_positions(self, cycle: List[int]):
+        """
+        Adjust the positions of atoms in a cycle to optimize the structure.
+
+        Parameters
+        ----------
+        cycle : List[int]
+            The list of atom IDs forming the cycle.
+
+        Notes
+        -----
+        This method adjusts the positions of atoms in a cycle to optimize the structure.
+        """
+        # Create a subgraph including all nodes in the cycle
+        subgraph = self.graph.subgraph(cycle).copy()
+
+        # Add edges to neighbors outside the cycle
+        for node in cycle:
+            for neighbor in self.graph.neighbors(node):
+                if neighbor not in cycle:
+                    subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
+
+        # Define bond lengths for specific edges
+        bond_lengths = {
+            (97, 112): 1.34,
+            (112, 113): 1.45,
+            (113, 114): 1.45,
+            (114, 115): 1.34,
+            (115, 101): 1.47,
+            (101, 100): 1.32,
+            (100, 85): 1.34,
+            (85, 84): 1.45,
+            (84, 83): 1.45,
+            (83, 82): 1.34,
+            (82, 81): 1.32,
+            (81, 96): 1.47,
+            (96, 97): 1.32,
+            (84, 69): 1.428,
+            (83, 66): 1.431,
+            (81, 80): 1.423,
+            (96, 111): 1.423,
+            (112, 127): 1.431,
+            (113, 0): 1.428,
+            (114, 3): 1.431,
+            (116, 117): 1.423,
+            (101, 102): 1.423,
+            (85, 86): 1.431,
+        }
+
+        # Update edge weights in the subgraph
+        for u, v, d in subgraph.edges(data=True):
+            if (u, v) in bond_lengths:
+                d["weight"] = bond_lengths[(u, v)]
+            elif (v, u) in bond_lengths:
+                d["weight"] = bond_lengths[(v, u)]
+
+        # Calculate new positions using spring_layout
+        new_positions = nx.spring_layout(subgraph, weight="weight", iterations=100)
+
+        # Update the graph with new positions
+        nx.set_node_attributes(self.graph, new_positions, name="pos")
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -973,6 +1038,8 @@ def main():
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
 
     source = 0
     target = 10
