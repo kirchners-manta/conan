@@ -1,7 +1,7 @@
 # import build_main as main
 import pandas as pd
 
-import conan.build_modules.vmd_interface as vmd
+import conan.build_modules.vmd_interface.vmd_interface as vmd
 import conan.defdict as ddict
 from conan.build_modules.structures import Boronnitride, Graphene, Pore, Structure1d
 
@@ -38,7 +38,8 @@ class Interpreter:
                 vmd.send_command("show_index")
             else:
                 self.vmd_process = vmd.start_vmd()
-                self.vmd_is_running = True
+                if self.vmd_process:
+                    self.vmd_is_running = True
 
     # cleanup
     def exit(self):
