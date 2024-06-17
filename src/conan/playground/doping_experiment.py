@@ -433,115 +433,115 @@ class GrapheneGraph:
 
         return len(chosen_atoms)
 
-    def _adjust_atom_positions(self, cycle: List[int]):
-        """
-        Adjust the positions of atoms in a cycle to optimize the structure.
-
-        Parameters
-        ----------
-        cycle : List[int]
-            The list of atom IDs forming the cycle.
-
-        Notes
-        -----
-        This method adjusts the positions of atoms in a cycle to optimize the structure.
-        """
-        # Create a subgraph including all nodes in the cycle
-        subgraph = self.graph.subgraph(cycle).copy()
-
-        # Add edges to neighbors outside the cycle
-        for node in cycle:
-            for neighbor in self.graph.neighbors(node):
-                if neighbor not in cycle:
-                    subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
-
-        # Define bond lengths for specific edges
-        bond_lengths = {
-            (97, 112): 1.34,
-            (112, 113): 1.45,
-            (113, 114): 1.45,
-            (114, 115): 1.34,
-            (115, 116): 1.32,
-            (116, 101): 1.47,
-            (101, 100): 1.32,
-            (100, 85): 1.34,
-            (85, 84): 1.45,
-            (84, 83): 1.45,
-            (83, 82): 1.34,
-            (82, 81): 1.32,
-            (81, 96): 1.47,
-            (96, 97): 1.32,
-            (84, 69): 1.428,
-            (83, 66): 1.431,
-            (81, 80): 1.423,
-            (96, 111): 1.423,
-            (112, 127): 1.431,
-            (113, 0): 1.428,
-            (114, 3): 1.431,
-            (116, 117): 1.423,
-            (101, 102): 1.423,
-            (85, 86): 1.431,
-        }
-
-        # Define the angles (in degrees) between consecutive bonds in the cycle
-        angles = {
-            (97, 112, 113): 120.26,
-            (112, 113, 114): 122.92,
-            (113, 114, 115): 120.26,
-            (114, 115, 116): 121.02,
-            (115, 116, 101): 119.3,
-            (116, 101, 100): 119.3,
-            (101, 100, 85): 121.02,
-            (100, 85, 84): 120.26,
-            (85, 84, 83): 122.91,
-            (84, 83, 82): 120.26,
-            (83, 82, 81): 121.02,
-            (82, 81, 96): 119.3,
-            (81, 96, 97): 119.3,
-            (96, 97, 112): 121.02,
-        }
-
-        # Initial positions (use existing positions if available)
-        positions = {node: self.graph.nodes[node]["position"] for node in cycle}
-
-        # Flatten initial positions for optimization
-        x0 = np.array([coord for pos in positions.values() for coord in pos])
-
-        def bond_energy(x):
-            energy = 0.0
-            for (i, j), length in bond_lengths.items():
-                if i in cycle and j in cycle:
-                    xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                    xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-                else:
-                    xi, yi = self.graph.nodes[i]["position"]
-                    xj, yj = self.graph.nodes[j]["position"]
-                energy += 0.5 * ((np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2) - length) ** 2)
-            return energy
-
-        def angle_energy(x):
-            energy = 0.0
-            for (i, j, k), angle in angles.items():
-                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-                xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
-                v1 = np.array([xi - xj, yi - yj])
-                v2 = np.array([xk - xj, yk - yj])
-                cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                energy += 0.5 * ((theta - np.radians(angle)) ** 2)
-            return energy
-
-        def total_energy(x):
-            return bond_energy(x) + angle_energy(x)
-
-        # Optimize positions to minimize energy
-        result = minimize(total_energy, x0, method="L-BFGS-B")
-
-        # Update positions in the graph
-        optimized_positions = result.x.reshape(-1, 2)
-        for idx, node in enumerate(cycle):
-            self.graph.nodes[node]["position"] = optimized_positions[idx]
+    # def _adjust_atom_positions(self, cycle: List[int]):
+    #     """
+    #     Adjust the positions of atoms in a cycle to optimize the structure.
+    #
+    #     Parameters
+    #     ----------
+    #     cycle : List[int]
+    #         The list of atom IDs forming the cycle.
+    #
+    #     Notes
+    #     -----
+    #     This method adjusts the positions of atoms in a cycle to optimize the structure.
+    #     """
+    #     # Create a subgraph including all nodes in the cycle
+    #     subgraph = self.graph.subgraph(cycle).copy()
+    #
+    #     # Add edges to neighbors outside the cycle
+    #     for node in cycle:
+    #         for neighbor in self.graph.neighbors(node):
+    #             if neighbor not in cycle:
+    #                 subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
+    #
+    #     # Define bond lengths for specific edges
+    #     bond_lengths = {
+    #         (97, 112): 1.34,
+    #         (112, 113): 1.45,
+    #         (113, 114): 1.45,
+    #         (114, 115): 1.34,
+    #         (115, 116): 1.32,
+    #         (116, 101): 1.47,
+    #         (101, 100): 1.32,
+    #         (100, 85): 1.34,
+    #         (85, 84): 1.45,
+    #         (84, 83): 1.45,
+    #         (83, 82): 1.34,
+    #         (82, 81): 1.32,
+    #         (81, 96): 1.47,
+    #         (96, 97): 1.32,
+    #         (84, 69): 1.428,
+    #         (83, 66): 1.431,
+    #         (81, 80): 1.423,
+    #         (96, 111): 1.423,
+    #         (112, 127): 1.431,
+    #         (113, 0): 1.428,
+    #         (114, 3): 1.431,
+    #         (116, 117): 1.423,
+    #         (101, 102): 1.423,
+    #         (85, 86): 1.431,
+    #     }
+    #
+    #     # Define the angles (in degrees) between consecutive bonds in the cycle
+    #     angles = {
+    #         (97, 112, 113): 120.26,
+    #         (112, 113, 114): 122.92,
+    #         (113, 114, 115): 120.26,
+    #         (114, 115, 116): 121.02,
+    #         (115, 116, 101): 119.3,
+    #         (116, 101, 100): 119.3,
+    #         (101, 100, 85): 121.02,
+    #         (100, 85, 84): 120.26,
+    #         (85, 84, 83): 122.91,
+    #         (84, 83, 82): 120.26,
+    #         (83, 82, 81): 121.02,
+    #         (82, 81, 96): 119.3,
+    #         (81, 96, 97): 119.3,
+    #         (96, 97, 112): 121.02,
+    #     }
+    #
+    #     # Initial positions (use existing positions if available)
+    #     positions = {node: self.graph.nodes[node]["position"] for node in cycle}
+    #
+    #     # Flatten initial positions for optimization
+    #     x0 = np.array([coord for pos in positions.values() for coord in pos])
+    #
+    #     def bond_energy(x):
+    #         energy = 0.0
+    #         for (i, j), length in bond_lengths.items():
+    #             if i in cycle and j in cycle:
+    #                 xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+    #                 xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+    #             else:
+    #                 xi, yi = self.graph.nodes[i]["position"]
+    #                 xj, yj = self.graph.nodes[j]["position"]
+    #             energy += 0.5 * ((np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2) - length) ** 2)
+    #         return energy
+    #
+    #     def angle_energy(x):
+    #         energy = 0.0
+    #         for (i, j, k), angle in angles.items():
+    #             xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+    #             xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+    #             xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
+    #             v1 = np.array([xi - xj, yi - yj])
+    #             v2 = np.array([xk - xj, yk - yj])
+    #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    #             energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+    #         return energy
+    #
+    #     def total_energy(x):
+    #         return bond_energy(x) + angle_energy(x)
+    #
+    #     # Optimize positions to minimize energy
+    #     result = minimize(total_energy, x0, method="L-BFGS-B")
+    #
+    #     # Update positions in the graph
+    #     optimized_positions = result.x.reshape(-1, 2)
+    #     for idx, node in enumerate(cycle):
+    #         self.graph.nodes[node]["position"] = optimized_positions[idx]
 
     # def _adjust_atom_positions(self, cycle: List[int]):
     #     """
@@ -619,120 +619,159 @@ class GrapheneGraph:
     #     for idx, node in enumerate(cycle):
     #         self.graph.nodes[node]["position"] = optimized_positions[idx]
 
-    # def _adjust_atom_positions(self, cycle: List[int]):
-    #     """
-    #     Adjust the positions of atoms in a cycle to optimize the structure.
-    #
-    #     Parameters
-    #     ----------
-    #     cycle : List[int]
-    #         The list of atom IDs forming the cycle.
-    #
-    #     Notes
-    #     -----
-    #     This method adjusts the positions of atoms in a cycle to optimize the structure.
-    #     """
-    #     # Create a subgraph including all nodes in the cycle
-    #     subgraph = self.graph.subgraph(cycle).copy()
-    #
-    #     # # Add edges to neighbors outside the cycle
-    #     # for node in cycle:
-    #     #     for neighbor in self.graph.neighbors(node):
-    #     #         if neighbor not in cycle:
-    #     #             subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
-    #
-    #     # Define bond lengths for specific edges
-    #     bond_lengths = {
-    #         (97, 112): 1.34,
-    #         (112, 113): 1.45,
-    #         (113, 114): 1.45,
-    #         (114, 115): 1.34,
-    #         (115, 116): 1.32,
-    #         (116, 101): 1.47,
-    #         (101, 100): 1.32,
-    #         (100, 85): 1.34,
-    #         (85, 84): 1.45,
-    #         (84, 83): 1.45,
-    #         (83, 82): 1.34,
-    #         (82, 81): 1.32,
-    #         (81, 96): 1.47,
-    #         (96, 97): 1.32,
-    #         # (84, 69): 1.428,
-    #         # (83, 66): 1.431,
-    #         # (81, 80): 1.423,
-    #         # (96, 111): 1.423,
-    #         # (112, 127): 1.431,
-    #         # (113, 0): 1.428,
-    #         # (114, 3): 1.431,
-    #         # (116, 117): 1.423,
-    #         # (101, 102): 1.423,
-    #         # (85, 86): 1.431,
-    #     }
-    #
-    #     # Define the angles (in degrees) between consecutive bonds in the cycle
-    #     angles = {
-    #         (97, 112, 113): 120.26,
-    #         (112, 113, 114): 122.92,
-    #         (113, 114, 115): 120.26,
-    #         (114, 115, 116): 121.02,
-    #         (115, 116, 101): 119.3,
-    #         (116, 101, 100): 119.3,
-    #         (101, 100, 85): 121.02,
-    #         (100, 85, 84): 120.26,
-    #         (85, 84, 83): 122.91,
-    #         (84, 83, 82): 120.26,
-    #         (83, 82, 81): 121.02,
-    #         (82, 81, 96): 119.3,
-    #         (81, 96, 97): 119.3,
-    #         (96, 97, 112): 121.02,
-    #     }
-    #
-    #     # Ensure all atoms in bond_lengths and angles are in the cycle
-    #     for key in list(bond_lengths.keys()):
-    #         if key[0] not in cycle or key[1] not in cycle:
-    #             del bond_lengths[key]
-    #
-    #     for key in list(angles.keys()):
-    #         if key[0] not in cycle or key[1] not in cycle or key[2] not in cycle:
-    #             del angles[key]
-    #
-    #     # Initial positions (use existing positions if available)
-    #     positions = {node: subgraph.nodes[node]["position"] for node in cycle}
-    #
-    #     # Flatten initial positions for optimization
-    #     x0 = np.array([coord for pos in positions.values() for coord in pos])
-    #
-    #     def bond_energy(x):
-    #         energy = 0.0
-    #         for (i, j), length in bond_lengths.items():
-    #             xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-    #             xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-    #             energy += 0.5 * ((np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2) - length) ** 2)
-    #         return energy
-    #
-    #     def angle_energy(x):
-    #         energy = 0.0
-    #         for (i, j, k), angle in angles.items():
-    #             xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-    #             xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-    #             xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
-    #             v1 = np.array([xi - xj, yi - yj])
-    #             v2 = np.array([xk - xj, yk - yj])
-    #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-    #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-    #             energy += 0.5 * ((theta - np.radians(angle)) ** 2)
-    #         return energy
-    #
-    #     def total_energy(x):
-    #         return bond_energy(x) + angle_energy(x)
-    #
-    #     # Optimize positions to minimize energy
-    #     result = minimize(total_energy, x0, method="L-BFGS-B")
-    #
-    #     # Update positions in the graph
-    #     optimized_positions = result.x.reshape(-1, 2)
-    #     for idx, node in enumerate(cycle):
-    #         self.graph.nodes[node]["position"] = optimized_positions[idx]
+    def _adjust_atom_positions(self, cycle: List[int]):
+        """
+        Adjust the positions of atoms in a cycle to optimize the structure.
+
+        Parameters
+        ----------
+        cycle : List[int]
+            The list of atom IDs forming the cycle.
+
+        Notes
+        -----
+        This method adjusts the positions of atoms in a cycle to optimize the structure.
+        """
+        # Create a subgraph including all nodes in the cycle
+        subgraph = self.graph.subgraph(cycle).copy()
+
+        # # Add edges to neighbors outside the cycle
+        # for node in cycle:
+        #     for neighbor in self.graph.neighbors(node):
+        #         if neighbor not in cycle:
+        #             subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
+
+        # Define bond lengths for specific edges
+        bond_lengths = {
+            (97, 112): 1.34,
+            (112, 113): 1.45,
+            (113, 114): 1.45,
+            (114, 115): 1.34,
+            (115, 116): 1.32,
+            (116, 101): 1.47,
+            (101, 100): 1.32,
+            (100, 85): 1.34,
+            (85, 84): 1.45,
+            (84, 83): 1.45,
+            (83, 82): 1.34,
+            (82, 81): 1.32,
+            (81, 96): 1.47,
+            (96, 97): 1.32,
+            # (84, 69): 1.428,
+            # (83, 66): 1.431,
+            # (81, 80): 1.423,
+            # (96, 111): 1.423,
+            # (112, 127): 1.431,
+            # (113, 0): 1.428,
+            # (114, 3): 1.431,
+            # (116, 117): 1.423,
+            # (101, 102): 1.423,
+            # (85, 86): 1.431,
+        }
+
+        # Define the angles (in degrees) between consecutive bonds in the cycle
+        angles = {
+            (97, 112, 113): 120.26,
+            (112, 113, 114): 122.92,
+            (113, 114, 115): 120.26,
+            (114, 115, 116): 121.02,
+            (115, 116, 101): 119.3,
+            (116, 101, 100): 119.3,
+            (101, 100, 85): 121.02,
+            (100, 85, 84): 120.26,
+            (85, 84, 83): 122.91,
+            (84, 83, 82): 120.26,
+            (83, 82, 81): 121.02,
+            (82, 81, 96): 119.3,
+            (81, 96, 97): 119.3,
+            (96, 97, 112): 121.02,
+        }
+
+        # Initial positions (use existing positions if available)
+        positions = {node: subgraph.nodes[node]["position"] for node in cycle}
+
+        # Flatten initial positions for optimization
+        x0 = np.array([coord for pos in positions.values() for coord in pos])
+
+        def bond_energy(x):
+            """
+            Calculate the bond energy for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total bond energy.
+            """
+            energy = 0.0
+            for (i, j), length in bond_lengths.items():
+                # Extract the coordinates of atoms i and j from the flattened array
+                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                # Calculate the distance between the atoms
+                dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
+                # Calculate the energy contribution for this bond
+                energy += 0.5 * ((dist - length) ** 2)
+            return energy
+
+        def angle_energy(x):
+            """
+            Calculate the angle energy for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total angle energy.
+            """
+            energy = 0.0
+            for (i, j, k), angle in angles.items():
+                # Extract the coordinates of atoms i, j, and k from the flattened array
+                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
+                # Calculate vectors from j to i and from j to k
+                v1 = np.array([xi - xj, yi - yj])
+                v2 = np.array([xk - xj, yk - yj])
+                # Calculate the cosine of the angle between the vectors
+                cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                # Calculate the actual angle in radians
+                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                # Calculate the energy contribution for this angle
+                energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+            return energy
+
+        def total_energy(x):
+            """
+            Calculate the total energy (bond energy + angle energy).
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total energy.
+            """
+            return bond_energy(x) + angle_energy(x)
+
+        # Optimize positions to minimize energy
+        result = minimize(total_energy, x0, method="L-BFGS-B")
+
+        # Update positions in the graph
+        optimized_positions = result.x.reshape(-1, 2)
+        for idx, node in enumerate(cycle):
+            self.graph.nodes[node]["position"] = optimized_positions[idx]
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
