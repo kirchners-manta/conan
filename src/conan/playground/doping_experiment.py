@@ -456,7 +456,8 @@ class GrapheneGraph:
             (112, 113): 1.45,
             (113, 114): 1.45,
             (114, 115): 1.34,
-            (115, 101): 1.47,
+            (115, 116): 1.32,
+            (116, 101): 1.47,
             (101, 100): 1.32,
             (100, 85): 1.34,
             (85, 84): 1.45,
@@ -465,27 +466,62 @@ class GrapheneGraph:
             (82, 81): 1.32,
             (81, 96): 1.47,
             (96, 97): 1.32,
-            (84, 69): 1.428,
-            (83, 66): 1.431,
-            (81, 80): 1.423,
-            (96, 111): 1.423,
-            (112, 127): 1.431,
-            (113, 0): 1.428,
-            (114, 3): 1.431,
-            (116, 117): 1.423,
-            (101, 102): 1.423,
-            (85, 86): 1.431,
+            # (84, 69): 1.428,
+            # (83, 66): 1.431,
+            # (81, 80): 1.423,
+            # (96, 111): 1.423,
+            # (112, 127): 1.431,
+            # (113, 0): 1.428,
+            # (114, 3): 1.431,
+            # (116, 117): 1.423,
+            # (101, 102): 1.423,
+            # (85, 86): 1.431,
         }
 
-        # Update edge weights in the subgraph
-        for u, v, d in subgraph.edges(data=True):
-            if (u, v) in bond_lengths:
-                d["bond_length"] = bond_lengths[(u, v)]
-            elif (v, u) in bond_lengths:
-                d["bond_length"] = bond_lengths[(v, u)]
+        # Define the angles (in degrees) between consecutive bonds in the cycle
+        angles = {
+            (97, 112, 113): 120.26,
+            (112, 113, 114): 122.92,
+            (113, 114, 115): 120.26,
+            (114, 115, 116): 121.02,
+            (115, 116, 101): 119.3,
+            (116, 101, 100): 119.3,
+            (101, 100, 85): 121.02,
+            (100, 85, 84): 120.26,
+            (85, 84, 83): 122.91,
+            (84, 83, 82): 120.26,
+            (83, 82, 81): 121.02,
+            (82, 81, 96): 119.3,
+            (81, 96, 97): 119.3,
+            (96, 97, 112): 121.02,
+        }
 
-        # Calculate new positions using spring_layout
-        new_positions = nx.spring_layout(subgraph, weight="bond_length", iterations=100)
+        # Initial position for the first atom in the cycle
+        start_atom = cycle[0]
+        x_start, y_start = self.graph.nodes[start_atom]["position"]
+
+        # Initialize positions with the starting atom's position
+        new_positions = {start_atom: (x_start, y_start)}
+
+        # Iterate through the bond lengths and angles to calculate new positions
+        for (prev_atom, current_atom), bond_length in bond_lengths.items():
+            if prev_atom not in new_positions:
+                continue
+
+            x1, y1 = new_positions[prev_atom]
+
+            # Find the angle
+            for angle_key in angles:
+                if current_atom in angle_key and prev_atom in angle_key:
+                    angle = np.radians(angles[angle_key])
+                    break
+            else:
+                angle = np.radians(120)  # Default angle if not found
+
+            # Calculate new position
+            x2 = x1 + bond_length * np.cos(angle)
+            y2 = y1 + bond_length * np.sin(angle)
+            new_positions[current_atom] = (x2, y2)
 
         # Update the graph with new positions
         nx.set_node_attributes(self.graph, new_positions, name="position")
@@ -1030,7 +1066,7 @@ def main():
     #                                           NitrogenSpecies.GRAPHITIC: 5})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 3})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
