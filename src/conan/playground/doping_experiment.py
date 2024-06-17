@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
 
@@ -367,6 +368,10 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
+                # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                atom_id = 98
+                neighbors = self.get_neighbors_via_edges(atom_id)
+
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
                 temp_neighbors = neighbors.copy()
@@ -444,11 +449,11 @@ class GrapheneGraph:
         # Create a subgraph including all nodes in the cycle
         subgraph = self.graph.subgraph(cycle).copy()
 
-        # Add edges to neighbors outside the cycle
-        for node in cycle:
-            for neighbor in self.graph.neighbors(node):
-                if neighbor not in cycle:
-                    subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
+        # # Add edges to neighbors outside the cycle
+        # for node in cycle:
+        #     for neighbor in self.graph.neighbors(node):
+        #         if neighbor not in cycle:
+        #             subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
 
         # Define bond lengths for specific edges
         bond_lengths = {
@@ -496,35 +501,55 @@ class GrapheneGraph:
             (96, 97, 112): 121.02,
         }
 
-        # Initial position for the first atom in the cycle
-        start_atom = cycle[0]
-        x_start, y_start = self.graph.nodes[start_atom]["position"]
+        # Ensure all atoms in bond_lengths and angles are in the cycle
+        for key in list(bond_lengths.keys()):
+            if key[0] not in cycle or key[1] not in cycle:
+                del bond_lengths[key]
 
-        # Initialize positions with the starting atom's position
-        new_positions = {start_atom: (x_start, y_start)}
+        for key in list(angles.keys()):
+            if key[0] not in cycle or key[1] not in cycle or key[2] not in cycle:
+                del angles[key]
 
-        # Iterate through the bond lengths and angles to calculate new positions
-        for (prev_atom, current_atom), bond_length in bond_lengths.items():
-            if prev_atom not in new_positions:
-                continue
+        # Initial positions (use existing positions if available)
+        positions = {node: subgraph.nodes[node]["position"] for node in cycle}
 
-            x1, y1 = new_positions[prev_atom]
+        # Flatten initial positions for optimization
+        x0 = np.array([coord for pos in positions.values() for coord in pos])
 
-            # Find the angle
-            for angle_key in angles:
-                if current_atom in angle_key and prev_atom in angle_key:
-                    angle = np.radians(angles[angle_key])
-                    break
-            else:
-                angle = np.radians(120)  # Default angle if not found
+        def bond_energy(x):
+            energy = 0.0
+            for (i, j), length in bond_lengths.items():
+                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                energy += 0.5 * ((np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2) - length) ** 2)
+            return energy
 
-            # Calculate new position
-            x2 = x1 + bond_length * np.cos(angle)
-            y2 = y1 + bond_length * np.sin(angle)
-            new_positions[current_atom] = (x2, y2)
+        def angle_energy(x):
+            energy = 0.0
+            for (i, j, k), angle in angles.items():
+                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
+                v1 = np.array([xi - xj, yi - yj])
+                v2 = np.array([xk - xj, yk - yj])
+                cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+            return energy
+
+        def total_energy(x):
+            return bond_energy(x) + angle_energy(x)
+
+        # Optimize positions to minimize energy
+        result = minimize(total_energy, x0, method="L-BFGS-B")
+
+        # Update positions in the graph
+        optimized_positions = result.x.reshape(-1, 2)
+        for idx, node in enumerate(cycle):
+            self.graph.nodes[node]["position"] = optimized_positions[idx]
 
         # Update the graph with new positions
-        nx.set_node_attributes(self.graph, new_positions, name="position")
+        nx.set_node_attributes(subgraph, positions, name="position")
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -1034,7 +1059,7 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(0)
+    random.seed(2)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
