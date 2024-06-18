@@ -226,9 +226,9 @@ class GrapheneGraph:
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
-            NitrogenSpecies.PYRIDINIC_1,
-            NitrogenSpecies.PYRIDINIC_2,
             NitrogenSpecies.PYRIDINIC_3,
+            NitrogenSpecies.PYRIDINIC_2,
+            NitrogenSpecies.PYRIDINIC_1,
             NitrogenSpecies.GRAPHITIC,
         ]:
             if species in specific_num_nitrogen:
@@ -1301,15 +1301,16 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 10})
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 5, NitrogenSpecies.PYRIDINIC_3: 5,
-    #                                           NitrogenSpecies.GRAPHITIC: 5})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
+    graphene.add_nitrogen_doping(
+        percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
+    )
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
