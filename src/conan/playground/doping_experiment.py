@@ -276,14 +276,12 @@ class GrapheneGraph:
 
         # Shuffle the list of possible carbon atoms
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
-        # Set to keep track of invalid positions
-        invalid_positions = set()
 
         while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms_shuffled:
             # Randomly select a carbon atom from the shuffled list without replacement
             atom_id = possible_carbon_atoms_shuffled.pop(0)
 
-            if atom_id in invalid_positions or not self._valid_doping_position(nitrogen_species, atom_id):
+            if atom_id not in self.possible_carbon_atoms or not self._valid_doping_position(nitrogen_species, atom_id):
                 continue
 
             # Atom is valid, proceed with nitrogen doping
@@ -298,11 +296,9 @@ class GrapheneGraph:
                 self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
                 # Remove the selected atom and its neighbors from the list of potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
-                invalid_positions.add(atom_id)
                 for neighbor in neighbors:
                     if neighbor in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(neighbor)
-                        invalid_positions.add(neighbor)
 
             elif nitrogen_species in {
                 NitrogenSpecies.PYRIDINIC_1,
@@ -312,7 +308,7 @@ class GrapheneGraph:
                 # Add a flag to control the flow
                 invalid_neighbor_found = False
                 for neighbor in neighbors:
-                    if neighbor in invalid_positions:
+                    if neighbor not in self.possible_carbon_atoms:
                         invalid_neighbor_found = True
                         break  # Exit the for loop as soon as an invalid neighbor is found
 
@@ -327,11 +323,10 @@ class GrapheneGraph:
                 nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
                 # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
-                invalid_positions.add(atom_id)
+                # invalid_positions.add(atom_id)
                 for node in nodes_to_exclude:
                     if node in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(node)
-                        invalid_positions.add(node)
 
                 if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
                     # Replace 1 carbon atom to form pyridinic nitrogen structure
@@ -368,9 +363,9 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                atom_id = 98
-                neighbors = self.get_neighbors_via_edges(atom_id)
+                # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                # atom_id = 98
+                # neighbors = self.get_neighbors_via_edges(atom_id)
 
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
@@ -381,7 +376,7 @@ class GrapheneGraph:
                     temp_neighbors.remove(selected_neighbor)
 
                     # Check if the selected neighbor is a valid doping position
-                    if selected_neighbor in invalid_positions or not self._valid_doping_position(
+                    if selected_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
                         nitrogen_species, atom_id, selected_neighbor
                     ):
                         continue
@@ -406,12 +401,9 @@ class GrapheneGraph:
                 # potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
                 self.possible_carbon_atoms.remove(selected_neighbor)
-                invalid_positions.add(atom_id)
-                invalid_positions.add(selected_neighbor)
                 for node in nodes_to_exclude:
                     if node in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(node)
-                        invalid_positions.add(node)
 
                 # Replace 4 carbon atoms to form pyridinic nitrogen structure
                 for neighbor in neighbors:
@@ -420,8 +412,8 @@ class GrapheneGraph:
                     # Add the neighbor to the list of chosen atoms
                     chosen_atoms.append(neighbor)
 
-                # Adjust the positions of atoms in the cycle to optimize the structure
-                self._adjust_atom_positions(nodes_to_exclude)
+                # # Adjust the positions of atoms in the cycle to optimize the structure
+                # self._adjust_atom_positions(nodes_to_exclude)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -768,7 +760,7 @@ class GrapheneGraph:
         # Optimize positions to minimize energy
         result = minimize(total_energy, x0, method="L-BFGS-B")
 
-        # Update positions in the graph
+        # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
         for idx, node in enumerate(cycle):
             self.graph.nodes[node]["position"] = optimized_positions[idx]
@@ -1281,7 +1273,7 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(2)
+    random.seed(1)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -1313,7 +1305,7 @@ def main():
     #                                           NitrogenSpecies.GRAPHITIC: 5})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 20})
