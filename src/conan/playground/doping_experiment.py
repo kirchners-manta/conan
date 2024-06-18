@@ -210,10 +210,10 @@ class GrapheneGraph:
             # Default distribution if no specific percentages are provided
             percentages = {
                 NitrogenSpecies.GRAPHITIC: total_percentage * 0.5,
-                NitrogenSpecies.PYRIDINIC_1: total_percentage * 0.075,
-                NitrogenSpecies.PYRIDINIC_2: total_percentage * 0.075,
-                NitrogenSpecies.PYRIDINIC_3: total_percentage * 0.075,
-                NitrogenSpecies.PYRIDINIC_4: total_percentage * 0.075,
+                NitrogenSpecies.PYRIDINIC_1: total_percentage * 0.1,
+                NitrogenSpecies.PYRIDINIC_2: total_percentage * 0.1,
+                NitrogenSpecies.PYRIDINIC_3: total_percentage * 0.1,
+                NitrogenSpecies.PYRIDINIC_4: total_percentage * 0.2,
             }
 
         # Calculate the number of nitrogen atoms to add based on the given percentage
@@ -1323,16 +1323,16 @@ def main():
     # )
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(
-        percentages={
-            NitrogenSpecies.PYRIDINIC_2: 3,
-            NitrogenSpecies.PYRIDINIC_3: 3,
-            NitrogenSpecies.GRAPHITIC: 20,
-            NitrogenSpecies.PYRIDINIC_4: 5,
-            NitrogenSpecies.PYRIDINIC_1: 5,
-        }
-    )
-    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(
+    #     percentages={
+    #         NitrogenSpecies.PYRIDINIC_2: 3,
+    #         NitrogenSpecies.PYRIDINIC_3: 3,
+    #         NitrogenSpecies.GRAPHITIC: 20,
+    #         NitrogenSpecies.PYRIDINIC_4: 5,
+    #         NitrogenSpecies.PYRIDINIC_1: 5,
+    #     }
+    # )
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
@@ -1342,6 +1342,9 @@ def main():
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    graphene.add_nitrogen_doping(total_percentage=20)
+    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
 
