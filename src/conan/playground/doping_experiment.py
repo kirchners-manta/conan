@@ -372,14 +372,17 @@ class GrapheneGraph:
                 temp_neighbors = neighbors.copy()
                 while temp_neighbors and not selected_neighbor:
                     # Find a direct neighbor that also needs to be removed randomly
-                    selected_neighbor = random.choice(temp_neighbors)
-                    temp_neighbors.remove(selected_neighbor)
+                    temp_neighbor = random.choice(temp_neighbors)
+                    temp_neighbors.remove(temp_neighbor)
 
                     # Check if the selected neighbor is a valid doping position
-                    if selected_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
-                        nitrogen_species, atom_id, selected_neighbor
+                    if temp_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
+                        nitrogen_species, atom_id, temp_neighbor
                     ):
                         continue
+
+                    # Valid neighbor found
+                    selected_neighbor = temp_neighbor
 
                 if not selected_neighbor:
                     # No valid neighbor found
@@ -1273,7 +1276,7 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(1)
+    # random.seed(5)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
