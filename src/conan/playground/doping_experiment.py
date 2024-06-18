@@ -12,12 +12,12 @@ from scipy.spatial import KDTree
 
 
 class NitrogenSpecies(Enum):
-    GRAPHITIC = "graphitic"
+    GRAPHITIC = "Graphitic-N"
     # PYRIDINIC = "pyridinic"
-    PYRIDINIC_1 = "pyridinic_1"
-    PYRIDINIC_2 = "pyridinic_2"
-    PYRIDINIC_3 = "pyridinic_3"
-    PYRIDINIC_4 = "pyridinic_4"
+    PYRIDINIC_1 = "Pyridinic-N 1"
+    PYRIDINIC_2 = "Pyridinic-N 2"
+    PYRIDINIC_3 = "Pyridinic-N 3"
+    PYRIDINIC_4 = "Pyridinic-N 4"
     # PYRROLIC = "pyrrolic"
     # PYRAZOLE = "pyrazole"
 
@@ -1064,6 +1064,20 @@ class GrapheneGraph:
         # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
         if visualize_periodic_bonds:
             nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
+
+        # Add legend
+        unique_colors = set(colors)
+        legend_elements = []
+        for species in NitrogenSpecies:
+            color = self.get_color("N", species)
+            if color in unique_colors:
+                legend_elements.append(
+                    plt.Line2D(
+                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                    )
+                )
+
+        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
 
         # Add labels if specified
         if with_labels:
