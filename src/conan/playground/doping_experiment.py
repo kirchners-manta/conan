@@ -1012,9 +1012,9 @@ class GrapheneGraph:
         colors = {"C": "black"}
         nitrogen_colors = {
             # NitrogenSpecies.PYRIDINIC: "blue",
-            NitrogenSpecies.PYRIDINIC_1: "blue",
-            NitrogenSpecies.PYRIDINIC_2: "blue",
-            NitrogenSpecies.PYRIDINIC_3: "blue",
+            NitrogenSpecies.PYRIDINIC_1: "purple",
+            NitrogenSpecies.PYRIDINIC_2: "orange",
+            NitrogenSpecies.PYRIDINIC_3: "green",
             NitrogenSpecies.PYRIDINIC_4: "blue",
             NitrogenSpecies.GRAPHITIC: "red",
             # NitrogenSpecies.PYRROLIC: "cyan",
@@ -1304,8 +1304,19 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
+    # graphene.add_nitrogen_doping(
+    #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
+    # )
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
     graphene.add_nitrogen_doping(
-        percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
+        percentages={
+            NitrogenSpecies.PYRIDINIC_2: 3,
+            NitrogenSpecies.PYRIDINIC_3: 3,
+            NitrogenSpecies.GRAPHITIC: 20,
+            NitrogenSpecies.PYRIDINIC_4: 5,
+            NitrogenSpecies.PYRIDINIC_1: 5,
+        }
     )
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
