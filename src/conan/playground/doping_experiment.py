@@ -200,9 +200,9 @@ class GrapheneGraph:
                 specific_total_percentage = sum(percentages.values())
                 if specific_total_percentage != total_percentage:
                     raise ValueError(
-                        f"The total specific percentages {specific_total_percentage}% do not match the total_percentage"
-                        f" {total_percentage}%. Please adjust your input so that the sum of the 'percentages' is less "
-                        f"than or equal to 'total_percentage'."
+                        f"The total specific percentages {specific_total_percentage}% are higher than the "
+                        f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
+                        f"'percentages' is less than or equal to 'total_percentage'."
                     )
         else:
             if total_percentage is None:
@@ -1344,7 +1344,7 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 30})
+    graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
