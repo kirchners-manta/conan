@@ -503,8 +503,11 @@ class GrapheneGraph:
         # Adjust positions for periodic boundary conditions
         positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
 
-        # Flatten initial positions for optimization
-        x0 = np.array([coord for node in cycle for coord in positions_adjusted[node]])
+        # Flatten initial positions for optimization, ensuring cycle order is preserved
+        x0 = np.array(
+            [coord for node in cycle for coord in positions_adjusted[node]]
+            + [coord for node in subgraph.nodes if node not in cycle for coord in positions_adjusted[node]]
+        )
 
         def bond_energy(x):
             """
