@@ -500,8 +500,11 @@ class GrapheneGraph:
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in subgraph.nodes}
 
+        # Adjust positions for periodic boundary conditions
+        positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
+
         # Flatten initial positions for optimization
-        x0 = np.array([coord for pos in positions.values() for coord in pos])
+        x0 = np.array([coord for pos in positions_adjusted.values() for coord in pos])
 
         def bond_energy(x):
             """
@@ -519,14 +522,19 @@ class GrapheneGraph:
             """
             energy = 0.0
             for (i, j), length in bond_lengths.items():
-                if i in cycle and j in cycle:
-                    # Extract the coordinates of atoms i and j from the flattened array
-                    xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                    xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-                else:
-                    # Extract the coordinates of atoms i and j from the graph if they are not in the cycle
-                    xi, yi = self.graph.nodes[i]["position"]
-                    xj, yj = self.graph.nodes[j]["position"]
+                # Extract the coordinates of atoms i and j from the flattened array
+                xi, yi = (x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]) if i in cycle else positions_adjusted[i]
+                xj, yj = (x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]) if j in cycle else positions_adjusted[j]
+
+                # if i in cycle and j in cycle:
+                #     # Extract the coordinates of atoms i and j from the flattened array
+                #     xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                #     xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                # else:
+                #     # Extract the coordinates of atoms i and j from the graph if they are not in the cycle
+                #     xi, yi = self.graph.nodes[i]["position"]
+                #     xj, yj = self.graph.nodes[j]["position"]
+
                 # Calculate the distance between the atoms
                 dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
                 # Calculate the energy contribution for this bond
@@ -587,6 +595,37 @@ class GrapheneGraph:
         optimized_positions = result.x.reshape(-1, 2)
         for idx, node in enumerate(cycle):
             self.graph.nodes[node]["position"] = optimized_positions[idx]
+
+    def _adjust_for_periodic_boundaries(self, positions, subgraph):
+        """
+        Adjust positions for periodic boundary conditions.
+
+        Parameters
+        ----------
+        positions : dict
+            Dictionary of positions of atoms.
+        subgraph : nx.Graph
+            The subgraph containing the cycle.
+
+        Returns
+        -------
+        dict
+            Dictionary of adjusted positions.
+        """
+        adjusted_positions = positions.copy()
+        for edge in subgraph.edges(data=True):
+            if edge[2].get("periodic"):
+                node1, node2 = edge[0], edge[1]
+                pos1, pos2 = np.array(positions[node1]), np.array(positions[node2])
+                diff = pos2 - pos1
+                if np.linalg.norm(diff) > self.bond_distance:
+                    # Adjust the position for periodic boundary
+                    if abs(diff[0]) > self.bond_distance:
+                        pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
+                    if abs(diff[1]) > self.bond_distance:
+                        pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
+                    adjusted_positions[node2] = (pos2[0], pos2[1])
+        return adjusted_positions
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
