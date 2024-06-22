@@ -1,6 +1,7 @@
 # The program is written by Leonard Dick, 2023
 
-"""This module was set up to create simulation boxes from seperate bulk liquid and structure files
+"""
+This module was set up to create simulation boxes from separate bulk liquid and structure files.
 The liquid bulk file must be named bulk.xyz.
 The wall file must be named wall.xyz.
 The pore file must be named pore.xyz.
@@ -13,7 +14,6 @@ If the file is not found in the cbuild directory, the program exits.
 
 import os
 import sys
-import traceback
 
 import pandas as pd
 
@@ -27,105 +27,112 @@ def simbox_mode(args) -> None:
     ddict.printLog("This program adds solid structures and liquid bulk xyz files to one simulation box.")
     ddict.printLog("P stands for pore, B for liquid bulk, and W for wall.")
     ddict.printLog(
-        "If pore_left and pore_right from the cbuild section are used, enter L for the left pore and R for the right "
-        "pore."
+        "If pore_left and pore_right from the cbuild section are used, enter L for the left pore and R for the right"
+        " pore."
     )
     combination = ddict.get_input(
         "Please enter the wanted combination for the simulation box [eg.: BPBW]: ", args, "string"
     )
     ddict.printLog("")
 
-    # Split the string into a list.
     combination_list = list(combination)
-    ddict.printLog("The combination list is: %s" % (combination_list))
+    ddict.printLog(f"The combination list is: {combination_list}")
 
-    # Make another list with just the unique entries.
     combination_list_unique = list(set(combination_list))
 
-    # Write the possible combination list
     possible_letters = ["B", "P", "W", "R", "L"]
-
-    # If a different letter than those is given, the program exits.
     for i in combination_list:
         if i not in possible_letters:
-            ddict.printLog("The combination list contains a wrong letter. Exiting...")
+            ddict.printLog("The combination list contains an undefined letter. Exiting...")
             sys.exit(1)
 
-    # Find the necessary files.
-    # Create a list with the possible file names.
-    file_name_list = dict([("B", "bulk"), ("P", "pore"), ("W", "wall"), ("R", "pore_right"), ("L", "pore_left")])
-    ddict.printLog("The file name list is: %s" % (file_name_list))
+    file_name_list = {"B": "bulk", "P": "pore", "W": "wall", "R": "pore_right", "L": "pore_left"}
+    ddict.printLog(f"The file name list is: {file_name_list}")
 
+    structure_data = {}
     for i in possible_letters:
         if i in combination_list_unique:
-            # Create the file name.
-            file_name = "%s.xyz" % (file_name_list[i])
-            try:
-                # Read file to dataframe.
-                # TODO: Whats the point of that code? It is not used anywhere.
-                pd.read_csv(file_name, sep=r"\s+", header=None, skiprows=2, names=["atom", "x", "y", "z"])
-            except FileNotFoundError:  # TODO add errors if necessary
-                traceback.format_exc()
-                try:
-                    pd.read_csv(
-                        "structures/%s" % (file_name),
-                        sep=r"\s+",
-                        header=None,
-                        skiprows=2,
-                        names=["atom", "x", "y", "z"],
-                    )
-                except FileNotFoundError:
-                    ddict.printLog("The %s file could not be found. Exiting..." % (i))
-                    sys.exit(1)
-            # Rename the dataframe variable to the file name.
-            exec("%s = df" % (file_name_list[i]))
-            # Print the dataframe.
-            ddict.printLog("The %s file was found." % (file_name))
-    ddict.printLog("")
+            file_name = f"{file_name_list[i]}.xyz"
+            structure_data[file_name_list[i]] = read_file(file_name)
+            structure_data[file_name_list[i]] = adjust_dataframe(structure_data[file_name_list[i]])
+            ddict.printLog(f"The {file_name} file was found.")
 
-    # Find the minimal z values in all dataframes. If it is not zero, shift the respective dataframe to 0.
-    for i in possible_letters:
-        if i in combination_list_unique:
-            # Create the file name.
-            file_name = "%s.xyz" % (file_name_list[i])
-            # Find the minimal z value
-            exec("%s_min_z = %s['z'].min()" % (file_name_list[i], file_name_list[i]))
-            # Shift the dataframe to 0.
-            if eval("%s_min_z" % (file_name_list[i])) != 0:
-                exec("%s['z'] = %s['z'] - %s_min_z" % (file_name_list[i], file_name_list[i], file_name_list[i]))
-            # Find the maximal z value.
-            exec("%s_max_z = %s['z'].max()" % (file_name_list[i], file_name_list[i]))
-
-    # Now start building the simulation box by setting up an empty dataframe with the correct column names.
-    simbox = pd.DataFrame(columns=["atom", "x", "y", "z"])
-    tmp = []
-    # simbox_max_z = 0
-    for i in combination_list:
-        # Make a dummy dataframe.
-        exec("%s_dummy = %s.copy()" % (file_name_list[i], file_name_list[i]))
-        # Shift the dataframe in z direction by simbox_max_z.
-        exec("%s_dummy['z'] = %s_dummy['z'] + simbox_max_z" % (file_name_list[i], file_name_list[i]))
-        # Append the dataframe to the tmp list.
-        exec("tmp.append(%s_dummy)" % (file_name_list[i]))
-        # # Find the maximum z value in the tmp list.
-        # simbox_max_z = max([df["z"].max() for df in tmp]) + 3
-
-    # Concatenate the tmp list to the simbox dataframe.
-    simbox = pd.concat(tmp, ignore_index=True)
+    simbox = create_simulation_box(combination_list, file_name_list, structure_data)
     ddict.printLog("The simbox dataframe was created.")
-    ddict.printLog(simbox)
 
-    # File creation.
+    save_simbox_file(simbox)
+
+
+def read_file(file_name: str) -> pd.DataFrame:
+    """
+    Reads a file into a DataFrame, searching in current and structures directories.
+    """
+
+    def read_and_process(file_path):
+        data = []
+        try:
+            with open(file_path, "r") as file:
+                lines = file.readlines()[2:]  # Skip the first two lines
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        data.append(parts[:4])
+            df = pd.DataFrame(data, columns=["atom", "x", "y", "z"])
+            df["x"] = pd.to_numeric(df["x"], errors="coerce")
+            df["y"] = pd.to_numeric(df["y"], errors="coerce")
+            df["z"] = pd.to_numeric(df["z"], errors="coerce")
+            return df
+        except Exception as e:
+            ddict.printLog(f"Error reading {file_path}: {e}. Exiting...")
+            sys.exit(1)
+
+    # Read file from current directory or structures
+    if os.path.exists(file_name):
+        return read_and_process(file_name)
+    elif os.path.exists(f"structures/{file_name}"):
+        return read_and_process(f"structures/{file_name}")
+    else:
+        ddict.printLog(f"The {file_name} file could not be found. Exiting...")
+        sys.exit(1)
+
+
+def adjust_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adjusts the z-coordinate to start at 0 for proper alignment of structures.
+    """
+    min_z = df["z"].min()
+    if min_z != 0:
+        df["z"] -= min_z
+    return df
+
+
+def create_simulation_box(combination_list: list, file_name_list: dict, structure_data: dict) -> pd.DataFrame:
+    """
+    Creates the simulation box DataFrame based on the provided combination list.
+    """
+    simbox = pd.DataFrame(columns=["atom", "x", "y", "z"])
+    simbox_max_z = 0
+
+    for i in combination_list:
+        df_copy = structure_data[file_name_list[i]].copy()
+        df_copy["z"] += simbox_max_z
+        simbox = pd.concat([simbox, df_copy], ignore_index=True)
+        simbox_max_z = simbox["z"].max() + 3
+
+    return simbox
+
+
+def save_simbox_file(simbox: pd.DataFrame) -> None:
+    """
+    Saves the simbox DataFrame to a .xyz file, renaming existing files if necessary.
+    """
     id_num = 1
     if os.path.exists("simbox.xyz"):
-        while os.path.exists("simbox-%s.xyz" % id_num):
+        while os.path.exists(f"simbox-{id_num}.xyz"):
             id_num += 1
-        # Rename the existing xyz file to simbox-(id_num).xyz.
-        os.rename("simbox.xyz", "simbox-%s.xyz" % id_num)
-        ddict.printLog("\nThe existing simbox.xyz file was renamed to simbox-%s.xyz.\n" % id_num)
+        os.rename("simbox.xyz", f"simbox-{id_num}.xyz")
+        ddict.printLog(f"\nThe existing simbox.xyz file was renamed to simbox-{id_num}.xyz.\n")
 
-    # Write the simbox.xyz file.
     with open("simbox.xyz", "w") as f:
-        f.write("%d\n" % (len(simbox)))
-        f.write("\n")
-    simbox.to_csv("simbox.xyz", sep="\t", header=False, index=False, mode="a")
+        f.write(f"{len(simbox)}\n\n")
+        simbox.to_csv(f, sep="\t", header=False, index=False, mode="a")
