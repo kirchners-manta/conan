@@ -425,9 +425,9 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                # atom_id = 98
-                # neighbors = self.get_neighbors_via_edges(atom_id)
+                # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                atom_id = 98
+                neighbors = self.get_neighbors_via_edges(atom_id)
 
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
@@ -478,7 +478,7 @@ class GrapheneGraph:
                     chosen_atoms.append(neighbor)
 
                 # Adjust the positions of atoms in the cycle to optimize the structure
-                self._adjust_atom_positions(nodes_to_exclude)
+                self._adjust_atom_positions(nodes_to_exclude, nitrogen_species)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -667,7 +667,7 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(self, cycle: List[int]):
+    def _adjust_atom_positions(self, cycle: List[int], species: NitrogenSpecies):
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
@@ -689,51 +689,12 @@ class GrapheneGraph:
                 if neighbor not in cycle:
                     subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
 
-        # Define bond lengths for specific edges
-        bond_lengths = {
-            (97, 112): 1.34,
-            (112, 113): 1.45,
-            (113, 114): 1.45,
-            (114, 115): 1.34,
-            (115, 116): 1.32,
-            (116, 101): 1.47,
-            (101, 100): 1.32,
-            (100, 85): 1.34,
-            (85, 84): 1.45,
-            (84, 83): 1.45,
-            (83, 82): 1.34,
-            (82, 81): 1.32,
-            (81, 96): 1.47,
-            (96, 97): 1.32,
-            (84, 69): 1.428,
-            (83, 66): 1.431,
-            (81, 80): 1.423,
-            (96, 111): 1.423,
-            (112, 127): 1.431,
-            (113, 0): 1.428,
-            (114, 3): 1.431,
-            (116, 117): 1.423,
-            (101, 102): 1.423,
-            (85, 86): 1.431,
-        }
+        # Get species properties for the given cycle
+        properties = self.species_properties[species]
 
-        # Define the angles (in degrees) between consecutive bonds in the cycle
-        angles = {
-            (97, 112, 113): 120.26,
-            (112, 113, 114): 122.92,
-            (113, 114, 115): 120.26,
-            (114, 115, 116): 121.02,
-            (115, 116, 101): 119.3,
-            (116, 101, 100): 119.3,
-            (101, 100, 85): 121.02,
-            (100, 85, 84): 120.26,
-            (85, 84, 83): 122.91,
-            (84, 83, 82): 120.26,
-            (83, 82, 81): 121.02,
-            (82, 81, 96): 119.3,
-            (81, 96, 97): 119.3,
-            (96, 97, 112): 121.02,
-        }
+        # Combine half_bond_lengths and half_angles to full lists
+        bond_lengths = properties.half_bond_lengths + properties.half_bond_lengths
+        angles = properties.half_angles + properties.half_angles
 
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in subgraph.nodes}
@@ -741,11 +702,8 @@ class GrapheneGraph:
         # Adjust positions for periodic boundary conditions
         positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
 
-        # Sort nodes so that cycle nodes come first, followed by non-cycle nodes
-        sorted_nodes = cycle + [node for node in subgraph.nodes if node not in cycle]
-
         # Flatten initial positions for optimization, ensuring cycle order is preserved
-        x0 = np.array([coord for node in sorted_nodes for coord in positions_adjusted[node]])
+        x0 = np.array([coord for node in cycle for coord in positions_adjusted[node]])
 
         def bond_energy(x):
             """
@@ -762,10 +720,10 @@ class GrapheneGraph:
                 The total bond energy.
             """
             energy = 0.0
-            for (i, j), length in bond_lengths.items():
+            for (i, j), length in zip(zip(cycle, cycle[1:]), bond_lengths):
                 # Extract the coordinates of atoms i and j from the flattened array
-                xi, yi = x[2 * sorted_nodes.index(i)], x[2 * sorted_nodes.index(i) + 1]
-                xj, yj = x[2 * sorted_nodes.index(j)], x[2 * sorted_nodes.index(j) + 1]
+                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
+                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
 
                 # Calculate the distance between the atoms
                 dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
@@ -788,7 +746,7 @@ class GrapheneGraph:
                 The total angle energy.
             """
             energy = 0.0
-            for (i, j, k), angle in angles.items():
+            for (i, j, k), angle in zip(zip(cycle, cycle[1:], cycle[2:]), angles):
                 # Extract the coordinates of atoms i, j, and k from the flattened array
                 xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
                 xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
@@ -828,19 +786,15 @@ class GrapheneGraph:
 
         # Calculate the displacement vectors for nodes not in the cycle
         displacement_vectors = {}
-        for idx, node in enumerate(sorted_nodes[len(cycle) :]):
-            original_idx = 2 * (len(cycle) + idx)
-            original_position = x0[original_idx], x0[original_idx + 1]
-            optimized_position = optimized_positions[len(cycle) + idx]
+        for idx, node in enumerate(cycle):
+            original_position = x0[2 * idx], x0[2 * idx + 1]
+            optimized_position = optimized_positions[idx]
             displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
 
         # Update positions in the original graph
-        for idx, node in enumerate(sorted_nodes):
-            if node in cycle:
-                self.graph.nodes[node]["position"] = optimized_positions[idx]
-            else:
-                adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
-                self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
+        for idx, node in enumerate(cycle):
+            adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
+            self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
 
         # ToDo: bond_distance edge attribute muss noch angepasst werden
 
