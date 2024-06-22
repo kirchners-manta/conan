@@ -509,12 +509,6 @@ class GrapheneGraph:
         # Flatten initial positions for optimization, ensuring cycle order is preserved
         x0 = np.array([coord for node in sorted_nodes for coord in positions_adjusted[node]])
 
-        # # Flatten initial positions for optimization, ensuring cycle order is preserved
-        # x0 = np.array(
-        #     [coord for node in cycle for coord in positions_adjusted[node]]
-        #     + [coord for node in subgraph.nodes if node not in cycle for coord in positions_adjusted[node]]
-        # )
-
         def bond_energy(x):
             """
             Calculate the bond energy for the given positions.
@@ -532,12 +526,8 @@ class GrapheneGraph:
             energy = 0.0
             for (i, j), length in bond_lengths.items():
                 # Extract the coordinates of atoms i and j from the flattened array
-                if i in cycle and j in cycle:
-                    xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                    xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-                else:
-                    xi, yi = positions_adjusted[i]
-                    xj, yj = positions_adjusted[j]
+                xi, yi = x[2 * sorted_nodes.index(i)], x[2 * sorted_nodes.index(i) + 1]
+                xj, yj = x[2 * sorted_nodes.index(j)], x[2 * sorted_nodes.index(j) + 1]
 
                 # Calculate the distance between the atoms
                 dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
