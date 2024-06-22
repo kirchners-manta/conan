@@ -1,13 +1,13 @@
 import random
+from dataclasses import dataclass
 from enum import Enum
 from math import cos, pi, sin
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from black.brackets import dataclass
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
@@ -15,8 +15,8 @@ from scipy.spatial import KDTree
 @dataclass
 class NitrogenSpeciesProperties:
     # Define data class for nitrogen species properties
-    bond_lengths: List[float]
-    angles: List[float]
+    half_bond_lengths: List[float]
+    half_angles: List[float]
 
 
 class NitrogenSpecies(Enum):
@@ -52,6 +52,10 @@ class GrapheneGraph:
 
         self.possible_carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
         """A list of all possible carbon atoms in the graphene sheet for nitrogen doping."""
+
+        self.species_properties = self._initialize_species_properties()
+        """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
+        This includes bond lengths and angles characteristic to each species."""
 
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
@@ -183,6 +187,20 @@ class GrapheneGraph:
         self.graph.add_edges_from(
             zip(bottom_right_indices, top_left_indices + 3), bond_length=self.bond_distance, periodic=True
         )
+
+    @staticmethod
+    def _initialize_species_properties() -> Dict[NitrogenSpecies, NitrogenSpeciesProperties]:
+        pyridinic_4_properties = NitrogenSpeciesProperties(
+            half_bond_lengths=[1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45],
+            half_angles=[120.26, 121.02, 119.3, 119.3, 121.02, 120.26, 122.91],
+        )
+
+        # Initialize other species similarly
+        species_properties = {
+            NitrogenSpecies.PYRIDINIC_4: pyridinic_4_properties,
+            # Add other species here
+        }
+        return species_properties
 
     def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
         """
