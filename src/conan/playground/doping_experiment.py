@@ -205,9 +205,10 @@ class GrapheneGraph:
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
         GRAPHITIC.
         """
+        # Validate specific percentages and calculate the remaining percentage
         if percentages:
             if total_percentage is None:
-                total_percentage = sum(percentages.values())
+                total_percentage = sum(percentages.values())  # Set total to sum of specific percentages if not provided
             else:
                 specific_total_percentage = sum(percentages.values())  # Sum of provided specific percentages
                 if specific_total_percentage > total_percentage:
@@ -221,7 +222,6 @@ class GrapheneGraph:
             # Set a default total percentage if not provided
             if total_percentage is None:
                 total_percentage = 10  # Default total percentage
-
             percentages = {}  # Initialize an empty dictionary if no specific percentages are provided
 
         # Calculate the remaining percentage for other species
@@ -234,7 +234,6 @@ class GrapheneGraph:
             default_distribution = {
                 species: remaining_percentage / len(available_species) for species in available_species
             }
-
             # Add the default distribution to the specified percentages
             for species, pct in default_distribution.items():
                 if species not in percentages:
@@ -259,19 +258,22 @@ class GrapheneGraph:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
                 added_nitrogen_counts[species] += self._add_nitrogen_atoms(num_nitrogen_atoms, species)
 
-        # Calculate and print the actual percentages of added nitrogen species
+        # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
         actual_percentages = {
             species: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
             for species, count in added_nitrogen_counts.items()
         }
 
-        # Display the results in a DataFrame
+        # Display the results in a DataFrame and add the total doping percentage
+        total_doping_percentage = sum(actual_percentages.values())
         doping_percentages_df = pd.DataFrame.from_dict(
             actual_percentages, orient="index", columns=["Actual Percentage"]
         )
         doping_percentages_df.index.name = "Nitrogen Species"
         doping_percentages_df.reset_index(inplace=True)
+        total_row = pd.DataFrame([{"Nitrogen Species": "Total Doping", "Actual Percentage": total_doping_percentage}])
+        doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
         print(f"\n{doping_percentages_df}")
 
     def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
@@ -1243,7 +1245,7 @@ def main():
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 50})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
