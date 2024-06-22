@@ -683,12 +683,6 @@ class GrapheneGraph:
         # Create a subgraph including all nodes in the cycle
         subgraph = self.graph.subgraph(cycle).copy()
 
-        # Add edges to neighbors outside the cycle
-        for node in cycle:
-            for neighbor in self.graph.neighbors(node):
-                if neighbor not in cycle:
-                    subgraph.add_edge(node, neighbor, **self.graph.get_edge_data(node, neighbor))
-
         # Get species properties for the given cycle
         properties = self.species_properties[species]
 
@@ -702,8 +696,24 @@ class GrapheneGraph:
         # Adjust positions for periodic boundary conditions
         positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
 
+        start_node = None
+        if species == NitrogenSpecies.PYRIDINIC_4:
+            # Find the starting node that has no "N" neighbors within the cycle
+            for node in cycle:
+                if self.graph.nodes[node]["element"] == "N":
+                    continue
+                neighbors = self.get_neighbors_via_edges(node)
+                if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
+                    start_node = node
+                    break
+        if start_node is None:
+            raise ValueError("No suitable starting node found in the cycle.")
+
+        # Order the cycle nodes starting from the identified start_node
+        ordered_cycle = self._order_cycle_nodes(cycle, start_node)
+
         # Flatten initial positions for optimization, ensuring cycle order is preserved
-        x0 = np.array([coord for node in cycle for coord in positions_adjusted[node]])
+        x0 = np.array([coord for node in ordered_cycle for coord in positions_adjusted[node]])
 
         def bond_energy(x):
             """
@@ -720,10 +730,10 @@ class GrapheneGraph:
                 The total bond energy.
             """
             energy = 0.0
-            for (i, j), length in zip(zip(cycle, cycle[1:]), bond_lengths):
+            for (i, j), length in zip(zip(ordered_cycle, ordered_cycle[1:]), bond_lengths):
                 # Extract the coordinates of atoms i and j from the flattened array
-                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
+                xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
+                xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
 
                 # Calculate the distance between the atoms
                 dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
@@ -746,11 +756,11 @@ class GrapheneGraph:
                 The total angle energy.
             """
             energy = 0.0
-            for (i, j, k), angle in zip(zip(cycle, cycle[1:], cycle[2:]), angles):
+            for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), angles):
                 # Extract the coordinates of atoms i, j, and k from the flattened array
-                xi, yi = x[2 * cycle.index(i)], x[2 * cycle.index(i) + 1]
-                xj, yj = x[2 * cycle.index(j)], x[2 * cycle.index(j) + 1]
-                xk, yk = x[2 * cycle.index(k)], x[2 * cycle.index(k) + 1]
+                xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
+                xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
+                xk, yk = x[2 * ordered_cycle.index(k)], x[2 * ordered_cycle.index(k) + 1]
                 # Calculate vectors from j to i and from j to k
                 v1 = np.array([xi - xj, yi - yj])
                 v2 = np.array([xk - xj, yk - yj])
@@ -786,13 +796,13 @@ class GrapheneGraph:
 
         # Calculate the displacement vectors for nodes not in the cycle
         displacement_vectors = {}
-        for idx, node in enumerate(cycle):
+        for idx, node in enumerate(ordered_cycle):
             original_position = x0[2 * idx], x0[2 * idx + 1]
             optimized_position = optimized_positions[idx]
             displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
 
         # Update positions in the original graph
-        for idx, node in enumerate(cycle):
+        for idx, node in enumerate(ordered_cycle):
             adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
             self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
 
@@ -833,6 +843,37 @@ class GrapheneGraph:
                         pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
                     adjusted_positions[node2] = (pos2[0], pos2[1])
         return adjusted_positions
+
+    def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
+        """
+        Order the nodes in the cycle starting from the given start_node.
+
+        Parameters
+        ----------
+        cycle : List[int]
+            The list of atom IDs forming the cycle.
+        start_node : int
+            The starting node for the cycle.
+
+        Returns
+        -------
+        List[int]
+            The ordered list of atom IDs forming the cycle.
+        """
+        ordered_cycle = []
+        current_node = start_node
+        visited = set()
+
+        while len(ordered_cycle) < len(cycle):
+            ordered_cycle.append(current_node)
+            visited.add(current_node)
+            neighbors = [node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited]
+            if neighbors:
+                current_node = neighbors[0]
+            else:
+                break
+
+        return ordered_cycle
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
