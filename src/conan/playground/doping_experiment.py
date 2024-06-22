@@ -604,6 +604,8 @@ class GrapheneGraph:
                 adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
                 self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
 
+        # ToDo: bond_distance edge attribute muss noch angepasst werden
+
     def _adjust_for_periodic_boundaries(self, positions, subgraph):
         """
         Adjust positions for periodic boundary conditions.
@@ -626,7 +628,12 @@ class GrapheneGraph:
                 node1, node2 = edge[0], edge[1]
                 pos1, pos2 = np.array(positions[node1]), np.array(positions[node2])
                 diff = pos2 - pos1
-                if np.linalg.norm(diff) > self.bond_distance:
+                if (
+                    np.linalg.norm(diff)
+                    > self.bond_distance
+                    # ToDo: Hier muss wahrscheinlich noch Fehlertoleranz hinzugefügt werden, da sich die Bindungslängen
+                    #  geringfügig ändern
+                ):
                     # Adjust the position for periodic boundary
                     if abs(diff[0]) > self.bond_distance:
                         pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
