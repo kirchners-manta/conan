@@ -14,7 +14,17 @@ from scipy.spatial import KDTree
 
 @dataclass
 class NitrogenSpeciesProperties:
-    # Define data class for nitrogen species properties
+    """
+    Define data class for nitrogen species properties.
+
+    Attributes
+    ----------
+    half_bond_lengths : List[float]
+        A list of bond lengths for half the structure due to symmetry.
+    half_angles : List[float]
+        A list of bond angles for half the structure due to symmetry.
+    """
+
     half_bond_lengths: List[float]
     half_angles: List[float]
 
