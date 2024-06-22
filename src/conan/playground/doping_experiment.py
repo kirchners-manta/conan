@@ -425,9 +425,9 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                atom_id = 98
-                neighbors = self.get_neighbors_via_edges(atom_id)
+                # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                # atom_id = 98
+                # neighbors = self.get_neighbors_via_edges(atom_id)
 
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
@@ -696,16 +696,24 @@ class GrapheneGraph:
         # Adjust positions for periodic boundary conditions
         positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
 
+        # Initialize a starting node to ensure a consistent iteration order through the cycle, matching the bond lengths
+        # and angles correctly
         start_node = None
         if species == NitrogenSpecies.PYRIDINIC_4:
-            # Find the starting node that has no "N" neighbors within the cycle
+            # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
             for node in cycle:
+                # Skip the node if it is already a nitrogen atom
                 if self.graph.nodes[node]["element"] == "N":
                     continue
+                # Get the neighbors of the current node
                 neighbors = self.get_neighbors_via_edges(node)
+                # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
+                # cycle
                 if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
+                    # If the current node meets all conditions, set it as the start node
                     start_node = node
                     break
+        # Raise an error if no suitable start node is found
         if start_node is None:
             raise ValueError("No suitable starting node found in the cycle.")
 
@@ -860,14 +868,21 @@ class GrapheneGraph:
         List[int]
             The ordered list of atom IDs forming the cycle.
         """
+        # Initialize the list to store the ordered cycle and a set to track visited nodes
         ordered_cycle = []
         current_node = start_node
         visited = set()
 
+        # Continue ordering nodes until all nodes in the cycle are included
         while len(ordered_cycle) < len(cycle):
+            # Add the current node to the ordered list and mark it as visited
             ordered_cycle.append(current_node)
             visited.add(current_node)
+
+            # Find the neighbors of the current node that are in the cycle and not yet visited
             neighbors = [node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited]
+
+            # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
             if neighbors:
                 current_node = neighbors[0]
             else:
@@ -1397,7 +1412,8 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(2)
+    # random.seed(2)
+    random.seed(22)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
