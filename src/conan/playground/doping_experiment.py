@@ -180,10 +180,14 @@ class GrapheneGraph:
         """
         Add nitrogen doping to the graphene sheet.
 
+        This method replaces a specified percentage of carbon atoms with nitrogen atoms in the graphene sheet.
+        If specific percentages for different nitrogen species are provided, it ensures the sum does not exceed the
+        total percentage. The remaining percentage is distributed equally among the available nitrogen species.
+
         Parameters
         ----------
         total_percentage : float, optional
-            The total percentage of carbon atoms to replace with nitrogen atoms.
+            The total percentage of carbon atoms to replace with nitrogen atoms. Default is 10 if not specified.
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
@@ -191,31 +195,50 @@ class GrapheneGraph:
         Raises
         ------
         ValueError
-            If the specific percentages are not valid.
+            If the specific percentages exceed the total percentage.
+
+        Notes
+        -----
+        - If no total percentage is provided, a default of 10% is used.
+        - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
+        - Remaining percentages are distributed equally among the available nitrogen species.
+        - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
+        GRAPHITIC.
         """
         if percentages:
             if total_percentage is None:
                 total_percentage = sum(percentages.values())
             else:
-                specific_total_percentage = sum(percentages.values())
-                if specific_total_percentage != total_percentage:
+                specific_total_percentage = sum(percentages.values())  # Sum of provided specific percentages
+                if specific_total_percentage > total_percentage:
+                    # Raise an error if the sum of specific percentages exceeds the total percentage
                     raise ValueError(
                         f"The total specific percentages {specific_total_percentage}% are higher than the "
                         f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
                         f"'percentages' is less than or equal to 'total_percentage'."
                     )
         else:
+            # Set a default total percentage if not provided
             if total_percentage is None:
                 total_percentage = 10  # Default total percentage
 
-            # Default distribution if no specific percentages are provided
-            percentages = {
-                NitrogenSpecies.GRAPHITIC: total_percentage * 0.5,
-                NitrogenSpecies.PYRIDINIC_1: total_percentage * 0.1,
-                NitrogenSpecies.PYRIDINIC_2: total_percentage * 0.1,
-                NitrogenSpecies.PYRIDINIC_3: total_percentage * 0.1,
-                NitrogenSpecies.PYRIDINIC_4: total_percentage * 0.2,
+            percentages = {}  # Initialize an empty dictionary if no specific percentages are provided
+
+        # Calculate the remaining percentage for other species
+        remaining_percentage = total_percentage - sum(percentages.values())
+
+        if remaining_percentage > 0:
+            # Determine available species not included in the specified percentages
+            available_species = [species for species in NitrogenSpecies if species not in percentages]
+            # Distribute the remaining percentage equally among available species
+            default_distribution = {
+                species: remaining_percentage / len(available_species) for species in available_species
             }
+
+            # Add the default distribution to the specified percentages
+            for species, pct in default_distribution.items():
+                if species not in percentages:
+                    percentages[species] = pct
 
         # Calculate the number of nitrogen atoms to add based on the given percentage
         num_atoms = self.graph.number_of_nodes()
@@ -364,9 +387,9 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                atom_id = 98
-                neighbors = self.get_neighbors_via_edges(atom_id)
+                # # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                # atom_id = 98
+                # neighbors = self.get_neighbors_via_edges(atom_id)
 
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
@@ -416,8 +439,8 @@ class GrapheneGraph:
                     # Add the neighbor to the list of chosen atoms
                     chosen_atoms.append(neighbor)
 
-                # Adjust the positions of atoms in the cycle to optimize the structure
-                self._adjust_atom_positions(nodes_to_exclude)
+                # # Adjust the positions of atoms in the cycle to optimize the structure
+                # self._adjust_atom_positions(nodes_to_exclude)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -1211,14 +1234,17 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 50})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 50})
+    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
 
