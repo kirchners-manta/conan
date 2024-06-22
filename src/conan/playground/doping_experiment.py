@@ -503,11 +503,17 @@ class GrapheneGraph:
         # Adjust positions for periodic boundary conditions
         positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
 
+        # Sort nodes so that cycle nodes come first, followed by non-cycle nodes
+        sorted_nodes = cycle + [node for node in subgraph.nodes if node not in cycle]
+
         # Flatten initial positions for optimization, ensuring cycle order is preserved
-        x0 = np.array(
-            [coord for node in cycle for coord in positions_adjusted[node]]
-            + [coord for node in subgraph.nodes if node not in cycle for coord in positions_adjusted[node]]
-        )
+        x0 = np.array([coord for node in sorted_nodes for coord in positions_adjusted[node]])
+
+        # # Flatten initial positions for optimization, ensuring cycle order is preserved
+        # x0 = np.array(
+        #     [coord for node in cycle for coord in positions_adjusted[node]]
+        #     + [coord for node in subgraph.nodes if node not in cycle for coord in positions_adjusted[node]]
+        # )
 
         def bond_energy(x):
             """
@@ -591,8 +597,22 @@ class GrapheneGraph:
 
         # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
-        for idx, node in enumerate(cycle):
-            self.graph.nodes[node]["position"] = optimized_positions[idx]
+
+        # Calculate the displacement vectors for nodes not in the cycle
+        displacement_vectors = {}
+        for idx, node in enumerate(sorted_nodes[len(cycle) :]):
+            original_idx = 2 * (len(cycle) + idx)
+            original_position = x0[original_idx], x0[original_idx + 1]
+            optimized_position = optimized_positions[len(cycle) + idx]
+            displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
+
+        # Update positions in the original graph
+        for idx, node in enumerate(sorted_nodes):
+            if node in cycle:
+                self.graph.nodes[node]["position"] = optimized_positions[idx]
+            else:
+                adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
+                self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
 
     def _adjust_for_periodic_boundaries(self, positions, subgraph):
         """
