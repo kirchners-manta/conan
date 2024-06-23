@@ -949,35 +949,30 @@ class GrapheneGraph:
         adjusted_nodes = set()
         nodes_to_adjust = set()
 
-        def adjust_position(pos1, pos2):
-            diff = pos2 - pos1
-            if abs(diff[0]) > self.bond_distance:
-                pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
-            if abs(diff[1]) > self.bond_distance:
-                pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
-            return pos2
-
         # Step 1: Adjust positions for direct periodic boundaries
         for edge in subgraph.edges(data=True):
             if edge[2].get("periodic"):
                 node1, node2 = edge[0], edge[1]
+
+                # Ensure node1 is always the node with the smaller ID
+                if node1 > node2:
+                    node1, node2 = node2, node1
+
                 pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
+                boundary = self.determine_boundary(reference_position, pos1, pos2)
 
-                # Determine left/right or up/down based on positions
-                if abs(pos2[0] - pos1[0]) > 0:
-                    if pos2[0] > pos1[0]:
-                        left, right = pos1, pos2
-                    else:
-                        left, right = pos2, pos1
-                    adjusted_positions[node2] = adjust_position(left, right)
-                elif abs(pos2[1] - pos1[1]) > 0:
-                    if pos2[1] > pos1[1]:
-                        down, up = pos1, pos2
-                    else:
-                        down, up = pos2, pos1
-                    adjusted_positions[node2] = adjust_position(down, up)
-
-                adjusted_nodes.add(node2)
+                if boundary == "left":
+                    adjusted_positions[node2] = self.adjust_position(pos1, pos2, boundary)
+                    adjusted_nodes.add(node2)
+                elif boundary == "right":
+                    adjusted_positions[node1] = self.adjust_position(pos2, pos1, boundary)
+                    adjusted_nodes.add(node1)
+                elif boundary == "top":
+                    adjusted_positions[node1] = self.adjust_position(pos2, pos1, boundary)
+                    adjusted_nodes.add(node1)
+                elif boundary == "bottom":
+                    adjusted_positions[node2] = self.adjust_position(pos1, pos2, boundary)
+                    adjusted_nodes.add(node2)
 
         # Step 2: Find nodes that need to be adjusted due to indirect periodic boundaries via a depth-first search
         def dfs(node, visited):
@@ -1010,6 +1005,32 @@ class GrapheneGraph:
                 adjusted_positions[node] = (node_pos[0], node_pos[1])
 
         return adjusted_positions
+
+    def adjust_position(self, pos1, pos2, boundary):
+        diff = pos2 - pos1
+        if boundary in ["left", "right"] and abs(diff[0]) > self.bond_distance:
+            pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
+        if boundary in ["top", "bottom"] and abs(diff[1]) > self.cc_y_distance:
+            pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
+        return pos2
+
+    def determine_boundary(self, reference_position, pos1, pos2):
+        left, right = (pos1, pos2) if pos2[0] > pos1[0] else (pos2, pos1)
+        down, up = (pos1, pos2) if pos2[1] > pos1[1] else (pos2, pos1)
+
+        x_diff = abs(reference_position[0] - left[0]) - abs(reference_position[0] - right[0])
+        y_diff = abs(reference_position[1] - down[1]) - abs(reference_position[1] - up[1])
+
+        if abs(x_diff) > abs(y_diff):
+            if x_diff < 0:
+                return "left"
+            else:
+                return "right"
+        else:
+            if y_diff < 0:
+                return "bottom"
+            else:
+                return "top"
 
     def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
         """
