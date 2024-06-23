@@ -346,6 +346,10 @@ class GrapheneGraph:
             if atom_id not in self.possible_carbon_atoms or not self._valid_doping_position(nitrogen_species, atom_id):
                 continue
 
+            # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
+            # ToDo: Noch nicht sicher, ob diese Variable benötigt wird; evtl. wieder überall entfernen
+            reference_node_position = self.graph.nodes[atom_id]["position"]
+
             # Atom is valid, proceed with nitrogen doping
             neighbors = self.get_neighbors_via_edges(atom_id)
 
@@ -402,9 +406,7 @@ class GrapheneGraph:
                     neighbors.remove(selected_neighbor)
 
                     # Insert a new binding between the `neighbors_of_neighbor`
-                    self.graph.add_edge(
-                        neighbors[0], neighbors[1], bond_length=self.bond_distance
-                    )  # ToDo: bond_length needs to be adjusted
+                    self.graph.add_edge(neighbors[0], neighbors[1], bond_length=self.bond_distance)
 
                 elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                     # Replace 2 carbon atoms to form pyridinic nitrogen structure
@@ -425,9 +427,10 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                # atom_id = 98
-                # neighbors = self.get_neighbors_via_edges(atom_id)
+                # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
+                atom_id = 34
+                reference_node_position = self.graph.nodes[atom_id]["position"]
+                neighbors = self.get_neighbors_via_edges(atom_id)
 
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
@@ -478,7 +481,7 @@ class GrapheneGraph:
                     chosen_atoms.append(neighbor)
 
                 # Adjust the positions of atoms in the cycle to optimize the structure
-                self._adjust_atom_positions(nodes_to_exclude, nitrogen_species)
+                self._adjust_atom_positions(nodes_to_exclude, reference_node_position, nitrogen_species)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -667,7 +670,7 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(self, cycle: List[int], species: NitrogenSpecies):
+    def _adjust_atom_positions(self, cycle: List[int], reference_position: Tuple[int, int], species: NitrogenSpecies):
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
@@ -675,6 +678,10 @@ class GrapheneGraph:
         ----------
         cycle : List[int]
             The list of atom IDs forming the cycle.
+        reference_position: Tuple[int, int]
+            The reference position of the atom id that was used to find the cycle.
+        species: NitrogenSpecies
+            The nitrogen doping species that was inserted.
 
         Notes
         -----
@@ -694,7 +701,7 @@ class GrapheneGraph:
         positions = {node: self.graph.nodes[node]["position"] for node in subgraph.nodes}
 
         # Adjust positions for periodic boundary conditions
-        positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph)
+        positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph, reference_position)
 
         # Initialize a starting node to ensure a consistent iteration order through the cycle, matching the bond lengths
         # and angles correctly
@@ -816,7 +823,111 @@ class GrapheneGraph:
 
         # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_for_periodic_boundaries(self, positions, subgraph):
+    # def _adjust_for_periodic_boundaries(self, positions, subgraph):
+    #     """
+    #     Adjust positions for periodic boundary conditions.
+    #
+    #     Parameters
+    #     ----------
+    #     positions : dict
+    #         Dictionary of positions of atoms.
+    #     subgraph : nx.Graph
+    #         The subgraph containing the cycle.
+    #
+    #     Returns
+    #     -------
+    #     dict
+    #         Dictionary of adjusted positions.
+    #     """
+    #     adjusted_positions = positions.copy()
+    #     for edge in subgraph.edges(data=True):
+    #         if edge[2].get("periodic"):
+    #             node1, node2 = edge[0], edge[1]
+    #             pos1, pos2 = np.array(positions[node1]), np.array(positions[node2])
+    #             diff = pos2 - pos1
+    #             if (
+    #                 np.linalg.norm(diff)
+    #                 > self.bond_distance
+    #                 # ToDo: Hier muss wahrscheinlich noch Fehlertoleranz hinzugefügt werden, da sich die
+    #                 # Bindungslängen geringfügig ändern
+    #             ):
+    #                 # Adjust the position for periodic boundary
+    #                 if abs(diff[0]) > self.bond_distance:
+    #                     pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
+    #                 if abs(diff[1]) > self.bond_distance:
+    #                     pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
+    #                 adjusted_positions[node2] = (pos2[0], pos2[1])
+    #     return adjusted_positions
+
+    # def _adjust_for_periodic_boundaries(self, positions, subgraph, reference_position):
+    #     """
+    #     Adjust positions for periodic boundary conditions.
+    #
+    #     Parameters
+    #     ----------
+    #     positions : dict
+    #         Dictionary of positions of atoms.
+    #     subgraph : nx.Graph
+    #         The subgraph containing the cycle.
+    #     reference_position : tuple
+    #         The position of the reference node before deletion.
+    #
+    #     Returns
+    #     -------
+    #     dict
+    #         Dictionary of adjusted positions.
+    #     """
+    #     adjusted_positions = positions.copy()
+    #     adjusted_nodes = set()
+    #     nodes_to_adjust = set()
+    #
+    #     # Step 1: Adjust positions for direct periodic boundaries
+    #     for edge in subgraph.edges(data=True):
+    #         if edge[2].get("periodic"):
+    #             node1, node2 = edge[0], edge[1]
+    #             pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
+    #             diff = pos2 - pos1
+    #
+    #             if np.linalg.norm(diff) > self.bond_distance:
+    #                 if abs(diff[0]) > self.bond_distance:
+    #                     pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
+    #                 if abs(diff[1]) > self.bond_distance:
+    #                     pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
+    #
+    #                 adjusted_positions[node2] = (pos2[0], pos2[1])
+    #                 adjusted_nodes.add(node2)
+    #
+    #     # Step 2: Find nodes that need to be adjusted due to indirect periodic boundaries
+    #     for node in adjusted_nodes:
+    #         for neighbor in subgraph.neighbors(node):
+    #             if neighbor not in adjusted_positions:
+    #                 neighbor_pos = np.array(self.graph.nodes[neighbor]["position"])
+    #                 node_pos = np.array(adjusted_positions[node])
+    #                 diff = neighbor_pos - node_pos
+    #
+    #                 if abs(diff[0]) > self.bond_distance:
+    #                     nodes_to_adjust.add(neighbor)
+    #                 if abs(diff[1]) > self.bond_distance:
+    #                     nodes_to_adjust.add(neighbor)
+    #
+    #     # Step 3: Recursively adjust connected nodes within the subgraph
+    #     for node in nodes_to_adjust:
+    #         for neighbor in self.graph.neighbors(node):
+    #             if neighbor not in adjusted_positions:
+    #                 neighbor_pos = np.array(self.graph.nodes[neighbor]["position"])
+    #                 node_pos = np.array(adjusted_positions[node])
+    #                 diff = neighbor_pos - node_pos
+    #
+    #                 if abs(diff[0]) > self.bond_distance:
+    #                     neighbor_pos[0] = node_pos[0] + np.sign(diff[0]) * self.bond_distance
+    #                 if abs(diff[1]) > self.bond_distance:
+    #                     neighbor_pos[1] = node_pos[1] + np.sign(diff[1]) * self.cc_y_distance
+    #
+    #                 adjusted_positions[neighbor] = (neighbor_pos[0], neighbor_pos[1])
+    #
+    #     return adjusted_positions
+
+    def _adjust_for_periodic_boundaries(self, positions, subgraph, reference_position):
         """
         Adjust positions for periodic boundary conditions.
 
@@ -826,6 +937,8 @@ class GrapheneGraph:
             Dictionary of positions of atoms.
         subgraph : nx.Graph
             The subgraph containing the cycle.
+        reference_position : tuple
+            The position of the reference node before deletion.
 
         Returns
         -------
@@ -833,23 +946,55 @@ class GrapheneGraph:
             Dictionary of adjusted positions.
         """
         adjusted_positions = positions.copy()
+        adjusted_nodes = set()
+        nodes_to_adjust = set()
+
+        def adjust_position(pos1, pos2):
+            diff = pos2 - pos1
+            if abs(diff[0]) > self.bond_distance:
+                pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
+            if abs(diff[1]) > self.bond_distance:
+                pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
+            return pos2
+
+        # Step 1: Adjust positions for direct periodic boundaries
         for edge in subgraph.edges(data=True):
             if edge[2].get("periodic"):
                 node1, node2 = edge[0], edge[1]
-                pos1, pos2 = np.array(positions[node1]), np.array(positions[node2])
-                diff = pos2 - pos1
-                if (
-                    np.linalg.norm(diff)
-                    > self.bond_distance
-                    # ToDo: Hier muss wahrscheinlich noch Fehlertoleranz hinzugefügt werden, da sich die Bindungslängen
-                    #  geringfügig ändern
-                ):
-                    # Adjust the position for periodic boundary
-                    if abs(diff[0]) > self.bond_distance:
-                        pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
-                    if abs(diff[1]) > self.bond_distance:
-                        pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
-                    adjusted_positions[node2] = (pos2[0], pos2[1])
+                pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
+                adjusted_positions[node2] = adjust_position(pos1, pos2)
+                adjusted_nodes.add(node2)
+
+        # Step 2: Find nodes that need to be adjusted due to indirect periodic boundaries via a depth-first search
+        def dfs(node, visited):
+            stack = [node]
+            while stack:
+                current_node = stack.pop()
+                if current_node not in visited:
+                    visited.add(current_node)
+                    for neighbor in subgraph.neighbors(current_node):
+                        if neighbor not in visited and not subgraph.edges[current_node, neighbor].get("periodic"):
+                            stack.append(neighbor)
+                            if neighbor not in adjusted_nodes:
+                                nodes_to_adjust.add(neighbor)
+
+        visited = set()
+        for node in adjusted_nodes:
+            if node not in visited:
+                dfs(node, visited)
+
+        # Step 3: Adjust the positions of the nodes in nodes_to_adjust
+        for node in nodes_to_adjust:
+            node_pos = np.array(adjusted_positions[node])
+            for neighbor in subgraph.neighbors(node):
+                neighbor_pos = adjusted_positions[neighbor]
+                diff = node_pos - neighbor_pos
+                if abs(diff[0]) > self.bond_distance:
+                    node_pos[0] = neighbor_pos[0] - np.sign(diff[0]) * self.cc_x_distance
+                if abs(diff[1]) > self.bond_distance:
+                    node_pos[1] = neighbor_pos[1] - np.sign(diff[1]) * self.bond_distance
+                adjusted_positions[node] = (node_pos[0], node_pos[1])
+
         return adjusted_positions
 
     def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
@@ -1413,7 +1558,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(2)
-    random.seed(22)
+    random.seed(1)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
