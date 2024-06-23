@@ -428,7 +428,7 @@ class GrapheneGraph:
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
                 # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                atom_id = 34
+                atom_id = 45
                 reference_node_position = self.graph.nodes[atom_id]["position"]
                 neighbors = self.get_neighbors_via_edges(atom_id)
 
@@ -962,7 +962,21 @@ class GrapheneGraph:
             if edge[2].get("periodic"):
                 node1, node2 = edge[0], edge[1]
                 pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
-                adjusted_positions[node2] = adjust_position(pos1, pos2)
+
+                # Determine left/right or up/down based on positions
+                if abs(pos2[0] - pos1[0]) > 0:
+                    if pos2[0] > pos1[0]:
+                        left, right = pos1, pos2
+                    else:
+                        left, right = pos2, pos1
+                    adjusted_positions[node2] = adjust_position(left, right)
+                elif abs(pos2[1] - pos1[1]) > 0:
+                    if pos2[1] > pos1[1]:
+                        down, up = pos1, pos2
+                    else:
+                        down, up = pos2, pos1
+                    adjusted_positions[node2] = adjust_position(down, up)
+
                 adjusted_nodes.add(node2)
 
         # Step 2: Find nodes that need to be adjusted due to indirect periodic boundaries via a depth-first search
@@ -1558,7 +1572,8 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(2)
-    random.seed(1)
+    # random.seed(6)
+    random.seed(2)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
