@@ -980,13 +980,11 @@ class GrapheneGraph:
                     for neighbor in subgraph.neighbors(current_node):
                         if neighbor not in visited and not subgraph.edges[current_node, neighbor].get("periodic"):
                             stack.append(neighbor)
-                            current_boundaries = nodes_with_boundaries[current_node].copy()
                             if neighbor not in nodes_with_boundaries:
-                                nodes_with_boundaries[neighbor] = current_boundaries  # Propagate boundary information
+                                nodes_with_boundaries[neighbor] = nodes_with_boundaries[current_node].copy()
                             else:
-                                # Combine boundaries
                                 nodes_with_boundaries[current_node].update(nodes_with_boundaries[neighbor])
-                                nodes_with_boundaries[neighbor].update(current_boundaries)
+                                nodes_with_boundaries[neighbor].update(nodes_with_boundaries[current_node])
 
         visited = set()
         confining_nodes = list(nodes_with_boundaries.keys())
