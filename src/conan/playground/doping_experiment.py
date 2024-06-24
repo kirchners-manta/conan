@@ -674,7 +674,9 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(self, cycle: List[int], reference_position: Tuple[int, int], species: NitrogenSpecies):
+    def _adjust_atom_positions(
+        self, cycle: List[int], reference_position: Tuple[float, float], species: NitrogenSpecies
+    ):
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
@@ -682,7 +684,7 @@ class GrapheneGraph:
         ----------
         cycle : List[int]
             The list of atom IDs forming the cycle.
-        reference_position: Tuple[int, int]
+        reference_position: Tuple[float, float]
             The reference position of the atom id that was used to find the cycle.
         species: NitrogenSpecies
             The nitrogen doping species that was inserted.
@@ -931,7 +933,9 @@ class GrapheneGraph:
     #
     #     return adjusted_positions
 
-    def _adjust_for_periodic_boundaries(self, positions, subgraph, reference_position):
+    def _adjust_for_periodic_boundaries(
+        self, positions: Dict[int, Tuple[float, float]], subgraph: nx.Graph, reference_position: Tuple[float, float]
+    ) -> Dict[int, Tuple[float, float]]:
         """
         Adjust positions for periodic boundary conditions.
 
@@ -962,7 +966,8 @@ class GrapheneGraph:
                 if node1 > node2:
                     node1, node2 = node2, node1
 
-                pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
+                # pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
+                pos1, pos2 = (adjusted_positions[node1], adjusted_positions[node2])
                 boundary = self.determine_boundary(reference_position, pos1, pos2)
 
                 if boundary in ["left", "bottom"]:
@@ -1005,20 +1010,55 @@ class GrapheneGraph:
             elif "bottom" in boundaries:
                 node_pos[1] -= self.actual_sheet_height + self.cc_y_distance
 
-            adjusted_positions[node] = (node_pos[0], node_pos[1])
+            adjusted_positions[node] = (float(node_pos[0]), float(node_pos[1]))
 
         return adjusted_positions
 
-    def determine_boundary(self, reference_position, pos1, pos2):
+    def determine_boundary(
+        self, reference_position: Tuple[float, float], pos1: Tuple[float, float], pos2: Tuple[float, float]
+    ) -> str:
+        """
+        Determine the boundary direction for periodic continuation of doping.
+
+        This method calculates which boundary (left, right, top, bottom) is crossed when inserting a doping structure
+        with a periodic boundary condition between two positions (pos1 and pos2) relative to a given reference position
+        (the atom id). The reference_position is used to determine which position (pos1 or pos2) is closer to it.
+        The doping structure is built from this closer position, and thus, it calculates at which boundary or boundaries
+        the doping structure should be continued. This information is used to shift the remaining doping atoms connected
+        directly or indirectly via periodic boundary conditions to the correct position for optimization.
+
+        Parameters
+        ----------
+        reference_position : tuple
+            The reference position used to determine the boundary direction.
+            Typically, this is the position of the reference node before deletion.
+        pos1 : tuple
+            The first position to compare.
+        pos2 : tuple
+            The second position to compare.
+
+        Returns
+        -------
+        str
+            The boundary direction ('left', 'right', 'top', or 'bottom') indicating where the doping structure should
+            be continued.
+        """
+        # Determine which position is left and which is right based on the x-coordinate
         left, right = (pos1, pos2) if pos2[0] > pos1[0] else (pos2, pos1)
+        # Determine which position is down and which is up based on the y-coordinate
         down, up = (pos1, pos2) if pos2[1] > pos1[1] else (pos2, pos1)
 
+        # Calculate the difference in distance from the reference position to the left and right positions
         x_diff = abs(reference_position[0] - left[0]) - abs(reference_position[0] - right[0])
+        # Calculate the difference in distance from the reference position to the down and up positions
         y_diff = abs(reference_position[1] - down[1]) - abs(reference_position[1] - up[1])
 
+        # Determine the primary boundary direction based on the larger of the two differences
         if abs(x_diff) > abs(y_diff):
+            # If the x-difference is larger, the boundary is horizontal (left or right)
             return "left" if x_diff < 0 else "right"
         else:
+            # If the y-difference is larger, the boundary is vertical (top or bottom)
             return "bottom" if y_diff < 0 else "top"
 
     def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
@@ -1581,7 +1621,7 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    # random.seed(2)
+    random.seed(2)
     # random.seed(6)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
