@@ -357,7 +357,6 @@ class GrapheneGraph:
                 continue
 
             # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
-            # ToDo: Noch nicht sicher, ob diese Variable benötigt wird; evtl. wieder überall entfernen
             reference_node_position = self.graph.nodes[atom_id]["position"]
 
             # Atom is valid, proceed with nitrogen doping
@@ -971,7 +970,7 @@ class GrapheneGraph:
                 pos1, pos2 = np.array(adjusted_positions[node1]), np.array(adjusted_positions[node2])
                 boundary = self.determine_boundary(reference_position, pos1, pos2)
 
-                if boundary in ["left", "buttom"]:
+                if boundary in ["left", "bottom"]:
                     nodes_to_adjust.add(node2)
                 elif boundary in ["right", "top"]:
                     nodes_to_adjust.add(node1)
@@ -1611,7 +1610,7 @@ def main():
     # random.seed(42)
     # random.seed(2)
     # random.seed(6)
-    random.seed(5)
+    random.seed(6)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
