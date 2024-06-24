@@ -436,11 +436,6 @@ class GrapheneGraph:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
-                # # ToDo: Die folgenden Zeilen sind nur zu Testzwecken und müssen dringend wieder entfernt werden!
-                # atom_id = 34
-                # reference_node_position = self.graph.nodes[atom_id]["position"]
-                # neighbors = self.get_neighbors_via_edges(atom_id)
-
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
                 temp_neighbors = neighbors.copy()
@@ -971,15 +966,9 @@ class GrapheneGraph:
                 boundary = self.determine_boundary(reference_position, pos1, pos2)
 
                 if boundary in ["left", "bottom"]:
-                    if node2 in nodes_with_boundaries:
-                        nodes_with_boundaries[node2].append(boundary)
-                    else:
-                        nodes_with_boundaries[node2] = [boundary]
+                    nodes_with_boundaries.setdefault(node2, set()).add(boundary)
                 elif boundary in ["right", "top"]:
-                    if node1 in nodes_with_boundaries:
-                        nodes_with_boundaries[node1].append(boundary)
-                    else:
-                        nodes_with_boundaries[node1] = [boundary]
+                    nodes_with_boundaries.setdefault(node1, set()).add(boundary)
 
         # Step 2: Find all the remaining nodes that need to be adjusted via a depth-first search
         def dfs(node, visited):
@@ -996,8 +985,8 @@ class GrapheneGraph:
                                 nodes_with_boundaries[neighbor] = current_boundaries  # Propagate boundary information
                             else:
                                 # Combine boundaries
-                                nodes_with_boundaries[current_node].extend(nodes_with_boundaries[neighbor])
-                                nodes_with_boundaries[neighbor].extend(current_boundaries)
+                                nodes_with_boundaries[current_node].update(nodes_with_boundaries[neighbor])
+                                nodes_with_boundaries[neighbor].update(current_boundaries)
 
         visited = set()
         confining_nodes = list(nodes_with_boundaries.keys())
@@ -1030,15 +1019,9 @@ class GrapheneGraph:
         y_diff = abs(reference_position[1] - down[1]) - abs(reference_position[1] - up[1])
 
         if abs(x_diff) > abs(y_diff):
-            if x_diff < 0:
-                return "left"
-            else:
-                return "right"
+            return "left" if x_diff < 0 else "right"
         else:
-            if y_diff < 0:
-                return "bottom"
-            else:
-                return "top"
+            return "bottom" if y_diff < 0 else "top"
 
     def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
         """
@@ -1602,7 +1585,6 @@ def main():
     # random.seed(42)
     # random.seed(2)
     # random.seed(6)
-    random.seed(2)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
