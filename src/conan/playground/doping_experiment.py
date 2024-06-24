@@ -955,10 +955,10 @@ class GrapheneGraph:
             Dictionary of adjusted positions.
         """
         adjusted_positions = positions.copy()
-        nodes_to_adjust = set()
-        boundary_map = {}  # Store boundary information for each node
+        # Store each node together with the boundaries where they should be moved to for position optimization
+        nodes_with_boundaries = {}
 
-        # Step 1: Identify nodes for direct periodic boundaries
+        # Step 1: Identify nodes that need to be adjusted and are connected via periodic boundaries
         for edge in subgraph.edges(data=True):
             if edge[2].get("periodic"):
                 node1, node2 = edge[0], edge[1]
@@ -971,21 +971,17 @@ class GrapheneGraph:
                 boundary = self.determine_boundary(reference_position, pos1, pos2)
 
                 if boundary in ["left", "bottom"]:
-                    nodes_to_adjust.add(node2)
-                    # boundary_map[node2] = boundary
-                    if node2 in boundary_map:
-                        boundary_map[node2].append(boundary)
+                    if node2 in nodes_with_boundaries:
+                        nodes_with_boundaries[node2].append(boundary)
                     else:
-                        boundary_map[node2] = [boundary]
+                        nodes_with_boundaries[node2] = [boundary]
                 elif boundary in ["right", "top"]:
-                    nodes_to_adjust.add(node1)
-                    # boundary_map[node1] = boundary
-                    if node1 in boundary_map:
-                        boundary_map[node1].append(boundary)
+                    if node1 in nodes_with_boundaries:
+                        nodes_with_boundaries[node1].append(boundary)
                     else:
-                        boundary_map[node1] = [boundary]
+                        nodes_with_boundaries[node1] = [boundary]
 
-        # Step 2: Find all nodes that need to be adjusted via a depth-first search
+        # Step 2: Find all the remaining nodes that need to be adjusted via a depth-first search
         def dfs(node, visited):
             stack = [node]
             while stack:
@@ -995,26 +991,23 @@ class GrapheneGraph:
                     for neighbor in subgraph.neighbors(current_node):
                         if neighbor not in visited and not subgraph.edges[current_node, neighbor].get("periodic"):
                             stack.append(neighbor)
-                            current_boundary = boundary_map[current_node].copy()
-                            if neighbor not in nodes_to_adjust:
-                                nodes_to_adjust.add(neighbor)
-                                boundary_map[neighbor] = current_boundary  # Propagate boundary information
+                            current_boundaries = nodes_with_boundaries[current_node].copy()
+                            if neighbor not in nodes_with_boundaries:
+                                nodes_with_boundaries[neighbor] = current_boundaries  # Propagate boundary information
                             else:
                                 # Combine boundaries
-                                if neighbor in boundary_map:
-                                    boundary_map[current_node].extend(boundary_map[neighbor])
-                                    boundary_map[neighbor].extend(current_boundary)
+                                nodes_with_boundaries[current_node].extend(nodes_with_boundaries[neighbor])
+                                nodes_with_boundaries[neighbor].extend(current_boundaries)
 
         visited = set()
-        confining_nodes = nodes_to_adjust.copy()
+        confining_nodes = list(nodes_with_boundaries.keys())
         for node in confining_nodes:
             if node not in visited:
                 dfs(node, visited)
 
-        # Step 3: Adjust the positions of the nodes in nodes_to_adjust
-        for node in nodes_to_adjust:
+        # Step 3: Adjust the positions of the nodes in nodes_with_boundaries
+        for node, boundaries in nodes_with_boundaries.items():
             node_pos = np.array(adjusted_positions[node])
-            boundaries = boundary_map[node]  # Get the boundary info for this node
 
             if "left" in boundaries:
                 node_pos[0] -= self.actual_sheet_width + self.bond_distance
