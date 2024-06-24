@@ -956,7 +956,7 @@ class GrapheneGraph:
         """
         adjusted_positions = positions.copy()
         nodes_to_adjust = set()
-        boundary = None
+        boundary_map = {}  # Store boundary information for each node
 
         # Step 1: Identify nodes for direct periodic boundaries
         for edge in subgraph.edges(data=True):
@@ -972,8 +972,18 @@ class GrapheneGraph:
 
                 if boundary in ["left", "bottom"]:
                     nodes_to_adjust.add(node2)
+                    # boundary_map[node2] = boundary
+                    if node2 in boundary_map:
+                        boundary_map[node2].append(boundary)
+                    else:
+                        boundary_map[node2] = [boundary]
                 elif boundary in ["right", "top"]:
                     nodes_to_adjust.add(node1)
+                    # boundary_map[node1] = boundary
+                    if node1 in boundary_map:
+                        boundary_map[node1].append(boundary)
+                    else:
+                        boundary_map[node1] = [boundary]
 
         # Step 2: Find all nodes that need to be adjusted via a depth-first search
         def dfs(node, visited):
@@ -985,8 +995,15 @@ class GrapheneGraph:
                     for neighbor in subgraph.neighbors(current_node):
                         if neighbor not in visited and not subgraph.edges[current_node, neighbor].get("periodic"):
                             stack.append(neighbor)
+                            current_boundary = boundary_map[current_node].copy()
                             if neighbor not in nodes_to_adjust:
                                 nodes_to_adjust.add(neighbor)
+                                boundary_map[neighbor] = current_boundary  # Propagate boundary information
+                            else:
+                                # Combine boundaries
+                                if neighbor in boundary_map:
+                                    boundary_map[current_node].extend(boundary_map[neighbor])
+                                    boundary_map[neighbor].extend(current_boundary)
 
         visited = set()
         confining_nodes = nodes_to_adjust.copy()
@@ -997,38 +1014,20 @@ class GrapheneGraph:
         # Step 3: Adjust the positions of the nodes in nodes_to_adjust
         for node in nodes_to_adjust:
             node_pos = np.array(adjusted_positions[node])
+            boundaries = boundary_map[node]  # Get the boundary info for this node
 
-            if boundary == "left":
+            if "left" in boundaries:
                 node_pos[0] -= self.actual_sheet_width + self.bond_distance
-            elif boundary == "right":
+            elif "right" in boundaries:
                 node_pos[0] += self.actual_sheet_width + self.bond_distance
-            elif boundary == "top":
+            if "top" in boundaries:
                 node_pos[1] += self.actual_sheet_height + self.cc_y_distance
-            elif boundary == "bottom":
+            elif "bottom" in boundaries:
                 node_pos[1] -= self.actual_sheet_height + self.cc_y_distance
 
             adjusted_positions[node] = (node_pos[0], node_pos[1])
 
-        # for node in nodes_to_adjust:
-        #     node_pos = np.array(adjusted_positions[node])
-        #     for neighbor in subgraph.neighbors(node):
-        #         neighbor_pos = adjusted_positions[neighbor]
-        #         diff = node_pos - neighbor_pos
-        #         if abs(diff[0]) > self.bond_distance:
-        #             node_pos[0] = neighbor_pos[0] - np.sign(diff[0]) * self.cc_x_distance
-        #         if abs(diff[1]) > self.bond_distance:
-        #             node_pos[1] = neighbor_pos[1] - np.sign(diff[1]) * self.bond_distance
-        #         adjusted_positions[node] = (node_pos[0], node_pos[1])
-
         return adjusted_positions
-
-    def adjust_position(self, pos1, pos2, boundary):
-        diff = pos2 - pos1
-        if boundary in ["left", "right"] and abs(diff[0]) > self.bond_distance:
-            pos2[0] = pos1[0] - np.sign(diff[0]) * self.bond_distance
-        if boundary in ["top", "bottom"] and abs(diff[1]) > self.cc_y_distance:
-            pos2[1] = pos1[1] - np.sign(diff[1]) * self.cc_y_distance
-        return pos2
 
     def determine_boundary(self, reference_position, pos1, pos2):
         left, right = (pos1, pos2) if pos2[0] > pos1[0] else (pos2, pos1)
@@ -1610,7 +1609,7 @@ def main():
     # random.seed(42)
     # random.seed(2)
     # random.seed(6)
-    random.seed(6)
+    random.seed(2)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
