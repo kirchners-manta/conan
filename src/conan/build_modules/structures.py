@@ -1199,6 +1199,17 @@ class Graphene(Structure2d):
     """
 
     # INTERFACE
+    def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
+        """
+        Stacks multiple instances of carbon nanotubes within the structure based on the provided parameters.
+
+        Args:
+            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
+            keywords (List[str]): The keywords for the stacking.
+        """
+        if self._structure_df is not None:  # Ensure there is a structure loaded before attempting to stack
+            self._stack_sheets(parameters)  # Private method that handles the actual stacking logic
+
     def make_pores(self, pore_size: float) -> pd.Series:
         """
         Creates circular pores in the graphene sheet.
@@ -1212,6 +1223,43 @@ class Graphene(Structure2d):
         return self._make_circular_pore(pore_size)
 
     # PRIVATE
+    def _stack_sheets(self,parameters):
+        """
+        Stacks multiple instances of graphene sheets based on the provided parameters.
+
+        Args:
+            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
+            keywords (List[str]): The keywords for the stacking.
+        """
+        if parameters["number_of_layers"] is None:
+            ddict.printLog("Missing number_of_layers")
+            return
+        if parameters["interlayer_spacing"] is None:
+            ddict.printLog("Missing interlayer_spacing")
+            return
+
+        # Make sheet template
+        base_sheet = Graphene(self.bond_distance, self.sheet_size)
+
+        # loop over number of layers
+        for sheet_number in range(parameters["number_of_layers"]):
+            # copy template into new df
+            current_sheet = base_sheet._structure_df.copy()
+            # shift current sheet down by interlayer_spacing
+            current_sheet['z'] -= (sheet_number+1) * parameters["interlayer_spacing"]
+            # shift the x-values to get ABA stacking
+            if sheet_number % 2 is 0:
+                current_sheet['x'] += self.bond_distance
+            # add sheet to the structure 
+            # Note: The entries of the original frame need to come after the new ones in the
+            #       df, otherwise the functional groups will not be at the end of the list and
+            #       are shown with the bond representation in VMD. 
+            self._structure_df = pd.concat([current_sheet,self._structure_df])
+
+        # shift all layers into the box
+        self._structure_df['z'] += (sheet_number+1) * parameters["interlayer_spacing"]
+    
+
     def _make_circular_pore(self, pore_size: float) -> pd.Series:
         """
         Creates a circular pore in the graphene sheet at a specified site.

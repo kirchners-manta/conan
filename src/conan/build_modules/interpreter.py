@@ -36,6 +36,8 @@ class Interpreter:
         if parsed_command["COMMAND"] == "vmd":
             if "show_index" in parsed_command["KEYWORDS"]:
                 vmd.send_command("show_index")
+            elif "update" in parsed_command["KEYWORDS"]:
+                vmd.update_structure()
             else:
                 self.vmd_process = vmd.start_vmd()
                 if self.vmd_process:
@@ -161,7 +163,6 @@ class Interpreter:
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure()
-
 
 class InvalidCommand(Exception):
     pass
