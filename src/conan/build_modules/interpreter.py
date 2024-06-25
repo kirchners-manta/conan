@@ -1,6 +1,7 @@
 # import build_main as main
-import pandas as pd
 import os
+
+import pandas as pd
 
 import conan.build_modules.vmd_interface.vmd_interface as vmd
 import conan.defdict as ddict
@@ -171,6 +172,7 @@ class Interpreter:
         # load updated structure into vmd
         if self.vmd_is_running:
             vmd.update_structure()
+
 
 class InvalidCommand(Exception):
     pass

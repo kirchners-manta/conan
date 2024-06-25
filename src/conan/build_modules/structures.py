@@ -951,9 +951,7 @@ class Structure2d(Structure):
             position_list.remove(adjacent_position)
 
 
-class Pore(
-    Structure
-):
+class Pore(Structure):
     """
     Represents a pore structure.
 
@@ -1219,7 +1217,7 @@ class Graphene(Structure2d):
         return self._make_circular_pore(parameters)
 
     # PRIVATE
-    def _stack_sheets(self,parameters):
+    def _stack_sheets(self, parameters):
         """
         Stacks multiple instances of graphene sheets based on the provided parameters.
 
@@ -1242,19 +1240,19 @@ class Graphene(Structure2d):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
-            current_sheet['z'] -= (sheet_number+1) * parameters["interlayer_spacing"]
+            current_sheet["z"] -= (sheet_number + 1) * parameters["interlayer_spacing"]
             # shift the x-values to get ABA stacking
-            if sheet_number % 2 is 0:
-                current_sheet['x'] += self.bond_distance
-            # add sheet to the structure 
+            if sheet_number % 2 == 0:
+                current_sheet["x"] += self.bond_distance
+            # add sheet to the structure
             # Note: The entries of the original frame need to come after the new ones in the
             #       df, otherwise the functional groups will not be at the end of the list and
-            #       are shown with the bond representation in VMD. 
-            self._structure_df = pd.concat([current_sheet,self._structure_df])
+            #       are shown with the bond representation in VMD.
+            self._structure_df = pd.concat([current_sheet, self._structure_df])
 
         # shift all layers into the box
-        self._structure_df['z'] += (sheet_number+1) * parameters["interlayer_spacing"]
-    
+        self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
+
     def _make_circular_pore(self, parameters):
         """
         Creates a circular pore in the graphene sheet at a specified site.
@@ -1269,13 +1267,13 @@ class Graphene(Structure2d):
         # Make a copy of the DataFrame to avoid mutating the original during processing
         atoms_df = self._structure_df.copy()
 
-        # if no position is selected, Select the atom closest to the center of the 
+        # if no position is selected, Select the atom closest to the center of the
         # sheet as the position for the pore
-        if("position" in parameters):
-            selected_position=atoms_df.iloc[parameters["position"]]
+        if "position" in parameters:
+            selected_position = atoms_df.iloc[parameters["position"]]
         else:
             selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
-            
+
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
 
@@ -1286,7 +1284,9 @@ class Graphene(Structure2d):
 
             # Calculate the minimum image distance from the selected center to the current atom
             if (
-                minimum_image_distance(atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size)
+                minimum_image_distance(
+                    atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size
+                )
                 <= parameters["pore_size"]
             ):
                 # If the atom is within the pore size, add it to the removal list
@@ -1369,7 +1369,9 @@ class Boronnitride(Structure2d):
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
         dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]  # Narrow down to those close in the y-axis
+        dummy_df = dummy_df[
+            dummy_df["y"] > (selected_position.iloc[2] - 0.1)
+        ]  # Narrow down to those close in the y-axis
         dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
         nearest_atom_df = dummy_df
         nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
@@ -1384,9 +1386,7 @@ class Boronnitride(Structure2d):
         ]
         magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / parameters["pore_size"]
 
-        orientation_vector = [
-            component / magnitude * parameters["pore_size"] for component in orientation_vector
-        ]
+        orientation_vector = [component / magnitude * parameters["pore_size"] for component in orientation_vector]
 
         # Determine the triangle tips based on the starting position and calculated orientation vector
         tip1 = [selected_position.iloc[1] + orientation_vector[0], selected_position.iloc[2] + orientation_vector[1]]
@@ -1442,14 +1442,10 @@ class Boronnitride(Structure2d):
 
         # Create a DataFrame from the list of coordinates
         # This DataFrame represents the complete boron nitride sheet
-        self._structure_df = pd.DataFrame(
-            coords, columns=["Species", "x", "y", "z", "group"]
-        )
+        self._structure_df = pd.DataFrame(coords, columns=["Species", "x", "y", "z", "group"])
 
 
-def center_position(
-    sheet_size: Tuple[float, float], atoms_df: pd.DataFrame
-) -> pd.Series:
+def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> pd.Series:
     """
     Returns the coordinates of the atom that is closest to the sheet center.
 
@@ -1465,7 +1461,8 @@ def center_position(
 
     # Compute the distance of each atom to the center point using minimum image distance
     distance_to_center_point = [
-        minimum_image_distance(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size) for _, atom in atoms_df.iterrows()
+        minimum_image_distance(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size)
+        for _, atom in atoms_df.iterrows()
     ]
 
     # Find the index of the atom with the minimum distance to the center point
