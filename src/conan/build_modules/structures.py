@@ -763,7 +763,7 @@ class Structure2d(Structure):
             List[Tuple[float, float, float]]: The list of available positions.
         """
         return [
-            (position[1], position[2], position[3]) for _, position in self._structure_df.iterrows()
+            (position.iloc[1], position.iloc[2], position.iloc[3]) for _, position in self._structure_df.iterrows()
         ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr
         # übersichtlich. Evtl. in Datenklasse auslagern?
 
@@ -953,8 +953,7 @@ class Structure2d(Structure):
 
 class Pore(
     Structure
-):  # ToDo: Erbt das wirklich nur von Structure und nicht von Structure2d wie Graphene? -> Pore wird aus Graphenwand
-    # und CNT aufgebaut
+):
     """
     Represents a pore structure.
 
@@ -965,10 +964,6 @@ class Pore(
         cnt_radius (List[float]): The radius of the carbon nanotube.
     """
 
-    # # CONSTRUCTOR
-    # def __init__(self, parameters, keywords):
-    #     self._build_pore(parameters, keywords)
-
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
         Initializes a Pore instance.
@@ -977,7 +972,7 @@ class Pore(
             parameters (Dict[str, Union[str, int, float]]): The parameters for the pore.
             keywords (List[str]): The keywords for the pore.
         """
-        super().__init__()  # ToDo: Superklasse wurde hier mit aufgerufen im Gegensatz zu obigem Code
+        super().__init__()
         self._build_pore(parameters, keywords)
 
     # INTERFACE
@@ -1037,14 +1032,15 @@ class Pore(
 
         # Create a hole in the wall
         # The size of the hole is based on the radius of the CNT plus a margin
-        pore_position = wall.make_pores(cnt.radius + 1.0)
+        parameters["pore_size"] = cnt.radius + 1.0
+        pore_position = wall.make_pores(parameters)
 
         # Shift the CNT position to align with the hole in the wall
-        cnt._structure_df["x"] += pore_position[1]
-        cnt._structure_df["y"] += pore_position[2]
+        cnt._structure_df["x"] += pore_position.iloc[1]
+        cnt._structure_df["y"] += pore_position.iloc[2]
 
         # Set the center and radius of the pore
-        self.pore_center = [pore_position[1], pore_position[2]]
+        self.pore_center = [pore_position.iloc[1], pore_position.iloc[2]]
         self.cnt_radius = [cnt.radius]
 
         # If the user wants an open pore, we copy it now with the hole
@@ -1275,10 +1271,10 @@ class Graphene(Structure2d):
 
         # if no position is selected, Select the atom closest to the center of the 
         # sheet as the position for the pore
-        if(parameters["position"]):
+        if("position" in parameters):
             selected_position=atoms_df.iloc[parameters["position"]]
         else:
-            selected_position = center_position(self.sheet_size, atoms_df)
+            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
             
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
@@ -1286,11 +1282,11 @@ class Graphene(Structure2d):
         # Iterate over each atom in the DataFrame
         for i, atom in self._structure_df.iterrows():
             # Determine the position of the current atom
-            atom_position = [atom[1], atom[2]]
+            atom_position = [atom.iloc[1], atom.iloc[2]]
 
             # Calculate the minimum image distance from the selected center to the current atom
             if (
-                minimum_image_distance(atom_position, [selected_position[1], selected_position[2]], self.sheet_size)
+                minimum_image_distance(atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size)
                 <= parameters["pore_size"]
             ):
                 # If the atom is within the pore size, add it to the removal list
@@ -1355,7 +1351,7 @@ class Boronnitride(Structure2d):
         self.__make_triangular_pore(pore_size)
 
     # PRIVATE
-    def __make_triangular_pore(self, pore_size: float) -> None:  # ToDo: Warum triangular? Für hexagonales Bornitrid?
+    def __make_triangular_pore(self, parameters) -> None:
         """
         Creates a triangular pore in the boron nitride sheet.
 
@@ -1368,17 +1364,17 @@ class Boronnitride(Structure2d):
         selected_position = center_position(self.sheet_size, dummy_df)
         # find nearest atom in x-direction to get orientation of the triangle
         dummy_df = atoms_df[atoms_df["Species"] == "B"]
-        dummy_df = dummy_df[dummy_df["y"] > (selected_position[2] - 0.1)]
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
+        dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]
+        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
 
         # Identify the nearest boron atom to define the orientation of the triangular pore
         dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[dummy_df["y"] > (selected_position[2] - 0.1)]  # Narrow down to those close in the y-axis
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position[2] + 0.1)]
+        dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]  # Narrow down to those close in the y-axis
+        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
         nearest_atom_df = dummy_df
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
         nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position[1]))
+        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
         nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
 
         # Calculate the vector for one side of the triangle based on the nearest atom
@@ -1386,23 +1382,20 @@ class Boronnitride(Structure2d):
             nearest_atom["x"] - selected_position["x"],
             nearest_atom["y"] - selected_position["y"],
         ]
-        magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / pore_size
-        # orientation_vector[0] /= magnitude
-        # orientation_vector[1] /= magnitude
-        # orientation_vector[0] *= pore_size
-        # orientation_vector[1] *= pore_size
+        magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / parameters["pore_size"]
+
         orientation_vector = [
-            component / magnitude * pore_size for component in orientation_vector
-        ]  # ToDo: So besser lesbar als oben?
+            component / magnitude * parameters["pore_size"] for component in orientation_vector
+        ]
 
         # Determine the triangle tips based on the starting position and calculated orientation vector
-        tip1 = [selected_position[1] + orientation_vector[0], selected_position[2] + orientation_vector[1]]
-        tip2, tip3 = find_triangle_tips([selected_position[1], selected_position[2]], np.array(tip1))
+        tip1 = [selected_position.iloc[1] + orientation_vector[0], selected_position.iloc[2] + orientation_vector[1]]
+        tip2, tip3 = find_triangle_tips([selected_position.iloc[1], selected_position.iloc[2]], np.array(tip1))
 
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
-            point = (atom[1], atom[2])  # Assuming columns 1 & 2 are x and y coordinates
+            point = (atom.iloc[1], atom.iloc[2])  # Assuming columns 1 & 2 are x and y coordinates
             if is_point_inside_triangle(tip1, tip2, tip3, point):
                 atoms_to_remove.append(i)
 
@@ -1451,29 +1444,12 @@ class Boronnitride(Structure2d):
         # This DataFrame represents the complete boron nitride sheet
         self._structure_df = pd.DataFrame(
             coords, columns=["Species", "x", "y", "z", "group"]
-        )  # ToDo: Habe hier mal die Spaltennamen hinzugefügt, sodass man verständlicher auf die Elemente zugreifen kann
-
-
-# def center_position(sheet_size, atoms_df):
-#     # This function returns the coordinates of the atom that
-#     # is closest to the sheet center
-#     center_point = [
-#         sheet_size[0] / 2,
-#         sheet_size[1] / 2
-#     ]
-#     distance_to_center_point = []
-#     for i, atom in atoms_df.iterrows():
-#         distance_to_center_point.append(minimum_image_distance(center_point, [atom[1], atom[2]], sheet_size))
-#     center_position_index = distance_to_center_point.index(min(distance_to_center_point))
-#     center_position = atoms_df.iloc[int(center_position_index)]
-#     return center_position
-
-# ToDo: In einer sauberen Codebasis sollten die folgenden Funktionen in eine utils.py ausgelagert werden
+        )
 
 
 def center_position(
     sheet_size: Tuple[float, float], atoms_df: pd.DataFrame
-) -> pd.Series:  # ToDo: Sollte das gleiche tun wie Methode oben drüber, aber evtl. etwas lesbarer
+) -> pd.Series:
     """
     Returns the coordinates of the atom that is closest to the sheet center.
 
@@ -1489,14 +1465,14 @@ def center_position(
 
     # Compute the distance of each atom to the center point using minimum image distance
     distance_to_center_point = [
-        minimum_image_distance(center_point, [atom[1], atom[2]], sheet_size) for _, atom in atoms_df.iterrows()
+        minimum_image_distance(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size) for _, atom in atoms_df.iterrows()
     ]
 
     # Find the index of the atom with the minimum distance to the center point
     min_distance_index = distance_to_center_point.index(min(distance_to_center_point))
 
     # Return the coordinates of the atom closest to the center
-    return atoms_df.iloc[int(min_distance_index)]
+    return int(min_distance_index)
 
 
 def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
@@ -1551,25 +1527,6 @@ def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray
 
     # Return the coordinates of the two additional tips
     return tip2, tip3
-
-
-# def minimum_image_distance(position1: List[float], position2: List[float], system_size: List[float]) -> float:
-#     """
-#     Calculates the minimum image distance between two positions in a periodic system.
-#
-#     Args:
-#         position1 (List[float]): The first position.
-#         position2 (List[float]): The second position.
-#         system_size (List[float]): The size of the periodic system.
-#
-#     Returns:
-#         float: The minimum image distance between the two positions.
-#     """
-#     delta = np.zeros(2)
-#     for i in range(2):
-#         delta[i] = position1[i] - position2[i]
-#         delta[i] -= system_size[i] * round(delta[i] / system_size[i])
-#     return np.sqrt(np.sum(delta ** 2))
 
 
 def minimum_image_distance(
