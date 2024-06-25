@@ -1210,7 +1210,7 @@ class Graphene(Structure2d):
         if self._structure_df is not None:  # Ensure there is a structure loaded before attempting to stack
             self._stack_sheets(parameters)  # Private method that handles the actual stacking logic
 
-    def make_pores(self, pore_size: float) -> pd.Series:
+    def make_pores(self, parameters):
         """
         Creates circular pores in the graphene sheet.
 
@@ -1220,7 +1220,7 @@ class Graphene(Structure2d):
         Returns:
             pd.Series: The position of the center of the pore.
         """
-        return self._make_circular_pore(pore_size)
+        return self._make_circular_pore(parameters)
 
     # PRIVATE
     def _stack_sheets(self,parameters):
@@ -1259,8 +1259,7 @@ class Graphene(Structure2d):
         # shift all layers into the box
         self._structure_df['z'] += (sheet_number+1) * parameters["interlayer_spacing"]
     
-
-    def _make_circular_pore(self, pore_size: float) -> pd.Series:
+    def _make_circular_pore(self, parameters):
         """
         Creates a circular pore in the graphene sheet at a specified site.
 
@@ -1274,9 +1273,13 @@ class Graphene(Structure2d):
         # Make a copy of the DataFrame to avoid mutating the original during processing
         atoms_df = self._structure_df.copy()
 
-        # Select the atom closest to the center of the sheet as the position for the pore
-        selected_position = center_position(self.sheet_size, atoms_df)  # ToDo: Warum zwangsläufig die Mitte?
-
+        # if no position is selected, Select the atom closest to the center of the 
+        # sheet as the position for the pore
+        if(parameters["position"]):
+            selected_position=atoms_df.iloc[parameters["position"]]
+        else:
+            selected_position = center_position(self.sheet_size, atoms_df)
+            
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
 
@@ -1288,7 +1291,7 @@ class Graphene(Structure2d):
             # Calculate the minimum image distance from the selected center to the current atom
             if (
                 minimum_image_distance(atom_position, [selected_position[1], selected_position[2]], self.sheet_size)
-                <= pore_size
+                <= parameters["pore_size"]
             ):
                 # If the atom is within the pore size, add it to the removal list
                 atoms_to_remove.append(i)

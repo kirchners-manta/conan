@@ -1,5 +1,6 @@
 # import build_main as main
 import pandas as pd
+import os
 
 import conan.build_modules.vmd_interface.vmd_interface as vmd
 import conan.defdict as ddict
@@ -54,6 +55,13 @@ class Interpreter:
             # if vmd does not want to exit, exit again, but harder
             if self.vmd_process.poll() is None:
                 self.vmd_process.terminate()
+        # remove temporary files
+        if os.path.exists(".command_file"):
+            os.remove(".command_file")
+        if os.path.exists("structures/.tmp.xyz"):
+            os.remove("structures/.tmp.xyz")
+        if os.path.exists(".state.vmd"):
+            os.remove(".state.vmd")
 
     # CONSTRUCTOR
     def __init__(self):
@@ -106,7 +114,7 @@ class Interpreter:
         if "pore_size" not in parameters:
             ddict.printLog("'pore_size' parameter is missing")
             return
-        self.current_structure.make_pores(parameters["pore_size"])
+        self.current_structure.make_pores(parameters)
         self.current_structure.print_xyz_file(".tmp")
         # ddict.printLog("Structure changed")
         # load updated structure into vmd
