@@ -265,7 +265,7 @@ class Structure(
         self.group_list.append(FunctionalGroup(parameters, structure_library_path))  # Adds a new functional group
 
     def rotation_matrix_from_vectors(
-        self, vec2: npt.NDArray
+        self, vec1: npt.NDArray, vec2: npt.NDArray
     ) -> (
         npt.NDArray
     ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische
@@ -280,8 +280,6 @@ class Structure(
         Returns:
             np.ndarray: The rotation matrix that when multiplied by vec1 results in vec2.
         """
-        # Define the default vector vec1 as the positive z-axis
-        vec1 = np.array([0, 0, 1])
 
         # Normalize both vectors to ensure they are unit vectors
         a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
@@ -355,7 +353,7 @@ class Structure1d(Structure):
             self._structure_df.iloc[parameters["position"], 2],  # Y coordinate
             self._structure_df.iloc[parameters["position"], 3],
         ]  # Z coordinate
-        self._add_group_on_position(position)  # Adds the group at the calculated position
+        self._add_group_on_position(position)  # Adds the group at the selected position
 
     # PRIVATE
     def _add_group_on_position(self, selected_position: List[float]):
@@ -373,7 +371,8 @@ class Structure1d(Structure):
 
         # Calculate the normal vector of the surface at the selected position to determine the correct orientation
         normal_vector = self.find_surface_normal_vector(selected_position)
-        rotation_matrix = self.rotation_matrix_from_vectors(normal_vector)
+        orientation_vector = np.array([0, 0, 1])  # Orientation of groups from lib is always along the z-axis
+        rotation_matrix = self.rotation_matrix_from_vectors(orientation_vector, normal_vector)
 
         # Rotate the group according to the calculated rotation matrix to align it with the surface normal
         rotated_coordinates = []
@@ -415,9 +414,7 @@ class Structure1d(Structure):
             delta_y = atom["y"] - position[1]
             distance = math.sqrt((delta_x) ** 2 + (delta_y) ** 2 + (atom["z"] - position[2]) ** 2)
             # Include atoms that are within a certain threshold distance (e.g., 120% of bond length)
-            if (
-                distance <= self.bond_length * 1.2
-            ):  # ToDo: Warum 1.2? Sollte das wirklich ein harter Wert sein oder sollte das ein Parameter sein?
+            if distance <= self.bond_length * 1.2:
                 # Exclude the position itself to avoid zero vector in calculations
                 if distance >= 0.05:  # Ensure it's not the exact same point
                     surface_atoms.append([atom["x"], atom["y"], atom["z"]])
@@ -438,7 +435,7 @@ class Structure1d(Structure):
         # Normalize the vector to have a magnitude of 1, making it a true normal vector
         normal_magnitude = np.linalg.norm(normal_vector)
         normal_vector /= normal_magnitude
-
+        print(normal_vector)
         return normal_vector
 
     def _build_CNT(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
@@ -1038,7 +1035,9 @@ class Pore(Structure):
         cnt._structure_df["y"] += pore_position.iloc[2]
 
         # Set the center and radius of the pore
-        self.pore_center = [pore_position.iloc[1], pore_position.iloc[2]]
+        max_z = cnt._structure_df["z"].max()
+
+        self.pore_center = [pore_position.iloc[1], pore_position.iloc[2], max_z / 2.0]
         self.cnt_radius = [cnt.radius]
 
         # If the user wants an open pore, we copy it now with the hole
@@ -1047,7 +1046,6 @@ class Pore(Structure):
 
         # 'Clip off' the ends of the CNT for a smoother transition
         cnt._structure_df = cnt._structure_df[cnt._structure_df["z"] > 0.2]
-        max_z = cnt._structure_df["z"].max()
         cnt._structure_df = cnt._structure_df[cnt._structure_df["z"] < (max_z - 0.2)]
 
         # Move the second wall to the end of the CNT
@@ -1068,6 +1066,9 @@ class Pore(Structure):
         max_y = self._structure_df["y"].max()
         delta_y = abs(max_y - self.sheet_size[1])
         self.sheet_size[1] -= delta_y - self.bond_length * math.cos(30 * math.pi / 180)
+
+        # finally reset the index
+        self._structure_df.reset_index(drop=True)
 
     def _add_group_on_position(self, selected_position: List[float]) -> None:
         """
@@ -1140,14 +1141,29 @@ class Pore(Structure):
         """
         # find the right orientation relative to local surface
         normal_vector = self.find_surface_normal_vector(selected_position)
-        rotation_matrix = self.rotation_matrix_from_vectors(normal_vector)
+        orientation_vector = np.array([0, 0, 1])  # Orientation of groups from lib is always along the z-axis
+        rotation_matrix = self.rotation_matrix_from_vectors(orientation_vector, normal_vector)
 
-        # finally rotate the group
+        # rotate the group
         rotated_coordinates = []
         for atom in new_atom_coordinates:
             atom_coords = np.array(atom[1:4], dtype=float)  # ensure that atom_coords has the right datatype
             rotated_coord = np.dot(rotation_matrix, atom_coords)
             rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
+
+        # We also need the new orientation, in case we want to modify the position further
+        orientation_vector = np.dot(rotation_matrix, orientation_vector)
+
+        # if the group is placed at the pore opening, we need to slightly tilt it
+        # Check if group is at the pore opening (end of the pore)
+
+        max_z = self._structure_df.query('group == "Structure"')["z"].max()
+        if selected_position[2] < self.bond_length:
+            rotated_coordinates = self.rotate_around_pore_opening(rotated_coordinates, orientation_vector)
+        elif selected_position[2] > (max_z - self.bond_length * 1.2):
+            # if the group is placed at the other side of the pore we need to multiply the orientation vector with -1.0
+            # so that the group is rotated out of the pore, not inside the pore
+            rotated_coordinates = self.rotate_around_pore_opening(rotated_coordinates, orientation_vector * -1.0)
 
         # shift the coordinates to the selected position
         for atom in rotated_coordinates:
@@ -1162,6 +1178,31 @@ class Pore(Structure):
 
         # Concatenate the new atoms with the existing structure
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
+
+    def rotate_around_pore_opening(
+        self, atom_coordinates: Tuple[str, float, float, float, str], orientation_vector: List[float]
+    ):
+
+        self.pore_center
+        central_axis = np.array(
+            [0.0, 0.0, (-1.0 * self.pore_center[2])]
+        )  # difference vector between pore center and pore opening
+
+        # Get the axis around which we want to rotate the group and normalize it
+        rotational_axis = np.cross(orientation_vector, central_axis)
+        rotational_axis = rotational_axis / np.linalg.norm(rotational_axis)
+
+        # We want to rotate the group by 45° (may change later for more complex
+        # pore openings)
+        angle = np.deg2rad(45)
+
+        # apply rotation to all coordinates
+        rotated_coordinates = []
+        for atom in atom_coordinates:
+            rotated_coords = rotate_3d_vector(np.array(atom[1:4]), rotational_axis, angle)
+            rotated_coordinates.append([atom[0], *rotated_coords, atom[-1]])
+
+        return rotated_coordinates
 
     def find_surface_normal_vector(self, position: List[float]) -> npt.NDArray:
         """
@@ -1225,11 +1266,11 @@ class Graphene(Structure2d):
             parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
             keywords (List[str]): The keywords for the stacking.
         """
-        if parameters["number_of_layers"] is None:
-            ddict.printLog("Missing number_of_layers")
+        if "number_of_layers" not in parameters:
+            ddict.printLog("Missing number_of_layers parameter")
             return
-        if parameters["interlayer_spacing"] is None:
-            ddict.printLog("Missing interlayer_spacing")
+        if "interlayer_spacing" not in parameters:
+            ddict.printLog("Missing interlayer_spacing parameter")
             return
 
         # Make sheet template
@@ -1443,6 +1484,27 @@ class Boronnitride(Structure2d):
         # Create a DataFrame from the list of coordinates
         # This DataFrame represents the complete boron nitride sheet
         self._structure_df = pd.DataFrame(coords, columns=["Species", "x", "y", "z", "group"])
+
+
+def rotate_3d_vector(vec, rotational_axis, angle):
+    """
+    Returns the a vector rotated around the rotational_axis by angle. This uses
+    Rodrigues rotation formula
+
+    Args:
+        vec (np.NDarray): Vector that is rotated.
+        rotational_axis (np.NDarray): Axis around which the vector vec is rotated.
+        angle (float): rotation angle.
+
+    Returns:
+        np.NDarray: Rotated vector.
+    """
+    vec = np.array(vec)
+    return (
+        vec * np.cos(angle)
+        + np.cross(rotational_axis, vec) * np.sin(angle)
+        + rotational_axis * np.dot(rotational_axis, vec) * (1 - np.cos(angle))
+    )
 
 
 def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> pd.Series:
