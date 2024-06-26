@@ -1225,11 +1225,11 @@ class Graphene(Structure2d):
             parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
             keywords (List[str]): The keywords for the stacking.
         """
-        if parameters["number_of_layers"] is None:
-            ddict.printLog("Missing number_of_layers")
+        if "number_of_layers" not in parameters:
+            ddict.printLog("Missing number_of_layers parameter")
             return
-        if parameters["interlayer_spacing"] is None:
-            ddict.printLog("Missing interlayer_spacing")
+        if "interlayer_spacing" not in parameters:
+            ddict.printLog("Missing interlayer_spacing parameter")
             return
 
         # Make sheet template
