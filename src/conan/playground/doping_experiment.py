@@ -19,14 +19,14 @@ class NitrogenSpeciesProperties:
 
     Attributes
     ----------
-    bond_lengths : List[float]
+    target_bond_lengths : List[float]
         A list of bond lengths of the doping structure.
-    angles : List[float]
+    target_angles : List[float]
         A list of bond angles of the doping structure.
     """
 
-    bond_lengths: List[float]
-    angles: List[float]
+    target_bond_lengths: List[float]
+    target_angles: List[float]
 
 
 class NitrogenSpecies(Enum):
@@ -211,8 +211,8 @@ class GrapheneGraph:
     @staticmethod
     def _initialize_species_properties() -> Dict[NitrogenSpecies, NitrogenSpeciesProperties]:
         pyridinic_4_properties = NitrogenSpeciesProperties(
-            bond_lengths=[1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45, 1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45],
-            angles=[
+            target_bond_lengths=[1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45, 1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45],
+            target_angles=[
                 120.26,
                 121.02,
                 119.3,
@@ -864,21 +864,16 @@ class GrapheneGraph:
         -----
         This method adjusts the positions of atoms in a cycle to optimize the structure.
         """
-        # Create a subgraph including all nodes in the cycle
-        subgraph = self.graph.subgraph(cycle).copy()
 
         # Get species properties for the given cycle
         properties = self.species_properties[species]
 
         # Combine half_bond_lengths and half_angles to full lists
-        bond_lengths = properties.bond_lengths
-        angles = properties.angles
+        target_bond_lengths = properties.target_bond_lengths
+        target_angles = properties.target_angles
 
-        # Initial positions (use existing positions if available)
-        positions = {node: self.graph.nodes[node]["position"] for node in subgraph.nodes}
-
-        # Adjust positions for periodic boundary conditions
-        positions_adjusted = self._adjust_for_periodic_boundaries(positions, subgraph, reference_position)
+        # Initial positions
+        positions = nx.get_node_attributes(self.graph, "position")
 
         # Initialize a starting node to ensure a consistent iteration order through the cycle, matching the bond lengths
         # and angles correctly
@@ -905,7 +900,10 @@ class GrapheneGraph:
         ordered_cycle = self._order_cycle_nodes(cycle, start_node)
 
         # Flatten initial positions for optimization, ensuring cycle order is preserved
-        x0 = np.array([coord for node in ordered_cycle for coord in positions_adjusted[node]])
+        x0 = np.array(
+            [coord for node in ordered_cycle for coord in positions[node]]
+            + [node for node in self.graph.nodes if node not in cycle]
+        )
 
         def bond_energy(x):
             """
@@ -922,15 +920,28 @@ class GrapheneGraph:
                 The total bond energy.
             """
             energy = 0.0
-            for (i, j), length in zip(zip(ordered_cycle, ordered_cycle[1:]), bond_lengths):
-                # Extract the coordinates of atoms i and j from the flattened array
-                xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
-                xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
+            cycle_edges = set(
+                zip(ordered_cycle, ordered_cycle[1:])
+            )  # Create a set for ordered cycle edges for quick lookup
+            cycle_edges.update({(ordered_cycle[-1], ordered_cycle[0])})  # Ensure the cycle is closed
 
-                # Calculate the distance between the atoms
-                dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-                # Calculate the energy contribution for this bond
-                energy += 0.5 * ((dist - length) ** 2)
+            for i, j, data in self.graph.edges(data=True):
+                current_length = data["bond_length"]
+
+                if (i, j) in cycle_edges or (j, i) in cycle_edges:
+                    if i in ordered_cycle:
+                        index = ordered_cycle.index(i)
+                    elif j in ordered_cycle:
+                        index = ordered_cycle.index(j)
+                    else:
+                        continue
+
+                    target_length = target_bond_lengths[index]
+                else:
+                    target_length = 1.42  # Default bond length for carbon-carbon bonds
+
+                    # Calculate the energy contribution for this bond
+                energy += 0.5 * ((current_length - target_length) ** 2)
             return energy
 
         def angle_energy(x):
@@ -948,14 +959,21 @@ class GrapheneGraph:
                 The total angle energy.
             """
             energy = 0.0
-            for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), angles):
+            box_size = (self.actual_sheet_width, self.actual_sheet_height)
+            for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
                 # Extract the coordinates of atoms i, j, and k from the flattened array
                 xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
                 xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
                 xk, yk = x[2 * ordered_cycle.index(k)], x[2 * ordered_cycle.index(k) + 1]
-                # Calculate vectors from j to i and from j to k
-                v1 = np.array([xi - xj, yi - yj])
-                v2 = np.array([xk - xj, yk - yj])
+
+                pos_i = np.array([xi, yi])
+                pos_j = np.array([xj, yj])
+                pos_k = np.array([xk, yk])
+
+                # Calculate vectors from j to i and from j to k considering periodic boundary conditions
+                _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
+                _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
+
                 # Calculate the cosine of the angle between the vectors
                 cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                 # Calculate the actual angle in radians
@@ -981,24 +999,52 @@ class GrapheneGraph:
             return bond_energy(x) + angle_energy(x)
 
         # Optimize positions to minimize energy
-        result = minimize(total_energy, x0, method="L-BFGS-B")
+        bounds = [(0, self.actual_sheet_width if i % 2 == 0 else self.actual_sheet_height) for i in range(len(x0))]
+        result = minimize(total_energy, x0, method="L-BFGS-B", bounds=bounds)
 
         # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
 
-        # Calculate the displacement vectors for nodes in the cycle
-        displacement_vectors = {}
-        for idx, node in enumerate(ordered_cycle):
-            original_position = x0[2 * idx], x0[2 * idx + 1]
-            optimized_position = optimized_positions[idx]
-            displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
-
         # Update positions in the original graph
         for idx, node in enumerate(ordered_cycle):
-            adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
-            self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
+            self.graph.nodes[node]["position"] = tuple(optimized_positions[idx])
+
+        # # Calculate the displacement vectors for nodes in the cycle
+        # displacement_vectors = {}
+        # for idx, node in enumerate(ordered_cycle):
+        #     original_position = x0[2 * idx], x0[2 * idx + 1]
+        #     optimized_position = optimized_positions[idx]
+        #     displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
+        #
+        # # Update positions in the original graph
+        # for idx, node in enumerate(ordered_cycle):
+        #     adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
+        #     self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
 
         # ToDo: bond_distance edge attribute muss noch angepasst werden
+
+    @staticmethod
+    def minimum_image_distance(position1, position2, box_size):
+        """
+        Calculate the minimum distance between two positions considering periodic boundary conditions.
+
+        Parameters
+        ----------
+        position1 : np.ndarray
+            Position of the first atom.
+        position2 : np.ndarray
+            Position of the second atom.
+        box_size : tuple
+            Size of the box in the x and y dimensions.
+
+        Returns
+        -------
+        float
+            The minimum distance between the two positions.
+        """
+        d_pos = position1 - position2
+        d_pos = d_pos - box_size  # * np.round(d_pos / box_size)
+        return np.linalg.norm(d_pos), d_pos
 
     def _adjust_for_periodic_boundaries(
         self, positions: Dict[int, Tuple[float, float]], subgraph: nx.Graph, reference_position: Tuple[float, float]
@@ -1730,8 +1776,8 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
+    # random.seed(0)
     random.seed(0)
-    # random.seed(6)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
 
@@ -1778,11 +1824,11 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
+    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
