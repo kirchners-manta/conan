@@ -258,26 +258,17 @@ def trajectory_analysis(inputdict) -> None:
 
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
-    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
-    species_max = id_frame["Species"].max()
-    spec_molecule = 0
-    spec_atom = []
-    ddict.printLog("")
-    analysis_spec_molecule = ddict.get_input(
-        "Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
-    )
-    if analysis_spec_molecule == "y":
-        spec_molecule = int(ddict.get_input(f"Which species to analyze? (1-{species_max}) ", args, "int"))
-        # Ask user for the atom type to analyze. Multiple options are possible, default is 'all'.
-        spec_atom = ddict.get_input("Which atoms to analyze? [default:all] ", args, "string")
+    if not inputdict["unique_molecule_frame"].empty:
+        unique_molecule_frame = inputdict["unique_molecule_frame"]
 
-        if spec_atom == "" or spec_atom == "[default:all]":
-            spec_atom = "all"
+    else:
+        id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
+    
+    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
 
-        # Get the atom type into a list.
-        spec_atom = spec_atom.replace(", ", ",").split(",")
-        ddict.printLog(f"\n-> Species {spec_molecule} and atom type {spec_atom} will be analyzed.\n")
-
+    print("spec_molecule", spec_molecule)
+    print("spec_atom", spec_atom)
+    print("analysis_spec_molecule", analysis_spec_molecule)
     (
         number_of_frames,
         number_of_lines_per_chunk,
@@ -323,14 +314,14 @@ def trajectory_analysis(inputdict) -> None:
         from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
 
     if analysis_choice2 == 7:
-        from axial_dens import distance_search_analysis as analysis
-        from axial_dens import distance_search_prep as main_loop_preparation
-        from axial_dens import distance_search_processing as post_processing
+        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
+        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
 
     if analysis_choice2 == 8:
-        from axial_dens import density_analysis_analysis as analysis
-        from axial_dens import density_analysis_prep as main_loop_preparation
-        from axial_dens import density_analysis_processing as post_processing
+        from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
+        from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
 
     counter = 0
     CNT_atoms = id_frame[id_frame["CNT"].notnull()]
@@ -349,9 +340,9 @@ def trajectory_analysis(inputdict) -> None:
 
     if analysis_choice2 == 6:
         if maindict["do_xyz_analysis"] == "y":
-            from coordination_number import Coord_number_xyz_analysis as analysis
-            from coordination_number import Coord_xyz_chunk_processing as chunk_processing
-            from coordination_number import Coord_xyz_post_processing as post_processing
+            from conan.analysis_modules.coordination_number import Coord_number_xyz_analysis as analysis
+            from conan.analysis_modules.coordination_number import Coord_xyz_chunk_processing as chunk_processing
+            from conan.analysis_modules.coordination_number import Coord_xyz_post_processing as post_processing
 
     maindict["box_dimension"] = np.array(maindict["box_size"])
 
@@ -372,11 +363,11 @@ def trajectory_analysis(inputdict) -> None:
     # MAIN LOOP
     # Define which function to use reading the trajectory file (from traj_info.py).
     if args["trajectoryfile"].endswith(".xyz"):
-        from traj_info import xyz as run
+        from conan.analysis_modules.traj_info import xyz as run
     elif args["trajectoryfile"].endswith(".pdb"):
-        from traj_info import pdb as run
+        from conan.analysis_modules.traj_info import pdb as run
     elif args["trajectoryfile"].endswith(".lmp") or args["trajectoryfile"].endswith(".lammpstrj"):
-        from traj_info import lammpstrj as run
+        from conan.analysis_modules.traj_info import lammpstrj as run
 
     # Atomic masses.
     element_masses = ddict.dict_mass()
@@ -420,7 +411,8 @@ def trajectory_analysis(inputdict) -> None:
 
             # Drop the other atoms which are not needed for the analysis.
             if analysis_spec_molecule == "y":
-                split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
+                split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
+                #split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
                 # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
                 if spec_atom[0] != "all":
                     # If specific atoms are requested, only these atoms are kept.
