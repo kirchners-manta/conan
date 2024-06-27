@@ -322,7 +322,7 @@ class GrapheneGraph:
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
         actual_percentages = {
-            species: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
+            species.value: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
             for species, count in added_nitrogen_counts.items()
         }
 
