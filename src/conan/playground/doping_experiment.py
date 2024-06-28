@@ -922,6 +922,9 @@ class GrapheneGraph:
             """
             energy = 0.0
             for i, j, data in subgraph.edges(data=True):
+                # Ensure i is always the smaller node
+                if ordered_cycle.index(j) < ordered_cycle.index(i):
+                    i, j = j, i
                 if (i in ordered_cycle) and (j in ordered_cycle):
                     target_length = target_bond_lengths[ordered_cycle.index(i)]
                 else:
@@ -985,9 +988,9 @@ class GrapheneGraph:
             return bond_energy(x) + angle_energy(x)
 
         # Optimize positions to minimize energy
-        bounds = [(0, self.actual_sheet_width if i % 2 == 0 else self.actual_sheet_height) for i in range(len(x0))]
-        result = minimize(total_energy, x0, method="L-BFGS-B", bounds=bounds)
-        # result = minimize(total_energy, x0, method="L-BFGS-B")
+        # bounds = [(0, self.actual_sheet_width if i % 2 == 0 else self.actual_sheet_height) for i in range(len(x0))]
+        # result = minimize(total_energy, x0, method="L-BFGS-B", bounds=bounds)
+        result = minimize(total_energy, x0, method="L-BFGS-B")
 
         # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
