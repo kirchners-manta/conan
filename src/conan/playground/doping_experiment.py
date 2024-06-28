@@ -1026,6 +1026,9 @@ class GrapheneGraph:
         # result = minimize(total_energy, x0, method="L-BFGS-B", bounds=bounds)
         result = minimize(total_energy, x0, method="L-BFGS-B")
 
+        # Show the number of iterations and the final energy
+        print(f"Number of iterations: {result.nit}\nFinal energy: {result.fun}")
+
         # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
 
