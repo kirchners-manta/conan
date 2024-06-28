@@ -2,7 +2,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from math import cos, pi, sin
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, NamedTuple, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -38,6 +38,22 @@ class NitrogenSpecies(Enum):
     PYRIDINIC_4 = "Pyridinic-N 4"
     # PYRROLIC = "pyrrolic"
     # PYRAZOLE = "pyrazole"
+
+
+class Position(NamedTuple):
+    """
+    Position: Named tuple to represent the coordinates of atoms.
+
+    Attributes
+    ----------
+    x : float
+        The x-coordinate of the atom.
+    y : float
+        The y-coordinate of the atom.
+    """
+
+    x: float
+    y: float
 
 
 class GrapheneGraph:
@@ -161,10 +177,10 @@ class GrapheneGraph:
         """
         # Define relative positions of atoms within the unit cell
         unit_cell_positions = [
-            (x_offset, y_offset),
-            (x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
-            (x_offset + self.cc_x_distance + self.bond_distance, y_offset + self.cc_y_distance),
-            (x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset),
+            Position(x_offset, y_offset),
+            Position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
+            Position(x_offset + self.cc_x_distance + self.bond_distance, y_offset + self.cc_y_distance),
+            Position(x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset),
         ]
 
         # Add nodes with positions and element type (carbon)
