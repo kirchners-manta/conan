@@ -56,6 +56,22 @@ class Position(NamedTuple):
     y: float
 
 
+class Vector(NamedTuple):
+    """
+    Vector: Named tuple to represent the displacement between atoms.
+
+    Attributes
+    ----------
+    dx : float
+        The x-component of the displacement.
+    dy : float
+        The y-component of the displacement.
+    """
+
+    dx: float
+    dy: float
+
+
 class GrapheneGraph:
     def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
@@ -388,7 +404,7 @@ class GrapheneGraph:
                 continue
 
             # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
-            reference_node_position = self.graph.nodes[atom_id]["position"]
+            reference_node_position: Position = self.graph.nodes[atom_id]["position"]
 
             # Atom is valid, proceed with nitrogen doping
             neighbors = self.get_neighbors_via_edges(atom_id)
@@ -861,9 +877,7 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(
-        self, cycle: List[int], reference_position: Tuple[float, float], species: NitrogenSpecies
-    ):
+    def _adjust_atom_positions(self, cycle: List[int], reference_position: Position, species: NitrogenSpecies):
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
@@ -871,7 +885,7 @@ class GrapheneGraph:
         ----------
         cycle : List[int]
             The list of atom IDs forming the cycle.
-        reference_position: Tuple[float, float]
+        reference_position: Position
             The reference position of the atom id that was used to find the cycle.
         species: NitrogenSpecies
             The nitrogen doping species that was inserted.
@@ -948,8 +962,8 @@ class GrapheneGraph:
 
                 xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
                 xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
-                pos_i = (xi, yi)
-                pos_j = (xj, yj)
+                pos_i = Position(xi, yi)
+                pos_j = Position(xj, yj)
 
                 current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
                 energy += 0.5 * ((current_length - target_length) ** 2)
@@ -975,9 +989,9 @@ class GrapheneGraph:
                 xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
                 xk, yk = x[2 * ordered_cycle.index(k)], x[2 * ordered_cycle.index(k) + 1]
 
-                pos_i = (xi, yi)
-                pos_j = (xj, yj)
-                pos_k = (xk, yk)
+                pos_i = Position(xi, yi)
+                pos_j = Position(xj, yj)
+                pos_k = Position(xk, yk)
 
                 _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
                 _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
@@ -1020,8 +1034,10 @@ class GrapheneGraph:
 
         # Update positions in the original graph
         for idx, node in enumerate(ordered_cycle):
-            adjusted_position = np.array(self.graph.nodes[node]["position"]) + displacement_vectors[node]
-            self.graph.nodes[node]["position"] = (adjusted_position[0], adjusted_position[1])
+            current_position = self.graph.nodes[node]["position"]
+            displacement = displacement_vectors[node]
+            adjusted_position = Position(x=current_position.x + displacement[0], y=current_position.y + displacement[1])
+            self.graph.nodes[node]["position"] = adjusted_position
 
     # def _adjust_atom_positions(
     #     self, cycle: List[int], reference_position: Tuple[float, float], species: NitrogenSpecies
@@ -1203,28 +1219,28 @@ class GrapheneGraph:
 
     @staticmethod
     def minimum_image_distance(
-        position1: Tuple[float, float], position2: Tuple[float, float], box_size: Tuple[float, float]
-    ) -> Tuple[float, Tuple[float, float]]:
+        position1: Position, position2: Position, box_size: Tuple[float, float]
+    ) -> Tuple[float, Vector]:
         """
         Calculate the minimum distance between two positions considering periodic boundary conditions.
 
         Parameters
         ----------
-        position1 : Tuple[float, float]
-            Position of the first atom as a tuple (x, y).
-        position2 : Tuple[float, float]
-            Position of the second atom as a tuple (x, y).
+        position1 : Position
+            Position of the first atom.
+        position2 : Position
+            Position of the second atom.
         box_size : Tuple[float, float]
             Size of the box in the x and y dimensions (box_width, box_height).
 
         Returns
         -------
-        Tuple[float, Tuple[float, float]]
+        Tuple[float, Vector]
             A tuple containing:
             - The minimum distance between the two positions as a float.
-            - The displacement vector accounting for periodic boundary conditions as a tuple (dx, dy).
+            - The displacement vector accounting for periodic boundary conditions as a named tuple (dx, dy).
         """
-        # Convert tuples to numpy arrays for vector operations
+        # Convert namedtuples to numpy arrays for vector operations
         pos1 = np.array(position1)
         pos2 = np.array(position2)
 
@@ -1235,7 +1251,10 @@ class GrapheneGraph:
         d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
 
         # Calculate the Euclidean distance using the adjusted difference vector
-        return float(np.linalg.norm(d_pos)), (float(d_pos[0]), float(d_pos[1]))
+        distance = float(np.linalg.norm(d_pos))
+        displacement = Vector(float(d_pos[0]), float(d_pos[1]))
+
+        return distance, displacement
 
     def _adjust_for_periodic_boundaries(
         self, positions: Dict[int, Tuple[float, float]], subgraph: nx.Graph, reference_position: Tuple[float, float]
