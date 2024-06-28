@@ -967,6 +967,10 @@ class GrapheneGraph:
 
                 current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
                 energy += 0.5 * ((current_length - target_length) ** 2)
+
+                # Update bond length in the subgraph during optimization
+                subgraph.edges[i, j]["bond_length"] = current_length
+
             return energy
 
         def angle_energy(x):
@@ -1038,6 +1042,11 @@ class GrapheneGraph:
             displacement = displacement_vectors[node]
             adjusted_position = Position(x=current_position.x + displacement[0], y=current_position.y + displacement[1])
             self.graph.nodes[node]["position"] = adjusted_position
+
+        # Update bond lengths in the original graph
+        for i, j, data in subgraph.edges(data=True):
+            current_length = data["bond_length"]
+            self.graph.edges[i, j]["bond_length"] = current_length
 
     # def _adjust_atom_positions(
     #     self, cycle: List[int], reference_position: Tuple[float, float], species: NitrogenSpecies
@@ -1986,7 +1995,7 @@ def print_warning(message: str):
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    # random.seed(0)
+    random.seed(0)
     # random.seed(1)
 
     graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
