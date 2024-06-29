@@ -1,78 +1,31 @@
 import random
-from dataclasses import dataclass
-from enum import Enum
 from math import cos, pi, sin
-from typing import Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
-
-@dataclass
-class NitrogenSpeciesProperties:
-    """
-    Define data class for nitrogen species properties.
-
-    Attributes
-    ----------
-    target_bond_lengths : List[float]
-        A list of bond lengths of the doping structure.
-    target_angles : List[float]
-        A list of bond angles of the doping structure.
-    """
-
-    target_bond_lengths: List[float]
-    target_angles: List[float]
-
-
-class NitrogenSpecies(Enum):
-    GRAPHITIC = "Graphitic-N"
-    # PYRIDINIC = "pyridinic"
-    PYRIDINIC_1 = "Pyridinic-N 1"
-    PYRIDINIC_2 = "Pyridinic-N 2"
-    PYRIDINIC_3 = "Pyridinic-N 3"
-    PYRIDINIC_4 = "Pyridinic-N 4"
-    # PYRROLIC = "pyrrolic"
-    # PYRAZOLE = "pyrazole"
+from conan.playground.graph_utils import (
+    NitrogenSpecies,
+    NitrogenSpeciesProperties,
+    Position,
+    get_neighbors_via_edges,
+    get_neighbors_within_distance,
+    get_shortest_path,
+    minimum_image_distance,
+    plot_graphene,
+    plot_graphene_with_depth_neighbors_based_on_bond_length,
+    plot_graphene_with_path,
+    plot_nodes_within_distance,
+    print_warning,
+    write_xyz,
+)
 
 
-class Position(NamedTuple):
-    """
-    Position: Named tuple to represent the coordinates of atoms.
-
-    Attributes
-    ----------
-    x : float
-        The x-coordinate of the atom.
-    y : float
-        The y-coordinate of the atom.
-    """
-
-    x: float
-    y: float
-
-
-class Vector(NamedTuple):
-    """
-    Vector: Named tuple to represent the displacement between atoms.
-
-    Attributes
-    ----------
-    dx : float
-        The x-component of the displacement.
-    dy : float
-        The y-component of the displacement.
-    """
-
-    dx: float
-    dy: float
-
-
-class GrapheneGraph:
+class Graphene:
     def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
         Initialize the GrapheneGraph with given bond distance and sheet size.
@@ -102,7 +55,7 @@ class GrapheneGraph:
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
         """The positions of atoms in the graphene sheet."""
-        self._kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
+        self.kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
         """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
         spatial queries, such as searching for neighbors within a certain Euclidean distance. Such queries are often
         computationally intensive when performed over a graph, especially when dealing with direct distance rather than
@@ -116,7 +69,7 @@ class GrapheneGraph:
     def positions(self, new_positions):
         """Update the positions of atoms and rebuild the KDTree for efficient spatial queries."""
         self._positions = new_positions
-        self._kdtree = KDTree(new_positions)
+        self.kdtree = KDTree(new_positions)
 
     @property
     def cc_x_distance(self):
@@ -410,7 +363,7 @@ class GrapheneGraph:
             # reference_node_position: Position = self.graph.nodes[atom_id]["position"]
 
             # Atom is valid, proceed with nitrogen doping
-            neighbors = self.get_neighbors_via_edges(atom_id)
+            neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
             # Implement species-specific changes for nitrogen doping
             if nitrogen_species == NitrogenSpecies.GRAPHITIC:
@@ -445,7 +398,7 @@ class GrapheneGraph:
 
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
-                nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
+                nodes_to_exclude = self._find_min_cycle_including_neighbors(neighbors)
                 all_cycles_to_exclude.append(nodes_to_exclude)
                 # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
@@ -512,13 +465,13 @@ class GrapheneGraph:
                 # Remove the selected neighbor from the list of neighbors
                 neighbors.remove(selected_neighbor)
                 # Get direct neighbors of the selected neighbor excluding the selected atom
-                neighbors += self.get_neighbors_via_edges(selected_neighbor)
+                neighbors += get_neighbors_via_edges(self.graph, selected_neighbor)
                 # Remove the selected neighbor from the graph
                 self.graph.remove_node(selected_neighbor)
 
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
-                nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
+                nodes_to_exclude = self._find_min_cycle_including_neighbors(neighbors)
                 all_cycles_to_exclude.append(nodes_to_exclude)
                 # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
                 # potential carbon atoms
@@ -630,7 +583,7 @@ class GrapheneGraph:
                     pos_j = Position(xj, yj)
 
                     # Calculate the current bond length and target bond length
-                    current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
+                    current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = target_bond_lengths[ordered_cycle.index(node_i)]
                     energy += 0.5 * ((current_length - target_length) ** 2)
 
@@ -649,7 +602,7 @@ class GrapheneGraph:
                     pos_j = Position(xj, yj)
 
                     # Calculate the current bond length and set default target length
-                    current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
+                    current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = 1.42
                     energy += 0.5 * ((current_length - target_length) ** 2)
 
@@ -685,8 +638,8 @@ class GrapheneGraph:
                     pos_j = Position(xj, yj)
                     pos_k = Position(xk, yk)
 
-                    _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
-                    _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
+                    _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
+                    _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
 
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
@@ -768,7 +721,7 @@ class GrapheneGraph:
                     if self.graph.nodes[node]["element"] == "N":
                         continue
                     # Get the neighbors of the current node
-                    neighbors = self.get_neighbors_via_edges(node)
+                    neighbors = get_neighbors_via_edges(self.graph, node)
                     # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
                     # cycle
                     if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
@@ -780,45 +733,6 @@ class GrapheneGraph:
                 raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
             start_nodes.append(start_node)
         return start_nodes
-
-    @staticmethod
-    def minimum_image_distance(
-        position1: Position, position2: Position, box_size: Tuple[float, float]
-    ) -> Tuple[float, Vector]:
-        """
-        Calculate the minimum distance between two positions considering periodic boundary conditions.
-
-        Parameters
-        ----------
-        position1 : Position
-            Position of the first atom.
-        position2 : Position
-            Position of the second atom.
-        box_size : Tuple[float, float]
-            Size of the box in the x and y dimensions (box_width, box_height).
-
-        Returns
-        -------
-        Tuple[float, Vector]
-            A tuple containing:
-            - The minimum distance between the two positions as a float.
-            - The displacement vector accounting for periodic boundary conditions as a named tuple (dx, dy).
-        """
-        # Convert namedtuples to numpy arrays for vector operations
-        pos1 = np.array(position1)
-        pos2 = np.array(position2)
-
-        # Calculate the vector difference between the two positions
-        d_pos = pos1 - pos2
-
-        # Adjust the difference vector for periodic boundary conditions
-        d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
-
-        # Calculate the Euclidean distance using the adjusted difference vector
-        distance = float(np.linalg.norm(d_pos))
-        displacement = Vector(float(d_pos[0]), float(d_pos[1]))
-
-        return distance, displacement
 
     def _order_cycle_nodes(self, cycles: List[List[int]], start_nodes: List[int]) -> List[List[int]]:
         """
@@ -873,7 +787,7 @@ class GrapheneGraph:
         # Check the proximity constraints
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
             # Get the direct neighbors of the selected atom
-            neighbors = self.get_neighbors_via_edges(atom_id)
+            neighbors = get_neighbors_via_edges(self.graph, atom_id)
             neighbor_elements = [
                 (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
                 for neighbor in neighbors
@@ -885,18 +799,18 @@ class GrapheneGraph:
             NitrogenSpecies.PYRIDINIC_2,
             NitrogenSpecies.PYRIDINIC_3,
         }:
-            neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
+            neighbors_len_3 = get_neighbors_via_edges(self.graph, atom_id, depth=3, inclusive=True)
             return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-            neighbors_len_3 = self.get_neighbors_via_edges(atom_id, depth=3, inclusive=True)
+            neighbors_len_3 = get_neighbors_via_edges(self.graph, atom_id, depth=3, inclusive=True)
             if neighbor_id:
-                neighbors_len_3 += self.get_neighbors_via_edges(neighbor_id, depth=3, inclusive=True)
+                neighbors_len_3 += get_neighbors_via_edges(self.graph, neighbor_id, depth=3, inclusive=True)
             return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
 
         return False
 
-    def find_min_cycle_including_neighbors(self, neighbors: List[int]):
+    def _find_min_cycle_including_neighbors(self, neighbors: List[int]):
         """
         Find the shortest cycle in the graph that includes all the given neighbors.
 
@@ -950,477 +864,43 @@ class GrapheneGraph:
             subgraph.add_edges_from(new_edges)
             visited_edges.update(new_edges)
 
-    def get_neighbors_within_distance(self, atom_id: int, distance: float) -> List[int]:
-        """
-        Find all neighbors within a given distance from the specified atom.
-
-        Parameters
-        ----------
-        atom_id : int
-            The ID of the atom (node) from which distances are measured.
-        distance : float
-            The maximum distance to search for neighbors.
-
-        Returns
-        -------
-        List[int]
-            A list of IDs representing the neighbors within the given distance from the source node.
-        """
-        atom_position = self.graph.nodes[atom_id]["position"]
-        indices = self._kdtree.query_ball_point(atom_position, distance)
-        return [list(self.graph.nodes)[index] for index in indices]
-
-    def get_neighbors_via_edges(self, atom_id: int, depth: int = 1, inclusive: bool = False) -> List[int]:
-        """
-        Get connected neighbors of a given atom up to a certain depth.
-
-        Parameters
-        ----------
-        atom_id : int
-            The ID of the atom (node) whose neighbors are to be found.
-        depth : int, optional
-            The depth up to which neighbors are to be found (default is 1).
-        inclusive : bool, optional
-            If True, return all neighbors up to the specified depth. If False, return only the neighbors
-            at the exact specified depth (default is False).
-
-        Returns
-        -------
-        List[int]
-            A list of IDs representing the neighbors of the specified atom up to the given depth.
-
-        Notes
-        -----
-        - If `depth` is 1, this method uses the `neighbors` function from networkx to find the immediate neighbors.
-        - If `depth` is greater than 1:
-          The function uses `nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)` from networkx.
-          This function computes the shortest path lengths from the source node (atom_id) to all other nodes in the
-          graph,up to the specified cutoff depth.
-
-          - If `inclusive` is True, the function returns all neighbors up to the specified depth, meaning it includes
-            neighbors at depth 1, 2, ..., up to the given depth.
-          - If `inclusive` is False, the function returns only the neighbors at the exact specified depth.
-        """
-
-        if depth == 1:
-            # Get immediate neighbors (directly connected nodes)
-            return list(self.graph.neighbors(atom_id))
-        else:
-            # Get neighbors up to the specified depth using shortest path lengths
-            paths = nx.single_source_shortest_path_length(self.graph, atom_id, cutoff=depth)
-            if inclusive:
-                # Include all neighbors up to the specified depth
-                return [node for node in paths.keys() if node != atom_id]  # Exclude the atom itself (depth 0)
-            else:
-                # Include only neighbors at the exact specified depth
-                return [node for node, length in paths.items() if length == depth]
-
-    def get_neighbors_paths(self, atom_id: int, depth: int = 1) -> List[Tuple[int, int]]:
-        """
-        Get edges of paths to connected neighbors up to a certain depth.
-
-        Parameters
-        ----------
-        atom_id : int
-            The ID of the atom (node) whose neighbors' paths are to be found.
-        depth : int, optional
-            The depth up to which neighbors' paths are to be found (default is 1).
-
-        Returns
-        -------
-        List[Tuple[int, int]]
-            A list of tuples representing the edges of paths to neighbors up to the given depth.
-
-        Notes
-        -----
-        This method uses the `single_source_shortest_path` function from networkx to find
-        all paths up to the specified depth and then extracts the edges from these paths.
-        """
-        paths = nx.single_source_shortest_path(self.graph, atom_id, cutoff=depth)
-        edges = []
-        for path in paths.values():
-            edges.extend([(path[i], path[i + 1]) for i in range(len(path) - 1)])
-        return edges
-
-    def get_shortest_path_length(self, source: int, target: int) -> float:
-        """
-        Get the shortest path length between two connected atoms based on bond lengths.
-
-        Parameters
-        ----------
-        source : int
-            The ID of the source atom (node).
-        target : int
-            The ID of the target atom (node).
-
-        Returns
-        -------
-        float
-            The shortest path length between the source and target atoms.
-
-        Notes
-        -----
-        This method uses the Dijkstra algorithm implemented in networkx to find the shortest path length.
-        """
-        return nx.dijkstra_path_length(self.graph, source, target, weight="bond_length")
-
-    def get_shortest_path(self, source: int, target: int) -> List[int]:
-        """
-        Get the shortest path between two connected atoms based on bond lengths.
-
-        Parameters
-        ----------
-        source : int
-            The ID of the source atom (node).
-        target : int
-            The ID of the target atom (node).
-
-        Returns
-        -------
-        List[int]
-            A list of IDs representing the nodes in the shortest path from the source to the target atom.
-
-        Notes
-        -----
-        This method uses the Dijkstra algorithm implemented in networkx to find the shortest path.
-        """
-        return nx.dijkstra_path(self.graph, source, target, weight="bond_length")
-
-    def get_color(self, element: str, nitrogen_species: NitrogenSpecies = None) -> str:
-        """
-        Get the color based on the element and type of nitrogen.
-
-        Parameters
-        ----------
-        element : str
-            The chemical element of the atom (e.g., 'C' for carbon, 'N' for nitrogen).
-        nitrogen_species : NitrogenSpecies, optional
-            The type of nitrogen doping (default is None).
-
-        Returns
-        -------
-        str
-            The color associated with the element and nitrogen species.
-
-        Notes
-        -----
-        The color mapping is defined for different elements and nitrogen species to visually
-        distinguish them in plots.
-        """
-        colors = {"C": "black"}
-        nitrogen_colors = {
-            # NitrogenSpecies.PYRIDINIC: "blue",
-            NitrogenSpecies.PYRIDINIC_1: "purple",
-            NitrogenSpecies.PYRIDINIC_2: "orange",
-            NitrogenSpecies.PYRIDINIC_3: "green",
-            NitrogenSpecies.PYRIDINIC_4: "blue",
-            NitrogenSpecies.GRAPHITIC: "red",
-            # NitrogenSpecies.PYRROLIC: "cyan",
-            # NitrogenSpecies.PYRAZOLE: "green",
-        }
-        if nitrogen_species in nitrogen_colors:
-            return nitrogen_colors[nitrogen_species]
-        return colors.get(element, "pink")
-
-    def plot_graphene(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
-        """
-        Plot the graphene structure using networkx and matplotlib.
-
-        Parameters
-        ----------
-        with_labels : bool, optional
-            Whether to display labels on the nodes (default is False).
-        visualize_periodic_bonds : bool, optional
-            Whether to visualize periodic boundary condition edges (default is True).
-
-        Notes
-        -----
-        This method visualizes the graphene structure, optionally with labels indicating the
-        element type and node ID. Nodes are colored based on their element type and nitrogen species.
-        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
-        """
-        # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, "position")
-        elements = nx.get_node_attributes(self.graph, "element")
-
-        # Determine colors for nodes, considering nitrogen species if present
-        colors = [
-            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
-            for node in self.graph.nodes()
-        ]
-
-        # Separate periodic edges and regular edges
-        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
-        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
-
-        # Initialize plot
-        plt.figure(figsize=(12, 12))
-
-        # Draw the regular edges
-        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
-
-        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
-        if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
-
-        # Add legend
-        unique_colors = set(colors)
-        legend_elements = []
-        for species in NitrogenSpecies:
-            color = self.get_color("N", species)
-            if color in unique_colors:
-                legend_elements.append(
-                    plt.Line2D(
-                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
-                    )
-                )
-
-        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
-
-        # Add labels if specified
-        if with_labels:
-            labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
-            nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
-
-        # Show plot
-        plt.show()
-
-    def plot_graphene_with_path(self, path: List[int], visualize_periodic_bonds: bool = True):
-        """
-        Plot the graphene structure with a highlighted path.
-
-        This method plots the entire graphene structure and highlights a specific path
-        between two nodes using a different color.
-
-        Parameters
-        ----------
-        path : List[int]
-            A list of node IDs representing the path to be highlighted.
-        visualize_periodic_bonds : bool, optional
-            Whether to visualize periodic boundary condition edges (default is True).
-
-        Notes
-        -----
-        The path is highlighted in yellow, while the rest of the graphene structure
-        is displayed in its default colors. Periodic boundary condition edges are
-        shown with dashed lines if visualize_periodic_bonds is True.
-        """
-        # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, "position")
-        elements = nx.get_node_attributes(self.graph, "element")
-
-        # Determine colors for nodes, considering nitrogen species if present
-        colors = [
-            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
-            for node in self.graph.nodes()
-        ]
-        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
-
-        # Separate periodic edges and regular edges
-        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
-        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
-
-        # Initialize plot
-        plt.figure(figsize=(12, 12))
-
-        # Draw the regular edges
-        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
-
-        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
-        if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
-
-        # Highlight the nodes and edges in the specified path
-        path_edges = list(zip(path, path[1:]))
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=path, node_color="yellow", node_size=300)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
-
-        # Draw labels for nodes
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
-
-        plt.show()
-
-    def plot_graphene_with_depth_neighbors_based_on_bond_length(
-        self, atom_id: int, max_distance: float, visualize_periodic_bonds: bool = True
-    ):
-        """
-        Plot the graphene structure with neighbors highlighted based on bond length.
-
-        This method plots the entire graphene structure and highlights nodes that are within
-        a specified maximum distance from a given atom, using the bond length as the distance metric.
-
-        Parameters
-        ----------
-        atom_id : int
-            The ID of the atom from which distances are measured.
-        max_distance : float
-            The maximum bond length distance within which neighbors are highlighted.
-        visualize_periodic_bonds : bool, optional
-            Whether to visualize periodic boundary condition edges (default is True).
-
-        Notes
-        -----
-        The neighbors within the specified distance are highlighted in yellow, while the rest
-        of the graphene structure is displayed in its default colors. Periodic boundary condition edges are
-        shown with dashed lines if visualize_periodic_bonds is True.
-        """
-        # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, "position")
-        elements = nx.get_node_attributes(self.graph, "element")
-
-        # Determine colors for nodes, considering nitrogen species if present
-        colors = [
-            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
-            for node in self.graph.nodes()
-        ]
-        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
-
-        # Separate periodic edges and regular edges
-        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
-        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
-
-        # Initialize plot
-        plt.figure(figsize=(12, 12))
-
-        # Draw the regular edges
-        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
-
-        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
-        if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
-
-        # Compute shortest path lengths from the specified atom using bond lengths
-        paths = nx.single_source_dijkstra_path_length(self.graph, atom_id, cutoff=max_distance, weight="bond_length")
-
-        # Identify neighbors within the specified maximum distance
-        depth_neighbors = [node for node, length in paths.items() if length <= max_distance]
-        path_edges = [(u, v) for u in depth_neighbors for v in self.graph.neighbors(u) if v in depth_neighbors]
-
-        # Highlight the identified neighbors and their connecting edges
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=depth_neighbors, node_color="yellow", node_size=300)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
-
-        # Draw labels for nodes
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
-
-        # Show plot
-        plt.show()
-
-    def plot_nodes_within_distance(self, nodes_within_distance: List[int], visualize_periodic_bonds: bool = True):
-        """
-        Plot the graphene structure with neighbors highlighted based on distance.
-
-        This method plots the entire graphene structure and highlights nodes that are within
-        a specified maximum distance from a given atom, using the bond length as the distance metric.
-
-        Parameters
-        ----------
-        nodes_within_distance : List[int]
-            A list of node IDs representing the neighbors within the given distance.
-        visualize_periodic_bonds : bool, optional
-            Whether to visualize periodic boundary condition edges (default is True).
-
-        Notes
-        -----
-        The neighbors within the specified distance are highlighted in yellow, while the rest
-        of the graphene structure is displayed in its default colors. Periodic boundary condition edges are
-        shown with dashed lines if visualize_periodic_bonds is True.
-        """
-        # Get positions and elements of nodes
-        pos = nx.get_node_attributes(self.graph, "position")
-        elements = nx.get_node_attributes(self.graph, "element")
-
-        # Determine colors for nodes, considering nitrogen species if present
-        colors = [
-            self.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
-            for node in self.graph.nodes()
-        ]
-        labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
-
-        # Separate periodic edges and regular edges
-        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
-        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
-
-        # Initialize plot
-        plt.figure(figsize=(12, 12))
-
-        # Draw the regular edges
-        nx.draw(self.graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
-
-        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
-        if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
-
-        # Compute edges within the specified distance
-        path_edges = [
-            (u, v) for u in nodes_within_distance for v in self.graph.neighbors(u) if v in nodes_within_distance
-        ]
-
-        # Highlight the identified neighbors and their connecting edges
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=nodes_within_distance, node_color="yellow", node_size=300)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=path_edges, edge_color="yellow", width=2)
-
-        # Draw labels for nodes
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
-
-        # Show plot
-        plt.show()
-
-
-def write_xyz(graph, filename):
-    with open(filename, "w") as file:
-        file.write(f"{graph.number_of_nodes()}\n")
-        file.write("XYZ file generated from GrapheneGraph\n")
-        for node_id, node_data in graph.nodes(data=True):
-            x, y = node_data["position"]
-            element = node_data["element"]
-            file.write(f"{element} {x:.3f} {y:.3f} 0.000\n")
-
-
-def print_warning(message: str):
-    # ANSI escape code for red color
-    RED = "\033[91m"
-    # ANSI escape code to reset color
-    RESET = "\033[0m"
-    print(f"{RED}{message}{RESET}")
-
 
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(0)
+    random.seed(2)
     # random.seed(1)
 
-    graphene = GrapheneGraph(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
 
     # write_xyz(graphene.graph, 'graphene.xyz')
     # graphene.plot_graphene(with_labels=True)
 
     # Find direct neighbors of a node (depth=1)
-    direct_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=1)
+    direct_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=1)
     print(f"Direct neighbors of C_0: {direct_neighbors}")
 
     # Find neighbors of a node at an exact depth (depth=2)
-    depth_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=2)
+    depth_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2)
     print(f"Neighbors of C_0 at depth 2: {depth_neighbors}")
 
     # Find neighbors of a node up to a certain depth (inclusive=True)
-    inclusive_neighbors = graphene.get_neighbors_via_edges(atom_id=0, depth=2, inclusive=True)
+    inclusive_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2, inclusive=True)
     print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
 
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
     # )
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={
@@ -1431,41 +911,41 @@ def main():
     #         NitrogenSpecies.PYRIDINIC_1: 5,
     #     }
     # )
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
-    # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
 
     source = 0
     target = 10
-    path = graphene.get_shortest_path(source, target)
+    path = get_shortest_path(graphene.graph, source, target)
     print(f"Shortest path from C_{source} to C_{target}: {path}")
-    graphene.plot_graphene_with_path(path)
+    plot_graphene_with_path(graphene.graph, path)
 
-    graphene.plot_graphene_with_depth_neighbors_based_on_bond_length(0, 4)
+    plot_graphene_with_depth_neighbors_based_on_bond_length(graphene.graph, 0, 4)
 
     # Find nodes within a certain distance from a source node
     atom_id = 5
     max_distance = 5
-    nodes_within_distance = graphene.get_neighbors_within_distance(atom_id, max_distance)
+    nodes_within_distance = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
     print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
 
     # Plot the nodes within the specified distance
-    graphene.plot_nodes_within_distance(nodes_within_distance)
+    plot_nodes_within_distance(graphene.graph, nodes_within_distance)
 
 
 if __name__ == "__main__":
