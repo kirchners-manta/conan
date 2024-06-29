@@ -396,6 +396,9 @@ class GrapheneGraph:
         # Shuffle the list of possible carbon atoms
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
 
+        # Initialize a list to store the positions of all cycles to exclude from the possible carbon atoms
+        all_cycles_to_exclude = []
+
         while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms_shuffled:
             # Randomly select a carbon atom from the shuffled list without replacement
             atom_id = possible_carbon_atoms_shuffled.pop(0)
@@ -403,8 +406,8 @@ class GrapheneGraph:
             if atom_id not in self.possible_carbon_atoms or not self._valid_doping_position(nitrogen_species, atom_id):
                 continue
 
-            # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
-            reference_node_position: Position = self.graph.nodes[atom_id]["position"]
+            # # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
+            # reference_node_position: Position = self.graph.nodes[atom_id]["position"]
 
             # Atom is valid, proceed with nitrogen doping
             neighbors = self.get_neighbors_via_edges(atom_id)
@@ -443,9 +446,9 @@ class GrapheneGraph:
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
                 nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
+                all_cycles_to_exclude.append(nodes_to_exclude)
                 # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
-                # invalid_positions.add(atom_id)
                 for node in nodes_to_exclude:
                     if node in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(node)
@@ -516,6 +519,7 @@ class GrapheneGraph:
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
                 nodes_to_exclude = self.find_min_cycle_including_neighbors(neighbors)
+                all_cycles_to_exclude.append(nodes_to_exclude)
                 # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
                 # potential carbon atoms
                 self.possible_carbon_atoms.remove(atom_id)
@@ -531,8 +535,12 @@ class GrapheneGraph:
                     # Add the neighbor to the list of chosen atoms
                     chosen_atoms.append(neighbor)
 
-                # Adjust the positions of atoms in the cycle to optimize the structure
-                self._adjust_atom_positions(nodes_to_exclude, reference_node_position, nitrogen_species)
+                # # Adjust the positions of atoms in the cycle to optimize the structure
+                # self._adjust_atom_positions(nodes_to_exclude, reference_node_position, nitrogen_species)
+
+        # Adjust the positions of atoms in all cycles to optimize the structure
+        if all_cycles_to_exclude:
+            self._adjust_atom_positions(all_cycles_to_exclude, nitrogen_species)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -877,7 +885,7 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(self, cycle: List[int], reference_position: Position, species: NitrogenSpecies):
+    def _adjust_atom_positions(self, cycle: List[int], species: NitrogenSpecies):
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
@@ -885,8 +893,8 @@ class GrapheneGraph:
         ----------
         cycle : List[int]
             The list of atom IDs forming the cycle.
-        reference_position: Position
-            The reference position of the atom id that was used to find the cycle.
+        # reference_position: Position
+        #     The reference position of the atom id that was used to find the cycle.
         species: NitrogenSpecies
             The nitrogen doping species that was inserted.
 
