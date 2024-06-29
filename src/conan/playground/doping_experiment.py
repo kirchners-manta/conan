@@ -885,14 +885,16 @@ class GrapheneGraph:
     #
     #     # ToDo: bond_distance edge attribute muss noch angepasst werden
 
-    def _adjust_atom_positions(self, cycle: List[int], species: NitrogenSpecies):
+    def _adjust_atom_positions(self, cycles: List[List[int]], species: NitrogenSpecies):
+        # ToDo: Das wird so auch noch nicht funktionieren. Es müsste dann auch eine Liste der species übergeben werden
+        #  und nicht nur eine species
         """
         Adjust the positions of atoms in a cycle to optimize the structure.
 
         Parameters
         ----------
-        cycle : List[int]
-            The list of atom IDs forming the cycle.
+        cycles : List[List[int]]
+            A list of lists, where each inner list contains the atom IDs forming a cycle.
         # reference_position: Position
         #     The reference position of the atom id that was used to find the cycle.
         species: NitrogenSpecies
@@ -902,45 +904,28 @@ class GrapheneGraph:
         -----
         This method adjusts the positions of atoms in a cycle to optimize the structure.
         """
-        # Create a subgraph including all nodes in the cycle
-        subgraph = self.graph.subgraph(cycle).copy()
 
-        # Get species properties for the given cycle
-        properties = self.species_properties[species]
+        # Get species properties for the given cycles
+        properties = self.species_properties[species]  # ToDo: Kann auch nicht so bleiben, wenn unterschiedliche Spezies
 
         # Combine half_bond_lengths and half_angles to full lists
         target_bond_lengths = properties.target_bond_lengths
         target_angles = properties.target_angles
 
         # Initial positions (use existing positions if available)
-        positions = {node: self.graph.nodes[node]["position"] for node in subgraph.nodes}
+        positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
 
-        # Initialize a starting node to ensure a consistent iteration order through the cycle, matching the bond lengths
-        # and angles correctly
-        start_node = None
-        if species == NitrogenSpecies.PYRIDINIC_4:
-            # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
-            for node in cycle:
-                # Skip the node if it is already a nitrogen atom
-                if self.graph.nodes[node]["element"] == "N":
-                    continue
-                # Get the neighbors of the current node
-                neighbors = self.get_neighbors_via_edges(node)
-                # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
-                # cycle
-                if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
-                    # If the current node meets all conditions, set it as the start node
-                    start_node = node
-                    break
-        # Raise an error if no suitable start node is found
-        if start_node is None:
-            raise ValueError("No suitable starting node found in the cycle.")
+        # Find start nodes for each cycle
+        start_nodes = self._find_start_nodes(cycles, species)
 
-        # Order the cycle nodes starting from the identified start_node
-        ordered_cycle = self._order_cycle_nodes(cycle, start_node)
+        # Order the cycle nodes for each cycle starting from the identified start_node
+        ordered_cycles = self._order_cycle_nodes(cycles, start_nodes)
 
-        # Flatten initial positions for optimization, ensuring cycle order is preserved
-        x0 = np.array([coord for node in ordered_cycle for coord in positions[node]])
+        # # Flatten initial positions for optimization, ensuring cycle order is preserved
+        # x0 = np.array([coord for node in ordered_cycle for coord in positions[node]])
+
+        # Flatten initial positions for optimization
+        x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
 
         box_size = (self.actual_sheet_width + self.bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
@@ -959,27 +944,78 @@ class GrapheneGraph:
                 The total bond energy.
             """
             energy = 0.0
-            for i, j, data in subgraph.edges(data=True):
-                # Ensure i is always the smaller node
-                if ordered_cycle.index(j) < ordered_cycle.index(i):
-                    i, j = j, i
-                if (i in ordered_cycle) and (j in ordered_cycle):
-                    target_length = target_bond_lengths[ordered_cycle.index(i)]
-                else:
-                    target_length = 1.42  # Default bond length for carbon-carbon bonds
 
-                xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
-                xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
-                pos_i = Position(xi, yi)
-                pos_j = Position(xj, yj)
+            # Initialize a set to track edges within cycles
+            cycle_edges = set()
 
-                current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
-                energy += 0.5 * ((current_length - target_length) ** 2)
+            # Iterate over each cycle
+            for ordered_cycle in ordered_cycles:
+                # Calculate bond energy for edges within the cycle
+                for i in range(len(ordered_cycle) - 1):
+                    node_i = ordered_cycle[i]
+                    node_j = ordered_cycle[i + 1]
+                    xi, yi = (
+                        x[2 * list(self.graph.nodes).index(node_i)],
+                        x[2 * list(self.graph.nodes).index(node_i) + 1],
+                    )
+                    xj, yj = (
+                        x[2 * list(self.graph.nodes).index(node_j)],
+                        x[2 * list(self.graph.nodes).index(node_j) + 1],
+                    )
+                    pos_i = Position(xi, yi)
+                    pos_j = Position(xj, yj)
 
-                # Update bond length in the subgraph during optimization
-                subgraph.edges[i, j]["bond_length"] = current_length
+                    # Calculate the current bond length and target bond length
+                    current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
+                    target_length = target_bond_lengths[ordered_cycle.index(node_i)]
+                    energy += 0.5 * ((current_length - target_length) ** 2)
+
+                    # Update bond length in the graph during optimization
+                    self.graph.edges[node_i, node_j]["bond_length"] = current_length
+
+                    # Add edge to cycle_edges set
+                    cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
+
+            # Calculate bond energy for edges outside the cycles
+            for i, j, data in self.graph.edges(data=True):
+                if (min(i, j), max(i, j)) not in cycle_edges:
+                    xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
+                    xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+                    pos_i = Position(xi, yi)
+                    pos_j = Position(xj, yj)
+
+                    # Calculate the current bond length and set default target length
+                    current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
+                    target_length = 1.42
+                    energy += 0.5 * ((current_length - target_length) ** 2)
+
+                    # Update bond length in the graph during optimization
+                    self.graph.edges[i, j]["bond_length"] = current_length
 
             return energy
+
+            # energy = 0.0
+            # for i, j, data in subgraph.edges(data=True):
+            #     # Ensure i is always the smaller node
+            #     if ordered_cycle.index(j) < ordered_cycle.index(i):
+            #         i, j = j, i
+            #     if (i in ordered_cycle) and (j in ordered_cycle):
+            #         target_length = target_bond_lengths[ordered_cycle.index(i)]
+            #     else:
+            #         target_length = 1.42  # Default bond length for carbon-carbon bonds
+            #
+            #     xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
+            #     xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
+            #     pos_i = Position(xi, yi)
+            #     pos_j = Position(xj, yj)
+            #
+            #     current_length, _ = self.minimum_image_distance(pos_i, pos_j, box_size)
+            #     energy += 0.5 * ((current_length - target_length) ** 2)
+            #
+            #     # Update bond length in the subgraph during optimization
+            #     subgraph.edges[i, j]["bond_length"] = current_length
+            #
+            # return energy
 
         def angle_energy(x):
             """
@@ -996,22 +1032,44 @@ class GrapheneGraph:
                 The total angle energy.
             """
             energy = 0.0
-            for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
-                xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
-                xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
-                xk, yk = x[2 * ordered_cycle.index(k)], x[2 * ordered_cycle.index(k) + 1]
 
-                pos_i = Position(xi, yi)
-                pos_j = Position(xj, yj)
-                pos_k = Position(xk, yk)
+            # Iterate over each cycle
+            for ordered_cycle in ordered_cycles:
+                for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
+                    xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
+                    xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+                    xk, yk = x[2 * list(self.graph.nodes).index(k)], x[2 * list(self.graph.nodes).index(k) + 1]
 
-                _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
-                _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
+                    pos_i = Position(xi, yi)
+                    pos_j = Position(xj, yj)
+                    pos_k = Position(xk, yk)
 
-                cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+                    _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
+                    _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
+
+                    cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                    theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                    energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+
             return energy
+
+            # energy = 0.0
+            # for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
+            #     xi, yi = x[2 * ordered_cycle.index(i)], x[2 * ordered_cycle.index(i) + 1]
+            #     xj, yj = x[2 * ordered_cycle.index(j)], x[2 * ordered_cycle.index(j) + 1]
+            #     xk, yk = x[2 * ordered_cycle.index(k)], x[2 * ordered_cycle.index(k) + 1]
+            #
+            #     pos_i = Position(xi, yi)
+            #     pos_j = Position(xj, yj)
+            #     pos_k = Position(xk, yk)
+            #
+            #     _, v1 = self.minimum_image_distance(pos_i, pos_j, box_size)
+            #     _, v2 = self.minimum_image_distance(pos_k, pos_j, box_size)
+            #
+            #     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            #     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+            #     energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+            # return energy
 
         def total_energy(x):
             """
@@ -1029,9 +1087,7 @@ class GrapheneGraph:
             """
             return bond_energy(x) + angle_energy(x)
 
-        # Optimize positions to minimize energy
-        # bounds = [(0, self.actual_sheet_width if i % 2 == 0 else self.actual_sheet_height) for i in range(len(x0))]
-        # result = minimize(total_energy, x0, method="L-BFGS-B", bounds=bounds)
+        # Optimize positions to minimize energ
         result = minimize(total_energy, x0, method="L-BFGS-B")
 
         # Show the number of iterations and the final energy
@@ -1042,22 +1098,65 @@ class GrapheneGraph:
 
         # Calculate the displacement vectors for nodes in the cycle
         displacement_vectors = {}
-        for idx, node in enumerate(ordered_cycle):
+        for idx, node in enumerate(self.graph.nodes):
             original_position = x0[2 * idx], x0[2 * idx + 1]
             optimized_position = optimized_positions[idx]
             displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
 
         # Update positions in the original graph
-        for idx, node in enumerate(ordered_cycle):
+        for idx, node in enumerate(self.graph.nodes):
             current_position = self.graph.nodes[node]["position"]
             displacement = displacement_vectors[node]
             adjusted_position = Position(x=current_position.x + displacement[0], y=current_position.y + displacement[1])
             self.graph.nodes[node]["position"] = adjusted_position
 
         # Update bond lengths in the original graph
-        for i, j, data in subgraph.edges(data=True):
+        for i, j, data in self.graph.edges(data=True):
             current_length = data["bond_length"]
             self.graph.edges[i, j]["bond_length"] = current_length
+
+    def _find_start_nodes(self, cycles: List[List[int]], species: NitrogenSpecies) -> List[int]:
+        # ToDo: Das wird so auch noch nicht funktionieren. Es müsste dann auch eine Liste der species übergeben werden
+        #  und nicht nur eine species
+        """
+         Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
+         a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
+
+        Parameters
+        ----------
+        cycles : List[List[int]]
+            A list of lists, where each inner list contains the atom IDs forming a cycle.
+        species : NitrogenSpecies
+            The nitrogen doping species that was inserted.
+
+        Returns
+        -------
+        List[int]
+            A list of starting node IDs.
+        """
+        # Initialize a list to store the starting nodes for each cycle
+        start_nodes = []
+        for cycle in cycles:
+            start_node = None
+            if species == NitrogenSpecies.PYRIDINIC_4:
+                # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
+                for node in cycle:
+                    # Skip the node if it is already a nitrogen atom
+                    if self.graph.nodes[node]["element"] == "N":
+                        continue
+                    # Get the neighbors of the current node
+                    neighbors = self.get_neighbors_via_edges(node)
+                    # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
+                    # cycle
+                    if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
+                        # If the current node meets all conditions, set it as the start node
+                        start_node = node
+                        break
+                # Raise an error if no suitable start node is found
+            if start_node is None:
+                raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
+            start_nodes.append(start_node)
+        return start_nodes
 
     # def _adjust_atom_positions(
     #     self, cycle: List[int], reference_position: Tuple[float, float], species: NitrogenSpecies
@@ -1276,43 +1375,51 @@ class GrapheneGraph:
 
         return distance, displacement
 
-    def _order_cycle_nodes(self, cycle: List[int], start_node: int) -> List[int]:
+    def _order_cycle_nodes(self, cycles: List[List[int]], start_nodes: List[int]) -> List[List[int]]:
         """
-        Order the nodes in the cycle starting from the given start_node and following the cycle.
+        Order the nodes in each cycle starting from the given start_node and following the cycle.
 
         Parameters
         ----------
-        cycle : List[int]
-            The list of atom IDs forming the cycle.
-        start_node : int
-            The starting node for the cycle.
+        cycles : List[List[int]]
+        A list of lists, where each inner list contains the atom IDs forming a cycle.
+        start_nodes : List[int]
+            A list of starting node IDs.
 
         Returns
         -------
-        List[int]
-            The ordered list of atom IDs forming the cycle.
+        List[List[int]]
+            A list of lists, where each inner list contains the ordered atom IDs forming a cycle.
         """
-        # Initialize the list to store the ordered cycle and a set to track visited nodes
-        ordered_cycle = []
-        current_node = start_node
-        visited = set()
 
-        # Continue ordering nodes until all nodes in the cycle are included
-        while len(ordered_cycle) < len(cycle):
-            # Add the current node to the ordered list and mark it as visited
-            ordered_cycle.append(current_node)
-            visited.add(current_node)
+        ordered_cycles = []
 
-            # Find the neighbors of the current node that are in the cycle and not yet visited
-            neighbors = [node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited]
+        for cycle, start_node in zip(cycles, start_nodes):
+            # Initialize the list to store the ordered cycle and a set to track visited nodes
+            ordered_cycle = []
+            current_node = start_node
+            visited = set()
 
-            # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
-            if neighbors:
-                current_node = neighbors[0]
-            else:
-                break
+            # Continue ordering nodes until all nodes in the cycle are included
+            while len(ordered_cycle) < len(cycle):
+                # Add the current node to the ordered list and mark it as visited
+                ordered_cycle.append(current_node)
+                visited.add(current_node)
 
-        return ordered_cycle
+                # Find the neighbors of the current node that are in the cycle and not yet visited
+                neighbors = [
+                    node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited
+                ]
+
+                # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
+                if neighbors:
+                    current_node = neighbors[0]
+                else:
+                    break
+
+            ordered_cycles.append(ordered_cycle)
+
+        return ordered_cycles
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -1884,7 +1991,7 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     # graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 6})
     graphene.plot_graphene(with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
