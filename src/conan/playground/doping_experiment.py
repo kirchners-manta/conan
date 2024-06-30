@@ -292,6 +292,9 @@ class Graphene:
         # Dictionary to keep track of actually added nitrogen atoms
         added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
 
+        # Dictionary to keep track of species with all nodes to exclude (i.e., nodes that are part of a cycle)
+        species_with_all_nodes_to_exclude = {species: [] for species in NitrogenSpecies}
+
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
@@ -302,7 +305,9 @@ class Graphene:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
-                added_nitrogen_counts[species] += self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                num_chosen_atoms, cycles_to_exclude = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                added_nitrogen_counts[species] += num_chosen_atoms
+                species_with_all_nodes_to_exclude[species].extend(cycles_to_exclude)
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
@@ -310,6 +315,10 @@ class Graphene:
             species.value: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
             for species, count in added_nitrogen_counts.items()
         }
+
+        # Adjust the positions of atoms in all cycles to optimize the structure
+        if any(species_with_all_nodes_to_exclude.values()):
+            self._adjust_atom_positions(species_with_all_nodes_to_exclude)
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -322,7 +331,7 @@ class Graphene:
         doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
         print(f"\n{doping_percentages_df}")
 
-    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
+    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies) -> Tuple[int, List[List[int]]]:
         """
         Add nitrogen atoms of a specific species to the graphene sheet.
 
@@ -335,8 +344,9 @@ class Graphene:
 
         Returns
         -------
-        int
-            The number of nitrogen atoms of the species actually added.
+        Tuple[int, List[List[int]]]
+            A tuple containing the number of successfully added nitrogen atoms and a list of cycles to exclude with each
+            cycle represented as a list of atom IDs.
 
         Notes
         -----
@@ -491,9 +501,9 @@ class Graphene:
                 # # Adjust the positions of atoms in the cycle to optimize the structure
                 # self._adjust_atom_positions(nodes_to_exclude, reference_node_position, nitrogen_species)
 
-        # Adjust the positions of atoms in all cycles to optimize the structure
-        if all_cycles_to_exclude:
-            self._adjust_atom_positions(all_cycles_to_exclude, nitrogen_species)
+        # # Adjust the positions of atoms in all cycles to optimize the structure
+        # if all_cycles_to_exclude:
+        #     self._adjust_atom_positions(all_cycles_to_exclude, nitrogen_species)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -503,43 +513,52 @@ class Graphene:
             )
             print_warning(warning_message)
 
-        return len(chosen_atoms)
+        return len(chosen_atoms), all_cycles_to_exclude
 
-    def _adjust_atom_positions(self, cycles: List[List[int]], species: NitrogenSpecies):
-        # ToDo: Das wird so auch noch nicht funktionieren. Es müsste dann auch eine Liste der species übergeben werden
-        #  und nicht nur eine species
+    def _adjust_atom_positions(self, cycles_per_species: Dict[NitrogenSpecies, List[List[int]]]):
         """
-        Adjust the positions of atoms in a cycle to optimize the structure.
+        Adjust the positions of atoms in the graphene sheet to optimize the structure including doping.
 
         Parameters
         ----------
-        cycles : List[List[int]]
-            A list of lists, where each inner list contains the atom IDs forming a cycle.
-        # reference_position: Position
-        #     The reference position of the atom id that was used to find the cycle.
-        species: NitrogenSpecies
-            The nitrogen doping species that was inserted.
+        cycles_per_species : Dict[NitrogenSpecies, List[List[int]]]
+            A dictionary mapping each NitrogenSpecies to a list of cycles. Each cycle is represented as a list of atom
+            IDs and represents a specific doping structure.
 
         Notes
         -----
-        This method adjusts the positions of atoms in a cycle to optimize the structure.
+        This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
+        configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
+        # ToDo: Refactoring is urgently needed here. Totally stupid solution with Dict and then separate lists.
+        all_cycles = []
+        species_for_cycles = []
 
-        # Get species properties for the given cycles
-        properties = self.species_properties[species]  # ToDo: Kann auch nicht so bleiben, wenn unterschiedliche Spezies
+        for species, cycles in cycles_per_species.items():
+            if cycles:
+                all_cycles.extend(cycles)
+                species_for_cycles.extend([species] * len(cycles))
 
-        # Combine half_bond_lengths and half_angles to full lists
-        target_bond_lengths = properties.target_bond_lengths
-        target_angles = properties.target_angles
+        if not all_cycles:
+            return
+        #
+        # # Get species properties for the given cycles
+        # properties = self.species_properties[species]
+        #
+        # # Combine half_bond_lengths and half_angles to full lists
+        # target_bond_lengths = properties.target_bond_lengths
+        # target_angles = properties.target_angles
 
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
 
         # Find start nodes for each cycle
-        start_nodes = self._find_start_nodes(cycles, species)
+        # start_nodes = self._find_start_nodes(cycles, species)
+        start_nodes = self._find_start_nodes(all_cycles, species_for_cycles)
 
         # Order the cycle nodes for each cycle starting from the identified start_node
-        ordered_cycles = self._order_cycle_nodes(cycles, start_nodes)
+        # ordered_cycles = self._order_cycle_nodes(cycles, start_nodes)
+        ordered_cycles = self._order_cycle_nodes(all_cycles, start_nodes)
 
         # Flatten initial positions for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
@@ -566,7 +585,12 @@ class Graphene:
             cycle_edges = set()
 
             # Iterate over each cycle
-            for ordered_cycle in ordered_cycles:
+            for idx, ordered_cycle in enumerate(ordered_cycles):
+                # Get species properties for the current cycle
+                species = species_for_cycles[idx]
+                properties = self.species_properties[species]
+                target_bond_lengths = properties.target_bond_lengths
+
                 # Calculate bond energy for edges within the cycle
                 for i in range(len(ordered_cycle) - 1):
                     node_i = ordered_cycle[i]
@@ -628,7 +652,12 @@ class Graphene:
             energy = 0.0
 
             # Iterate over each cycle
-            for ordered_cycle in ordered_cycles:
+            for idx, ordered_cycle in enumerate(ordered_cycles):
+                # Get species properties for the current cycle
+                species = species_for_cycles[idx]
+                properties = self.species_properties[species]
+                target_angles = properties.target_angles
+
                 for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
                     xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
                     xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
@@ -691,19 +720,17 @@ class Graphene:
             current_length = data["bond_length"]
             self.graph.edges[i, j]["bond_length"] = current_length
 
-    def _find_start_nodes(self, cycles: List[List[int]], species: NitrogenSpecies) -> List[int]:
-        # ToDo: Das wird so auch noch nicht funktionieren. Es müsste dann auch eine Liste der species übergeben werden
-        #  und nicht nur eine species
+    def _find_start_nodes(self, cycles: List[List[int]], species_list: List[NitrogenSpecies]) -> List[int]:
         """
-         Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
-         a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
+        Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
+        a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
 
         Parameters
         ----------
         cycles : List[List[int]]
             A list of lists, where each inner list contains the atom IDs forming a cycle.
-        species : NitrogenSpecies
-            The nitrogen doping species that was inserted.
+        species_list : List[NitrogenSpecies]
+            The nitrogen doping species that was inserted for each cycle.
 
         Returns
         -------
@@ -712,7 +739,7 @@ class Graphene:
         """
         # Initialize a list to store the starting nodes for each cycle
         start_nodes = []
-        for cycle in cycles:
+        for cycle, species in zip(cycles, species_list):
             start_node = None
             if species == NitrogenSpecies.PYRIDINIC_4:
                 # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
