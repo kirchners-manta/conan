@@ -37,7 +37,7 @@ class Graphene:
         sheet_size : Tuple[float, float]
             The size of the graphene sheet in the x and y directions.
         """
-        self.bond_distance = bond_distance
+        self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
@@ -74,17 +74,17 @@ class Graphene:
     @property
     def cc_x_distance(self):
         """Calculate the distance between atoms in the x direction."""
-        return self.bond_distance * sin(pi / 6)
+        return self.c_c_bond_distance * sin(pi / 6)
 
     @property
     def cc_y_distance(self):
         """Calculate the distance between atoms in the y direction."""
-        return self.bond_distance * cos(pi / 6)
+        return self.c_c_bond_distance * cos(pi / 6)
 
     @property
     def num_cells_x(self):
         """Calculate the number of unit cells in the x direction based on sheet size and bond distance."""
-        return int(self.sheet_size[0] // (2 * self.bond_distance + 2 * self.cc_x_distance))
+        return int(self.sheet_size[0] // (2 * self.c_c_bond_distance + 2 * self.cc_x_distance))
 
     @property
     def num_cells_y(self):
@@ -94,7 +94,7 @@ class Graphene:
     @property
     def actual_sheet_width(self):
         """Calculate the actual width of the graphene sheet based on the number of unit cells and bond distance."""
-        return self.num_cells_x * (2 * self.bond_distance + 2 * self.cc_x_distance) - self.bond_distance
+        return self.num_cells_x * (2 * self.c_c_bond_distance + 2 * self.cc_x_distance) - self.c_c_bond_distance
 
     @property
     def actual_sheet_height(self):
@@ -111,7 +111,7 @@ class Graphene:
         index = 0
         for y in range(self.num_cells_y):
             for x in range(self.num_cells_x):
-                x_offset = x * (2 * self.bond_distance + 2 * self.cc_x_distance)
+                x_offset = x * (2 * self.c_c_bond_distance + 2 * self.cc_x_distance)
                 y_offset = y * (2 * self.cc_y_distance)
 
                 # Add nodes and edges for the unit cell
@@ -119,12 +119,12 @@ class Graphene:
 
                 # Add horizontal bonds between adjacent unit cells
                 if x > 0:
-                    self.graph.add_edge(index - 1, index, bond_length=self.bond_distance)
+                    self.graph.add_edge(index - 1, index, bond_length=self.c_c_bond_distance)
 
                 # Add vertical bonds between unit cells in adjacent rows
                 if y > 0:
-                    self.graph.add_edge(index - 4 * self.num_cells_x + 1, index, bond_length=self.bond_distance)
-                    self.graph.add_edge(index - 4 * self.num_cells_x + 2, index + 3, bond_length=self.bond_distance)
+                    self.graph.add_edge(index - 4 * self.num_cells_x + 1, index, bond_length=self.c_c_bond_distance)
+                    self.graph.add_edge(index - 4 * self.num_cells_x + 2, index + 3, bond_length=self.c_c_bond_distance)
 
                 index += 4
 
@@ -148,8 +148,8 @@ class Graphene:
         unit_cell_positions = [
             Position(x_offset, y_offset),
             Position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + self.cc_x_distance + self.bond_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + 2 * self.cc_x_distance + self.bond_distance, y_offset),
+            Position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
+            Position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
         ]
 
         # Add nodes with positions and element type (carbon)
@@ -158,7 +158,8 @@ class Graphene:
 
         # Add internal bonds within the unit cell
         edges = [
-            (index + i, index + i + 1, {"bond_length": self.bond_distance}) for i in range(len(unit_cell_positions) - 1)
+            (index + i, index + i + 1, {"bond_length": self.c_c_bond_distance})
+            for i in range(len(unit_cell_positions) - 1)
         ]
         self.graph.add_edges_from(edges)
 
@@ -177,7 +178,7 @@ class Graphene:
 
         # Add horizontal periodic boundary conditions
         self.graph.add_edges_from(
-            zip(right_edge_indices, left_edge_indices), bond_length=self.bond_distance, periodic=True
+            zip(right_edge_indices, left_edge_indices), bond_length=self.c_c_bond_distance, periodic=True
         )
 
         # Generate base indices for vertical boundaries
@@ -187,10 +188,10 @@ class Graphene:
 
         # Add vertical periodic boundary conditions
         self.graph.add_edges_from(
-            zip(bottom_left_indices, top_left_indices), bond_length=self.bond_distance, periodic=True
+            zip(bottom_left_indices, top_left_indices), bond_length=self.c_c_bond_distance, periodic=True
         )
         self.graph.add_edges_from(
-            zip(bottom_right_indices, top_left_indices + 3), bond_length=self.bond_distance, periodic=True
+            zip(bottom_right_indices, top_left_indices + 3), bond_length=self.c_c_bond_distance, periodic=True
         )
 
     @staticmethod
@@ -488,8 +489,17 @@ class Graphene:
                     # Remove the selected neighbor from the list of neighbors
                     neighbors.remove(selected_neighbor)
 
-                    # Insert a new binding between the `neighbors_of_neighbor`
-                    self.graph.add_edge(neighbors[0], neighbors[1], bond_length=self.bond_distance)
+                    # Calculate the bond length between neighbors[0] and neighbors[1]
+                    pos1 = self.graph.nodes[neighbors[0]]["position"]
+                    pos2 = self.graph.nodes[neighbors[1]]["position"]
+                    box_size = (
+                        self.actual_sheet_width + self.c_c_bond_distance,
+                        self.actual_sheet_height + self.cc_y_distance,
+                    )
+                    bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
+
+                    # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
+                    self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
 
                 elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                     # Replace 2 carbon atoms to form pyridinic nitrogen structure
@@ -625,7 +635,7 @@ class Graphene:
         # Flatten initial positions for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
 
-        box_size = (self.actual_sheet_width + self.bond_distance, self.actual_sheet_height + self.cc_y_distance)
+        box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
         def bond_energy(x):
             """
@@ -981,8 +991,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1009,8 +1019,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
