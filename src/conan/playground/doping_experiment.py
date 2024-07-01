@@ -248,12 +248,30 @@ class Graphene:
                 125.04,
             ],
         )
+        pyridinic_1_properties = NitrogenSpeciesProperties(
+            target_bond_lengths=[1.31, 1.42, 1.45, 1.51, 1.42, 1.40, 1.40, 1.42, 1.51, 1.45, 1.42, 1.31, 1.70],
+            target_angles=[
+                115.48,
+                118.24,
+                128.28,
+                109.52,
+                112.77,
+                110.35,
+                112.76,
+                109.52,
+                128.28,
+                118.24,
+                115.48,
+                120.92,
+            ],
+        )
 
         # Initialize other species similarly
         species_properties = {
             NitrogenSpecies.PYRIDINIC_4: pyridinic_4_properties,
             NitrogenSpecies.PYRIDINIC_3: pyridinic_3_properties,
             NitrogenSpecies.PYRIDINIC_2: pyridinic_2_properties,
+            NitrogenSpecies.PYRIDINIC_1: pyridinic_1_properties,
         }
         return species_properties
 
