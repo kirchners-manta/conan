@@ -1041,7 +1041,7 @@ class Pore(Structure):
         # Create a hole in the wall
         # The size of the hole is based on the radius of the CNT plus a margin
         parameters["pore_size"] = cnt.radius + 1.0
-        pore_position = wall.make_pores(parameters)
+        pore_position = wall.make_pores(parameters, keywords)
 
         # Shift the CNT position to align with the hole in the wall
         cnt._structure_df["x"] += pore_position.iloc[1]
@@ -1246,7 +1246,7 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
-    def make_pores(self, parameters):
+    def make_pores(self, parameters, keywords):
         """
         Creates circular pores in the graphene sheet.
 
@@ -1256,7 +1256,7 @@ class Graphene(Structure2d):
         Returns:
             pd.Series: The position of the center of the pore.
         """
-        return self._make_circular_pore(parameters)
+        return self._make_circular_pore(parameters, keywords)
 
     # PRIVATE
     def _stack_sheets(self, parameters):
@@ -1295,7 +1295,10 @@ class Graphene(Structure2d):
         # shift all layers into the box
         self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
 
-    def _make_circular_pore(self, parameters):
+        # finally reset index
+        self._structure_df.reset_index(inplace=True, drop=True)
+
+    def _make_circular_pore(self, parameters, keywords):
         """
         Creates a circular pore in the graphene sheet at a specified site.
 
@@ -1318,21 +1321,36 @@ class Graphene(Structure2d):
 
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
-
         # Iterate over each atom in the DataFrame
         for i, atom in self._structure_df.iterrows():
             # Determine the position of the current atom
             atom_position = [atom.iloc[1], atom.iloc[2]]
-
             # Calculate the minimum image distance from the selected center to the current atom
-            if (
-                minimum_image_distance(
-                    atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size
-                )
-                <= parameters["pore_size"]
-            ):
-                # If the atom is within the pore size, add it to the removal list
-                atoms_to_remove.append(i)
+            if "all_sheets" in keywords:
+                if (
+                    minimum_image_distance_2d(
+                        atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size
+                    )
+                    <= parameters["pore_size"]
+                ):
+                    # If the atom is within the pore size, add it to the removal list
+                    atoms_to_remove.append(i)
+            else:
+                if (
+                    minimum_image_distance_3d(
+                        [*atom_position, atom.iloc[3]],
+                        [selected_position.iloc[1], selected_position.iloc[2], selected_position.iloc[3]],
+                        [
+                            *self.sheet_size,
+                            (self._structure_df["z"].max() + self.bond_distance) * 2.1,
+                        ],  # the third value of the given box dimension
+                        # needs to be out of range of any atoms, otherwise
+                        # pore placement might be weird.
+                    )
+                    <= parameters["pore_size"]
+                ):
+                    # If the atom is within the pore size, add it to the removal list
+                    atoms_to_remove.append(i)
         # Remove the atoms that are marked for removal
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
@@ -1383,14 +1401,14 @@ class Boronnitride(Structure2d):
     """
 
     # INTERFACE
-    def make_pores(self, pore_size: float) -> None:
+    def make_pores(self, parameters, keywords) -> None:
         """
         Creates triangular pores in the boron nitride sheet.
 
         Args:
             pore_size (float): The size of the pore.
         """
-        self.__make_triangular_pore(pore_size)
+        self.__make_triangular_pore(parameters["pore_size"], keywords)
 
     # PRIVATE
     def _stack_sheets(self, parameters):
@@ -1420,7 +1438,6 @@ class Boronnitride(Structure2d):
             # swap B and N to get AA' stacking
             if sheet_number % 2 == 0:
                 current_sheet["Species"] = current_sheet["Species"].replace({"B": "N", "N": "B"})
-                print(current_sheet)
             # add sheet to the structure
             # Note: The entries of the original frame need to come after the new ones in the
             #       df, otherwise the functional groups will not be at the end of the list and
@@ -1561,7 +1578,7 @@ def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> 
 
     # Compute the distance of each atom to the center point using minimum image distance
     distance_to_center_point = [
-        minimum_image_distance(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size)
+        minimum_image_distance_2d(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size)
         for _, atom in atoms_df.iterrows()
     ]
 
@@ -1626,9 +1643,35 @@ def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray
     return tip2, tip3
 
 
-def minimum_image_distance(
+def minimum_image_distance_3d(
+    position1: List[float], position2: List[float], system_size: Tuple[float, float, float]
+) -> float:
+    """
+    Calculates the minimum image distance between two positions in 3D periodic system.
+
+    Args:
+        position1 (List[float]): The first position.
+        position2 (List[float]): The second position.
+        system_size (Tuple[float, float, float]): The size of the periodic system.
+
+    Returns:
+        float: The minimum image distance between the two positions.
+    """
+
+    # Calculate the difference vector, adjusted for periodic boundaries
+    delta = np.array(
+        [
+            position1[i] - position2[i] - system_size[i] * round((position1[i] - position2[i]) / system_size[i])
+            for i in range(3)
+        ]
+    )
+    # Return the minimum image distance between the two positions
+    return np.sqrt(np.sum(delta**2))
+
+
+def minimum_image_distance_2d(
     position1: List[float], position2: List[float], system_size: Tuple[float, float]
-) -> float:  # ToDo: Methode auch leicht abgeändert. Sollte das Gleiche tun wie obige?
+) -> float:
     """
     Calculates the minimum image distance between two positions in a periodic system.
 
@@ -1647,7 +1690,7 @@ def minimum_image_distance(
             for i in range(2)
         ]
     )
-    # Return the Euclidean distance between the two positions
+    # Return the minimum image distance between the two positions
     return np.sqrt(np.sum(delta**2))
 
 
@@ -1667,7 +1710,7 @@ def positions_are_adjacent(
         bool: True if the positions are adjacent, False otherwise.
     """
     # Calculate the minimum image distance between the two positions
-    distance = minimum_image_distance(position1, position2, system_size)
+    distance = minimum_image_distance_2d(position1, position2, system_size)
 
     # Return True if the distance is less than the cutoff distance, otherwise False
     return distance < cutoff_distance
