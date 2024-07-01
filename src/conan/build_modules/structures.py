@@ -734,6 +734,19 @@ class Structure2d(Structure):
         self.sheet_size = sheet_size
         self._create_sheet()
 
+    # INTERFACE
+    def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
+        """
+        Stacks multiple structures based on the provided parameters. The actual implementation depends
+        on the type of structure
+
+        Args:
+            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
+            keywords (List[str]): The keywords for the stacking.
+        """
+        if self._structure_df is not None:  # Ensure there is a structure loaded before attempting to stack
+            self._stack_sheets(parameters)  # Private method that handles the actual stacking logic
+
     def functionalize_sheet(self, parameters: Dict[str, Union[str, int, float]]) -> None:
         """
         Functionalizes the sheet with functional groups.
@@ -1233,18 +1246,6 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
-    # INTERFACE
-    def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
-        """
-        Stacks multiple instances of carbon nanotubes within the structure based on the provided parameters.
-
-        Args:
-            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
-            keywords (List[str]): The keywords for the stacking.
-        """
-        if self._structure_df is not None:  # Ensure there is a structure loaded before attempting to stack
-            self._stack_sheets(parameters)  # Private method that handles the actual stacking logic
-
     def make_pores(self, parameters):
         """
         Creates circular pores in the graphene sheet.
@@ -1392,6 +1393,43 @@ class Boronnitride(Structure2d):
         self.__make_triangular_pore(pore_size)
 
     # PRIVATE
+    def _stack_sheets(self, parameters):
+        """
+        Stacks multiple instances of graphene sheets based on the provided parameters.
+
+        Args:
+            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
+            keywords (List[str]): The keywords for the stacking.
+        """
+        if "number_of_layers" not in parameters:
+            ddict.printLog("Missing number_of_layers parameter")
+            return
+        if "interlayer_spacing" not in parameters:
+            ddict.printLog("Missing interlayer_spacing parameter")
+            return
+
+        # Make sheet template
+        base_sheet = Boronnitride(self.bond_distance, self.sheet_size)
+
+        # loop over number of layers
+        for sheet_number in range(parameters["number_of_layers"]):
+            # copy template into new df
+            current_sheet = base_sheet._structure_df.copy()
+            # shift current sheet down by interlayer_spacing
+            current_sheet["z"] -= (sheet_number + 1) * parameters["interlayer_spacing"]
+            # swap B and N to get AA' stacking
+            if sheet_number % 2 == 0:
+                current_sheet["Species"] = current_sheet["Species"].replace({"B": "N", "N": "B"})
+                print(current_sheet)
+            # add sheet to the structure
+            # Note: The entries of the original frame need to come after the new ones in the
+            #       df, otherwise the functional groups will not be at the end of the list and
+            #       are shown with the bond representation in VMD.
+            self._structure_df = pd.concat([current_sheet, self._structure_df])
+
+        # shift all layers into the box
+        self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
+
     def __make_triangular_pore(self, parameters) -> None:
         """
         Creates a triangular pore in the boron nitride sheet.
