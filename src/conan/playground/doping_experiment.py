@@ -592,9 +592,10 @@ class Graphene:
                 target_bond_lengths = properties.target_bond_lengths
 
                 # Calculate bond energy for edges within the cycle
-                for i in range(len(ordered_cycle) - 1):
+                cycle_length = len(ordered_cycle)
+                for i in range(cycle_length):
                     node_i = ordered_cycle[i]
-                    node_j = ordered_cycle[i + 1]
+                    node_j = ordered_cycle[(i + 1) % cycle_length]  # Ensure the last node connects to the first node
                     xi, yi = (
                         x[2 * list(self.graph.nodes).index(node_i)],
                         x[2 * list(self.graph.nodes).index(node_i) + 1],
@@ -895,7 +896,7 @@ class Graphene:
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(2)
+    random.seed(6)
     # random.seed(1)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
