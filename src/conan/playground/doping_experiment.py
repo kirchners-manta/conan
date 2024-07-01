@@ -498,13 +498,6 @@ class Graphene:
                     # Add the neighbor to the list of chosen atoms
                     chosen_atoms.append(neighbor)
 
-                # # Adjust the positions of atoms in the cycle to optimize the structure
-                # self._adjust_atom_positions(nodes_to_exclude, reference_node_position, nitrogen_species)
-
-        # # Adjust the positions of atoms in all cycles to optimize the structure
-        # if all_cycles_to_exclude:
-        #     self._adjust_atom_positions(all_cycles_to_exclude, nitrogen_species)
-
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
             warning_message = (
@@ -541,13 +534,6 @@ class Graphene:
 
         if not all_cycles:
             return
-        #
-        # # Get species properties for the given cycles
-        # properties = self.species_properties[species]
-        #
-        # # Combine half_bond_lengths and half_angles to full lists
-        # target_bond_lengths = properties.target_bond_lengths
-        # target_angles = properties.target_angles
 
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
