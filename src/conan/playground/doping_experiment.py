@@ -719,6 +719,9 @@ class Graphene:
 
                             self.graph.edges[i, j]["bond_length"] = current_length
 
+                            # Add edge to cycle_edges set
+                            cycle_edges.add((min(i, j), max(i, j)))
+
             # Calculate bond energy for edges outside the cycles
             for i, j, data in self.graph.edges(data=True):
                 if (min(i, j), max(i, j)) not in cycle_edges:
