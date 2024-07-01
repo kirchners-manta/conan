@@ -344,7 +344,8 @@ class Graphene:
                 num_chosen_atoms, cycles_to_exclude, start_nodes = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
                 added_nitrogen_counts[species] += num_chosen_atoms
                 species_with_all_nodes_to_exclude[species].extend(cycles_to_exclude)
-                start_nodes_per_species[species].extend(start_nodes)
+                if start_nodes:
+                    start_nodes_per_species[species].extend(start_nodes)
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
@@ -999,7 +1000,7 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(graphene.graph, "graphene_doping_PYRIDINIC_4.xyz")
+    write_xyz(graphene.graph, "graphene_doping.xyz")
 
     source = 0
     target = 10
