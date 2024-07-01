@@ -1408,7 +1408,7 @@ class Boronnitride(Structure2d):
         Args:
             pore_size (float): The size of the pore.
         """
-        self.__make_triangular_pore(parameters["pore_size"], keywords)
+        self.__make_triangular_pore(parameters, keywords)
 
     # PRIVATE
     def _stack_sheets(self, parameters):
@@ -1444,10 +1444,11 @@ class Boronnitride(Structure2d):
             #       are shown with the bond representation in VMD.
             self._structure_df = pd.concat([current_sheet, self._structure_df])
 
+        self._structure_df.reset_index(inplace=True, drop=True)
         # shift all layers into the box
         self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
 
-    def __make_triangular_pore(self, parameters) -> None:
+    def __make_triangular_pore(self, parameters, keywords) -> None:
         """
         Creates a triangular pore in the boron nitride sheet.
 
@@ -1457,7 +1458,10 @@ class Boronnitride(Structure2d):
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
         dummy_df = atoms_df[atoms_df["Species"] == "N"]  # Select nitrogen atoms
-        selected_position = center_position(self.sheet_size, dummy_df)
+        if "position" in parameters:
+            selected_position = atoms_df.iloc[parameters["position"]]
+        else:
+            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
         # find nearest atom in x-direction to get orientation of the triangle
         dummy_df = atoms_df[atoms_df["Species"] == "B"]
         dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]
@@ -1491,9 +1495,13 @@ class Boronnitride(Structure2d):
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
-            point = (atom.iloc[1], atom.iloc[2])  # Assuming columns 1 & 2 are x and y coordinates
-            if is_point_inside_triangle(tip1, tip2, tip3, point):
-                atoms_to_remove.append(i)
+            atom_position = (atom.iloc[1], atom.iloc[2])
+            if is_point_inside_triangle(tip1, tip2, tip3, atom_position):
+                if "all_sheets" not in keywords:
+                    if selected_position.iloc[3] == atom.iloc[3]:
+                        atoms_to_remove.append(i)
+                else:
+                    atoms_to_remove.append(i)
 
         # Update the DataFrame by removing atoms inside the triangle
         self._structure_df.drop(atoms_to_remove, inplace=True)
