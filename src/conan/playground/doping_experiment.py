@@ -214,11 +214,28 @@ class Graphene:
                 122.91,
             ],
         )
+        pyridinic_3_properties = NitrogenSpeciesProperties(
+            target_bond_lengths=[1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45],
+            target_angles=[
+                120.00,
+                122.17,
+                120.00,
+                122.21,
+                120.00,
+                122.17,
+                120.00,
+                122.21,
+                120.00,
+                122.17,
+                120.00,
+                122.21,
+            ],
+        )
 
         # Initialize other species similarly
         species_properties = {
             NitrogenSpecies.PYRIDINIC_4: pyridinic_4_properties,
-            # Add other species here
+            NitrogenSpecies.PYRIDINIC_3: pyridinic_3_properties,
         }
         return species_properties
 
@@ -539,11 +556,9 @@ class Graphene:
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
 
         # Find start nodes for each cycle
-        # start_nodes = self._find_start_nodes(cycles, species)
         start_nodes = self._find_start_nodes(all_cycles, species_for_cycles)
 
         # Order the cycle nodes for each cycle starting from the identified start_node
-        # ordered_cycles = self._order_cycle_nodes(cycles, start_nodes)
         ordered_cycles = self._order_cycle_nodes(all_cycles, start_nodes)
 
         # Flatten initial positions for optimization
@@ -728,7 +743,7 @@ class Graphene:
         start_nodes = []
         for cycle, species in zip(cycles, species_list):
             start_node = None
-            if species == NitrogenSpecies.PYRIDINIC_4:
+            if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
                 # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
                 for node in cycle:
                     # Skip the node if it is already a nitrogen atom
@@ -908,8 +923,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
@@ -930,8 +945,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 20, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
