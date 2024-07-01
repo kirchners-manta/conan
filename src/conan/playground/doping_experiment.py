@@ -501,6 +501,9 @@ class Graphene:
                     # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
                     self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
 
+                    # Identify the start node for this cycle
+                    start_nodes.append(selected_neighbor)
+
                 elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                     # Replace 2 carbon atoms to form pyridinic nitrogen structure
                     selected_neighbors = random.sample(neighbors, 2)
@@ -663,6 +666,9 @@ class Graphene:
                 properties = self.species_properties[species]
                 target_bond_lengths = properties.target_bond_lengths
 
+                # Create a subgraph for the current cycle
+                subgraph = self.graph.subgraph(ordered_cycle).copy()
+
                 # Calculate bond energy for edges within the cycle
                 cycle_length = len(ordered_cycle)
                 for i in range(cycle_length):
@@ -689,6 +695,29 @@ class Graphene:
 
                     # Add edge to cycle_edges set
                     cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
+
+                if species == NitrogenSpecies.PYRIDINIC_1:
+                    # ToDo: See if you can optimize this so that you don't have to repeat a lot of logic from above and
+                    #  maybe you can also iterate directly over the subgraph.edges in the for loop above and thus save
+                    #  redundant code
+                    for i, j in subgraph.edges():
+                        if (min(i, j), max(i, j)) not in cycle_edges:
+                            xi, yi = (
+                                x[2 * list(self.graph.nodes).index(i)],
+                                x[2 * list(self.graph.nodes).index(i) + 1],
+                            )
+                            xj, yj = (
+                                x[2 * list(self.graph.nodes).index(j)],
+                                x[2 * list(self.graph.nodes).index(j) + 1],
+                            )
+                            pos_i = Position(xi, yi)
+                            pos_j = Position(xj, yj)
+
+                            current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+                            target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
+                            energy += 0.5 * ((current_length - target_length) ** 2)
+
+                            self.graph.edges[i, j]["bond_length"] = current_length
 
             # Calculate bond energy for edges outside the cycles
             for i, j, data in self.graph.edges(data=True):
@@ -765,7 +794,7 @@ class Graphene:
             """
             return bond_energy(x) + angle_energy(x)
 
-        # Optimize positions to minimize energ
+        # Optimize positions to minimize energy
         result = minimize(total_energy, x0, method="L-BFGS-B")
 
         # Show the number of iterations and the final energy
