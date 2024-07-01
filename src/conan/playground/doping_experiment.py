@@ -329,6 +329,7 @@ class Graphene:
 
         # Dictionary to keep track of species with all nodes to exclude (i.e., nodes that are part of a cycle)
         species_with_all_nodes_to_exclude = {species: [] for species in NitrogenSpecies}
+        start_nodes_per_species = {species: [] for species in NitrogenSpecies}
 
         # Define the order of nitrogen doping insertion based on the species
         for species in [
@@ -340,9 +341,10 @@ class Graphene:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
-                num_chosen_atoms, cycles_to_exclude = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                num_chosen_atoms, cycles_to_exclude, start_nodes = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
                 added_nitrogen_counts[species] += num_chosen_atoms
                 species_with_all_nodes_to_exclude[species].extend(cycles_to_exclude)
+                start_nodes_per_species[species].extend(start_nodes)
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
@@ -353,7 +355,10 @@ class Graphene:
 
         # Adjust the positions of atoms in all cycles to optimize the structure
         if any(species_with_all_nodes_to_exclude.values()):
-            self._adjust_atom_positions(species_with_all_nodes_to_exclude)
+            self._adjust_atom_positions(species_with_all_nodes_to_exclude, start_nodes_per_species)
+        # ToDo: Problem with `start_nodes` also solved very stupidly, that some `start_nodes` are passed directly in
+        #  the `_add_nitrogen_atoms` method and others then only in the `_adust_atom_positions` method via the
+        #  `_find_start_nodes` function -> find a more uniform solution!
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -366,7 +371,9 @@ class Graphene:
         doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
         print(f"\n{doping_percentages_df}")
 
-    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies) -> Tuple[int, List[List[int]]]:
+    def _add_nitrogen_atoms(
+        self, num_nitrogen: int, nitrogen_species: NitrogenSpecies
+    ) -> Tuple[int, List[List[int]], Optional[List[int]]]:
         """
         Add nitrogen atoms of a specific species to the graphene sheet.
 
@@ -379,9 +386,9 @@ class Graphene:
 
         Returns
         -------
-        Tuple[int, List[List[int]]]
+        Tuple[int, List[List[int]], Optional[List[int]]]
             A tuple containing the number of successfully added nitrogen atoms and a list of cycles to exclude with each
-            cycle represented as a list of atom IDs.
+            cycle represented as a list of atom IDs, and optionally a list of start nodes for the cycles.
 
         Notes
         -----
@@ -397,15 +404,15 @@ class Graphene:
         # Initialize a list to store the positions of all cycles to exclude from the possible carbon atoms
         all_cycles_to_exclude = []
 
+        # Initialize a list to store the start nodes for each cycle optionally depending on the species
+        start_nodes = []
+
         while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms_shuffled:
             # Randomly select a carbon atom from the shuffled list without replacement
             atom_id = possible_carbon_atoms_shuffled.pop(0)
 
             if atom_id not in self.possible_carbon_atoms or not self._valid_doping_position(nitrogen_species, atom_id):
                 continue
-
-            # # Get the position of the selected atom (used for integrating doping via periodic boundary conditions)
-            # reference_node_position: Position = self.graph.nodes[atom_id]["position"]
 
             # Atom is valid, proceed with nitrogen doping
             neighbors = get_neighbors_via_edges(self.graph, atom_id)
@@ -474,6 +481,10 @@ class Graphene:
                         # Add the neighbor to the list of chosen atoms
                         chosen_atoms.append(neighbor)
 
+                    # Identify the start node for this cycle using set difference
+                    remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
+                    start_nodes.append(remaining_neighbor)
+
                 elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
                     # Replace 3 carbon atoms to form pyridinic nitrogen structure
                     for neighbor in neighbors:
@@ -541,9 +552,13 @@ class Graphene:
             )
             print_warning(warning_message)
 
-        return len(chosen_atoms), all_cycles_to_exclude
+        return len(chosen_atoms), all_cycles_to_exclude, start_nodes if start_nodes else None
 
-    def _adjust_atom_positions(self, cycles_per_species: Dict[NitrogenSpecies, List[List[int]]]):
+    def _adjust_atom_positions(
+        self,
+        cycles_per_species: Dict[NitrogenSpecies, List[List[int]]],
+        start_nodes_per_species: Optional[Dict[NitrogenSpecies, List[Optional[int]]]] = None,
+    ):
         """
         Adjust the positions of atoms in the graphene sheet to optimize the structure including doping.
 
@@ -552,6 +567,9 @@ class Graphene:
         cycles_per_species : Dict[NitrogenSpecies, List[List[int]]]
             A dictionary mapping each NitrogenSpecies to a list of cycles. Each cycle is represented as a list of atom
             IDs and represents a specific doping structure.
+        start_nodes_per_species : Optional[Dict[NitrogenSpecies, List[Optional[int]]]]
+        A dictionary mapping each NitrogenSpecies to a list of start nodes. Each start node corresponds to a cycle
+        and helps in ordering the cycle nodes.
 
         Notes
         -----
@@ -561,11 +579,14 @@ class Graphene:
         # ToDo: Refactoring is urgently needed here. Totally stupid solution with Dict and then separate lists.
         all_cycles = []
         species_for_cycles = []
+        all_start_nodes = []
 
         for species, cycles in cycles_per_species.items():
             if cycles:
                 all_cycles.extend(cycles)
                 species_for_cycles.extend([species] * len(cycles))
+                if start_nodes_per_species and species in start_nodes_per_species:
+                    all_start_nodes.extend(start_nodes_per_species[species])
 
         if not all_cycles:
             return
@@ -573,8 +594,11 @@ class Graphene:
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
 
-        # Find start nodes for each cycle
-        start_nodes = self._find_start_nodes(all_cycles, species_for_cycles)
+        # Find start nodes for each cycle if not provided
+        if not all_start_nodes:
+            start_nodes = self._find_start_nodes(all_cycles, species_for_cycles)
+        else:
+            start_nodes = all_start_nodes
 
         # Order the cycle nodes for each cycle starting from the identified start_node
         ordered_cycles = self._order_cycle_nodes(all_cycles, start_nodes)
@@ -938,11 +962,11 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
