@@ -15,76 +15,7 @@ from numpy import typing as npt
 import conan.defdict as ddict
 
 
-class Atom:  # ToDo: Evtl. abstrakte Klasse oder Datenklasse?
-    """
-    Represents an atom in a molecular structure.
-
-    Attributes:
-        label (str): The label of the atom.
-        x (float): The x-coordinate of the atom.
-        y (float): The y-coordinate of the atom.
-        z (float): The z-coordinate of the atom.
-        adjacent_groups (Union[List[Atom], None]): The list of adjacent atoms or None.
-    """
-
-    def __init__(self, label: str, x: float, y: float, z: float):
-        """
-        Initializes an Atom instance with specified label and coordinates.
-
-        Args:
-            label (str): The label of the atom.
-            x (float): The x-coordinate of the atom.
-            y (float): The y-coordinate of the atom.
-            z (float): The z-coordinate of the atom.
-        """
-        self.label = label
-        self.x = x
-        self.y = y
-        self.z = z
-        self.adjacent_groups: Union[List[Atom], None] = None
-
-    def find_adjacent_groups(self, group_list: List[Atom], van_der_waals_radii_dict: Dict[str, float]):
-        """
-        Determines which atoms from a provided list are adjacent to this atom based on Van der Waals radii.
-
-        Args:
-            group_list (List[Atom]): The list of groups to check against.
-            van_der_waals_radii_dict (Dict[str, float]): Dictionary of Van der Waals radii.
-        """
-
-        # If the group list is empty, there is nothing to do
-        if not group_list:
-            return
-
-        # Set the adjacent_groups list to empty, so we can fill it
-        self.adjacent_groups = []
-
-        # Loop over all groups
-        for group in group_list:
-            if group == self:
-                continue  # Current group cannot be its own neighbor
-            elif isinstance(group, Atom):  # Ensures the object is an Atom
-                if self._is_atom_neighbor(group, van_der_waals_radii_dict):
-                    self.adjacent_groups.append(group)  # Adds the atom to the adjacent list if they are neighbors
-            else:
-                ddict.printLog(f"WARNING: Unknown group type {group} found in 'find_adjacent_groups'")
-
-    # PRIVATE
-    def _is_atom_neighbor(self, atom: Atom, van_der_waals_radii_dict: Dict[str, float]) -> bool:
-        """
-        Determines if another atom is a neighbor.
-
-        Args:
-            atom (Atom): The other atom.
-            van_der_waals_radii_dict (Dict[str, float]): Dictionary of Van der Waals radii.
-
-        Returns:
-            bool: True if the other atom is a neighbor, False otherwise.
-        """
-        pass
-
-
-class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
+class FunctionalGroup:
     """
     Represents a functional group in a molecular structure.
 
@@ -122,17 +53,9 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         Returns:
             List[Tuple[str, float, float, float]]: Atom positions without anchors.
         """
-        # atom_positions_without_anchor = self.atom_positions
-        # for position in self.atom_positions:
-        #     if position[0] == 'X':
-        #         atom_positions_without_anchor.remove(position)
-        # return atom_positions_without_anchor
 
         # Filter out atoms that are designates as anchors using a list comprehension (typically marked with 'X')
-        return [
-            pos for pos in self.atom_positions if pos[0] != "X"
-        ]  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von
-        # O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
+        return [pos for pos in self.atom_positions if pos[0] != "X"]
 
     # PRIVATE
     def __read_positions_from_library(self, structure_library_path: str) -> List[Tuple[str, float, float, float]]:
@@ -162,10 +85,7 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         return atom_list
 
 
-class Structure(
-    ABC
-):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, sodass diese nicht selbst instanziiert werden kann, sondern
-    # nur die abgeleiteten Klassen
+class Structure(ABC):
     """
     Represents a molecular structure. This class serves as a base for managing molecular data, designed to be abstract
     to support specific structure types derived from it.
@@ -175,12 +95,12 @@ class Structure(
         group_list (List[FunctionalGroup]): List of functional groups within the structure.
     """
 
-    def __init__(self):  # ToDo: Gibt aktuell noch keine init-Methode für diese Klasse. So vielleicht?
+    def __init__(self):
         """
         Initializes a Structure instance.
         """
-        self._structure_df: pd.DataFrame = pd.DataFrame()  # Empty DataFrame to hold structure data
-        self.group_list: List[FunctionalGroup] = []  # Empty list to hold functional groups
+        self._structure_df: pd.DataFrame = pd.DataFrame()
+        self.group_list: List[FunctionalGroup] = []
 
     @abc.abstractmethod
     def add(self, parameters: Dict[str, Union[str, int, float]]):
@@ -264,12 +184,7 @@ class Structure(
         self.group_list = []
         self.group_list.append(FunctionalGroup(parameters, structure_library_path))  # Adds a new functional group
 
-    def rotation_matrix_from_vectors(
-        self, vec1: npt.NDArray, vec2: npt.NDArray
-    ) -> (
-        npt.NDArray
-    ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische
-        # Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
+    def rotation_matrix_from_vectors(self, vec1: npt.NDArray, vec2: npt.NDArray) -> npt.NDArray:
         """
         Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
         vector (vec2).
@@ -465,7 +380,6 @@ class Structure1d(Structure):
         # Load the provided bond length and calculate the distance between two hexagonal vertices
         distance = float(parameters["bond_length"])
         hex_d = distance * math.cos(30 * math.pi / 180) * 2  # Distance between two hexagonal centers in the lattice
-        # ToDo: Überprüfen?
 
         # If the tube is of the armchair configuration
         if tube_kind == 1:
@@ -598,9 +512,7 @@ class Structure1d(Structure):
             counter = counter + 1
         return self._structure_df
 
-    def _stack_CNTs(
-        self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]
-    ) -> pd.DataFrame:  # ToDo: Warum ist das in Structure1d? Ist doch jetzt nicht mehr eindimensional?
+    def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
         Stacks carbon nanotubes in the structure.
 
@@ -719,9 +631,7 @@ class Structure2d(Structure):
         _number_of_unit_cells (Tuple[int, int]): The number of unit cells in x and y directions.
     """
 
-    def __init__(
-        self, bond_distance: float, sheet_size: Tuple[float, float]
-    ):  # ToDo: Der superclass Aufruf hat gefehlt. Habe ich hier mal hinzu gefügt
+    def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
         Initializes a Structure2D instance.
 
@@ -757,30 +667,18 @@ class Structure2d(Structure):
         self._initialize_functional_groups(parameters)
         self.__add_groups_to_sheet()
 
-    # def available_positions(self):
-    #     available_positions = []
-    #     for i, position in self._structure_df.iterrows():
-    #         available_positions.append([position[1], position[2], position[3]])
-    #     return available_positions
-
     def available_positions(
         self,
-    ) -> List[Tuple[float, float, float]]:  # ToDo: Ist Methode für Anbringung der Gruppen? Sicher dann in Structure2d?
+    ) -> List[Tuple[float, float, float]]:
         """
         Gets the available positions on the sheet.
 
         Returns:
             List[Tuple[float, float, float]]: The list of available positions.
         """
-        return [
-            (position.iloc[1], position.iloc[2], position.iloc[3]) for _, position in self._structure_df.iterrows()
-        ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr
-        # übersichtlich. Evtl. in Datenklasse auslagern?
+        return [(position.iloc[1], position.iloc[2], position.iloc[3]) for _, position in self._structure_df.iterrows()]
 
-    def add(
-        self, parameters: Dict[str, Union[str, int, float]]
-    ):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert
-        # werden; Methode evtl. auch besser wo anders hin verlagern?
+    def add(self, parameters: Dict[str, Union[str, int, float]]):
         """
         Adds a functional group to the structure.
 
@@ -839,7 +737,7 @@ class Structure2d(Structure):
             self._unit_cell_vectors[1] * self._number_of_unit_cells[1],  # Adjusted size in y-direction
         ]
 
-    def __add_groups_to_sheet(self):  # ToDo: wirklich hier in Klasse?
+    def __add_groups_to_sheet(self):
         """
         Adds functional groups to the sheet.
         """
@@ -899,7 +797,6 @@ class Structure2d(Structure):
 
         Returns:
             List[Tuple[str, float, float, float]]: The coordinates of the added group.
-            # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
         """
         # select a position to add the group on
         selected_position = position_list[random.randint(0, len(position_list) - 1)]
@@ -1018,7 +915,7 @@ class Pore(Structure):
         self.sheet_size = parameters["sheet_size"]
 
         # Determine the type of pore (closed or open) based on the keywords
-        if "closed" in keywords:  # ToDo: Evtl. besser über Enums lösen
+        if "closed" in keywords:
             pore_kind = 2  # Closed pore
         else:
             pore_kind = 1  # Open pore
@@ -1357,7 +1254,7 @@ class Graphene(Structure2d):
         # Return the position of the selected center of the pore
         return selected_position
 
-    def _build_sheet(self) -> None:  # ToDo: Müsste abstrakte Methode sein
+    def _build_sheet(self) -> None:
         """
         Builds the graphene sheet from multiple unit cells.
         """
