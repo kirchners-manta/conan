@@ -49,11 +49,11 @@ def main():
     ddict.printLog("")
 
     # INFO
-    # Refer to the documentation for more information on the program. Website is con-an.readthedocs.io.
+    # Refer to the documentation and papers for more information on the program.
     ddict.printLog("Find the documentation on the CONAN website: http://con-an.readthedocs.io")
-    ddict.printLog("If you use CONAN in your research, please cite the following paper:")
+    ddict.printLog("If you use CONAN in your research, please cite the following papers:")
     ddict.printLog("doi.org/10.1021/acs.jcim.3c01075")
-    ddict.printLog("")
+    ddict.printLog("doi.org/10.1021/acs.jpcb.3c08493")
 
     # ARGUMENTS
     args = ddict.read_commandline()
