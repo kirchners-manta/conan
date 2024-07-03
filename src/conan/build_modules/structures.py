@@ -1214,7 +1214,7 @@ class Graphene(Structure2d):
         if "position" in parameters:
             selected_position = atoms_df.iloc[parameters["position"]]
         else:
-            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
+            selected_position = center_position(self.sheet_size, atoms_df)
 
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
@@ -1358,7 +1358,7 @@ class Boronnitride(Structure2d):
         if "position" in parameters:
             selected_position = atoms_df.iloc[parameters["position"]]
         else:
-            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
+            selected_position = center_position(self.sheet_size, atoms_df)
         # find nearest atom in x-direction to get orientation of the triangle
         dummy_df = atoms_df[atoms_df["Species"] == "B"]
         dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]
@@ -1393,7 +1393,7 @@ class Boronnitride(Structure2d):
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
             atom_position = (atom.iloc[1], atom.iloc[2])
-            if is_point_inside_triangle(tip1, tip2, tip3, atom_position):
+            if point_is_inside_triangle(tip1, tip2, tip3, atom_position):
                 if "all_sheets" not in keywords:
                     if selected_position.iloc[3] == atom.iloc[3]:
                         atoms_to_remove.append(i)
@@ -1446,20 +1446,29 @@ class Boronnitride(Structure2d):
         self._structure_df = pd.DataFrame(coords, columns=["Species", "x", "y", "z", "group"])
 
 
-def rotate_3d_vector(vec, rotational_axis, angle):
+def rotate_3d_vector(vec: np.ndarray, rotational_axis: np.ndarray, angle: float) -> np.ndarray:
     """
-    Returns the a vector rotated around the rotational_axis by angle. This uses
-    Rodrigues rotation formula
+    Rotates a vector around a specified rotational axis by a given angle using
+    Rodrigues' rotation formula.
 
-    Args:
-        vec (np.NDarray): Vector that is rotated.
-        rotational_axis (np.NDarray): Axis around which the vector vec is rotated.
-        angle (float): rotation angle.
+    Parameters
+    ----------
+    vec : np.ndarray
+        The vector to be rotated.
+    rotational_axis : np.ndarray
+        The axis around which the vector `vec` is rotated. Should be a 3D vector.
+    angle : float
+        The rotation angle in radians.
 
-    Returns:
-        np.NDarray: Rotated vector.
+    Returns
+    -------
+    np.ndarray
+        The rotated vector.
     """
+    # Ensure the inputs are numpy arrays
     vec = np.array(vec)
+
+    # Calculate the rotated vector using Rodrigues' rotation formula
     return (
         vec * np.cos(angle)
         + np.cross(rotational_axis, vec) * np.sin(angle)
@@ -1471,12 +1480,19 @@ def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> 
     """
     Returns the coordinates of the atom that is closest to the sheet center.
 
-    Args:
-        sheet_size (Tuple[float, float]): The size of the sheet.
-        atoms_df (pd.DataFrame): The DataFrame containing the atom coordinates.
+    Parameters
+    ----------
+    sheet_size : Tuple[float, float]
+        The size of the sheet as a tuple of two floats (width, height).
+    atoms_df : pd.DataFrame
+        The DataFrame containing the atom coordinates. Assumes the DataFrame
+        has columns where the first column is an identifier and the next two
+        columns are the x and y coordinates.
 
-    Returns:
-        pd.Series: The coordinates of the atom closest to the center.
+    Returns
+    -------
+    pd.Series
+        The coordinates of the atom closest to the center as a Pandas Series.
     """
     # Calculate the center point of the sheet
     center_point = [sheet_size[0] / 2, sheet_size[1] / 2]
@@ -1491,19 +1507,24 @@ def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> 
     min_distance_index = distance_to_center_point.index(min(distance_to_center_point))
 
     # Return the coordinates of the atom closest to the center
-    return int(min_distance_index)
+    return atoms_df.iloc[min_distance_index]
 
 
 def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
     """
     Rotates a vector by a given angle.
 
-    Args:
-        vec (np.ndarray): The vector to rotate.
-        angle (float): The angle by which to rotate the vector.
+    Parameters
+    ----------
+    vec : np.ndarray
+        The vector to rotate.
+    angle : float
+        The angle by which to rotate the vector, in degrees.
 
-    Returns:
-        np.ndarray: The rotated vector.
+    Returns
+    -------
+    np.ndarray
+        The rotated vector.
     """
     # Convert the angle from degrees to radians
     rad = np.radians(angle)
@@ -1524,12 +1545,17 @@ def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray
     """
     Finds the tips of a triangle given the center and one tip.
 
-    Args:
-        center (np.ndarray): The center of the triangle.
-        tip1 (np.ndarray): One tip of the triangle.
+    Parameters
+    ----------
+    center : np.ndarray
+        The center of the triangle.
+    tip1 : np.ndarray
+        One tip of the triangle.
 
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: The other two tips of the triangle.
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        The other two tips of the triangle.
     """
     # Calculate the vector from the center to the first tip
     vec1 = np.array(tip1) - np.array(center)
@@ -1552,17 +1578,22 @@ def minimum_image_distance_3d(
     position1: List[float], position2: List[float], system_size: Tuple[float, float, float]
 ) -> float:
     """
-    Calculates the minimum image distance between two positions in 3D periodic system.
+    Calculates the minimum image distance between two positions in a 3D periodic system.
 
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        system_size (Tuple[float, float, float]): The size of the periodic system.
+    Parameters
+    ----------
+    position1 : List[float]
+        The first position as a list of three floats [x, y, z].
+    position2 : List[float]
+        The second position as a list of three floats [x, y, z].
+    system_size : Tuple[float, float, float]
+        The size of the periodic system as a tuple of three floats (width, height, depth).
 
-    Returns:
-        float: The minimum image distance between the two positions.
+    Returns
+    -------
+    float
+        The minimum image distance between the two positions.
     """
-
     # Calculate the difference vector, adjusted for periodic boundaries
     delta = np.array(
         [
@@ -1580,13 +1611,19 @@ def minimum_image_distance_2d(
     """
     Calculates the minimum image distance between two positions in a periodic system.
 
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        system_size (Tuple[float, float]): The size of the periodic system.
+    Parameters
+    ----------
+    position1 : List[float]
+        The first position as a list of two floats [x, y].
+    position2 : List[float]
+        The second position as a list of two floats [x, y].
+    system_size : Tuple[float, float]
+        The size of the periodic system as a tuple of two floats (width, height).
 
-    Returns:
-        float: The minimum image distance between the two positions.
+    Returns
+    -------
+    float
+        The minimum image distance between the two positions.
     """
     # Calculate the difference vector, adjusted for periodic boundaries
     delta = np.array(
@@ -1605,14 +1642,21 @@ def positions_are_adjacent(
     """
     Checks if two positions are adjacent in a periodic system.
 
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        cutoff_distance (float): The cutoff distance for adjacency.
-        system_size (Tuple[float, float]): The size of the periodic system.
+    Parameters
+    ----------
+    position1 : List[float]
+        The first position as a list of two floats [x, y].
+    position2 : List[float]
+        The second position as a list of two floats [x, y].
+    cutoff_distance : float
+        The cutoff distance for adjacency.
+    system_size : Tuple[float, float]
+        The size of the periodic system as a tuple of two floats (width, height).
 
-    Returns:
-        bool: True if the positions are adjacent, False otherwise.
+    Returns
+    -------
+    bool
+        True if the positions are adjacent, False otherwise.
     """
     # Calculate the minimum image distance between the two positions
     distance = minimum_image_distance_2d(position1, position2, system_size)
@@ -1621,18 +1665,20 @@ def positions_are_adjacent(
     return distance < cutoff_distance
 
 
-def random_rotation_matrix_2d() -> npt.NDArray:
+def random_rotation_matrix_2d() -> np.NDArray:
     """
     Generates a random 2D rotation matrix.
 
-    Returns:
-        npt.NDArray: The random 2D rotation matrix.
+    Returns
+    -------
+    np.NDArray
+        The random 2D rotation matrix.
     """
-    # Generate a random angle theta between 0 and 2*pi radians
-    theta = np.random.uniform(0, 2 * np.pi)
+    # Generate a random angle between 0 and 2*pi radians
+    angle = np.random.uniform(0, 2 * np.pi)
 
     # Calculate the cosine and sine of the angle
-    cos, sin = np.cos(theta), np.sin(theta)
+    cos, sin = np.cos(angle), np.sin(angle)
 
     # Create the 2D rotation matrix using the cosine and sine values
     return np.array([[cos, -sin], [sin, cos]])
@@ -1640,47 +1686,55 @@ def random_rotation_matrix_2d() -> npt.NDArray:
 
 def random_rotate_group_list(group_list: List[List[Union[str, float]]]) -> List[List[Union[str, float]]]:
     """
-    Rotates a group of atoms randomly in 2D.
+    Randomly rotates a group of atoms around the z-axis.
 
-    Args:
-        group_list (List[List[Union[str, float]]]): The group of atoms to rotate.
+    Parameters
+    ----------
+    group_list : List[List[Union[str, float]]]
+        A list of atoms to rotate, where each atom is itself represented by a list.
+        The first element is a the element, followed by x and y coordinates.
 
-    Returns:
-        List[List[Union[str, float]]]: The randomly rotated group.
+    Returns
+    -------
+    List[List[Union[str, float]]]
+        The randomly rotated group, with each atom's x and y coordinates rotated.
     """
     # Generate a random 2D rotation matrix
     rotation_matrix = random_rotation_matrix_2d()
 
     # Apply the rotation to each atom's x and y coordinates in the group list
-    rotated_group_list = [[atom[0]] + (rotation_matrix.dot(atom[1:3])).tolist() + [atom[3]] for atom in group_list]
+    rotated_group_list = [[atom[0]] + rotation_matrix.dot(atom[1:3]).tolist() + atom[3:] for atom in group_list]
 
     # Return the list of rotated atoms
     return rotated_group_list
 
 
-def is_point_inside_triangle(
+def point_is_inside_triangle(
     tip1: List[float], tip2: List[float], tip3: List[float], point: Tuple[float, float]
 ) -> bool:
     """
     Checks if a point is inside a triangle.
 
-    Args:
-        tip1 (List[float]): The first tip of the triangle.
-        tip2 (List[float]): The second tip of the triangle.
-        tip3 (List[float]): The third tip of the triangle.
-        point (Tuple[float, float]): The point to check.
+    Parameters
+    ----------
+    tip1 : List[float]
+        The first tip of the triangle as a list of two floats [x, y].
+    tip2 : List[float]
+        The second tip of the triangle as a list of two floats [x, y].
+    tip3 : List[float]
+        The third tip of the triangle as a list of two floats [x, y].
+    point : Tuple[float, float]
+        The point to check as a tuple of two floats (x, y).
 
-    Returns:
-        bool: True if the point is inside the triangle, False otherwise.
+    Returns
+    -------
+    bool
+        True if the point is inside the triangle, False otherwise.
     """
-
-    def area(a: List[float], b: List[float], c: List[float]) -> float:
-        # Calculate the area of the triangle formed by points a, b, and c
-        return 0.5 * abs((a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]))
 
     # Calculate the area of the whole triangle
     A = area(tip1, tip2, tip3)
-    # Calculate the area of the triangle formed by the point and the tips
+    # Calculate the area of the triangles formed by the point and the tips
     A1 = area(point, tip2, tip3)
     A2 = area(tip1, point, tip3)
     A3 = area(tip1, tip2, point)
@@ -1692,3 +1746,24 @@ def is_point_inside_triangle(
 
     # Check if the point is inside the triangle
     return 0 <= l1 <= 1 and 0 <= l2 <= 1 and 0 <= l3 <= 1 and abs(l1 + l2 + l3 - 1) < 1e-5
+
+
+def area(a: List[float], b: List[float], c: List[float]) -> float:
+    """
+    Calculate the area of the triangle formed by points a, b, and c.
+
+    Parameters
+    ----------
+    a : List[float]
+        The first point of the triangle.
+    b : List[float]
+        The second point of the triangle.
+    c : List[float]
+        The third point of the triangle.
+
+    Returns
+    -------
+    float
+        The area of the triangle.
+    """
+    return 0.5 * abs((a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]))
