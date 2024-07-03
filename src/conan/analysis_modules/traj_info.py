@@ -264,6 +264,7 @@ def minimum_image_distance(position1, position2, box_size) -> float:
     d_pos = d_pos - box_size * np.round(d_pos / box_size)
     return np.linalg.norm(d_pos)
 
+
 def molecule_choice(args, id_frame, mode) -> Tuple[int, list]:
 
     species_max = id_frame["Species"].max()
@@ -293,11 +294,12 @@ def molecule_choice(args, id_frame, mode) -> Tuple[int, list]:
 
     if mode == 2:
         spec_molecule = ddict.get_input(f"Which species are the structures? (1-{species_max}) ", args, "string")
-        spec_molecule = spec_molecule.replace(", ", ",").split(",")       
+        spec_molecule = spec_molecule.replace(", ", ",").split(",")
         spec_molecule = [int(i) for i in spec_molecule]
         ddict.printLog(f"\n-> Species {spec_molecule} are set as structures.\n")
 
         return spec_molecule
+
 
 # Function to identify molecular bonds from a distance search using a k-d tree.
 def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[list, list]:
@@ -352,7 +354,7 @@ def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[lis
     # Determine bonds for each molecule
     molecule_bonds = []
     for molecule in molecules:
-        bonds = [sorted((i, j)) for i, j in simbox_G.edges(molecule)] 
+        bonds = [sorted((i, j)) for i, j in simbox_G.edges(molecule)]
         molecule_bonds.append(bonds)
 
     # rename the molecule_bond entries to the original atom index.
@@ -375,14 +377,11 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
     box_size = maindict["box_size"]
     args = maindict["args"]
 
-
     # Dataframe with just the structure atoms.
     id_frame["Molecule"] = None
-    #structure_frame = id_frame[id_frame["Struc"]].copy()
+    # structure_frame = id_frame[id_frame["Struc"]].copy()
 
-    structure_frame = pd.DataFrame()            #CHANGE BACK    
-
-
+    structure_frame = pd.DataFrame()  # CHANGE BACK
 
     outputdict = maindict
     outputdict["unique_molecule_frame"] = pd.DataFrame()
@@ -400,7 +399,6 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
     CNT_atoms = []
     which_pores = []
 
-
     # If the structure_frame is empty, then there are no structures in the simulation box.
     if structure_frame.empty:
         ddict.printLog(
@@ -416,7 +414,6 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
             structure_frame = id_frame[id_frame["Species"].isin(spec_molecule)].copy()
 
             outputdict["unique_molecule_frame"] = unique_molecule_frame
-
 
     # convert the first dataframe to a list of dictionaries. We also need to store the atom index.
     str_atom_list = []
@@ -436,7 +433,6 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
     for i, molecule in enumerate(molecules_struc):
         id_frame.loc[molecule, "Molecule"] = i + 1
         structure_frame.loc[molecule, "Molecule"] = i + 1
-
 
     # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
     structure_frame_copy = structure_frame.copy()
@@ -502,7 +498,6 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
     ddict.printLog(f"Number of walls: {len(Walls)}")
     ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
-
     CNT_pore_question = ddict.get_input("Does one of the pores contain CNTs? [y/n]: ", args, "str")
     if CNT_pore_question == "y":
         if len(CNTs) == 0:
@@ -519,8 +514,6 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
             which_pores = [int(i) for i in which_pores.split(",")]
             # keep all entries, which are equal or smaller than the number of pores.
             which_pores = [i for i in which_pores if i <= len(CNTs)]
-
-
 
     for i in which_pores:
         pore = id_frame[id_frame["Struc"] == f"Pore{i}"].copy()
