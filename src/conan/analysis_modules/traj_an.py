@@ -70,9 +70,12 @@ def traj_chunk_info(id_frame, args):
 
 
 # MAIN
-def analysis_opt(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-) -> None:
+def analysis_opt(maindict) -> None:
+
+    # id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
+    CNT_centers = maindict["CNT_centers"]
+    args = maindict["args"]
+
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
@@ -80,13 +83,11 @@ def analysis_opt(
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(id_frame, CNT_centers, box_size, args)
+        generating_pictures(maindict)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
-            trajectory_analysis(
-                id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-            )
+            trajectory_analysis(maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -95,7 +96,12 @@ def analysis_opt(
 
 
 # Generating pictures.
-def generating_pictures(id_frame, CNT_centers, box_size, args) -> None:
+def generating_pictures(maindict) -> None:
+
+    id_frame = maindict["id_frame"]
+    CNT_centers = maindict["CNT_centers"]
+    box_size = maindict["box_size"]
+    args = maindict["args"]
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
     ddict.printLog("(3) Produce xyz file of the pore structures' tube.")
@@ -226,9 +232,12 @@ def generating_pictures(id_frame, CNT_centers, box_size, args) -> None:
 
 
 # Analysis of the trajectory.
-def trajectory_analysis(
-    id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-) -> None:
+def trajectory_analysis(inputdict) -> None:
+
+    id_frame = inputdict["id_frame"]
+    box_size = inputdict["box_size"]
+    args = inputdict["args"]
+
     # Analysis choice.
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
@@ -249,26 +258,17 @@ def trajectory_analysis(
 
     # MOLECULAR RECOGNITION
     # Perform the molecule recognition by loading the module molidentifier.
-    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
-    species_max = id_frame["Species"].max()
-    spec_molecule = 0
-    spec_atom = []
-    ddict.printLog("")
-    analysis_spec_molecule = ddict.get_input(
-        "Do you want to perform the analysis for a specific molecule kind? (y/n) ", args, "string"
-    )
-    if analysis_spec_molecule == "y":
-        spec_molecule = int(ddict.get_input(f"Which species to analyze? (1-{species_max}) ", args, "int"))
-        # Ask user for the atom type to analyze. Multiple options are possible, default is 'all'.
-        spec_atom = ddict.get_input("Which atoms to analyze? [default:all] ", args, "string")
+    if not inputdict["unique_molecule_frame"].empty:
+        unique_molecule_frame = inputdict["unique_molecule_frame"]
 
-        if spec_atom == "" or spec_atom == "[default:all]":
-            spec_atom = "all"
+    else:
+        id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
 
-        # Get the atom type into a list.
-        spec_atom = spec_atom.replace(", ", ",").split(",")
-        ddict.printLog(f"\n-> Species {spec_molecule} and atom type {spec_atom} will be analyzed.\n")
+    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
 
+    print("spec_molecule", spec_molecule)
+    print("spec_atom", spec_atom)
+    print("analysis_spec_molecule", analysis_spec_molecule)
     (
         number_of_frames,
         number_of_lines_per_chunk,
@@ -280,20 +280,7 @@ def trajectory_analysis(
 
     # PREPERATION
     # Main loop preperation.
-    counter = 0
     Main_time = time.time()
-    maindict = {}
-
-    # Get atomic masses.
-    element_masses = ddict.dict_mass()
-
-    # First it is necessary to get the molecule number of each atom to attach it to every frame later in the loop.
-    molecule_id = id_frame["Molecule"].values
-    molecule_species = id_frame["Species"].values
-    molecule_structure = id_frame["Struc"].values
-    molecule_label = id_frame["Label"].values
-
-    CNT_atoms = id_frame[id_frame["CNT"].notnull()]
 
     # Analysis preperation.
     if analysis_choice2 == 1 or analysis_choice2 == 2:
@@ -327,54 +314,37 @@ def trajectory_analysis(
         from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
 
     if analysis_choice2 == 7:
-        from axial_dens import distance_search_analysis as analysis
-        from axial_dens import distance_search_prep as main_loop_preparation
-        from axial_dens import distance_search_processing as post_processing
+        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
+        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
 
     if analysis_choice2 == 8:
-        from axial_dens import density_analysis_analysis as analysis
-        from axial_dens import density_analysis_prep as main_loop_preparation
-        from axial_dens import density_analysis_processing as post_processing
+        from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
+        from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
 
-        # from occurrence import occurrence_processing as post_processing
+    counter = 0
+    CNT_atoms = id_frame[id_frame["CNT"].notnull()]
 
-    maxdisp_atom_dist = 0
-    maxdisp_atom_row = None
-
-    maindict = {
-        "unique_molecule_frame": unique_molecule_frame,
-        "box_size": box_size,
-        "min_z_pore": min_z_pore,
-        "max_z_pore": max_z_pore,
-        "box_size": box_size,
-        "CNT_centers": CNT_centers,
-        "Walls_positions": Walls_positions,
-        "args": args,
-        "tuberadii": tuberadii,
-        "number_of_frames": number_of_frames,
-        "analysis_choice2": analysis_choice2,
-        "length_pore": length_pore,
-        "CNT_atoms": CNT_atoms,
-        "maxdisp_atom_row": maxdisp_atom_row,
-        "maxdisp_atom_dist": maxdisp_atom_dist,
-        "id_frame": id_frame,
-        "do_xyz_analysis": "n",
-        "number_of_frames": number_of_frames,
-        "counter": 0,
-    }
+    maindict = inputdict
+    maindict["counter"] = counter
+    maindict["unique_molecule_frame"] = unique_molecule_frame
+    maindict["CNT_atoms"] = CNT_atoms
+    maindict["maxdisp_atom_row"] = None
+    maindict["maxdisp_atom_dist"] = 0
+    maindict["number_of_frames"] = number_of_frames
+    maindict["analysis_choice2"] = analysis_choice2
+    maindict["do_xyz_analysis"] = "n"
 
     maindict = main_loop_preparation(maindict)
 
     if analysis_choice2 == 6:
         if maindict["do_xyz_analysis"] == "y":
-            from coordination_number import Coord_number_xyz_analysis as analysis
-            from coordination_number import Coord_xyz_chunk_processing as chunk_processing
-            from coordination_number import Coord_xyz_post_processing as post_processing
+            from conan.analysis_modules.coordination_number import Coord_number_xyz_analysis as analysis
+            from conan.analysis_modules.coordination_number import Coord_xyz_chunk_processing as chunk_processing
+            from conan.analysis_modules.coordination_number import Coord_xyz_post_processing as post_processing
 
-    maindict["counter"] = counter
-    maindict["box_dimension"] = np.array(
-        maindict["box_size"]
-    )  # needed for fast calculation of minimal image convention
+    maindict["box_dimension"] = np.array(maindict["box_size"])
 
     # Ask if the analysis should be performed in a specific region
     maindict["regional"] = ddict.get_input(
@@ -391,13 +361,22 @@ def trajectory_analysis(
     maindict["regions"] = regions
 
     # MAIN LOOP
-    # Define which function to use reading the trajectory file. Pull definition from traj_info.py.
+    # Define which function to use reading the trajectory file (from traj_info.py).
     if args["trajectoryfile"].endswith(".xyz"):
-        from traj_info import xyz as run
+        from conan.analysis_modules.traj_info import xyz as run
     elif args["trajectoryfile"].endswith(".pdb"):
-        from traj_info import pdb as run
+        from conan.analysis_modules.traj_info import pdb as run
     elif args["trajectoryfile"].endswith(".lmp") or args["trajectoryfile"].endswith(".lammpstrj"):
-        from traj_info import lammpstrj as run
+        from conan.analysis_modules.traj_info import lammpstrj as run
+
+    # Atomic masses.
+    element_masses = ddict.dict_mass()
+
+    # Molecule information.
+    molecule_id = id_frame["Molecule"].values
+    molecule_species = id_frame["Species"].values
+    molecule_structure = id_frame["Struc"].values
+    molecule_label = id_frame["Label"].values
 
     # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
     trajectory = pd.read_csv(args["trajectoryfile"], chunksize=number_of_lines_per_chunk, header=None)
@@ -432,7 +411,8 @@ def trajectory_analysis(
 
             # Drop the other atoms which are not needed for the analysis.
             if analysis_spec_molecule == "y":
-                split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
+                split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
+                # split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
                 # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
                 if spec_atom[0] != "all":
                     # If specific atoms are requested, only these atoms are kept.

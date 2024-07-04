@@ -69,26 +69,19 @@ def main():
     # TRAJECTORY ANALYSIS SECTION
     if args["trajectoryfile"]:
         ddict.printLog("")
+
         # Load the atom data.
         from conan.analysis_modules import traj_info
 
-        atoms, id_frame, id_frame2, box_size = traj_info.read_first_frame(args)
-        (
-            id_frame,
-            min_z_pore,
-            max_z_pore,
-            length_pore,
-            CNT_centers,
-            tuberadii,
-            CNT_atoms,
-            Walls_positions,
-        ) = traj_info.structure_recognition(id_frame, box_size, args)
+        id_frame, box_size = traj_info.read_first_frame(args)
+
+        maindict = {"id_frame": id_frame, "box_size": box_size, "args": args}
+
+        maindict = traj_info.structure_recognition(maindict)
 
         from conan.analysis_modules import traj_an
 
-        traj_an.analysis_opt(
-            id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
-        )
+        traj_an.analysis_opt(maindict)
 
     ddict.printLog("The program took %0.3f seconds to run." % (time.time() - start_time))
 
