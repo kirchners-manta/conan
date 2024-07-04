@@ -13,13 +13,8 @@ from conan.playground.graph_utils import (
     NitrogenSpeciesProperties,
     Position,
     get_neighbors_via_edges,
-    get_neighbors_within_distance,
-    get_shortest_path,
     minimum_image_distance,
     plot_graphene,
-    plot_graphene_with_depth_neighbors_based_on_bond_length,
-    plot_graphene_with_path,
-    plot_nodes_within_distance,
     print_warning,
     write_xyz,
 )
@@ -374,8 +369,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(species_with_all_nodes_to_exclude.values()):
-            self._adjust_atom_positions(species_with_all_nodes_to_exclude, start_nodes_per_species)
+        # if any(species_with_all_nodes_to_exclude.values()):
+        #     self._adjust_atom_positions(species_with_all_nodes_to_exclude, start_nodes_per_species)
         # ToDo: Problem with `start_nodes` also solved very stupidly, that some `start_nodes` are passed directly in
         #  the `_add_nitrogen_atoms` method and others then only in the `_adust_atom_positions` method via the
         #  `_find_start_nodes` function -> find a more uniform solution!
@@ -455,15 +450,15 @@ class Graphene:
                 NitrogenSpecies.PYRIDINIC_2,
                 NitrogenSpecies.PYRIDINIC_3,
             }:
-                # Add a flag to control the flow
-                invalid_neighbor_found = False
-                for neighbor in neighbors:
-                    if neighbor not in self.possible_carbon_atoms:
-                        invalid_neighbor_found = True
-                        break  # Exit the for loop as soon as an invalid neighbor is found
-
-                if invalid_neighbor_found:
-                    continue  # Skip the rest of the while loop iteration and proceed to the next one
+                # # Add a flag to control the flow
+                # invalid_neighbor_found = False
+                # for neighbor in neighbors:
+                #     if neighbor not in self.possible_carbon_atoms:
+                #         invalid_neighbor_found = True
+                #         break  # Exit the for loop as soon as an invalid neighbor is found
+                #
+                # if invalid_neighbor_found:
+                #     continue  # Skip the rest of the while loop iteration and proceed to the next one
 
                 # Remove the selected atom from the graph
                 self.graph.remove_node(atom_id)
@@ -527,6 +522,7 @@ class Graphene:
 
             elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
 
+                # ToDo: See if this is also necessary for the other species
                 # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
                 selected_neighbor = None
                 temp_neighbors = neighbors.copy()
@@ -916,6 +912,9 @@ class Graphene:
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
     ) -> bool:
 
+        def all_neighbors_possible_carbon_atoms(neighbors):
+            return all(neighbor in self.possible_carbon_atoms for neighbor in neighbors)
+
         # Check the proximity constraints
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
             # Get the direct neighbors of the selected atom
@@ -931,14 +930,15 @@ class Graphene:
             NitrogenSpecies.PYRIDINIC_2,
             NitrogenSpecies.PYRIDINIC_3,
         }:
-            neighbors_len_3 = get_neighbors_via_edges(self.graph, atom_id, depth=3, inclusive=True)
-            return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
+            neighbors_len_2 = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
+            return all_neighbors_possible_carbon_atoms(neighbors_len_2)
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-            neighbors_len_3 = get_neighbors_via_edges(self.graph, atom_id, depth=3, inclusive=True)
-            if neighbor_id:
-                neighbors_len_3 += get_neighbors_via_edges(self.graph, neighbor_id, depth=3, inclusive=True)
-            return all(elem != "N" for elem in [self.graph.nodes[neighbor]["element"] for neighbor in neighbors_len_3])
+            neighbors_len_2_atom = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
+            neighbors_len_2_neighbor = (
+                get_neighbors_via_edges(self.graph, neighbor_id, depth=2, inclusive=True) if neighbor_id else []
+            )
+            return all_neighbors_possible_carbon_atoms(neighbors_len_2_atom + neighbors_len_2_neighbor)
 
         return False
 
@@ -1000,7 +1000,7 @@ class Graphene:
 def main():
     # Set seed for reproducibility
     # random.seed(42)
-    random.seed(6)
+    random.seed(0)
     # random.seed(1)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
@@ -1051,8 +1051,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1060,24 +1060,27 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
+    graphene.add_nitrogen_doping(total_percentage=50)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
     write_xyz(graphene.graph, "graphene_doping.xyz")
 
-    source = 0
-    target = 10
-    path = get_shortest_path(graphene.graph, source, target)
-    print(f"Shortest path from C_{source} to C_{target}: {path}")
-    plot_graphene_with_path(graphene.graph, path)
-
-    plot_graphene_with_depth_neighbors_based_on_bond_length(graphene.graph, 0, 4)
-
-    # Find nodes within a certain distance from a source node
-    atom_id = 5
-    max_distance = 5
-    nodes_within_distance = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
-    print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
-
-    # Plot the nodes within the specified distance
-    plot_nodes_within_distance(graphene.graph, nodes_within_distance)
+    # source = 0
+    # target = 10
+    # path = get_shortest_path(graphene.graph, source, target)
+    # print(f"Shortest path from C_{source} to C_{target}: {path}")
+    # plot_graphene_with_path(graphene.graph, path)
+    #
+    # plot_graphene_with_depth_neighbors_based_on_bond_length(graphene.graph, 0, 4)
+    #
+    # # Find nodes within a certain distance from a source node
+    # atom_id = 5
+    # max_distance = 5
+    # nodes_within_distance = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
+    # print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
+    #
+    # # Plot the nodes within the specified distance
+    # plot_nodes_within_distance(graphene.graph, nodes_within_distance)
 
 
 if __name__ == "__main__":
