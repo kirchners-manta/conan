@@ -575,7 +575,7 @@ class Graphene:
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
             warning_message = (
-                f"\nWarning: Only {len(chosen_atoms)} nitrogen atoms of species {nitrogen_species} could "
+                f"\nWarning: Only {len(chosen_atoms)} nitrogen atoms of species {nitrogen_species.value} could "
                 f"be placed due to proximity constraints."
             )
             print_warning(warning_message)
@@ -1060,7 +1060,7 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(total_percentage=50)
+    graphene.add_nitrogen_doping(total_percentage=30)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_doping.xyz")
