@@ -263,7 +263,7 @@ def trajectory_analysis(inputdict) -> None:
 
     else:
         id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
-    
+
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
 
     print("spec_molecule", spec_molecule)
@@ -412,7 +412,7 @@ def trajectory_analysis(inputdict) -> None:
             # Drop the other atoms which are not needed for the analysis.
             if analysis_spec_molecule == "y":
                 split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
-                #split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
+                # split_frame = split_frame[split_frame["Species"].astype(int) == int(spec_molecule)]
                 # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
                 if spec_atom[0] != "all":
                     # If specific atoms are requested, only these atoms are kept.
