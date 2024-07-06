@@ -689,6 +689,7 @@ class Structure2d(Structure):
         position = [
             self._structure_df.iloc[parameters["position"], 1],
             self._structure_df.iloc[parameters["position"], 2],
+            self._structure_df.iloc[parameters["position"], 3],
         ]
         self._add_group_on_position(position)
 
@@ -824,6 +825,7 @@ class Structure2d(Structure):
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
+            atom[3] += selected_position[2]
         new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
