@@ -283,7 +283,6 @@ class Structure1d(Structure):
         added_group = self.group_list[0].remove_anchors()
         # Randomly rotate the group to introduce variability in the orientation
         new_atom_coordinates = random_rotate_group_list(added_group.copy())
-
         # Calculate the normal vector of the surface at the selected position to determine the correct orientation
         normal_vector = self.find_surface_normal_vector(selected_position)
         orientation_vector = np.array([0, 0, 1])  # Orientation of groups from lib is always along the z-axis
@@ -1666,8 +1665,7 @@ def random_rotate_group_list(group_list: List[List[Union[str, float]]]) -> List[
     rotation_matrix = random_rotation_matrix_2d()
 
     # Apply the rotation to each atom's x and y coordinates in the group list
-    rotated_group_list = [[atom[0]] + rotation_matrix.dot(atom[1:3]).tolist() + atom[3:] for atom in group_list]
-
+    rotated_group_list = [[atom[0]] + rotation_matrix.dot(atom[1:3]).tolist() + [atom[3]] for atom in group_list]
     # Return the list of rotated atoms
     return rotated_group_list
 
