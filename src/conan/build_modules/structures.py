@@ -1350,56 +1350,52 @@ class Boronnitride(Structure2d):
         Creates a triangular pore in the boron nitride sheet.
 
         Args:
-            pore_size (float): The size of the pore.
+            parameters (dict): Dictionary containing the pore size and optional starting position.
+            keywords (dict): Dictionary containing keywords for additional options.
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
-        dummy_df = atoms_df[atoms_df["Species"] == "N"]  # Select nitrogen atoms
+
         if "position" in parameters:
             selected_position = atoms_df.iloc[parameters["position"]]
         else:
             selected_position = center_position(self.sheet_size, atoms_df)
-        # find nearest atom in x-direction to get orientation of the triangle
-        dummy_df = atoms_df[atoms_df["Species"] == "B"]
-        dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
 
-        # Identify the nearest boron atom to define the orientation of the triangular pore
-        dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[
-            dummy_df["y"] > (selected_position.iloc[2] - 0.1)
-        ]  # Narrow down to those close in the y-axis
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
-        nearest_atom_df = dummy_df
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
-        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
-        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
+        # Define the triangular pore using the bond length and pore size
+        pore_size = parameters["pore_size"]
+        # Define the triangle tips based on the starting position and lattice parameters
+        # First we search for any adjacent atoms to define the orientation of the triangle
+        for i, atom in atoms_df.iterrows():
+            current_position = [atom["x"], atom["y"]]
+            if current_position == [selected_position["x"], selected_position["y"]]:
+                continue
+            if positions_are_adjacent(
+                current_position,
+                [selected_position["x"], selected_position["y"]],
+                self.bond_distance * 1.1,
+                self.sheet_size,
+            ):
+                orientation_vector = np.array(current_position) - np.array(
+                    [selected_position["x"], selected_position["y"]]
+                )
+                break
 
-        # Calculate the vector for one side of the triangle based on the nearest atom
-        orientation_vector = [
-            nearest_atom["x"] - selected_position["x"],
-            nearest_atom["y"] - selected_position["y"],
-        ]
-        magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / parameters["pore_size"]
-
-        orientation_vector = [component / magnitude * parameters["pore_size"] for component in orientation_vector]
-
-        # Determine the triangle tips based on the starting position and calculated orientation vector
-        tip1 = [selected_position.iloc[1] + orientation_vector[0], selected_position.iloc[2] + orientation_vector[1]]
-        tip2, tip3 = find_triangle_tips([selected_position.iloc[1], selected_position.iloc[2]], np.array(tip1))
-
+        # Now we scale the orientation vector accordingly
+        np.linalg.norm(orientation_vector)
+        orientation_vector *= pore_size
+        # Next we can define the triangle tips
+        tip1 = np.array([selected_position["x"], selected_position["y"]]) + orientation_vector
+        tip2, tip3 = find_triangle_tips([selected_position["x"], selected_position["y"]], tip1)
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
-            atom_position = (atom.iloc[1], atom.iloc[2])
+            atom_position = (atom["x"], atom["y"])
             if point_is_inside_triangle(tip1, tip2, tip3, atom_position):
                 if "all_sheets" not in keywords:
-                    if selected_position.iloc[3] == atom.iloc[3]:
+                    if selected_position["z"] == atom["z"]:
                         atoms_to_remove.append(i)
                 else:
                     atoms_to_remove.append(i)
-
         # Update the DataFrame by removing atoms inside the triangle
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
@@ -1541,39 +1537,6 @@ def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
     return np.dot(rotation_matrix, vec)
 
 
-def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Finds the tips of a triangle given the center and one tip.
-
-    Parameters
-    ----------
-    center : np.ndarray
-        The center of the triangle.
-    tip1 : np.ndarray
-        One tip of the triangle.
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray]
-        The other two tips of the triangle.
-    """
-    # Calculate the vector from the center to the first tip
-    vec1 = np.array(tip1) - np.array(center)
-
-    # Rotate this vector by 120 degrees to find the second tip
-    vec2 = rotate_vector(vec1, 120)
-
-    # Rotate the original vector by 240 degrees to find the third tip
-    vec3 = rotate_vector(vec1, 240)
-
-    # Calculate the coordinates of the second and third tips by adding the rotated vectors to the center
-    tip2 = center + vec2
-    tip3 = center + vec3
-
-    # Return the coordinates of the two additional tips
-    return tip2, tip3
-
-
 def minimum_image_distance_3d(
     position1: List[float], position2: List[float], system_size: Tuple[float, float, float]
 ) -> float:
@@ -1665,13 +1628,13 @@ def positions_are_adjacent(
     return distance < cutoff_distance
 
 
-def random_rotation_matrix_2d() -> np.NDArray:
+def random_rotation_matrix_2d() -> np.ndarray:
     """
     Generates a random 2D rotation matrix.
 
     Returns
     -------
-    np.NDArray
+    np.ndarray
         The random 2D rotation matrix.
     """
     # Generate a random angle between 0 and 2*pi radians
@@ -1709,22 +1672,53 @@ def random_rotate_group_list(group_list: List[List[Union[str, float]]]) -> List[
     return rotated_group_list
 
 
-def point_is_inside_triangle(
-    tip1: List[float], tip2: List[float], tip3: List[float], point: Tuple[float, float]
-) -> bool:
+def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Finds the tips of a triangle given the center and one tip.
+
+    Parameters
+    ----------
+    center : np.ndarray
+        The center of the triangle.
+    tip1 : np.ndarray
+        One tip of the triangle.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        The other two tips of the triangle.
+    """
+    # Calculate the vector from the center to the first tip
+    vec1 = tip1 - center
+
+    # Rotate this vector by 120 degrees to find the second tip
+    vec2 = rotate_vector(vec1, 120)
+
+    # Rotate the original vector by 240 degrees to find the third tip
+    vec3 = rotate_vector(vec1, 240)
+
+    # Calculate the coordinates of the second and third tips by adding the rotated vectors to the center
+    tip2 = center + vec2
+    tip3 = center + vec3
+
+    # Return the coordinates of the two additional tips
+    return tip2, tip3
+
+
+def point_is_inside_triangle(tip1: np.ndarray, tip2: np.ndarray, tip3: np.ndarray, point: np.ndarray) -> bool:
     """
     Checks if a point is inside a triangle.
 
     Parameters
     ----------
-    tip1 : List[float]
-        The first tip of the triangle as a list of two floats [x, y].
-    tip2 : List[float]
-        The second tip of the triangle as a list of two floats [x, y].
-    tip3 : List[float]
-        The third tip of the triangle as a list of two floats [x, y].
+    tip1 : np.ndarray
+        The first tip of the triangle as a numpy array.
+    tip2 : np.ndarray
+        The second tip of the triangle as a numpy array.
+    tip3 : np.ndarray
+        The third tip of the triangle as a numpy array.
     point : Tuple[float, float]
-        The point to check as a tuple of two floats (x, y).
+        The point to check as a numpy array.
 
     Returns
     -------
@@ -1748,17 +1742,17 @@ def point_is_inside_triangle(
     return 0 <= l1 <= 1 and 0 <= l2 <= 1 and 0 <= l3 <= 1 and abs(l1 + l2 + l3 - 1) < 1e-5
 
 
-def area(a: List[float], b: List[float], c: List[float]) -> float:
+def area(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
     """
     Calculate the area of the triangle formed by points a, b, and c.
 
     Parameters
     ----------
-    a : List[float]
+    a : np.ndarray
         The first point of the triangle.
-    b : List[float]
+    b : np.ndarray
         The second point of the triangle.
-    c : List[float]
+    c : np.ndarray
         The third point of the triangle.
 
     Returns
