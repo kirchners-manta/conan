@@ -38,7 +38,7 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner = 10
+        self.k_inner = 100
         """The spring constant for bonds and angles within the doping structure."""
         self.k_outer = 0.1
         """The spring constant for bonds and angles outside the doping structure."""
@@ -748,7 +748,9 @@ class Graphene:
                 The total angle energy.
             """
             energy = 0.0
-            counted_angles = set()  # Set to track counted angles
+
+            # Initialize a set to track angles within cycles
+            counted_angles = set()
 
             # Iterate over each cycle
             for idx, ordered_cycle in enumerate(ordered_cycles):
@@ -798,10 +800,10 @@ class Graphene:
             #             xk, yk = x[2 * list(self.graph.nodes).index(ni)], x[2 * list(self.graph.nodes).index(ni) + 1]
             #             xj, yj = x[2 * list(self.graph.nodes).index(nj)], x[2 * list(self.graph.nodes).index(nj) + 1]
             #             pos_i = Position(xi, yi)
-            #             pos_ni = Position(xk, yk)
-            #             pos_nj = Position(xj, yj)
-            #             _, v1 = minimum_image_distance(pos_i, pos_ni, box_size)
-            #             _, v2 = minimum_image_distance(pos_nj, pos_i, box_size)
+            #             pos_k = Position(xk, yk)
+            #             pos_j = Position(xj, yj)
+            #             _, v1 = minimum_image_distance(pos_i, pos_k, box_size)
+            #             _, v2 = minimum_image_distance(pos_j, pos_i, box_size)
             #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
             #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
             #             energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
@@ -1139,7 +1141,11 @@ def main():
     graphene.add_nitrogen_doping(total_percentage=15)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_0.1.xyz")
+    # write_xyz(graphene.graph,
+    #           f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_"
+    #           f"cycle.xyz")
+
+    write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
     # source = 0
     # target = 10
