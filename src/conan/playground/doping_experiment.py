@@ -779,34 +779,34 @@ class Graphene:
                     counted_angles.add((i, j, k))
                     counted_angles.add((k, j, i))
 
-            # Calculate angle energy for angles outside the cycles
-            for node in self.graph.nodes:
-                neighbors = list(self.graph.neighbors(node))
-                if len(neighbors) < 2:
-                    continue
-                for i in range(len(neighbors)):
-                    for j in range(i + 1, len(neighbors)):
-                        ni = neighbors[i]
-                        nj = neighbors[j]
-
-                        # Skip angles that have already been counted
-                        if (node, ni, nj) in counted_angles or (nj, ni, node) in counted_angles:
-                            continue
-
-                        xi, yi = (
-                            x[2 * list(self.graph.nodes).index(node)],
-                            x[2 * list(self.graph.nodes).index(node) + 1],
-                        )
-                        xk, yk = x[2 * list(self.graph.nodes).index(ni)], x[2 * list(self.graph.nodes).index(ni) + 1]
-                        xj, yj = x[2 * list(self.graph.nodes).index(nj)], x[2 * list(self.graph.nodes).index(nj) + 1]
-                        pos_i = Position(xi, yi)
-                        pos_k = Position(xk, yk)
-                        pos_j = Position(xj, yj)
-                        _, v1 = minimum_image_distance(pos_i, pos_k, box_size)
-                        _, v2 = minimum_image_distance(pos_j, pos_i, box_size)
-                        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                        theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                        energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+            # # Calculate angle energy for angles outside the cycles
+            # for node in self.graph.nodes:
+            #     neighbors = list(self.graph.neighbors(node))
+            #     if len(neighbors) < 2:
+            #         continue
+            #     for i in range(len(neighbors)):
+            #         for j in range(i + 1, len(neighbors)):
+            #             ni = neighbors[i]
+            #             nj = neighbors[j]
+            #
+            #             # Skip angles that have already been counted
+            #             if (node, ni, nj) in counted_angles or (nj, ni, node) in counted_angles:
+            #                 continue
+            #
+            #             xi, yi = (
+            #                 x[2 * list(self.graph.nodes).index(node)],
+            #                 x[2 * list(self.graph.nodes).index(node) + 1],
+            #             )
+            #             xk, yk = x[2 * list(self.graph.nodes).index(ni)], x[2 * list(self.graph.nodes).index(ni) + 1]
+            #             xj, yj = x[2 * list(self.graph.nodes).index(nj)], x[2 * list(self.graph.nodes).index(nj) + 1]
+            #             pos_i = Position(xi, yi)
+            #             pos_k = Position(xk, yk)
+            #             pos_j = Position(xj, yj)
+            #             _, v1 = minimum_image_distance(pos_i, pos_k, box_size)
+            #             _, v2 = minimum_image_distance(pos_j, pos_i, box_size)
+            #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+            #             energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
             return energy
 
@@ -1141,12 +1141,12 @@ def main():
     graphene.add_nitrogen_doping(total_percentage=15)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(
-        graphene.graph,
-        f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
-    )
+    # write_xyz(
+    #     graphene.graph,
+    #     f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
+    # )
 
-    # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
+    write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
     # source = 0
     # target = 10
