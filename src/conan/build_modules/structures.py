@@ -8,11 +8,11 @@ import random
 from abc import ABC
 from typing import Dict, List, Optional, Tuple, Union
 
-import build_utils as utils
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
 
+import conan.build_modules.build_utils as utils
 import conan.defdict as ddict
 
 
