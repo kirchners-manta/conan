@@ -36,6 +36,10 @@ class Graphene:
         """The bond distance between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
+        self.k_inner = 10
+        """The spring constant for bonds and angles within the doping structure."""
+        self.k_outer = 1
+        """The spring constant for bonds and angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
@@ -675,7 +679,7 @@ class Graphene:
                     # Calculate the current bond length and target bond length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = target_bond_lengths[ordered_cycle.index(node_i)]
-                    energy += 0.5 * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
@@ -702,7 +706,7 @@ class Graphene:
 
                             current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                             target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
-                            energy += 0.5 * ((current_length - target_length) ** 2)
+                            energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
 
                             self.graph.edges[i, j]["bond_length"] = current_length
 
@@ -720,7 +724,7 @@ class Graphene:
                     # Calculate the current bond length and set default target length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = 1.42
-                    energy += 0.5 * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_outer * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[i, j]["bond_length"] = current_length
@@ -764,7 +768,7 @@ class Graphene:
 
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                    energy += 0.5 * ((theta - np.radians(angle)) ** 2)
+                    energy += 0.5 * self.k_inner * ((theta - np.radians(angle)) ** 2)
 
             return energy
 
@@ -1099,7 +1103,7 @@ def main():
     graphene.add_nitrogen_doping(total_percentage=15)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(graphene.graph, "graphene_doping.xyz")
+    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_1.xyz")
 
     # source = 0
     # target = 10
