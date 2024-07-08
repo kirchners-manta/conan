@@ -34,6 +34,8 @@ class Graphene:
         """
         self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
+        self.c_c_bond_angle = 120
+        """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
         self.k_inner = 10
@@ -746,6 +748,7 @@ class Graphene:
                 The total angle energy.
             """
             energy = 0.0
+            counted_angles = set()  # Set to track counted angles
 
             # Iterate over each cycle
             for idx, ordered_cycle in enumerate(ordered_cycles):
@@ -769,6 +772,39 @@ class Graphene:
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
                     energy += 0.5 * self.k_inner * ((theta - np.radians(angle)) ** 2)
+
+                    # Add angles to counted_angles to avoid double-counting
+                    counted_angles.add((i, j, k))
+                    counted_angles.add((k, j, i))
+
+            # Calculate angle energy for angles outside the cycles
+            for node in self.graph.nodes:
+                neighbors = list(self.graph.neighbors(node))
+                if len(neighbors) < 2:
+                    continue
+                for i in range(len(neighbors)):
+                    for j in range(i + 1, len(neighbors)):
+                        ni = neighbors[i]
+                        nj = neighbors[j]
+
+                        # Skip angles that have already been counted
+                        if (node, ni, nj) in counted_angles or (nj, ni, node) in counted_angles:
+                            continue
+
+                        xi, yi = (
+                            x[2 * list(self.graph.nodes).index(node)],
+                            x[2 * list(self.graph.nodes).index(node) + 1],
+                        )
+                        xni, yni = x[2 * list(self.graph.nodes).index(ni)], x[2 * list(self.graph.nodes).index(ni) + 1]
+                        xnj, ynj = x[2 * list(self.graph.nodes).index(nj)], x[2 * list(self.graph.nodes).index(nj) + 1]
+                        pos_i = Position(xi, yi)
+                        pos_ni = Position(xni, yni)
+                        pos_nj = Position(xnj, ynj)
+                        _, v1 = minimum_image_distance(pos_i, pos_ni, box_size)
+                        _, v2 = minimum_image_distance(pos_nj, pos_i, box_size)
+                        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                        theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                        energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
             return energy
 
@@ -1103,7 +1139,7 @@ def main():
     graphene.add_nitrogen_doping(total_percentage=15)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_1.xyz")
+    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_1_including_angles_outside_cycle.xyz")
 
     # source = 0
     # target = 10
