@@ -40,7 +40,7 @@ class Graphene:
         """The size of the graphene sheet in the x and y directions."""
         self.k_inner = 10
         """The spring constant for bonds and angles within the doping structure."""
-        self.k_outer = 1
+        self.k_outer = 0.1
         """The spring constant for bonds and angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
@@ -1139,7 +1139,7 @@ def main():
     graphene.add_nitrogen_doping(total_percentage=15)
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_1_including_angles_outside_cycle.xyz")
+    write_xyz(graphene.graph, "graphene_doping_k_inner_10_k_outer_0.1_including_angles_outside_cycle.xyz")
 
     # source = 0
     # target = 10
