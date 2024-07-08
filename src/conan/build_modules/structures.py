@@ -1270,6 +1270,14 @@ class Graphene(Structure2d):
     def _build_sheet(self) -> None:
         """
         Builds the graphene sheet from multiple unit cells.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         """
         # Set the z-coordinates of all atoms to 0 (planar sheet)
         Z = [0.0] * 4  # All Z-coordinates are 0
