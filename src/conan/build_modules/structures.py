@@ -1147,15 +1147,22 @@ class Graphene(Structure2d):
 
     def make_pores(self, parameters, keywords):
         """
-        Creates circular pores in the graphene sheet.
+        Creates pores in the graphene sheet. Currently only circular pores available.
 
-        Args:
-            pore_size (float): The size of the pore.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain the 'pore_size' parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
 
-        Returns:
-            pd.Series: The position of the center of the pore.
+        Returns
+        -------
+        None
         """
-        return self._make_circular_pore(parameters, keywords)
+        self._make_circular_pore(parameters, keywords)
 
     # PRIVATE
     def _stack_sheets(self, parameters):
@@ -1201,11 +1208,18 @@ class Graphene(Structure2d):
         """
         Creates a circular pore in the graphene sheet at a specified site.
 
-        Args:
-            pore_size (float): The size of the pore.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain "pore_size" parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
 
-        Returns:
-            pd.Series: The position of the center of the pore.
+        Returns
+        -------
+        None
         """
 
         # Make a copy of the DataFrame to avoid mutating the original during processing
@@ -1253,9 +1267,6 @@ class Graphene(Structure2d):
         # Remove the atoms that are marked for removal
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
-        # Return the position of the selected center of the pore
-        return selected_position
-
     def _build_sheet(self) -> None:
         """
         Builds the graphene sheet from multiple unit cells.
@@ -1296,27 +1307,51 @@ class Graphene(Structure2d):
 
 class Boronnitride(Structure2d):
     """
-    Represents a boron nitride sheet structure.
+    Represents a boron nitride sheet structure. This differs from the Graphene class by
+    composition, stacking of sheets (AA' instead of ABA) and type of pores (triangular
+    instead of circular)
     """
 
     # INTERFACE
-    def make_pores(self, parameters, keywords) -> None:
+    def make_pores(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
         """
-        Creates triangular pores in the boron nitride sheet.
+        Creates pores in the boron nitride sheet.
 
-        Args:
-            pore_size (float): The size of the pore.
+        For now, only contains triangular pore creation. More options
+        will be added soooon™.
+
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain the 'pore_size' parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            May contain the all_sheets keyword to make a pore at the selected position
+            through the whole stack of sheets (if one exists).
+
+        Returns
+        -------
+        None
         """
-        self.__make_triangular_pore(parameters, keywords)
+        if "pore_size" not in parameters:
+            ddict.printLog("Missing pore_size parameter")
+            return
+        self._make_triangular_pore(parameters, keywords)
 
     # PRIVATE
-    def _stack_sheets(self, parameters):
+    def _stack_sheets(self, parameters: Dict[str, Union[str, int, float]]) -> None:
         """
         Stacks multiple instances of graphene sheets based on the provided parameters.
 
-        Args:
-            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
-            keywords (List[str]): The keywords for the stacking.
+        Parameters
+        ----------
+            parameters (Dict[str, Union[str, int, float]]): must contain interlayer_spacing
+            and number_of_layers parameters.
+            keywords (List[str]): Currently none available.
+
+        Returns
+        -------
+        None
         """
         if "number_of_layers" not in parameters:
             ddict.printLog("Missing number_of_layers parameter")
@@ -1347,13 +1382,22 @@ class Boronnitride(Structure2d):
         # shift all layers into the box
         self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
 
-    def __make_triangular_pore(self, parameters, keywords) -> None:
+    def _make_triangular_pore(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
         """
         Creates a triangular pore in the boron nitride sheet.
 
-        Args:
-            parameters (dict): Dictionary containing the pore size and optional starting position.
-            keywords (dict): Dictionary containing keywords for additional options.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain "pore_size" parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
+
+        Returns
+        -------
+        None
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
@@ -1374,7 +1418,8 @@ class Boronnitride(Structure2d):
             if utils.positions_are_adjacent(
                 current_position,
                 [selected_position["x"], selected_position["y"]],
-                self.bond_distance * 1.1,
+                self.bond_distance * 1.1,  # The 1.1 is arbitrary, just needs to be a little bit larger than 1.0,
+                # otherwise some atoms will not be included
                 self.sheet_size,
             ):
                 orientation_vector = np.array(current_position) - np.array(
@@ -1388,6 +1433,7 @@ class Boronnitride(Structure2d):
         # Next we can define the triangle tips
         tip1 = np.array([selected_position["x"], selected_position["y"]]) + orientation_vector
         tip2, tip3 = utils.find_triangle_tips([selected_position["x"], selected_position["y"]], tip1)
+
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
@@ -1398,15 +1444,24 @@ class Boronnitride(Structure2d):
                         atoms_to_remove.append(i)
                 else:
                     atoms_to_remove.append(i)
-        # Update the DataFrame by removing atoms inside the triangle
+
+        # Finally Update the DataFrame by removing atoms inside the triangle
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
-    def _build_sheet(self):
+    def _build_sheet(self) -> None:
         """
         Builds the boron nitride sheet from multiple unit cells.
 
         Boron nitride sheets are composed of alternating boron (B) and nitrogen (N) atoms arranged in a hexagonal
         lattice. This method constructs such a sheet by replicating the defined unit cell across specified dimensions.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         """
         # All Z-coordinates are set to 0 to represent the planar nature of the sheet
         Z = [0.0] * 4  # There are four atoms in each unit cell
