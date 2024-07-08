@@ -38,7 +38,7 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner = 100
+        self.k_inner = 1000
         """The spring constant for bonds and angles within the doping structure."""
         self.k_outer = 0.1
         """The spring constant for bonds and angles outside the doping structure."""
@@ -1143,7 +1143,7 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_" f"cycle.xyz",
+        f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
     )
 
     # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
