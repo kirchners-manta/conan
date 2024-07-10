@@ -842,11 +842,6 @@ class Graphene:
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
             self.graph.nodes[node]["position"] = adjusted_position
 
-        # Update bond lengths in the original graph
-        for i, j, data in self.graph.edges(data=True):
-            current_length = data["bond_length"]
-            self.graph.edges[i, j]["bond_length"] = current_length
-
     def _find_start_nodes(self, cycles: List[List[int]], species_list: List[NitrogenSpecies]) -> List[int]:
         """
         Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
