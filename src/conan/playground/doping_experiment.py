@@ -38,9 +38,9 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner = 10
+        self.k_inner = 1000
         """The spring constant for bonds and angles within the doping structure."""
-        self.k_outer = 1
+        self.k_outer = 0.1
         """The spring constant for bonds and angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
@@ -710,6 +710,7 @@ class Graphene:
                             target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
                             energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
 
+                            # Update bond length in the graph during optimization
                             self.graph.edges[i, j]["bond_length"] = current_length
 
                             # Add edge to cycle_edges set
@@ -835,18 +836,10 @@ class Graphene:
         # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
 
-        # Calculate the displacement vectors for nodes in the cycle
-        displacement_vectors = {}
+        # Update positions in the original graph based on the optimized positions
         for idx, node in enumerate(self.graph.nodes):
-            original_position = x0[2 * idx], x0[2 * idx + 1]
             optimized_position = optimized_positions[idx]
-            displacement_vectors[node] = np.array(optimized_position) - np.array(original_position)
-
-        # Update positions in the original graph
-        for idx, node in enumerate(self.graph.nodes):
-            current_position = self.graph.nodes[node]["position"]
-            displacement = displacement_vectors[node]
-            adjusted_position = Position(x=current_position.x + displacement[0], y=current_position.y + displacement[1])
+            adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
             self.graph.nodes[node]["position"] = adjusted_position
 
         # Update bond lengths in the original graph
