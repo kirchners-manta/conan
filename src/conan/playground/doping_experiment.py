@@ -1,4 +1,5 @@
 import random
+from dataclasses import dataclass, field
 from math import cos, pi, sin
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -18,6 +19,141 @@ from conan.playground.graph_utils import (
     print_warning,
     write_xyz,
 )
+
+
+@dataclass
+class CycleData:
+    cycles: Dict[str, List[Tuple[List[int], Optional[int]]]] = field(default_factory=dict)
+
+    def add_cycle(self, species: str, cycle: List[int], start_node: Optional[int] = None):
+        if species not in self.cycles:
+            self.cycles[species] = []
+        self.cycles[species].append((cycle, start_node))
+
+    def get_ordered_cycles(self, graph) -> Dict[str, List[List[int]]]:
+        ordered_cycles = {}
+        for species, cycle_list in self.cycles.items():
+            ordered_cycles[species] = self._order_cycle_nodes(graph, cycle_list)
+        return ordered_cycles
+
+    def _order_cycle_nodes(self, graph, cycle_list: List[Tuple[List[int], Optional[int]]]) -> List[List[int]]:
+        ordered_cycles = []
+        for cycle, start_node in cycle_list:
+            ordered_cycles.append(self._order_single_cycle(graph, cycle, start_node))
+        return ordered_cycles
+
+    def _order_single_cycle(self, graph, cycle: List[int], start_node: Optional[int]) -> List[int]:
+        if start_node is None:
+            return cycle
+        ordered_cycle = []
+        current_node = start_node
+        visited = set()
+        while len(ordered_cycle) < len(cycle):
+            ordered_cycle.append(current_node)
+            visited.add(current_node)
+            neighbors = [node for node in cycle if node not in visited and node in graph.neighbors(current_node)]
+            if neighbors:
+                current_node = neighbors[0]
+            else:
+                break
+        return ordered_cycle
+
+    def find_min_cycle_including_neighbors(self, graph: nx.Graph, neighbors: List[int]):
+        """
+        Find the shortest cycle in the graph that includes all the given neighbors.
+
+        This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
+        iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
+        is found.
+        The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
+        incrementally expanded.
+
+        Parameters
+        ----------
+        neighbors : List[int]
+            A list of nodes that should be included in the cycle.
+
+        Returns
+        -------
+        List[int]
+            The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
+        """
+        # Initialize the subgraph with the neighbors and their edges
+        subgraph = nx.Graph()
+        subgraph.add_nodes_from(neighbors)
+
+        # Add edges from each neighbor to the subgraph
+        for node in neighbors:
+            subgraph.add_edges_from(graph.edges(node))
+
+        # Keep track of visited edges to avoid unwanted cycles
+        visited_edges: Set[Tuple[int, int]] = set(subgraph.edges)
+
+        # Expand the subgraph until the cycle is found
+        while True:
+            # Find all cycles in the current subgraph
+            cycles: List[List[int]] = list(nx.cycle_basis(subgraph))
+            for cycle in cycles:
+                # Check if the current cycle includes all the neighbors
+                if all(neighbor in cycle for neighbor in neighbors):
+                    return cycle
+
+            # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+            new_edges: Set[Tuple[int, int]] = set()
+            for node in subgraph.nodes:
+                new_edges.update(graph.edges(node))
+
+            # Only add new edges that haven't been visited
+            new_edges.difference_update(visited_edges)
+            if not new_edges:
+                return []
+
+            # Add the new edges to the subgraph and update the visited edges
+            subgraph.add_edges_from(new_edges)
+            visited_edges.update(new_edges)
+
+    def _find_start_nodes(
+        self, graph: nx.Graph, cycles: List[List[int]], species_list: List[NitrogenSpecies]
+    ) -> (List)[int]:
+        """
+        Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
+        a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
+
+        Parameters
+        ----------
+        cycles : List[List[int]]
+            A list of lists, where each inner list contains the atom IDs forming a cycle.
+        species_list : List[NitrogenSpecies]
+            The nitrogen doping species that was inserted for each cycle.
+
+        Returns
+        -------
+        List[int]
+            A list of starting node IDs.
+        """
+        # Initialize a list to store the starting nodes for each cycle
+        start_nodes = []
+        for cycle, species in zip(cycles, species_list):
+            start_node = None
+            if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
+                # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
+                for node in cycle:
+                    # Skip the node if it is already a nitrogen atom
+                    if graph.nodes[node]["element"] == "N":
+                        continue
+                    # Get the neighbors of the current node
+                    neighbors = get_neighbors_via_edges(graph, node)
+                    # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
+                    # cycle
+                    if all(graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
+                        # If the current node meets all conditions, set it as the start node
+                        start_node = node
+                        break
+                # Raise an error if no suitable start node is found
+            if start_node is None:
+                raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
+            start_nodes.append(start_node)
+        return start_nodes
 
 
 class Graphene:
@@ -52,6 +188,9 @@ class Graphene:
         self.species_properties = self._initialize_species_properties()
         """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
         This includes bond lengths and angles characteristic to each species."""
+
+        self.cycle_data = CycleData()
+        """A dataclass to store information about cycles (doping structures) in the graphene sheet."""
 
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
@@ -842,92 +981,94 @@ class Graphene:
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
             self.graph.nodes[node]["position"] = adjusted_position
 
-    def _find_start_nodes(self, cycles: List[List[int]], species_list: List[NitrogenSpecies]) -> List[int]:
-        """
-        Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
-        a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
+    # def _find_start_nodes(self, cycles: List[List[int]], species_list: List[NitrogenSpecies]) -> List[int]:
+    #     """
+    #     Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
+    #     a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
+    #
+    #     Parameters
+    #     ----------
+    #     cycles : List[List[int]]
+    #         A list of lists, where each inner list contains the atom IDs forming a cycle.
+    #     species_list : List[NitrogenSpecies]
+    #         The nitrogen doping species that was inserted for each cycle.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         A list of starting node IDs.
+    #     """
+    #     # Initialize a list to store the starting nodes for each cycle
+    #     start_nodes = []
+    #     for cycle, species in zip(cycles, species_list):
+    #         start_node = None
+    #         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
+    #             # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
+    #             for node in cycle:
+    #                 # Skip the node if it is already a nitrogen atom
+    #                 if self.graph.nodes[node]["element"] == "N":
+    #                     continue
+    #                 # Get the neighbors of the current node
+    #                 neighbors = get_neighbors_via_edges(self.graph, node)
+    #                 # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within
+    #                 the
+    #                 # cycle
+    #                 if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in
+    #                 cycle):
+    #                     # If the current node meets all conditions, set it as the start node
+    #                     start_node = node
+    #                     break
+    #             # Raise an error if no suitable start node is found
+    #         if start_node is None:
+    #             raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
+    #         start_nodes.append(start_node)
+    #     return start_nodes
 
-        Parameters
-        ----------
-        cycles : List[List[int]]
-            A list of lists, where each inner list contains the atom IDs forming a cycle.
-        species_list : List[NitrogenSpecies]
-            The nitrogen doping species that was inserted for each cycle.
-
-        Returns
-        -------
-        List[int]
-            A list of starting node IDs.
-        """
-        # Initialize a list to store the starting nodes for each cycle
-        start_nodes = []
-        for cycle, species in zip(cycles, species_list):
-            start_node = None
-            if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
-                # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
-                for node in cycle:
-                    # Skip the node if it is already a nitrogen atom
-                    if self.graph.nodes[node]["element"] == "N":
-                        continue
-                    # Get the neighbors of the current node
-                    neighbors = get_neighbors_via_edges(self.graph, node)
-                    # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
-                    # cycle
-                    if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
-                        # If the current node meets all conditions, set it as the start node
-                        start_node = node
-                        break
-                # Raise an error if no suitable start node is found
-            if start_node is None:
-                raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
-            start_nodes.append(start_node)
-        return start_nodes
-
-    def _order_cycle_nodes(self, cycles: List[List[int]], start_nodes: List[int]) -> List[List[int]]:
-        """
-        Order the nodes in each cycle starting from the given start_node and following the cycle.
-
-        Parameters
-        ----------
-        cycles : List[List[int]]
-        A list of lists, where each inner list contains the atom IDs forming a cycle.
-        start_nodes : List[int]
-            A list of starting node IDs.
-
-        Returns
-        -------
-        List[List[int]]
-            A list of lists, where each inner list contains the ordered atom IDs forming a cycle.
-        """
-
-        ordered_cycles = []
-
-        for cycle, start_node in zip(cycles, start_nodes):
-            # Initialize the list to store the ordered cycle and a set to track visited nodes
-            ordered_cycle = []
-            current_node = start_node
-            visited = set()
-
-            # Continue ordering nodes until all nodes in the cycle are included
-            while len(ordered_cycle) < len(cycle):
-                # Add the current node to the ordered list and mark it as visited
-                ordered_cycle.append(current_node)
-                visited.add(current_node)
-
-                # Find the neighbors of the current node that are in the cycle and not yet visited
-                neighbors = [
-                    node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited
-                ]
-
-                # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
-                if neighbors:
-                    current_node = neighbors[0]
-                else:
-                    break
-
-            ordered_cycles.append(ordered_cycle)
-
-        return ordered_cycles
+    # def _order_cycle_nodes(self, cycles: List[List[int]], start_nodes: List[int]) -> List[List[int]]:
+    #     """
+    #     Order the nodes in each cycle starting from the given start_node and following the cycle.
+    #
+    #     Parameters
+    #     ----------
+    #     cycles : List[List[int]]
+    #     A list of lists, where each inner list contains the atom IDs forming a cycle.
+    #     start_nodes : List[int]
+    #         A list of starting node IDs.
+    #
+    #     Returns
+    #     -------
+    #     List[List[int]]
+    #         A list of lists, where each inner list contains the ordered atom IDs forming a cycle.
+    #     """
+    #
+    #     ordered_cycles = []
+    #
+    #     for cycle, start_node in zip(cycles, start_nodes):
+    #         # Initialize the list to store the ordered cycle and a set to track visited nodes
+    #         ordered_cycle = []
+    #         current_node = start_node
+    #         visited = set()
+    #
+    #         # Continue ordering nodes until all nodes in the cycle are included
+    #         while len(ordered_cycle) < len(cycle):
+    #             # Add the current node to the ordered list and mark it as visited
+    #             ordered_cycle.append(current_node)
+    #             visited.add(current_node)
+    #
+    #             # Find the neighbors of the current node that are in the cycle and not yet visited
+    #             neighbors = [
+    #                 node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited
+    #             ]
+    #
+    #             # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
+    #             if neighbors:
+    #                 current_node = neighbors[0]
+    #             else:
+    #                 break
+    #
+    #         ordered_cycles.append(ordered_cycle)
+    #
+    #     return ordered_cycles
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -1008,59 +1149,59 @@ class Graphene:
         # Return False if none of the conditions are met which should not happen
         return False
 
-    def _find_min_cycle_including_neighbors(self, neighbors: List[int]):
-        """
-        Find the shortest cycle in the graph that includes all the given neighbors.
-
-        This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
-        iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
-        is found.
-        The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
-        incrementally expanded.
-
-        Parameters
-        ----------
-        neighbors : List[int]
-            A list of nodes that should be included in the cycle.
-
-        Returns
-        -------
-        List[int]
-            The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
-        """
-        # Initialize the subgraph with the neighbors and their edges
-        subgraph = nx.Graph()
-        subgraph.add_nodes_from(neighbors)
-
-        # Add edges from each neighbor to the subgraph
-        for node in neighbors:
-            subgraph.add_edges_from(self.graph.edges(node))
-
-        # Keep track of visited edges to avoid unwanted cycles
-        visited_edges: Set[Tuple[int, int]] = set(subgraph.edges)
-
-        # Expand the subgraph until the cycle is found
-        while True:
-            # Find all cycles in the current subgraph
-            cycles: List[List[int]] = list(nx.cycle_basis(subgraph))
-            for cycle in cycles:
-                # Check if the current cycle includes all the neighbors
-                if all(neighbor in cycle for neighbor in neighbors):
-                    return cycle
-
-            # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
-            new_edges: Set[Tuple[int, int]] = set()
-            for node in subgraph.nodes:
-                new_edges.update(self.graph.edges(node))
-
-            # Only add new edges that haven't been visited
-            new_edges.difference_update(visited_edges)
-            if not new_edges:
-                return []
-
-            # Add the new edges to the subgraph and update the visited edges
-            subgraph.add_edges_from(new_edges)
-            visited_edges.update(new_edges)
+    # def _find_min_cycle_including_neighbors(self, neighbors: List[int]):
+    #     """
+    #     Find the shortest cycle in the graph that includes all the given neighbors.
+    #
+    #     This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
+    #     iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
+    #     is found.
+    #     The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
+    #     incrementally expanded.
+    #
+    #     Parameters
+    #     ----------
+    #     neighbors : List[int]
+    #         A list of nodes that should be included in the cycle.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list
+    #     """
+    #     # Initialize the subgraph with the neighbors and their edges
+    #     subgraph = nx.Graph()
+    #     subgraph.add_nodes_from(neighbors)
+    #
+    #     # Add edges from each neighbor to the subgraph
+    #     for node in neighbors:
+    #         subgraph.add_edges_from(self.graph.edges(node))
+    #
+    #     # Keep track of visited edges to avoid unwanted cycles
+    #     visited_edges: Set[Tuple[int, int]] = set(subgraph.edges)
+    #
+    #     # Expand the subgraph until the cycle is found
+    #     while True:
+    #         # Find all cycles in the current subgraph
+    #         cycles: List[List[int]] = list(nx.cycle_basis(subgraph))
+    #         for cycle in cycles:
+    #             # Check if the current cycle includes all the neighbors
+    #             if all(neighbor in cycle for neighbor in neighbors):
+    #                 return cycle
+    #
+    #         # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
+    #         new_edges: Set[Tuple[int, int]] = set()
+    #         for node in subgraph.nodes:
+    #             new_edges.update(self.graph.edges(node))
+    #
+    #         # Only add new edges that haven't been visited
+    #         new_edges.difference_update(visited_edges)
+    #         if not new_edges:
+    #             return []
+    #
+    #         # Add the new edges to the subgraph and update the visited edges
+    #         subgraph.add_edges_from(new_edges)
+    #         visited_edges.update(new_edges)
 
 
 def main():
