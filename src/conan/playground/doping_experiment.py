@@ -378,7 +378,7 @@ class Graphene:
         if any(species_with_all_nodes_to_exclude.values()):
             self._adjust_atom_positions(species_with_all_nodes_to_exclude, start_nodes_per_species)
         # ToDo: Problem with `start_nodes` also solved very stupidly, that some `start_nodes` are passed directly in
-        #  the `_add_nitrogen_atoms` method and others then only in the `_adust_atom_positions` method via the
+        #  the `_add_nitrogen_atoms` method and others then only in the `_adjust_atom_positions` method via the
         #  `_find_start_nodes` function -> find a more uniform solution!
 
         # Display the results in a DataFrame and add the total doping percentage
