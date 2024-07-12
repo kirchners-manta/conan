@@ -167,6 +167,12 @@ class CycleData:
         return start_node
 
 
+@dataclass  # ToDo: Comment
+class DopingStructuralComponents:
+    atoms: List[int]
+    neighbors: List[int]
+
+
 class Graphene:
     def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
@@ -195,6 +201,11 @@ class Graphene:
 
         self.possible_carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
         """A list of all possible carbon atoms in the graphene sheet for nitrogen doping."""
+        # ToDo: Kann evtl. über Property automatisch geupdatet werden, sodass die atom ids nicht zusätzlich zum
+        #  Entfernen aus dem Graphen auch noch aus der possible_carbon_atoms Liste entfernt werden müssen;
+        #  Es könnte auch über die gefundenen cycles festgestellt werden, ob ein Atom als neue atom_id in Frage kommt
+        #  Evtl. wird dann possible_carbon_atoms gar nicht mehr benötigt? Sondern alle im Graphen noch verfügbaren Atome
+        #  sind potentielle Kandidaten für neue atom_ids (außer die, die schon in einem cycle sind)
 
         self.species_properties = self._initialize_species_properties()
         """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
@@ -507,7 +518,7 @@ class Graphene:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
-                num_chosen_atoms = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                num_chosen_atoms = self._insert_doping_structures(num_nitrogen_atoms, species)
                 added_nitrogen_counts[species] += num_chosen_atoms
 
         # Calculate the actual percentages of added nitrogen species
@@ -518,8 +529,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.cycle_data.cycles.values()):
-            self._adjust_atom_positions()
+        # if any(self.cycle_data.cycles.values()):
+        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -532,9 +543,9 @@ class Graphene:
         doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
         print(f"\n{doping_percentages_df}")
 
-    def _add_nitrogen_atoms(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies) -> int:
+    def _insert_doping_structures(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies) -> int:
         """
-        Add nitrogen atoms of a specific species to the graphene sheet.
+        Insert doping structures of a specific nitrogen species into the graphene sheet.
 
         Parameters
         ----------
@@ -550,7 +561,11 @@ class Graphene:
 
         Notes
         -----
-        This method randomly replaces carbon atoms with nitrogen atoms of the specified species.
+        First, a carbon atom is randomly selected. Then, it is checked whether this atom position is suitable for
+        building the doping structure around it (i.e., the new structure to be inserted should not overlap with any
+        existing structure). If suitable, the doping structure is built by, for example, removing atoms, replacing
+        other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
+        the structure is inserted, all atoms of this structure are excluded from further doping positions.
         """
 
         # Initialize an empty list to store the chosen atoms for nitrogen doping
@@ -560,148 +575,102 @@ class Graphene:
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
 
         while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms_shuffled:
-            # Randomly select a carbon atom from the shuffled list without replacement
+            # Randomly select a carbon atom from the shuffled list without replacement and compute its neighbors
             atom_id = possible_carbon_atoms_shuffled.pop(0)
+            neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
             # Check if the selected atom is a valid doping position
-            if atom_id not in self.possible_carbon_atoms or not self._valid_doping_position(nitrogen_species, atom_id):
+            is_valid, doping_structural_components = self._valid_doping_position(nitrogen_species, atom_id, neighbors)
+            if not is_valid:
                 continue
 
             # Atom is valid, proceed with nitrogen doping
-            neighbors = get_neighbors_via_edges(self.graph, atom_id)
-
-            # Implement species-specific changes for nitrogen doping
             if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-                # Add the selected atom to the list of chosen atoms
-                chosen_atoms.append(atom_id)
-                # Update the selected atom's element to nitrogen and set its nitrogen species
-                self.graph.nodes[atom_id]["element"] = "N"
-                self.graph.nodes[atom_id]["nitrogen_species"] = nitrogen_species
-                # Remove the selected atom and its neighbors from the list of potential carbon atoms
-                self.possible_carbon_atoms.remove(atom_id)
-                for neighbor in neighbors:
-                    if neighbor in self.possible_carbon_atoms:
-                        self.possible_carbon_atoms.remove(neighbor)
+                self._handle_graphitic_doping(doping_structural_components, chosen_atoms)
+            else:
+                self._handle_pyridinic_doping(doping_structural_components, chosen_atoms, nitrogen_species)
 
-            elif nitrogen_species in {
-                NitrogenSpecies.PYRIDINIC_1,
-                NitrogenSpecies.PYRIDINIC_2,
-                NitrogenSpecies.PYRIDINIC_3,
-            }:
-
-                # Remove the selected atom from the graph
-                self.graph.remove_node(atom_id)
-
-                start_node = None
-
-                if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
-                    # Replace 1 carbon atom to form pyridinic nitrogen structure
-                    selected_neighbor = random.choice(neighbors)
-                    self.graph.nodes[selected_neighbor]["element"] = "N"
-                    self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
-                    # Add the selected atom to the list of chosen atoms
-                    chosen_atoms.append(selected_neighbor)
-
-                    # Remove the selected neighbor from the list of neighbors
-                    neighbors.remove(selected_neighbor)
-
-                    # Calculate the bond length between neighbors[0] and neighbors[1]
-                    pos1 = self.graph.nodes[neighbors[0]]["position"]
-                    pos2 = self.graph.nodes[neighbors[1]]["position"]
-                    box_size = (
-                        self.actual_sheet_width + self.c_c_bond_distance,
-                        self.actual_sheet_height + self.cc_y_distance,
-                    )
-                    bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
-
-                    # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
-                    self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
-
-                elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
-                    # Replace 2 carbon atoms to form pyridinic nitrogen structure
-                    selected_neighbors = random.sample(neighbors, 2)
-                    for neighbor in selected_neighbors:
-                        self.graph.nodes[neighbor]["element"] = "N"
-                        self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                        # Add the neighbor to the list of chosen atoms
-                        chosen_atoms.append(neighbor)
-
-                    # Identify the start node for this cycle using set difference
-                    remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
-                    # start_nodes.append(remaining_neighbor)
-                    start_node = remaining_neighbor
-
-                elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
-                    # Replace 3 carbon atoms to form pyridinic nitrogen structure
-                    for neighbor in neighbors:
-                        self.graph.nodes[neighbor]["element"] = "N"
-                        self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                        # Add the neighbor to the list of chosen atoms
-                        chosen_atoms.append(neighbor)
-
-                # Find the specific cycle that includes all neighbors that should be removed from the possible carbon
-                # atoms
-                nodes_to_exclude = self.cycle_data.detect_and_register_cycle(
-                    self.graph, nitrogen_species, neighbors, start_node
-                )
-                # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
-                self.possible_carbon_atoms.remove(atom_id)
-                for node in nodes_to_exclude:
-                    if node in self.possible_carbon_atoms:
-                        self.possible_carbon_atoms.remove(node)
-
-            elif (
-                nitrogen_species == NitrogenSpecies.PYRIDINIC_4
-            ):  # ToDo: Evtl. lässt sich dieser Fall jetzt dann doch mit den drei obigen besser kombinieren und es kann
-                # möglicherweise redundanter Code gespart werden
-
-                # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
-                selected_neighbor = None
-                temp_neighbors = neighbors.copy()
-                while temp_neighbors and not selected_neighbor:
-                    # Find a direct neighbor that also needs to be removed randomly
-                    temp_neighbor = random.choice(temp_neighbors)
-                    temp_neighbors.remove(temp_neighbor)
-
-                    # Check if the selected neighbor is a valid doping position
-                    if temp_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
-                        nitrogen_species, atom_id, temp_neighbor
-                    ):
-                        continue
-
-                    # Valid neighbor found
-                    selected_neighbor = temp_neighbor
-
-                if not selected_neighbor:
-                    # No valid neighbor found
-                    continue
-
-                # Remove the selected atom from the graph
-                self.graph.remove_node(atom_id)
-                # Remove the selected neighbor from the list of neighbors
-                neighbors.remove(selected_neighbor)
-                # Get direct neighbors of the selected neighbor excluding the selected atom
-                neighbors += get_neighbors_via_edges(self.graph, selected_neighbor)
-                # Remove the selected neighbor from the graph
-                self.graph.remove_node(selected_neighbor)
-
-                # Replace 4 carbon atoms to form pyridinic nitrogen structure
-                for neighbor in neighbors:
-                    self.graph.nodes[neighbor]["element"] = "N"
-                    self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                    # Add the neighbor to the list of chosen atoms
-                    chosen_atoms.append(neighbor)
-
-                # Find the specific cycle that includes all neighbors that should be removed from the possible
-                # carbon atoms
-                nodes_to_exclude = self.cycle_data.detect_and_register_cycle(self.graph, nitrogen_species, neighbors)
-                # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
-                # potential carbon atoms
-                self.possible_carbon_atoms.remove(atom_id)
-                self.possible_carbon_atoms.remove(selected_neighbor)
-                for node in nodes_to_exclude:
-                    if node in self.possible_carbon_atoms:
-                        self.possible_carbon_atoms.remove(node)
+            # # Implement species-specific changes for nitrogen doping
+            # elif nitrogen_species in {
+            #     NitrogenSpecies.PYRIDINIC_1,
+            #     NitrogenSpecies.PYRIDINIC_2,
+            #     NitrogenSpecies.PYRIDINIC_3,
+            # }:
+            #
+            #     # Remove the selected atom from the graph
+            #     self.graph.remove_node(atom_id)
+            #
+            #     # Handle species-specific logic and get the start node for the cycle depending on the species
+            #     start_node = self._handle_species_specific_logic(nitrogen_species, neighbors, chosen_atoms)
+            #
+            #     # Find the specific cycle that includes all neighbors that should be removed from the possible carbon
+            #     # atoms
+            #     nodes_to_exclude = self.cycle_data.detect_and_register_cycle(
+            #         self.graph, nitrogen_species, neighbors, start_node
+            #     )
+            #
+            #     # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
+            #     self.possible_carbon_atoms.remove(atom_id)
+            #     for node in nodes_to_exclude:
+            #         if node in self.possible_carbon_atoms:
+            #             self.possible_carbon_atoms.remove(node)
+            #
+            #     # Add edge after finding and registering the cycle if necessary
+            #     self._add_edge_if_needed(nitrogen_species, neighbors)
+            #
+            # elif (
+            #     nitrogen_species == NitrogenSpecies.PYRIDINIC_4
+            # ):  # ToDo: Evtl. lässt sich dieser Fall jetzt dann doch mit den drei obigen besser kombinieren und es
+            #  kann
+            #     # möglicherweise redundanter Code gespart werden
+            #
+            #     # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
+            #     selected_neighbor = None
+            #     temp_neighbors = neighbors.copy()
+            #     while temp_neighbors and not selected_neighbor:
+            #         # Find a direct neighbor that also needs to be removed randomly
+            #         temp_neighbor = random.choice(temp_neighbors)
+            #         temp_neighbors.remove(temp_neighbor)
+            #
+            #         # Check if the selected neighbor is a valid doping position
+            #         if temp_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
+            #             nitrogen_species, atom_id, temp_neighbor
+            #         ):
+            #             continue
+            #
+            #         # Valid neighbor found
+            #         selected_neighbor = temp_neighbor
+            #
+            #     if not selected_neighbor:
+            #         # No valid neighbor found
+            #         continue
+            #
+            #     # Remove the selected atom from the graph
+            #     self.graph.remove_node(atom_id)
+            #     # Remove the selected neighbor from the list of neighbors
+            #     neighbors.remove(selected_neighbor)
+            #     # Get direct neighbors of the selected neighbor excluding the selected atom
+            #     neighbors += get_neighbors_via_edges(self.graph, selected_neighbor)
+            #     # Remove the selected neighbor from the graph
+            #     self.graph.remove_node(selected_neighbor)
+            #
+            #     # Replace 4 carbon atoms to form pyridinic nitrogen structure
+            #     for neighbor in neighbors:
+            #         self.graph.nodes[neighbor]["element"] = "N"
+            #         self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+            #         # Add the neighbor to the list of chosen atoms
+            #         chosen_atoms.append(neighbor)
+            #
+            #     # Find the specific cycle that includes all neighbors that should be removed from the possible
+            #     # carbon atoms
+            #     nodes_to_exclude = self.cycle_data.detect_and_register_cycle(self.graph, nitrogen_species, neighbors)
+            #     # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
+            #     # potential carbon atoms
+            #     self.possible_carbon_atoms.remove(atom_id)
+            #     self.possible_carbon_atoms.remove(selected_neighbor)
+            #     for node in nodes_to_exclude:
+            #         if node in self.possible_carbon_atoms:
+            #             self.possible_carbon_atoms.remove(node)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -712,6 +681,158 @@ class Graphene:
             print_warning(warning_message)
 
         return len(chosen_atoms)
+
+    def _handle_graphitic_doping(self, atom_id: int, neighbors: List[int], chosen_atoms: List[int]):
+
+        # Add the selected atom to the list of chosen atoms
+        chosen_atoms.append(atom_id)
+        # Update the selected atom's element to nitrogen and set its nitrogen species
+        self.graph.nodes[atom_id]["element"] = "N"
+        self.graph.nodes[atom_id]["nitrogen_species"] = NitrogenSpecies.GRAPHITIC
+
+        # Remove the selected atom and its neighbors from the list of potential carbon atoms
+        self.possible_carbon_atoms.remove(atom_id)
+        for neighbor in neighbors:
+            if neighbor in self.possible_carbon_atoms:
+                self.possible_carbon_atoms.remove(neighbor)
+
+    def _handle_pyridinic_doping(
+        self, atom_id: int, neighbors: List[int], chosen_atoms: List[int], nitrogen_species: NitrogenSpecies
+    ):
+
+        # Remove the selected atom from the graph
+        self.graph.remove_node(atom_id)
+        start_node = self._handle_species_specific_logic(nitrogen_species, atom_id, neighbors, chosen_atoms)
+        nodes_to_exclude = self.cycle_data.detect_and_register_cycle(
+            self.graph, nitrogen_species, neighbors, start_node
+        )
+        self.possible_carbon_atoms.remove(atom_id)
+        for node in nodes_to_exclude:
+            if node in self.possible_carbon_atoms:
+                self.possible_carbon_atoms.remove(node)
+        self._add_edge_if_needed(nitrogen_species, neighbors)
+
+    def _handle_species_specific_logic(
+        self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbors: List[int], chosen_atoms: List[int]
+    ) -> Optional[int]:
+        """
+        Handle species-specific logic for adding nitrogen atoms.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping to add.
+        neighbors : List[int]
+            List of neighbor atom IDs.
+        chosen_atoms : List[int]
+            List of chosen atom IDs.
+
+        Returns
+        -------
+        Optional[int]
+            The start node ID if applicable, otherwise None.
+        """
+        start_node = None
+
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+            # Replace 1 carbon atom to form pyridinic nitrogen structure
+            selected_neighbor = random.choice(neighbors)
+            self.graph.nodes[selected_neighbor]["element"] = "N"
+            self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
+            # Add the selected atom to the list of chosen atoms
+            chosen_atoms.append(selected_neighbor)
+
+            # # Remove the selected neighbor from the list of neighbors
+            # neighbors.remove(selected_neighbor)
+
+            # Identify the start node for this cycle as the selected neighbor
+            start_node = selected_neighbor
+
+        elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+            # Replace 2 carbon atoms to form pyridinic nitrogen structure
+            selected_neighbors = random.sample(neighbors, 2)
+            for neighbor in selected_neighbors:
+                self.graph.nodes[neighbor]["element"] = "N"
+                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                # Add the neighbor to the list of chosen atoms
+                chosen_atoms.append(neighbor)
+
+            # Identify the start node for this cycle using set difference
+            remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
+            start_node = remaining_neighbor
+
+        elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
+            # Replace 3 carbon atoms to form pyridinic nitrogen structure
+            for neighbor in neighbors:
+                self.graph.nodes[neighbor]["element"] = "N"
+                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                # Add the neighbor to the list of chosen atoms
+                chosen_atoms.append(neighbor)
+
+        elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+            # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
+            selected_neighbor = None
+            temp_neighbors = neighbors.copy()
+            while temp_neighbors and not selected_neighbor:
+                # Find a direct neighbor that also needs to be removed randomly
+                temp_neighbor = random.choice(temp_neighbors)
+                temp_neighbors.remove(temp_neighbor)
+
+                # Check if the selected neighbor is a valid doping position
+                if temp_neighbor not in self.possible_carbon_atoms or not self._valid_doping_position(
+                    nitrogen_species, temp_neighbor
+                ):
+                    continue
+
+                # Valid neighbor found
+                selected_neighbor = temp_neighbor
+
+            # if not selected_neighbor:
+            #     # No valid neighbor found
+            #     continue
+
+            # # Remove the selected atom from the graph
+            # self.graph.remove_node(atom_id)
+
+            # Remove the selected neighbor from the list of neighbors
+            neighbors.remove(selected_neighbor)
+            # Get direct neighbors of the selected neighbor excluding the selected atom
+            neighbors += get_neighbors_via_edges(self.graph, selected_neighbor)
+            # Remove the selected neighbor from the graph
+            self.graph.remove_node(selected_neighbor)
+
+            # Replace 4 carbon atoms to form pyridinic nitrogen structure
+            for neighbor in neighbors:
+                self.graph.nodes[neighbor]["element"] = "N"
+                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                # Add the neighbor to the list of chosen atoms
+                chosen_atoms.append(neighbor)
+
+        return start_node
+
+    def _add_edge_if_needed(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]):
+        """
+        Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping.
+        neighbors : List[int]
+            List of neighbor atom IDs.
+        """
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+            # Calculate the bond length between neighbors[0] and neighbors[1]
+            pos1 = self.graph.nodes[neighbors[0]]["position"]
+            pos2 = self.graph.nodes[neighbors[1]]["position"]
+            box_size = (
+                self.actual_sheet_width + self.c_c_bond_distance,
+                self.actual_sheet_height + self.cc_y_distance,
+            )
+            bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
+
+            # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
+            self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
 
     def _adjust_atom_positions(self):
         """
@@ -953,9 +1074,10 @@ class Graphene:
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
             self.graph.nodes[node]["position"] = adjusted_position
 
+    # ToDo: evtl. Methode etwas umbenennen, da sie ja auch die DopingStructuralComponents setzt
     def _valid_doping_position(
-        self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
-    ) -> bool:
+        self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbors: List[int]
+    ) -> Tuple[bool, Optional[DopingStructuralComponents]]:
         """
         Determine if a given position is valid for nitrogen doping based on the nitrogen species and atom position.
 
@@ -969,13 +1091,12 @@ class Graphene:
             The type of nitrogen doping to validate.
         atom_id : int
             The ID of the atom to check for doping suitability.
-        neighbor_id : int, optional
-            The ID of a neighboring atom, used specifically for PYRIDINIC_4 type doping.
 
         Returns
         -------
-        bool
-            True if the position is valid for the specified nitrogen species doping, False otherwise.
+        Tuple[bool, Optional[DopingStructuralComponents]]
+            A tuple containing a boolean indicating if the position is valid and a DopingStructuralComponents instance
+            with atoms and neighbors.
         """
 
         def all_neighbors_possible_carbon_atoms(neighbors: List[int]):
@@ -1000,15 +1121,18 @@ class Graphene:
 
         # Check the proximity constraints based on the nitrogen species
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-            # Get the direct neighbors of the selected atom
-            neighbors = get_neighbors_via_edges(self.graph, atom_id)
-            # Retrieve elements and nitrogen species of neighbors
-            neighbor_elements = [
-                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
-                for neighbor in neighbors
-            ]
-            # Ensure all neighbors are not nitrogen atoms
-            return all(elem != "N" for elem, _ in neighbor_elements)
+            # # Get the direct neighbors of the selected atom
+            # neighbors = get_neighbors_via_edges(self.graph, atom_id)
+            # # Retrieve elements and nitrogen species of neighbors
+            # neighbor_elements = [
+            #     (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
+            #     for neighbor in neighbors
+            # ]
+            # # Ensure all neighbors are not nitrogen atoms
+            # return all(elem != "N" for elem, _ in neighbor_elements)
+            if all_neighbors_possible_carbon_atoms(neighbors):
+                return True, DopingStructuralComponents(atoms=[atom_id], neighbors=neighbors)
+            return False, None
 
         elif nitrogen_species in {
             NitrogenSpecies.PYRIDINIC_1,
@@ -1018,19 +1142,49 @@ class Graphene:
             # Get neighbors up to depth 2 for the selected atom
             neighbors_len_2 = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
             # Ensure all neighbors are possible atoms for doping
-            return all_neighbors_possible_carbon_atoms(neighbors_len_2)
+            # return all_neighbors_possible_carbon_atoms(neighbors_len_2), None
+            if all_neighbors_possible_carbon_atoms(neighbors_len_2):
+                return True, DopingStructuralComponents(atoms=[atom_id], neighbors=neighbors_len_2)
+            return False, None
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-            # Get neighbors up to depth 2 for the selected atom and a neighboring atom (if provided)
-            neighbors_len_2_atom = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
-            neighbors_len_2_neighbor = (
-                get_neighbors_via_edges(self.graph, neighbor_id, depth=2, inclusive=True) if neighbor_id else []
-            )
-            # Ensure all neighbors (from both atoms) are possible atoms for doping
-            return all_neighbors_possible_carbon_atoms(neighbors_len_2_atom + neighbors_len_2_neighbor)
+            # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
+            selected_neighbor = None
+            temp_neighbors = neighbors.copy()
+
+            while temp_neighbors and not selected_neighbor:
+                # Find a direct neighbor that also needs to be removed randomly
+                temp_neighbor = random.choice(temp_neighbors)
+                temp_neighbors.remove(temp_neighbor)
+
+                # Get neighbors up to depth 2 for the selected atom and a neighboring atom (if provided)
+                neighbors_len_2_atom = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
+                neighbors_len_2_neighbor = get_neighbors_via_edges(self.graph, temp_neighbor, depth=2, inclusive=True)
+                # Ensure all neighbors (from both atoms) are possible atoms for doping
+                if all_neighbors_possible_carbon_atoms(list(set(neighbors_len_2_atom + neighbors_len_2_neighbor))):
+                    # Valid neighbor found
+                    selected_neighbor = temp_neighbor
+
+            # # Get neighbors up to depth 2 for the selected atom and a neighboring atom (if provided)
+            # neighbors_len_2_atom = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
+            # neighbors_len_2_neighbor = (
+            #     get_neighbors_via_edges(self.graph, neighbor_id, depth=2, inclusive=True) if neighbor_id else []
+            # )
+            # # Ensure all neighbors (from both atoms) are possible atoms for doping
+            # return all_neighbors_possible_carbon_atoms(neighbors_len_2_atom + neighbors_len_2_neighbor)
+
+            if selected_neighbor is None:
+                return False, None
+
+            combined_neighbors = list(set(neighbors + get_neighbors_via_edges(self.graph, selected_neighbor)))
+            combined_neighbors = [n for n in combined_neighbors if n not in {atom_id, selected_neighbor}]
+            # ToDo: Lösung gefällt mir nicht. Evtl. ist es doch besser bei "get_neighbors_via_edges" über eine Flag auch
+            #  zu ermöglichen, dass der start node selbst auch mit in die Liste aufgenommen wird, wenn inclusive=True
+            #  ist
+            return True, DopingStructuralComponents(atoms=[atom_id, selected_neighbor], neighbors=combined_neighbors)
 
         # Return False if none of the conditions are met which should not happen
-        return False
+        return False, None
 
 
 def main():
@@ -1059,11 +1213,11 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
@@ -1084,10 +1238,10 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
@@ -1108,7 +1262,7 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_3_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_refactored.xyz",
+        f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_refactored.xyz",
     )
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
