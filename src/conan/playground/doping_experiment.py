@@ -46,14 +46,24 @@ class CycleData:
         self, graph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
     ) -> List[int]:
         if start_node is None:
+            # If no start node is provided, find a suitable starting node based on the nitrogen species
             start_node = self._find_start_node(graph, cycle, species)
+
+        # Initialize the list to store the ordered cycle and a set to track visited nodes
         ordered_cycle = []
         current_node = start_node
         visited = set()
+
+        # Continue ordering nodes until all nodes in the cycle are included
         while len(ordered_cycle) < len(cycle):
+            # Add the current node to the ordered list and mark it as visited
             ordered_cycle.append(current_node)
             visited.add(current_node)
+
+            # Find the neighbors of the current node that are in the cycle and not yet visited
             neighbors = [node for node in graph.neighbors(current_node) if node in cycle and node not in visited]
+
+            # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
             if neighbors:
                 current_node = neighbors[0]
             else:
@@ -68,7 +78,8 @@ class CycleData:
         self.add_cycle(species, ordered_cycle)
         return ordered_cycle
 
-    def _find_min_cycle_including_neighbors(self, graph: nx.Graph, neighbors: List[int]) -> List[int]:
+    @staticmethod
+    def _find_min_cycle_including_neighbors(graph: nx.Graph, neighbors: List[int]) -> List[int]:
         """
         Find the shortest cycle in the graph that includes all the given neighbors.
 
