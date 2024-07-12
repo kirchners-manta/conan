@@ -30,18 +30,6 @@ class CycleData:
             self.cycles[species] = []
         self.cycles[species].append(cycle)
 
-    # def get_ordered_cycles(self, graph) -> Dict[str, List[List[int]]]:
-    #     ordered_cycles = {}
-    #     for species, cycle_list in self.cycles.items():
-    #         ordered_cycles[species] = self._order_cycle_nodes(graph, cycle_list)
-    #     return ordered_cycles
-
-    # def _order_cycle_nodes(self, graph, cycle_list: List[Tuple[List[int], Optional[int]]]) -> List[List[int]]:
-    #     ordered_cycles = []
-    #     for cycle, start_node in cycle_list:
-    #         ordered_cycles.append(self._order_single_cycle(graph, cycle, start_node))
-    #     return ordered_cycles
-
     def _order_single_cycle(
         self, graph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
     ) -> List[int]:
@@ -509,10 +497,6 @@ class Graphene:
         # Dictionary to keep track of actually added nitrogen atoms
         added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
 
-        # # Dictionary to keep track of species with all nodes to exclude (i.e., nodes that are part of a cycle)
-        # species_with_all_nodes_to_exclude = {species: [] for species in NitrogenSpecies}
-        # start_nodes_per_species = {species: [] for species in NitrogenSpecies}
-
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
@@ -526,10 +510,6 @@ class Graphene:
                 num_chosen_atoms = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
                 added_nitrogen_counts[species] += num_chosen_atoms
 
-                # species_with_all_nodes_to_exclude[species].extend(cycles_to_exclude)
-                # if start_nodes:
-                #     start_nodes_per_species[species].extend(start_nodes)
-
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
         actual_percentages = {
@@ -538,13 +518,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(species_with_all_nodes_to_exclude.values()):
-        #     self._adjust_atom_positions(species_with_all_nodes_to_exclude, start_nodes_per_species)
         if any(self.cycle_data.cycles.values()):
             self._adjust_atom_positions()
-        # ToDo: Problem with `start_nodes` also solved very stupidly, that some `start_nodes` are passed directly in
-        #  the `_add_nitrogen_atoms` method and others then only in the `_adjust_atom_positions` method via the
-        #  `_find_start_nodes` function -> find a more uniform solution!
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -584,12 +559,6 @@ class Graphene:
         # Shuffle the list of possible carbon atoms
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
 
-        # # Initialize a list to store the positions of all cycles to exclude from the possible carbon atoms
-        # all_cycles_to_exclude = []
-
-        # # Initialize a list to store the start nodes for each cycle optionally depending on the species
-        # start_nodes = []
-
         while len(chosen_atoms) < num_nitrogen and possible_carbon_atoms_shuffled:
             # Randomly select a carbon atom from the shuffled list without replacement
             atom_id = possible_carbon_atoms_shuffled.pop(0)
@@ -625,18 +594,6 @@ class Graphene:
 
                 start_node = None
 
-                # # Find the specific cycle that includes all neighbors that should be removed from the possible carbon
-                # # atoms
-                # # nodes_to_exclude = self.cycle_data._find_min_cycle_including_neighbors(self.graph, neighbors)
-                # # all_cycles_to_exclude.append(nodes_to_exclude)
-                # nodes_to_exclude = self.cycle_data.detect_and_register_cycle(self.graph, nitrogen_species,
-                #                                                              neighbors, atom_id)
-                # # Remove the selected atom and the atoms in the cycle from the list of potential carbon atoms
-                # self.possible_carbon_atoms.remove(atom_id)
-                # for node in nodes_to_exclude:
-                #     if node in self.possible_carbon_atoms:
-                #         self.possible_carbon_atoms.remove(node)
-
                 if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
                     # Replace 1 carbon atom to form pyridinic nitrogen structure
                     selected_neighbor = random.choice(neighbors)
@@ -659,10 +616,6 @@ class Graphene:
 
                     # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
                     self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
-
-                    # # Identify the start node for this cycle
-                    # start_nodes.append(selected_neighbor)
-                    start_node = selected_neighbor
 
                 elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
                     # Replace 2 carbon atoms to form pyridinic nitrogen structure
@@ -688,8 +641,6 @@ class Graphene:
 
                 # Find the specific cycle that includes all neighbors that should be removed from the possible carbon
                 # atoms
-                # nodes_to_exclude = self.cycle_data._find_min_cycle_including_neighbors(self.graph, neighbors)
-                # all_cycles_to_exclude.append(nodes_to_exclude)
                 nodes_to_exclude = self.cycle_data.detect_and_register_cycle(
                     self.graph, nitrogen_species, neighbors, start_node
                 )
@@ -743,8 +694,6 @@ class Graphene:
 
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
-                # nodes_to_exclude = self.cycle_data._find_min_cycle_including_neighbors(self.graph, neighbors)
-                # all_cycles_to_exclude.append(nodes_to_exclude)
                 nodes_to_exclude = self.cycle_data.detect_and_register_cycle(self.graph, nitrogen_species, neighbors)
                 # Remove the selected atom and its neighbor as well as the atoms in the cycle from the list of
                 # potential carbon atoms
@@ -753,13 +702,6 @@ class Graphene:
                 for node in nodes_to_exclude:
                     if node in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(node)
-
-                # # Replace 4 carbon atoms to form pyridinic nitrogen structure
-                # for neighbor in neighbors:
-                #     self.graph.nodes[neighbor]["element"] = "N"
-                #     self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                #     # Add the neighbor to the list of chosen atoms
-                #     chosen_atoms.append(neighbor)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
@@ -781,22 +723,11 @@ class Graphene:
         configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
         # ToDo: Refactoring is urgently needed here. Totally stupid solution with Dict and then separate lists.
-        # all_cycles = []
-        # species_for_cycles = []
-        # all_start_nodes = []
-
         all_cycles = []
         species_for_cycles = []
 
-        # for species, cycles in cycles_per_species.items():
-        #     if cycles:
-        #         all_cycles.extend(cycles)
-        #         species_for_cycles.extend([species] * len(cycles))
-        #         if start_nodes_per_species and species in start_nodes_per_species:
-        #             all_start_nodes.extend(start_nodes_per_species[species])
-
         for species, cycle_list in self.cycle_data.cycles.items():
-            for cycle, _ in cycle_list:
+            for cycle in cycle_list:
                 all_cycles.append(cycle)
                 species_for_cycles.append(species)
 
@@ -805,15 +736,6 @@ class Graphene:
 
         # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
-
-        # # Find start nodes for each cycle if not provided
-        # if not all_start_nodes:
-        #     start_nodes = self._find_start_nodes(all_cycles, species_for_cycles)
-        # else:
-        #     start_nodes = all_start_nodes
-        #
-        # # Order the cycle nodes for each cycle starting from the identified start_node
-        # ordered_cycles = self._order_cycle_nodes(all_cycles, start_nodes)
 
         # Flatten initial positions for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
@@ -967,34 +889,36 @@ class Graphene:
                     counted_angles.add((i, j, k))
                     counted_angles.add((k, j, i))
 
-            # Calculate angle energy for angles outside the cycles
-            for node in self.graph.nodes:
-                neighbors = list(self.graph.neighbors(node))
-                if len(neighbors) < 2:
-                    continue
-                for i in range(len(neighbors)):
-                    for j in range(i + 1, len(neighbors)):
-                        ni = neighbors[i]
-                        nj = neighbors[j]
-
-                        # Skip angles that have already been counted
-                        if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
-                            continue
-
-                        x_node, y_node = (
-                            x[2 * list(self.graph.nodes).index(node)],
-                            x[2 * list(self.graph.nodes).index(node) + 1],
-                        )
-                        x_i, y_i = x[2 * list(self.graph.nodes).index(ni)], x[2 * list(self.graph.nodes).index(ni) + 1]
-                        x_j, y_j = x[2 * list(self.graph.nodes).index(nj)], x[2 * list(self.graph.nodes).index(nj) + 1]
-                        pos_node = Position(x_node, y_node)
-                        pos_i = Position(x_i, y_i)
-                        pos_j = Position(x_j, y_j)
-                        _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
-                        _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
-                        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                        theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                        energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+            # # Calculate angle energy for angles outside the cycles
+            # for node in self.graph.nodes:
+            #     neighbors = list(self.graph.neighbors(node))
+            #     if len(neighbors) < 2:
+            #         continue
+            #     for i in range(len(neighbors)):
+            #         for j in range(i + 1, len(neighbors)):
+            #             ni = neighbors[i]
+            #             nj = neighbors[j]
+            #
+            #             # Skip angles that have already been counted
+            #             if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
+            #                 continue
+            #
+            #             x_node, y_node = (
+            #                 x[2 * list(self.graph.nodes).index(node)],
+            #                 x[2 * list(self.graph.nodes).index(node) + 1],
+            #             )
+            #             x_i, y_i = (x[2 * list(self.graph.nodes).index(ni)],
+            #                         x[2 * list(self.graph.nodes).index(ni) + 1])
+            #             x_j, y_j = (x[2 * list(self.graph.nodes).index(nj)],
+            #                         x[2 * list(self.graph.nodes).index(nj) + 1])
+            #             pos_node = Position(x_node, y_node)
+            #             pos_i = Position(x_i, y_i)
+            #             pos_j = Position(x_j, y_j)
+            #             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
+            #             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
+            #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+            #             energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
             return energy
 
@@ -1028,95 +952,6 @@ class Graphene:
             optimized_position = optimized_positions[idx]
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
             self.graph.nodes[node]["position"] = adjusted_position
-
-    # def _find_start_nodes(self, cycles: List[List[int]], species_list: List[NitrogenSpecies]) -> List[int]:
-    #     """
-    #     Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
-    #     a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
-    #
-    #     Parameters
-    #     ----------
-    #     cycles : List[List[int]]
-    #         A list of lists, where each inner list contains the atom IDs forming a cycle.
-    #     species_list : List[NitrogenSpecies]
-    #         The nitrogen doping species that was inserted for each cycle.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of starting node IDs.
-    #     """
-    #     # Initialize a list to store the starting nodes for each cycle
-    #     start_nodes = []
-    #     for cycle, species in zip(cycles, species_list):
-    #         start_node = None
-    #         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
-    #             # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
-    #             for node in cycle:
-    #                 # Skip the node if it is already a nitrogen atom
-    #                 if self.graph.nodes[node]["element"] == "N":
-    #                     continue
-    #                 # Get the neighbors of the current node
-    #                 neighbors = get_neighbors_via_edges(self.graph, node)
-    #                 # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within
-    #                 the
-    #                 # cycle
-    #                 if all(self.graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in
-    #                 cycle):
-    #                     # If the current node meets all conditions, set it as the start node
-    #                     start_node = node
-    #                     break
-    #             # Raise an error if no suitable start node is found
-    #         if start_node is None:
-    #             raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
-    #         start_nodes.append(start_node)
-    #     return start_nodes
-
-    # def _order_cycle_nodes(self, cycles: List[List[int]], start_nodes: List[int]) -> List[List[int]]:
-    #     """
-    #     Order the nodes in each cycle starting from the given start_node and following the cycle.
-    #
-    #     Parameters
-    #     ----------
-    #     cycles : List[List[int]]
-    #     A list of lists, where each inner list contains the atom IDs forming a cycle.
-    #     start_nodes : List[int]
-    #         A list of starting node IDs.
-    #
-    #     Returns
-    #     -------
-    #     List[List[int]]
-    #         A list of lists, where each inner list contains the ordered atom IDs forming a cycle.
-    #     """
-    #
-    #     ordered_cycles = []
-    #
-    #     for cycle, start_node in zip(cycles, start_nodes):
-    #         # Initialize the list to store the ordered cycle and a set to track visited nodes
-    #         ordered_cycle = []
-    #         current_node = start_node
-    #         visited = set()
-    #
-    #         # Continue ordering nodes until all nodes in the cycle are included
-    #         while len(ordered_cycle) < len(cycle):
-    #             # Add the current node to the ordered list and mark it as visited
-    #             ordered_cycle.append(current_node)
-    #             visited.add(current_node)
-    #
-    #             # Find the neighbors of the current node that are in the cycle and not yet visited
-    #             neighbors = [
-    #                 node for node in self.graph.neighbors(current_node) if node in cycle and node not in visited
-    #             ]
-    #
-    #             # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
-    #             if neighbors:
-    #                 current_node = neighbors[0]
-    #             else:
-    #                 break
-    #
-    #         ordered_cycles.append(ordered_cycle)
-    #
-    #     return ordered_cycles
 
     def _valid_doping_position(
         self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbor_id: Optional[int] = None
@@ -1197,60 +1032,6 @@ class Graphene:
         # Return False if none of the conditions are met which should not happen
         return False
 
-    # def _find_min_cycle_including_neighbors(self, neighbors: List[int]):
-    #     """
-    #     Find the shortest cycle in the graph that includes all the given neighbors.
-    #
-    #     This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
-    #     iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
-    #     is found.
-    #     The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
-    #     incrementally expanded.
-    #
-    #     Parameters
-    #     ----------
-    #     neighbors : List[int]
-    #         A list of nodes that should be included in the cycle.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list
-    #     """
-    #     # Initialize the subgraph with the neighbors and their edges
-    #     subgraph = nx.Graph()
-    #     subgraph.add_nodes_from(neighbors)
-    #
-    #     # Add edges from each neighbor to the subgraph
-    #     for node in neighbors:
-    #         subgraph.add_edges_from(self.graph.edges(node))
-    #
-    #     # Keep track of visited edges to avoid unwanted cycles
-    #     visited_edges: Set[Tuple[int, int]] = set(subgraph.edges)
-    #
-    #     # Expand the subgraph until the cycle is found
-    #     while True:
-    #         # Find all cycles in the current subgraph
-    #         cycles: List[List[int]] = list(nx.cycle_basis(subgraph))
-    #         for cycle in cycles:
-    #             # Check if the current cycle includes all the neighbors
-    #             if all(neighbor in cycle for neighbor in neighbors):
-    #                 return cycle
-    #
-    #         # If no cycle is found, expand the subgraph by adding neighbors of the current subgraph
-    #         new_edges: Set[Tuple[int, int]] = set()
-    #         for node in subgraph.nodes:
-    #             new_edges.update(self.graph.edges(node))
-    #
-    #         # Only add new edges that haven't been visited
-    #         new_edges.difference_update(visited_edges)
-    #         if not new_edges:
-    #             return []
-    #
-    #         # Add the new edges to the subgraph and update the visited edges
-    #         subgraph.add_edges_from(new_edges)
-    #         visited_edges.update(new_edges)
-
 
 def main():
     # Set seed for reproducibility
@@ -1281,8 +1062,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(
     #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
@@ -1303,8 +1084,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1327,7 +1108,7 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
+        f"pyridinic_3_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_refactored.xyz",
     )
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
