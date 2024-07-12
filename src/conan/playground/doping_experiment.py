@@ -43,7 +43,7 @@ class CycleData:
     #     return ordered_cycles
 
     def _order_single_cycle(
-        self, graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
+        self, graph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
     ) -> List[int]:
         if start_node is None:
             start_node = self._find_start_node(graph, cycle, species)
@@ -53,7 +53,7 @@ class CycleData:
         while len(ordered_cycle) < len(cycle):
             ordered_cycle.append(current_node)
             visited.add(current_node)
-            neighbors = [node for node in cycle if node not in visited and node in graph.neighbors(current_node)]
+            neighbors = [node for node in graph.neighbors(current_node) if node in cycle and node not in visited]
             if neighbors:
                 current_node = neighbors[0]
             else:
@@ -122,59 +122,50 @@ class CycleData:
             subgraph.add_edges_from(new_edges)
             visited_edges.update(new_edges)
 
-    def _find_start_node(self, graph: nx.Graph, cycle: List[int], species: NitrogenSpecies) -> int:
+    @staticmethod
+    def _find_start_node(graph: nx.Graph, cycle: List[int], species: NitrogenSpecies) -> int:
+        """
+        Find a suitable starting node for a given cycle based on the nitrogen species. The starting node is used to
+        ensure a consistent iteration order through the cycle, matching the bond lengths and angles correctly.
+
+        Parameters
+        ----------
+        graph : nx.Graph
+            The graph containing the cycle.
+        cycle : List[int]
+            A list containing the atom IDs forming the cycle.
+        species : NitrogenSpecies
+            The nitrogen doping species that was inserted for the cycle.
+
+        Returns
+        -------
+        int
+            The starting node ID.
+
+        Raises
+        ------
+        ValueError
+            If no suitable starting node is found in the cycle.
+        """
+        start_node = None
         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
+            # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
             for node in cycle:
+                # Skip the node if it is already a nitrogen atom
                 if graph.nodes[node]["element"] == "N":
                     continue
+                # Get the neighbors of the current node
                 neighbors = get_neighbors_via_edges(graph, node)
+                # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
+                # cycle
                 if all(graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
-                    return node
-        raise ValueError(f"No suitable starting node found in the cycle {cycle} for species {species}.")
-
-    # def _find_start_nodes(
-    #     self, graph: nx.Graph, cycles: List[List[int]], species_list: List[NitrogenSpecies]
-    # ) -> (List)[int]:
-    #     """
-    #     Find suitable starting nodes for each cycle based on the nitrogen species. The starting node is used to ensure
-    #     a consistent iteration order through each cycle, matching the bond lengths and angles correctly.
-    #
-    #     Parameters
-    #     ----------
-    #     cycles : List[List[int]]
-    #         A list of lists, where each inner list contains the atom IDs forming a cycle.
-    #     species_list : List[NitrogenSpecies]
-    #         The nitrogen doping species that was inserted for each cycle.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of starting node IDs.
-    #     """
-    #     # Initialize a list to store the starting nodes for each cycle
-    #     start_nodes = []
-    #     for cycle, species in zip(cycles, species_list):
-    #         start_node = None
-    #         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
-    #             # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
-    #             for node in cycle:
-    #                 # Skip the node if it is already a nitrogen atom
-    #                 if graph.nodes[node]["element"] == "N":
-    #                     continue
-    #                 # Get the neighbors of the current node
-    #                 neighbors = get_neighbors_via_edges(graph, node)
-    #                 # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within
-    #                 the
-    #                 # cycle
-    #                 if all(graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
-    #                     # If the current node meets all conditions, set it as the start node
-    #                     start_node = node
-    #                     break
-    #             # Raise an error if no suitable start node is found
-    #         if start_node is None:
-    #             raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
-    #         start_nodes.append(start_node)
-    #     return start_nodes
+                    # If the current node meets all conditions, set it as the start node
+                    start_node = node
+                    break
+            # Raise an error if no suitable start node is found
+        if start_node is None:
+            raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
+        return start_node
 
 
 class Graphene:
@@ -521,7 +512,7 @@ class Graphene:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
-                num_chosen_atoms, start_nodes = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
+                num_chosen_atoms = self._add_nitrogen_atoms(num_nitrogen_atoms, species)
                 added_nitrogen_counts[species] += num_chosen_atoms
 
                 # species_with_all_nodes_to_exclude[species].extend(cycles_to_exclude)
@@ -732,6 +723,13 @@ class Graphene:
                 # Remove the selected neighbor from the graph
                 self.graph.remove_node(selected_neighbor)
 
+                # Replace 4 carbon atoms to form pyridinic nitrogen structure
+                for neighbor in neighbors:
+                    self.graph.nodes[neighbor]["element"] = "N"
+                    self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                    # Add the neighbor to the list of chosen atoms
+                    chosen_atoms.append(neighbor)
+
                 # Find the specific cycle that includes all neighbors that should be removed from the possible
                 # carbon atoms
                 # nodes_to_exclude = self.cycle_data._find_min_cycle_including_neighbors(self.graph, neighbors)
@@ -745,12 +743,12 @@ class Graphene:
                     if node in self.possible_carbon_atoms:
                         self.possible_carbon_atoms.remove(node)
 
-                # Replace 4 carbon atoms to form pyridinic nitrogen structure
-                for neighbor in neighbors:
-                    self.graph.nodes[neighbor]["element"] = "N"
-                    self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                    # Add the neighbor to the list of chosen atoms
-                    chosen_atoms.append(neighbor)
+                # # Replace 4 carbon atoms to form pyridinic nitrogen structure
+                # for neighbor in neighbors:
+                #     self.graph.nodes[neighbor]["element"] = "N"
+                #     self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                #     # Add the neighbor to the list of chosen atoms
+                #     chosen_atoms.append(neighbor)
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(chosen_atoms) < num_nitrogen:
