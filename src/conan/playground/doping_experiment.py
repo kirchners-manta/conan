@@ -638,7 +638,7 @@ class Graphene:
         for node in nodes_to_exclude:
             if node in self.possible_carbon_atoms:
                 self.possible_carbon_atoms.remove(node)
-        self._add_edge_if_needed(nitrogen_species, doping_structural_components.neighbors)
+        self._add_edge_if_needed(nitrogen_species, doping_structural_components.neighbors, start_node)
 
     def _handle_species_specific_logic(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]) -> Optional[int]:
         """
@@ -665,9 +665,6 @@ class Graphene:
             self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
             # Add the selected atom to the list of chosen atoms
             self.chosen_atoms[nitrogen_species].append(selected_neighbor)
-
-            # # Remove the selected neighbor from the list of neighbors
-            # neighbors.remove(selected_neighbor)
 
             # Identify the start node for this cycle as the selected neighbor
             start_node = selected_neighbor
@@ -704,7 +701,7 @@ class Graphene:
 
         return start_node
 
-    def _add_edge_if_needed(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]):
+    def _add_edge_if_needed(self, nitrogen_species: NitrogenSpecies, neighbors: List[int], start_node: int):
         """
         Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
 
@@ -714,8 +711,12 @@ class Graphene:
             The type of nitrogen doping.
         neighbors : List[int]
             List of neighbor atom IDs.
+        start_node: int
         """
         if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
+            # Remove the start_node from the list of neighbors
+            neighbors.remove(start_node)
+
             # Calculate the bond length between neighbors[0] and neighbors[1]
             pos1 = self.graph.nodes[neighbors[0]]["position"]
             pos2 = self.graph.nodes[neighbors[1]]["position"]
@@ -1104,8 +1105,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1132,8 +1133,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
