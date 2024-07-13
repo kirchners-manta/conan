@@ -1035,7 +1035,7 @@ class Graphene:
             # Ensure all neighbors are possible atoms for doping
             # return all_neighbors_possible_carbon_atoms(neighbors_len_2), None
             if all_neighbors_possible_carbon_atoms(neighbors_len_2):
-                return True, DopingStructuralComponents(atoms=[atom_id], neighbors=neighbors_len_2)
+                return True, DopingStructuralComponents(atoms=[atom_id], neighbors=neighbors)
             return False, None
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
@@ -1104,8 +1104,8 @@ def main():
     # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 2})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1126,8 +1126,8 @@ def main():
     # )
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
