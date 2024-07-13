@@ -22,10 +22,37 @@ from conan.playground.graph_utils import (
 
 
 @dataclass
-class CycleData:
-    cycles: Dict[NitrogenSpecies, List[List[int]]] = field(default_factory=dict)
+class DopingStructure:
+    species: NitrogenSpecies
+    cycle: List[int]
+    structure_building_atoms: List[int]
+    structure_building_neighbors: List[int]
+
+
+@dataclass
+class DopingStructures:
+    """
+    A dataclass to store and manage cycles (doping structures) in a graphene sheet.
+
+    Attributes
+    ----------
+    cycles : Dict[NitrogenSpecies, List[DopingStructure]
+        A dictionary mapping each nitrogen species to a list of cycles. Each cycle is represented as a list of atom IDs.
+    """
+
+    cycles: Dict[NitrogenSpecies, List[DopingStructure]] = field(default_factory=dict)
 
     def add_cycle(self, species: NitrogenSpecies, cycle: List[int]):
+        """
+        Add a cycle to the list of cycles for a given nitrogen species.
+
+        Parameters
+        ----------
+        species : NitrogenSpecies
+            The nitrogen species to which the cycle belongs.
+        cycle : List[int]
+            A list of atom IDs forming the cycle.
+        """
         if species not in self.cycles:
             self.cycles[species] = []
         self.cycles[species].append(cycle)
@@ -213,7 +240,7 @@ class Graphene:
         """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
         This includes bond lengths and angles characteristic to each species."""
 
-        self.cycle_data = CycleData()
+        self.cycle_data = DopingStructures()
         """A dataclass to store information about cycles (doping structures) in the graphene sheet."""
 
         # Initialize positions and KDTree for efficient neighbor search
