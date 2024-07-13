@@ -1013,22 +1013,15 @@ class Graphene:
             """
             return all(neighbor in self.possible_carbon_atoms for neighbor in neighbors)
 
-        # # Check if the selected atom is a possible carbon atom
-        # if atom_id not in self.possible_carbon_atoms:
-        #     return False, None
-
         # Check the proximity constraints based on the nitrogen species
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-            # # Get the direct neighbors of the selected atom
-            # neighbors = get_neighbors_via_edges(self.graph, atom_id)
-            # # Retrieve elements and nitrogen species of neighbors
-            # neighbor_elements = [
-            #     (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
-            #     for neighbor in neighbors
-            # ]
-            # # Ensure all neighbors are not nitrogen atoms
-            # return all(elem != "N" for elem, _ in neighbor_elements)
-            if all_neighbors_possible_carbon_atoms(neighbors):
+            # Retrieve elements and nitrogen species of neighbors
+            neighbor_elements = [
+                (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
+                for neighbor in neighbors
+            ]
+            # Ensure all neighbors are not nitrogen atoms
+            if all(elem != "N" for elem, _ in neighbor_elements):
                 return True, DopingStructuralComponents(atoms=[atom_id], neighbors=neighbors)
             return False, None
 
@@ -1133,11 +1126,11 @@ def main():
     # )
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 1})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
