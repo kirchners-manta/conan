@@ -224,6 +224,8 @@ class Graphene:
         """The spring constant for bonds outside the doping structure."""
         self.k_inner_angle = 1000
         """The spring constant for angles within the doping structure."""
+        self.k_outer_angle = 0.1
+        """The spring constant for angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
@@ -718,15 +720,6 @@ class Graphene:
                 self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                 # Add the neighbor to the list of chosen atoms
                 self.chosen_atoms[nitrogen_species].append(neighbor)
-
-        # elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-        #
-        #     # Replace 4 carbon atoms to form pyridinic nitrogen structure
-        #     for neighbor in neighbors:
-        #         self.graph.nodes[neighbor]["element"] = "N"
-        #         self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-        #         # Add the neighbor to the list of chosen atoms
-        #         chosen_atoms.append(neighbor)
 
         return start_node
 
