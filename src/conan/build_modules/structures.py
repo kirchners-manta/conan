@@ -1162,7 +1162,7 @@ class Graphene(Structure2d):
         -------
         None
         """
-        self._make_circular_pore(parameters, keywords)
+        return self._make_circular_pore(parameters, keywords)
 
     # PRIVATE
     def _stack_sheets(self, parameters):
@@ -1266,6 +1266,9 @@ class Graphene(Structure2d):
                     atoms_to_remove.append(i)
         # Remove the atoms that are marked for removal
         self._structure_df.drop(atoms_to_remove, inplace=True)
+
+        # Return pore position
+        return selected_position
 
     def _build_sheet(self) -> None:
         """
