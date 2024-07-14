@@ -274,8 +274,9 @@ class Graphene:
         #  Es könnte auch über die gefundenen cycles festgestellt werden, ob ein Atom als neue atom_id in Frage kommt
         #  Evtl. wird dann possible_carbon_atoms gar nicht mehr benötigt? Sondern alle im Graphen noch verfügbaren Atome
         #  sind potentielle Kandidaten für neue atom_ids (außer die, die schon in einem cycle sind)
-        self.chosen_atoms = {species: [] for species in NitrogenSpecies}
-        """A dictionary to keep track of chosen atoms for nitrogen doping for each species."""
+
+        # self.chosen_atoms = {species: [] for species in NitrogenSpecies}
+        # """A dictionary to keep track of chosen atoms for nitrogen doping for each species."""
 
         self.species_properties = self._initialize_species_properties()
         """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
@@ -592,8 +593,8 @@ class Graphene:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
                 self._insert_doping_structures(num_nitrogen_atoms, species)
-                added_nitrogen_counts[species] += len(self.chosen_atoms[species])  # ToDo: Sollte über DopingStructure
-                # Attribut "nitrogen_atoms" gehen
+                added_nitrogen_counts[species] += len(self.doping_structures.chosen_atoms[species])
+                # ToDo: Sollte evtl. über Collection besser/geschickter und effizienter gehen?
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
@@ -640,7 +641,9 @@ class Graphene:
         # Shuffle the list of possible carbon atoms
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
 
-        while len(self.chosen_atoms[nitrogen_species]) < num_nitrogen and possible_carbon_atoms_shuffled:
+        while (
+            len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and possible_carbon_atoms_shuffled
+        ):
             # Randomly select a carbon atom from the shuffled list without replacement and compute its neighbors
             atom_id = possible_carbon_atoms_shuffled.pop(0)
 
@@ -663,10 +666,10 @@ class Graphene:
                 self._handle_pyridinic_doping(doping_structure, nitrogen_species)
 
         # Warn if not all requested nitrogen atoms could be placed
-        if len(self.chosen_atoms[nitrogen_species]) < num_nitrogen:
+        if len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen:
             warning_message = (
-                f"\nWarning: Only {len(self.chosen_atoms[nitrogen_species])} nitrogen atoms of species "
-                f"{nitrogen_species.value} could be placed due to proximity constraints."
+                f"\nWarning: Only {len(self.doping_structures.chosen_atoms[nitrogen_species])} nitrogen atoms of "
+                f"species {nitrogen_species.value} could be placed due to proximity constraints."
             )
             print_warning(warning_message)
 
@@ -675,7 +678,7 @@ class Graphene:
         neighbors = doping_structure.structure_building_neighbors
 
         # Add the selected atom to the list of chosen atoms
-        self.chosen_atoms[nitrogen_species].append(atom_id)  # ToDo: Sollte über DopingStructure Attribut gehen
+        self.doping_structures.chosen_atoms[nitrogen_species].append(atom_id)  # ToDo: Evtl. besser über Collection?
         # Update the selected atom's element to nitrogen and set its nitrogen species
         self.graph.nodes[atom_id]["element"] = "N"
         self.graph.nodes[atom_id]["nitrogen_species"] = NitrogenSpecies.GRAPHITIC
@@ -736,7 +739,7 @@ class Graphene:
             self.graph.nodes[selected_neighbor]["element"] = "N"
             self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
             # Add the selected atom to the list of chosen atoms
-            self.chosen_atoms[nitrogen_species].append(selected_neighbor)
+            self.doping_structures.chosen_atoms[nitrogen_species].append(selected_neighbor)
 
             # Identify the start node for this cycle as the selected neighbor
             start_node = selected_neighbor
@@ -748,7 +751,7 @@ class Graphene:
                 self.graph.nodes[neighbor]["element"] = "N"
                 self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                 # Add the neighbor to the list of chosen atoms
-                self.chosen_atoms[nitrogen_species].append(neighbor)
+                self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
 
             # Identify the start node for this cycle using set difference
             remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
@@ -760,7 +763,7 @@ class Graphene:
                 self.graph.nodes[neighbor]["element"] = "N"
                 self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
                 # Add the neighbor to the list of chosen atoms
-                self.chosen_atoms[nitrogen_species].append(neighbor)
+                self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
 
         return start_node
 
