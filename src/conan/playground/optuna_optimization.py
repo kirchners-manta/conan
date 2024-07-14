@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 import optuna
+import pandas as pd
 from doping_experiment import Graphene, NitrogenSpecies
 from graph_utils import Position, minimum_image_distance
 from scipy.optimize import minimize
@@ -330,6 +331,28 @@ def objective_total_energy_pyridinic_4(trial):
     return total_energy
 
 
+def objective_total_energy_all_structures(trial):
+    # Sample k_inner and k_outer
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+
+    # Create Graphene instance and set k_inner_bond and k_outer_bond
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+
+    # Add nitrogen doping to the graphene sheet
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    # Calculate the total energy of the graphene sheet
+    total_energy = calculate_minimal_total_energy(graphene)
+
+    # Return the total energy as the objective value
+    return total_energy
+
+
 def objective_combined_pyridinic_4(trial):
     # Sample k_inner and k_outer
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
@@ -357,10 +380,39 @@ def objective_combined_pyridinic_4(trial):
     return objective_value
 
 
+def objective_combined_all_structures(trial):
+    # Sample k_inner and k_outer
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+
+    # Create Graphene instance and set k_inner_bond and k_outer_bond
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+
+    # Add nitrogen doping to the graphene sheet
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    # Calculate the total energy of the graphene sheet
+    total_energy = calculate_minimal_total_energy(graphene)
+
+    # Calculate bond and angle accuracy within cycles (additional objectives can be added)
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(graphene)
+
+    # Combine objectives
+    objective_value = total_energy + bond_accuracy + angle_accuracy
+
+    return objective_value
+
+
 def save_study_results(study, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
+    df = study.trials_dataframe()
+    df = df.applymap(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x)
     with open(filename, "w") as f:
-        json.dump(study.trials_dataframe().to_dict(), f, indent=4)
+        json.dump(df.to_dict(), f, indent=4)
 
 
 # Conducting and saving multiple studies
@@ -377,7 +429,13 @@ if __name__ == "__main__":
     os.makedirs("optuna_results", exist_ok=True)
 
     # Conduct study for total energy with Pyridinic_4
-    conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
+    # conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
+
+    # Conduct study for total energy with all structures
+    # conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
 
     # Conduct study for combined objective with Pyridinic_4
     conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
+
+    # Conduct study for combined objective with all structures
+    conduct_study(objective_combined_all_structures, "combined_all_structures")

@@ -218,11 +218,11 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 1000
+        self.k_inner_bond = 1.0608748565376787
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.1
+        self.k_outer_bond = 0.014947439147374564
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 1000
+        self.k_inner_angle = 1.0406803546498784
         """The spring constant for angles within the doping structure."""
         self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure."""
@@ -562,8 +562,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.cycle_data.cycles.values()):
-            self._adjust_atom_positions()
+        # if any(self.cycle_data.cycles.values()):
+        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1176,7 +1176,8 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_4_doping_k_inner_{graphene.k_inner_bond}_k_outer_{graphene.k_outer_bond}_refactored.xyz",
+        f"pyridinic_4_doping_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
+        f"k_inner_angle_{graphene.k_inner_angle}_refactored.xyz",
     )
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
