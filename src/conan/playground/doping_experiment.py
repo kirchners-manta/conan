@@ -218,10 +218,12 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner = 1000
-        """The spring constant for bonds and angles within the doping structure."""
-        self.k_outer = 0.1
-        """The spring constant for bonds and angles outside the doping structure."""
+        self.k_inner_bond = 1000
+        """The spring constant for bonds within the doping structure."""
+        self.k_outer_bond = 0.1
+        """The spring constant for bonds outside the doping structure."""
+        self.k_inner_angle = 1000
+        """The spring constant for angles within the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
@@ -558,8 +560,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.cycle_data.cycles.values()):
-        #     self._adjust_atom_positions()
+        if any(self.cycle_data.cycles.values()):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -833,7 +835,7 @@ class Graphene:
                     # Calculate the current bond length and target bond length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = target_bond_lengths[ordered_cycle.index(node_i)]
-                    energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
@@ -860,7 +862,7 @@ class Graphene:
 
                             current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                             target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
-                            energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
+                            energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
 
                             # Update bond length in the graph during optimization
                             self.graph.edges[i, j]["bond_length"] = current_length
@@ -879,7 +881,7 @@ class Graphene:
                     # Calculate the current bond length and set default target length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = 1.42
-                    energy += 0.5 * self.k_outer * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[i, j]["bond_length"] = current_length
@@ -926,7 +928,7 @@ class Graphene:
 
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                    energy += 0.5 * self.k_inner * ((theta - np.radians(angle)) ** 2)
+                    energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
 
                     # Add angles to counted_angles to avoid double-counting
                     counted_angles.add((i, j, k))
@@ -1157,11 +1159,11 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1181,7 +1183,7 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_refactored.xyz",
+        f"pyridinic_4_doping_k_inner_{graphene.k_inner_bond}_k_outer_{graphene.k_outer_bond}_refactored.xyz",
     )
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
