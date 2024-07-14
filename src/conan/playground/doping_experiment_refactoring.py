@@ -579,8 +579,8 @@ class Graphene:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
-        # Dictionary to keep track of actually added nitrogen atoms
-        added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
+        # # Dictionary to keep track of actually added nitrogen atoms
+        # added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
 
         # Define the order of nitrogen doping insertion based on the species
         for species in [
@@ -593,14 +593,20 @@ class Graphene:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
                 self._insert_doping_structures(num_nitrogen_atoms, species)
-                added_nitrogen_counts[species] += len(self.doping_structures.chosen_atoms[species])
-                # ToDo: Sollte evtl. über Collection besser/geschickter und effizienter gehen?
+                # added_nitrogen_counts[species] += len(self.doping_structures.chosen_atoms[species])
+                # # ToDo: Sollte evtl. über Collection besser/geschickter und effizienter gehen?
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
         actual_percentages = {
-            species.value: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
-            for species, count in added_nitrogen_counts.items()
+            # species.value: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
+            # for species, count in added_nitrogen_counts.items()
+            species.value: (
+                round((len(self.doping_structures.chosen_atoms[species]) / total_atoms) * 100, 2)
+                if total_atoms > 0
+                else 0
+            )
+            for species in NitrogenSpecies
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
@@ -1206,8 +1212,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1218,8 +1224,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(total_percentage=15)
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # write_xyz(
     #     graphene.graph,
