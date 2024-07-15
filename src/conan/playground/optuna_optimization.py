@@ -7,6 +7,7 @@ import optuna
 import pandas as pd
 from doping_experiment import Graphene, NitrogenSpecies
 from graph_utils import Position, minimum_image_distance
+from optuna.visualization import plot_optimization_history, plot_param_importances
 from scipy.optimize import minimize
 
 
@@ -415,11 +416,39 @@ def save_study_results(study, filename):
         json.dump(df.to_dict(), f, indent=4)
 
 
+def save_best_trial(study, filepath):
+    best_trial = study.best_trial
+    best_params = best_trial.params
+    best_value = best_trial.value
+
+    best_trial_data = {"params": best_params, "value": best_value}
+
+    with open(filepath, "w") as f:
+        json.dump(best_trial_data, f, indent=4)
+
+
+def save_study_visualizations(study, results_dir):
+    visualizations_dir = f"{results_dir}/visualizations"
+    os.makedirs(visualizations_dir, exist_ok=True)
+
+    optimization_history = plot_optimization_history(study)
+    param_importances = plot_param_importances(study)
+
+    optimization_history.write_image(f"{visualizations_dir}/optimization_history.png")
+    param_importances.write_image(f"{visualizations_dir}/param_importances.png")
+
+
 # Conducting and saving multiple studies
 def conduct_study(objective_function, study_name, n_trials=100):
     study = optuna.create_study(direction="minimize")
     study.optimize(objective_function, n_trials=n_trials)
-    save_study_results(study, f"optuna_results/{study_name}_results.json")
+
+    results_dir = f"optuna_results/{study_name}"
+    os.makedirs(results_dir, exist_ok=True)
+
+    save_study_results(study, f"{results_dir}/results.json")
+    save_best_trial(study, f"{results_dir}/best_trial.json")
+    save_study_visualizations(study, results_dir)
     print(f"Best trial for {study_name}:")
     print(study.best_trial)
 
@@ -434,8 +463,11 @@ if __name__ == "__main__":
     # Conduct study for total energy with all structures
     # conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
 
-    # Conduct study for combined objective with Pyridinic_4
-    conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
+    # # Conduct study for combined objective with Pyridinic_4
+    # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
 
-    # Conduct study for combined objective with all structures
-    conduct_study(objective_combined_all_structures, "combined_all_structures")
+    # # Conduct study for combined objective with all structures
+    # conduct_study(objective_combined_all_structures, "combined_all_structures")
+
+    # Conduct study for combined objective with Pyridinic_4
+    conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4_test", n_trials=2)

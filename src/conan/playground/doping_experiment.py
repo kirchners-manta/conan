@@ -218,11 +218,11 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 1.0608748565376787
+        self.k_inner_bond = 420.71838547335676
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.014947439147374564
+        self.k_outer_bond = 0.010894297330571831
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 1.0406803546498784
+        self.k_inner_angle = 440.63844721871516
         """The spring constant for angles within the doping structure."""
         self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure."""
@@ -1152,8 +1152,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1164,8 +1164,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(total_percentage=15)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(total_percentage=15)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # write_xyz(
     #     graphene.graph,
@@ -1176,7 +1176,7 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_4_doping_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
+        f"all_structures_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
         f"k_inner_angle_{graphene.k_inner_angle}_refactored.xyz",
     )
 
