@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from typing import Tuple
 
 import numpy as np
@@ -11,7 +12,7 @@ from optuna.visualization import plot_optimization_history, plot_param_importanc
 from scipy.optimize import minimize
 
 
-def calculate_minimal_total_energy(graphene: Graphene) -> float:
+def calculate_minimal_total_energy(graphene: Graphene) -> Tuple[float, Graphene]:
     """
     Calculate the total energy of the graphene sheet, considering bond and angle energies.
 
@@ -24,6 +25,8 @@ def calculate_minimal_total_energy(graphene: Graphene) -> float:
     -------
     float
         The total energy of the graphene sheet.
+    Graphene
+        The graphene sheet object with optimized positions.
     """
     all_cycles = []
     species_for_cycles = []
@@ -242,7 +245,13 @@ def calculate_minimal_total_energy(graphene: Graphene) -> float:
 
     # Optimize positions to minimize energy
     result = minimize(total_energy, x0, method="L-BFGS-B")
-    return result.fun
+
+    # Update the positions in the graphene object with the optimized positions
+    optimized_positions = result.x.reshape((-1, 2))
+    for i, node in enumerate(graphene.graph.nodes):
+        graphene.graph.nodes[node]["position"] = (optimized_positions[i][0], optimized_positions[i][1])
+
+    return result.fun, graphene
 
 
 def calculate_bond_angle_accuracy(graphene: Graphene) -> Tuple[float, float]:
@@ -326,7 +335,7 @@ def objective_total_energy_pyridinic_4(trial):
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
 
     # Calculate the total energy of the graphene sheet
-    total_energy = calculate_minimal_total_energy(graphene)
+    total_energy, _ = calculate_minimal_total_energy(graphene)
 
     # Return the total energy as the objective value
     return total_energy
@@ -348,7 +357,7 @@ def objective_total_energy_all_structures(trial):
     graphene.add_nitrogen_doping(total_percentage=15)
 
     # Calculate the total energy of the graphene sheet
-    total_energy = calculate_minimal_total_energy(graphene)
+    total_energy, _ = calculate_minimal_total_energy(graphene)
 
     # Return the total energy as the objective value
     return total_energy
@@ -359,21 +368,23 @@ def objective_combined_pyridinic_4(trial):
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
 
     # Calculate the total energy of the graphene sheet
-    total_energy = calculate_minimal_total_energy(graphene)
+    total_energy, updated_graphene = calculate_minimal_total_energy(graphene)
 
     # Calculate bond and angle accuracy within cycles (additional objectives can be added)
-    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(graphene)
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
 
     # Combine objectives
     objective_value = total_energy + bond_accuracy + angle_accuracy
@@ -397,10 +408,10 @@ def objective_combined_all_structures(trial):
     graphene.add_nitrogen_doping(total_percentage=15)
 
     # Calculate the total energy of the graphene sheet
-    total_energy = calculate_minimal_total_energy(graphene)
+    total_energy, updated_graphene = calculate_minimal_total_energy(graphene)
 
     # Calculate bond and angle accuracy within cycles (additional objectives can be added)
-    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(graphene)
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
 
     # Combine objectives
     objective_value = total_energy + bond_accuracy + angle_accuracy
@@ -455,6 +466,8 @@ def conduct_study(objective_function, study_name, n_trials=100):
 
 # Example usage
 if __name__ == "__main__":
+    random.seed(0)
+
     os.makedirs("optuna_results", exist_ok=True)
 
     # Conduct study for total energy with Pyridinic_4
