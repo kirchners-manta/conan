@@ -8,7 +8,14 @@ import optuna
 import pandas as pd
 from doping_experiment import Graphene, NitrogenSpecies
 from graph_utils import Position, minimum_image_distance
-from optuna.visualization import plot_optimization_history, plot_param_importances
+from optuna.visualization import (
+    plot_contour,
+    plot_edf,
+    plot_optimization_history,
+    plot_parallel_coordinate,
+    plot_param_importances,
+    plot_slice,
+)
 from scipy.optimize import minimize
 
 
@@ -537,9 +544,17 @@ def save_study_visualizations(study, results_dir):
 
     optimization_history = plot_optimization_history(study)
     param_importances = plot_param_importances(study)
+    parallel_coordinate = plot_parallel_coordinate(study)
+    slice_plot = plot_slice(study)
+    contour_plot = plot_contour(study)
+    edf_plot = plot_edf(study)
 
     optimization_history.write_image(f"{visualizations_dir}/optimization_history.png")
     param_importances.write_image(f"{visualizations_dir}/param_importances.png")
+    parallel_coordinate.write_image(f"{visualizations_dir}/parallel_coordinate.png")
+    slice_plot.write_image(f"{visualizations_dir}/slice_plot.png")
+    contour_plot.write_image(f"{visualizations_dir}/contour_plot.png")
+    edf_plot.write_image(f"{visualizations_dir}/edf_plot.png")
 
 
 # Conducting and saving multiple studies
