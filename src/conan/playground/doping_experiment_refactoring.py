@@ -683,8 +683,9 @@ class Graphene:
         atom_id = doping_structure.structure_building_atoms[0]
         neighbors = doping_structure.structure_building_neighbors
 
-        # Add the selected atom to the list of chosen atoms
-        self.doping_structures.chosen_atoms[nitrogen_species].append(atom_id)  # ToDo: Evtl. besser über Collection?
+        # # Add the selected atom to the list of chosen atoms
+        # self.doping_structures.chosen_atoms[nitrogen_species].append(atom_id)  # ToDo: Evtl. besser über Collection?
+
         # Update the selected atom's element to nitrogen and set its nitrogen species
         self.graph.nodes[atom_id]["element"] = "N"
         self.graph.nodes[atom_id]["nitrogen_species"] = NitrogenSpecies.GRAPHITIC
@@ -694,6 +695,10 @@ class Graphene:
         for neighbor in neighbors:
             if neighbor in self.possible_carbon_atoms:
                 self.possible_carbon_atoms.remove(neighbor)
+
+        # Add the doping structure to the collection
+        doping_structure.nitrogen_atoms.append(atom_id)
+        self.doping_structures.add_structure(doping_structure)
 
     def _handle_pyridinic_doping(self, doping_structure: DopingStructure, nitrogen_species: NitrogenSpecies):
 
@@ -744,8 +749,8 @@ class Graphene:
             selected_neighbor = random.choice(neighbors)
             self.graph.nodes[selected_neighbor]["element"] = "N"
             self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
-            # Add the selected atom to the list of chosen atoms
-            self.doping_structures.chosen_atoms[nitrogen_species].append(selected_neighbor)
+            # # Add the selected atom to the list of chosen atoms
+            # self.doping_structures.chosen_atoms[nitrogen_species].append(selected_neighbor)
 
             # Identify the start node for this cycle as the selected neighbor
             start_node = selected_neighbor
@@ -756,8 +761,8 @@ class Graphene:
             for neighbor in selected_neighbors:
                 self.graph.nodes[neighbor]["element"] = "N"
                 self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                # Add the neighbor to the list of chosen atoms
-                self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
+                # # Add the neighbor to the list of chosen atoms
+                # self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
 
             # Identify the start node for this cycle using set difference
             remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
@@ -768,8 +773,8 @@ class Graphene:
             for neighbor in neighbors:
                 self.graph.nodes[neighbor]["element"] = "N"
                 self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
-                # Add the neighbor to the list of chosen atoms
-                self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
+                # # Add the neighbor to the list of chosen atoms
+                # self.doping_structures.chosen_atoms[nitrogen_species].append(neighbor)
 
         return start_node
 
@@ -1209,11 +1214,11 @@ def main():
     # )
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1225,6 +1230,9 @@ def main():
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(total_percentage=15)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 60})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # write_xyz(
