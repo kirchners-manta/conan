@@ -17,6 +17,7 @@ def read_commandline() -> dict:
     parser.add_argument("-c", "--cbuild", action="store_true", help="Generate carbon structures.")
     parser.add_argument("-b", "--box", action="store_true", help="Build a simulation box.")
     parser.add_argument("-i", "--input", help="Use an input file to run the program.")
+    parser.add_argument("-m", "--manual", action="store_true", help="Manual mode to define carbon_structures")
     parser.parse_args()
     args = vars(parser.parse_args())
 
