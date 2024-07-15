@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import optuna
@@ -12,7 +12,9 @@ from optuna.visualization import plot_optimization_history, plot_param_importanc
 from scipy.optimize import minimize
 
 
-def calculate_minimal_total_energy(graphene: Graphene) -> Tuple[float, Graphene]:
+def calculate_minimal_total_energy(
+    graphene: Graphene, include_outer_angles: bool = False
+) -> (Tuple)[float, Optional[Graphene]]:
     """
     Calculate the total energy of the graphene sheet, considering bond and angle energies.
 
@@ -20,6 +22,8 @@ def calculate_minimal_total_energy(graphene: Graphene) -> Tuple[float, Graphene]
     ----------
     graphene : Graphene
         The graphene sheet to calculate the total energy.
+    include_outer_angles : bool (optional)
+        Whether to include angles outside the cycles in the calculation.
 
     Returns
     -------
@@ -37,7 +41,7 @@ def calculate_minimal_total_energy(graphene: Graphene) -> Tuple[float, Graphene]
             species_for_cycles.append(species)
 
     if not all_cycles:
-        return 0.0  # No cycles to optimize
+        return 0.0, None  # No cycles to optimize
 
     # Initial positions (use existing positions if available)
     positions = {node: graphene.graph.nodes[node]["position"] for node in graphene.graph.nodes}
@@ -194,36 +198,41 @@ def calculate_minimal_total_energy(graphene: Graphene) -> Tuple[float, Graphene]
                 counted_angles.add((i, j, k))
                 counted_angles.add((k, j, i))
 
-        # # Calculate angle energy for angles outside the cycles
-        # for node in self.graph.nodes:
-        #     neighbors = list(self.graph.neighbors(node))
-        #     if len(neighbors) < 2:
-        #         continue
-        #     for i in range(len(neighbors)):
-        #         for j in range(i + 1, len(neighbors)):
-        #             ni = neighbors[i]
-        #             nj = neighbors[j]
-        #
-        #             # Skip angles that have already been counted
-        #             if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
-        #                 continue
-        #
-        #             x_node, y_node = (
-        #                 x[2 * list(self.graph.nodes).index(node)],
-        #                 x[2 * list(self.graph.nodes).index(node) + 1],
-        #             )
-        #             x_i, y_i = (x[2 * list(self.graph.nodes).index(ni)],
-        #                         x[2 * list(self.graph.nodes).index(ni) + 1])
-        #             x_j, y_j = (x[2 * list(self.graph.nodes).index(nj)],
-        #                         x[2 * list(self.graph.nodes).index(nj) + 1])
-        #             pos_node = Position(x_node, y_node)
-        #             pos_i = Position(x_i, y_i)
-        #             pos_j = Position(x_j, y_j)
-        #             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
-        #             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
-        #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-        #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-        #             energy += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+        if include_outer_angles:
+            # Calculate angle energy for angles outside the cycles
+            for node in graphene.graph.nodes:
+                neighbors = list(graphene.graph.neighbors(node))
+                if len(neighbors) < 2:
+                    continue
+                for i in range(len(neighbors)):
+                    for j in range(i + 1, len(neighbors)):
+                        ni = neighbors[i]
+                        nj = neighbors[j]
+
+                        # Skip angles that have already been counted
+                        if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
+                            continue
+
+                        x_node, y_node = (
+                            x[2 * list(graphene.graph.nodes).index(node)],
+                            x[2 * list(graphene.graph.nodes).index(node) + 1],
+                        )
+                        x_i, y_i = (
+                            x[2 * list(graphene.graph.nodes).index(ni)],
+                            x[2 * list(graphene.graph.nodes).index(ni) + 1],
+                        )
+                        x_j, y_j = (
+                            x[2 * list(graphene.graph.nodes).index(nj)],
+                            x[2 * list(graphene.graph.nodes).index(nj) + 1],
+                        )
+                        pos_node = Position(x_node, y_node)
+                        pos_i = Position(x_i, y_i)
+                        pos_j = Position(x_j, y_j)
+                        _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
+                        _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
+                        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+                        theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                        energy += 0.5 * graphene.k_outer_angle * ((theta - np.radians(graphene.c_c_bond_angle)) ** 2)
 
         return energy
 
@@ -324,12 +333,14 @@ def objective_total_energy_pyridinic_4(trial):
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
@@ -346,12 +357,14 @@ def objective_total_energy_all_structures(trial):
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(total_percentage=15)
@@ -397,12 +410,14 @@ def objective_combined_all_structures(trial):
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(total_percentage=15)
@@ -414,6 +429,84 @@ def objective_combined_all_structures(trial):
     bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
 
     # Combine objectives
+    objective_value = total_energy + bond_accuracy + angle_accuracy
+
+    return objective_value
+
+
+def objective_total_energy_pyridinic_4_with_outer_angles(trial):
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
+
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+
+    total_energy, _ = calculate_minimal_total_energy(graphene, include_outer_angles=True)
+    return total_energy
+
+
+def objective_total_energy_all_structures_with_outer_angles(trial):
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
+
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    total_energy, _ = calculate_minimal_total_energy(graphene, include_outer_angles=True)
+    return total_energy
+
+
+def objective_combined_pyridinic_4_with_outer_angles(trial):
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
+
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+
+    total_energy, updated_graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
+    objective_value = total_energy + bond_accuracy + angle_accuracy
+
+    return objective_value
+
+
+def objective_combined_all_structures_with_outer_angles(trial):
+    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    graphene.k_outer_angle = k_outer_angle
+
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    total_energy, updated_graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
     objective_value = total_energy + bond_accuracy + angle_accuracy
 
     return objective_value
@@ -471,16 +564,32 @@ if __name__ == "__main__":
     os.makedirs("optuna_results", exist_ok=True)
 
     # Conduct study for total energy with Pyridinic_4
-    # conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
+    conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
 
     # Conduct study for total energy with all structures
-    # conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
-
-    # # Conduct study for combined objective with Pyridinic_4
-    # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
-
-    # # Conduct study for combined objective with all structures
-    # conduct_study(objective_combined_all_structures, "combined_all_structures")
+    conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
 
     # Conduct study for combined objective with Pyridinic_4
-    conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4_test", n_trials=2)
+    conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
+
+    # Conduct study for combined objective with all structures
+    conduct_study(objective_combined_all_structures, "combined_all_structures")
+
+    # Conduct study for total energy with Pyridinic_4 including outer angles
+    conduct_study(
+        objective_total_energy_pyridinic_4_with_outer_angles, "total_energy_pyridinic_4_including_outer_angles"
+    )
+
+    # Conduct study for total energy with all structures including outer angles
+    conduct_study(
+        objective_total_energy_all_structures_with_outer_angles, "total_energy_all_structures_including_outer_angles"
+    )
+
+    # Conduct study for combined objective with Pyridinic_4 including outer angles
+    conduct_study(objective_combined_pyridinic_4_with_outer_angles, "combined_pyridinic_4_including_outer_angles")
+
+    # Conduct study for combined objective with all structures including outer angles
+    conduct_study(objective_combined_all_structures_with_outer_angles, "combined_all_structures_including_outer_angles")
+
+    # # Conduct study for combined objective with Pyridinic_4
+    # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4_test", n_trials=2)
