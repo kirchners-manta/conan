@@ -474,8 +474,8 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
             structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Pore{counter_pore}"
             CNTs.append(f"Pore{counter_pore}")
 
-        # If the difference in x, y and z is smaller than 1.0, it is a wall.
-        elif (x_max - x_min) < 2.0 or (y_max - y_min) < 2.0 or (z_max - z_min) < 3.0:
+        # If the difference in x, y and z is smaller than 5.0, it is a wall.
+        elif (x_max - x_min) < 5.0 or (y_max - y_min) < 5.0 or (z_max - z_min) < 5.0:
             counter_wall += 1
             ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
             if (x_max - x_min) < 1.0:
