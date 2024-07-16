@@ -340,14 +340,14 @@ def objective_total_energy_pyridinic_4(trial):
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
-    graphene.k_outer_angle = k_outer_angle
+    # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
@@ -361,17 +361,17 @@ def objective_total_energy_pyridinic_4(trial):
 
 def objective_total_energy_all_structures(trial):
     # Sample k_inner and k_outer
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
-    graphene.k_outer_angle = k_outer_angle
+    # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(total_percentage=15)
@@ -385,17 +385,17 @@ def objective_total_energy_all_structures(trial):
 
 def objective_combined_pyridinic_4(trial):
     # Sample k_inner and k_outer
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
-    graphene.k_outer_angle = k_outer_angle
+    # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
@@ -414,17 +414,17 @@ def objective_combined_pyridinic_4(trial):
 
 def objective_combined_all_structures(trial):
     # Sample k_inner and k_outer
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
-    graphene.k_outer_angle = k_outer_angle
+    # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
     graphene.add_nitrogen_doping(total_percentage=15)
@@ -442,10 +442,10 @@ def objective_combined_all_structures(trial):
 
 
 def objective_total_energy_pyridinic_4_with_outer_angles(trial):
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
@@ -460,10 +460,10 @@ def objective_total_energy_pyridinic_4_with_outer_angles(trial):
 
 
 def objective_total_energy_all_structures_with_outer_angles(trial):
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
@@ -478,10 +478,10 @@ def objective_total_energy_all_structures_with_outer_angles(trial):
 
 
 def objective_combined_pyridinic_4_with_outer_angles(trial):
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
@@ -499,10 +499,10 @@ def objective_combined_pyridinic_4_with_outer_angles(trial):
 
 
 def objective_combined_all_structures_with_outer_angles(trial):
-    k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
-    k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
-    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 10.0, log=True)
-    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
@@ -531,8 +531,9 @@ def save_best_trial(study, filepath):
     best_trial = study.best_trial
     best_params = best_trial.params
     best_value = best_trial.value
+    best_trial_number = best_trial.number
 
-    best_trial_data = {"params": best_params, "value": best_value}
+    best_trial_data = {"params": best_params, "value": best_value, "trial_number": best_trial_number}
 
     with open(filepath, "w") as f:
         json.dump(best_trial_data, f, indent=4)
