@@ -24,6 +24,26 @@ from conan.playground.graph_utils import (
 
 @dataclass
 class DopingStructure:
+    """
+    Represents a doping structure within the graphene sheet.
+
+    Attributes
+    ----------
+    species : NitrogenSpecies
+        The type of nitrogen doping.
+    cycle : List[int]
+        List of atom IDs forming the cycle of the doping structure.
+    structure_building_atoms : List[int]
+        List of atom IDs that form the structure. In case of graphitic doping, this list contains the atom IDs of the
+        atoms that will be changed to nitrogen atoms. In case of pyridinic doping, this list contains the atom IDs of
+        the atoms that will be removed to form the pyridinic structure.
+    structure_building_neighbors : List[int]
+        List of neighbor atom IDs for the structure building atoms. Some (or all) of these neighbors will be replaced by
+        nitrogen atoms to form the respective doping structure.
+    nitrogen_atoms : List[int]
+        List of atoms that were replaced by nitrogen atoms to form the doping structure.
+    """
+
     species: NitrogenSpecies
     cycle: List[int]
     structure_building_atoms: List[int]
@@ -201,6 +221,18 @@ class DopingStructure:
 
 @dataclass
 class DopingStructureCollection:  # ToDo: Ganz neu kommentieren
+    """
+    Manages a collection of doping structures within the graphene sheet.
+
+    Attributes
+    ----------
+    structures : List[DopingStructure]
+        List of doping structures that have been added to the collection.
+    chosen_atoms : Dict[NitrogenSpecies, List[int]]
+        Dictionary mapping nitrogen species to lists of chosen atom IDs. This is used to keep track of atoms that have
+        already been chosen for doping (i.e., replaced by nitrogen atoms) to track the percentage of doping for each
+        species.
+    """
 
     structures: List[DopingStructure] = field(default_factory=list)
     chosen_atoms: Dict[NitrogenSpecies, List[int]] = field(default_factory=lambda: defaultdict(list))
@@ -242,6 +274,10 @@ class DopingStructureCollection:  # ToDo: Ganz neu kommentieren
 
 
 class Graphene:
+    """
+    Represents a graphene sheet structure and manages nitrogen doping within the sheet.
+    """
+
     def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
         Initialize the GrapheneGraph with given bond distance and sheet size.
