@@ -42,10 +42,10 @@ def calculate_minimal_total_energy(
     all_cycles = []
     species_for_cycles = []
 
-    for species, cycle_list in graphene.cycle_data.cycles.items():
-        for cycle in cycle_list:
-            all_cycles.append(cycle)
-            species_for_cycles.append(species)
+    for structure in graphene.doping_structures.structures:
+        if structure.species != NitrogenSpecies.GRAPHITIC:  # Skip GRAPHITIC species
+            all_cycles.append(structure.cycle)
+            species_for_cycles.append(structure.species)
 
     if not all_cycles:
         return 0.0, None  # No cycles to optimize
@@ -274,10 +274,10 @@ def calculate_bond_angle_accuracy(graphene: Graphene) -> Tuple[float, float]:
     all_cycles = []
     species_for_cycles = []
 
-    for species, cycle_list in graphene.cycle_data.cycles.items():
-        for cycle in cycle_list:
-            all_cycles.append(cycle)
-            species_for_cycles.append(species)
+    for structure in graphene.doping_structures.structures:
+        if structure.species != NitrogenSpecies.GRAPHITIC:  # Skip GRAPHITIC species
+            all_cycles.append(structure.cycle)
+            species_for_cycles.append(structure.species)
 
     bond_accuracy = 0.0
     angle_accuracy = 0.0
