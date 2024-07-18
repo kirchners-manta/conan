@@ -559,7 +559,7 @@ def save_study_visualizations(study, results_dir):
 
 
 # Conducting and saving multiple studies
-def conduct_study(objective_function, study_name, n_trials=100):
+def conduct_study(objective_function, study_name, n_trials=200):
     study = optuna.create_study(direction="minimize")
     study.optimize(objective_function, n_trials=n_trials)
 
