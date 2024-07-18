@@ -220,7 +220,7 @@ class DopingStructure:
 
 
 @dataclass
-class DopingStructureCollection:  # ToDo: Ganz neu kommentieren
+class DopingStructureCollection:
     """
     Manages a collection of doping structures within the graphene sheet.
 
@@ -615,9 +615,6 @@ class Graphene:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
-        # # Dictionary to keep track of actually added nitrogen atoms
-        # added_nitrogen_counts = {species: 0 for species in NitrogenSpecies}
-
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
@@ -629,14 +626,10 @@ class Graphene:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
                 self._insert_doping_structures(num_nitrogen_atoms, species)
-                # added_nitrogen_counts[species] += len(self.doping_structures.chosen_atoms[species])
-                # # ToDo: Sollte evtl. über Collection besser/geschickter und effizienter gehen?
 
         # Calculate the actual percentages of added nitrogen species
         total_atoms = self.graph.number_of_nodes()
         actual_percentages = {
-            # species.value: round((count / total_atoms) * 100, 2) if total_atoms > 0 else 0
-            # for species, count in added_nitrogen_counts.items()
             species.value: (
                 round((len(self.doping_structures.chosen_atoms[species]) / total_atoms) * 100, 2)
                 if total_atoms > 0
@@ -646,8 +639,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.cycle_data.cycles.values()):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -855,10 +848,14 @@ class Graphene:
         all_cycles = []
         species_for_cycles = []
 
-        for species, cycle_list in self.cycle_data.cycles.items():
-            for cycle in cycle_list:
-                all_cycles.append(cycle)
-                species_for_cycles.append(species)
+        # for species, cycle_list in self.cycle_data.cycles.items():
+        #     for cycle in cycle_list:
+        #         all_cycles.append(cycle)
+        #         species_for_cycles.append(species)
+
+        for structure in self.doping_structures.structures:
+            all_cycles.append(structure.cycle)
+            species_for_cycles.append(structure.species)
 
         if not all_cycles:
             return
@@ -1047,7 +1044,7 @@ class Graphene:
             #             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
             #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
             #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-            #             energy += 0.5 * self.k_outer * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+            #             energy += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
             return energy
 
