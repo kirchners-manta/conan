@@ -295,10 +295,14 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner = 1000
-        """The spring constant for bonds and angles within the doping structure."""
-        self.k_outer = 0.1
-        """The spring constant for bonds and angles outside the doping structure."""
+        self.k_inner_bond = 23.359776202184758
+        """The spring constant for bonds within the doping structure."""
+        self.k_outer_bond = 0.014112166829508662
+        """The spring constant for bonds outside the doping structure."""
+        self.k_inner_angle = 79.55711394238168
+        """The spring constant for angles within the doping structure."""
+        self.k_outer_angle = 0.019431203948375452
+        """The spring constant for angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
@@ -538,6 +542,10 @@ class Graphene:
                 120.92,
             ],
         )
+        # graphitic_properties = NitrogenSpeciesProperties(
+        #     target_bond_lengths=[1.42],
+        #     target_angles=[120.0],
+        # )
 
         # Initialize other species similarly
         species_properties = {
@@ -545,6 +553,7 @@ class Graphene:
             NitrogenSpecies.PYRIDINIC_3: pyridinic_3_properties,
             NitrogenSpecies.PYRIDINIC_2: pyridinic_2_properties,
             NitrogenSpecies.PYRIDINIC_1: pyridinic_1_properties,
+            # NitrogenSpecies.GRAPHITIC: graphitic_properties,
         }
         return species_properties
 
@@ -854,6 +863,9 @@ class Graphene:
         #         species_for_cycles.append(species)
 
         for structure in self.doping_structures.structures:
+            # Skip GRAPHITIC species since it does not require adjustment
+            if structure.species == NitrogenSpecies.GRAPHITIC:
+                continue
             all_cycles.append(structure.cycle)
             species_for_cycles.append(structure.species)
 
@@ -916,7 +928,7 @@ class Graphene:
                     # Calculate the current bond length and target bond length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = target_bond_lengths[ordered_cycle.index(node_i)]
-                    energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
@@ -943,7 +955,7 @@ class Graphene:
 
                             current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                             target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
-                            energy += 0.5 * self.k_inner * ((current_length - target_length) ** 2)
+                            energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
 
                             # Update bond length in the graph during optimization
                             self.graph.edges[i, j]["bond_length"] = current_length
@@ -962,7 +974,7 @@ class Graphene:
                     # Calculate the current bond length and set default target length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = 1.42
-                    energy += 0.5 * self.k_outer * ((current_length - target_length) ** 2)
+                    energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
 
                     # Update bond length in the graph during optimization
                     self.graph.edges[i, j]["bond_length"] = current_length
@@ -1009,7 +1021,7 @@ class Graphene:
 
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                    energy += 0.5 * self.k_inner * ((theta - np.radians(angle)) ** 2)
+                    energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
 
                     # Add angles to counted_angles to avoid double-counting
                     counted_angles.add((i, j, k))
@@ -1247,8 +1259,8 @@ def main():
     # )
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1262,8 +1274,8 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(total_percentage=15)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.add_nitrogen_doping(total_percentage=15)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 60})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
@@ -1277,7 +1289,8 @@ def main():
 
     write_xyz(
         graphene.graph,
-        f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_refactored.xyz",
+        f"all_structures_combined_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
+        f"k_inner_angle_{graphene.k_inner_angle}_refactored_2.xyz",
     )
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
