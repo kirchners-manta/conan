@@ -1,4 +1,5 @@
 import random
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from math import cos, pi, sin
@@ -1217,7 +1218,9 @@ def main():
     # random.seed(3)
     random.seed(0)
 
-    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    sheet_size = (20, 20)
+
+    graphene = Graphene(bond_distance=1.42, sheet_size=sheet_size)
 
     # write_xyz(graphene.graph, 'graphene.xyz')
     # graphene.plot_graphene(with_labels=True)
@@ -1274,7 +1277,15 @@ def main():
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
+    # Time the nitrogen doping process
+    start_time = time.time()
     graphene.add_nitrogen_doping(total_percentage=15)
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+
     plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 60})
