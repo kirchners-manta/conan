@@ -46,6 +46,8 @@ class DopingStructure:
         List of atoms that were replaced by nitrogen atoms to form the doping structure.
     subgraph : Optional[nx.Graph]
         The subgraph containing the doping structure.
+    additional_edge : Optional[Tuple[int, int]]
+        An additional edge added to the doping structure, needed for PYRIDINIC_1 doping.
     """
 
     species: NitrogenSpecies
@@ -54,21 +56,102 @@ class DopingStructure:
     structure_building_neighbors: List[int]
     nitrogen_atoms: List[int]
     subgraph: Optional[nx.Graph] = field(default=None)
+    additional_edge: Optional[Tuple[int, int]] = None
+
+    # @classmethod
+    # def create_structure(
+    #     cls,
+    #     graph: nx.Graph,
+    #     species: NitrogenSpecies,
+    #     atoms: List[int],
+    #     neighbors: List[int],
+    #     start_node: Optional[int] = None,
+    # ):
+    #     cycle = cls._find_min_cycle_including_neighbors(graph, neighbors)
+    #     subgraph = graph.subgraph(cycle).copy()
+    #     ordered_cycle = cls._order_cycle(subgraph, cycle, species, start_node)
+    #     nitrogen_atoms = [node for node in ordered_cycle if graph.nodes[node]["element"] == "N"]
+    #     return cls(species, ordered_cycle, atoms, neighbors, nitrogen_atoms, subgraph)
 
     @classmethod
     def create_structure(
         cls,
-        graph: nx.Graph,
+        graphene: "Graphene",
         species: NitrogenSpecies,
         atoms: List[int],
         neighbors: List[int],
         start_node: Optional[int] = None,
     ):
-        cycle = cls._find_min_cycle_including_neighbors(graph, neighbors)
-        subgraph = graph.subgraph(cycle).copy()
+        graph = graphene.graph
+
+        # Detect the cycle and create the subgraph
+        cycle, subgraph = cls._detect_cycle_and_subgraph(graph, neighbors, start_node)
+
+        # Order the cycle
         ordered_cycle = cls._order_cycle(subgraph, cycle, species, start_node)
+
+        # Add edge if needed
+        additional_edge = None
+        if species == NitrogenSpecies.PYRIDINIC_1:
+            additional_edge = cls._add_additional_edge(graphene, subgraph, neighbors, start_node)
+
         nitrogen_atoms = [node for node in ordered_cycle if graph.nodes[node]["element"] == "N"]
-        return cls(species, ordered_cycle, atoms, neighbors, nitrogen_atoms, subgraph)
+
+        return cls(species, ordered_cycle, atoms, neighbors, nitrogen_atoms, subgraph, additional_edge)
+
+    @staticmethod
+    def _detect_cycle_and_subgraph(
+        graph: nx.Graph, neighbors: List[int], start_node: Optional[int] = None
+    ) -> Tuple[List[int], nx.Graph]:
+        """
+        Detect the cycle including the given neighbors and create the corresponding subgraph.
+
+        Parameters
+        ----------
+        graph: nx.Graph
+            The graph containing the cycle.
+        neighbors : List[int]
+            List of neighbor atom IDs.
+        start_node : Optional[int]
+            The start node ID.
+
+        Returns
+        -------
+        Tuple[List[int], nx.Graph]
+            The detected cycle and the subgraph containing the cycle.
+        """
+        cycle = DopingStructure._find_min_cycle_including_neighbors(graph, neighbors)
+        subgraph = graph.subgraph(cycle).copy()
+        return cycle, subgraph
+
+    @staticmethod
+    def _add_additional_edge(graphene: "Graphene", subgraph: nx.Graph, neighbors: List[int], start_node: int):
+        """
+        Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
+
+        Parameters
+        ----------
+        graphene : Graphene
+            The graphene sheet.
+        subgraph : nx.Graph
+            The subgraph containing the cycle.
+        neighbors : List[int]
+            List of neighbor atom IDs.
+        start_node: int
+            The start node ID.
+        """
+        graph = graphene.graph
+        neighbors.remove(start_node)
+        pos1 = graph.nodes[neighbors[0]]["position"]
+        pos2 = graph.nodes[neighbors[1]]["position"]
+        box_size = (
+            graphene.actual_sheet_width + graphene.c_c_bond_distance,
+            graphene.actual_sheet_height + graphene.cc_y_distance,
+        )
+        bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
+        graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+        subgraph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+        return (neighbors[0], neighbors[1])
 
     @staticmethod
     def _order_cycle(
@@ -268,17 +351,17 @@ class DopingStructureCollection:
         """
         return [structure for structure in self.structures if structure.species == species]
 
-    def detect_and_add_structure(
-        self,
-        graph: nx.Graph,
-        species: NitrogenSpecies,
-        atoms: List[int],
-        neighbors: List[int],
-        start_node: Optional[int] = None,
-    ):
-        doping_structure = DopingStructure.create_structure(graph, species, atoms, neighbors, start_node)
-        self.add_structure(doping_structure)
-        return doping_structure.cycle
+    # def detect_and_add_structure(
+    #     self,
+    #     graph: nx.Graph,
+    #     species: NitrogenSpecies,
+    #     atoms: List[int],
+    #     neighbors: List[int],
+    #     start_node: Optional[int] = None,
+    # ):
+    #     doping_structure = DopingStructure.create_structure(graph, species, atoms, neighbors, start_node)
+    #     self.add_structure(doping_structure)
+    #     return doping_structure.cycle
 
 
 class Graphene:
@@ -748,7 +831,7 @@ class Graphene:
 
     def _handle_pyridinic_doping(self, doping_structure: DopingStructure, nitrogen_species: NitrogenSpecies):
 
-        # Remove the selected atom(s) from the graph
+        # Remove the structure building atom(s) from the graph
         for atom in doping_structure.structure_building_atoms:
             self.graph.remove_node(atom)
             self.possible_carbon_atoms.remove(atom)
@@ -757,18 +840,29 @@ class Graphene:
             nitrogen_species, doping_structure.structure_building_neighbors
         )
 
-        nodes_to_exclude = self.doping_structures.detect_and_add_structure(
-            self.graph,
+        # nodes_to_exclude = self.doping_structures.detect_and_add_structure(
+        #     self.graph,
+        #     nitrogen_species,
+        #     doping_structure.structure_building_atoms,
+        #     doping_structure.structure_building_neighbors,
+        #     start_node,
+        # )
+
+        # Create the doping structure
+        doping_structure = DopingStructure.create_structure(
+            self,
             nitrogen_species,
             doping_structure.structure_building_atoms,
             doping_structure.structure_building_neighbors,
             start_node,
         )
 
-        for node in nodes_to_exclude:
+        self.doping_structures.add_structure(doping_structure)
+
+        for node in doping_structure.cycle:
             if node in self.possible_carbon_atoms:
                 self.possible_carbon_atoms.remove(node)
-        self._add_edge_if_needed(nitrogen_species, doping_structure.structure_building_neighbors, start_node)
+        # self._add_edge_if_needed(nitrogen_species, doping_structure.structure_building_neighbors, start_node)
 
     def _handle_species_specific_logic(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]) -> Optional[int]:
         """
@@ -880,14 +974,11 @@ class Graphene:
                 properties = self.species_properties[structure.species]
                 target_bond_lengths = properties.target_bond_lengths
                 ordered_cycle = structure.cycle
-                subgraph_edges = structure.subgraph.edges()
 
                 # Create the edges in order, including the additional edge for Pyridinic_1
                 edges_in_order = list(pairwise(ordered_cycle + [ordered_cycle[0]]))
                 if structure.species == NitrogenSpecies.PYRIDINIC_1:
-                    all_possible_edges = set(pairwise(ordered_cycle + [ordered_cycle[0]]))
-                    additional_edge = list(set(subgraph_edges) - all_possible_edges)[0]
-                    edges_in_order.append(additional_edge)
+                    edges_in_order.append(structure.additional_edge)
 
                 for idx, (node_i, node_j) in enumerate(edges_in_order):
                     xi, yi = (
