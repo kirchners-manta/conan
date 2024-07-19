@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
+from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
@@ -21,8 +22,6 @@ from conan.playground.graph_utils import (
     print_warning,
     write_xyz,
 )
-
-# from numba import jit
 
 
 @dataclass
@@ -45,14 +44,16 @@ class DopingStructure:
         nitrogen atoms to form the respective doping structure.
     nitrogen_atoms : List[int]
         List of atoms that were replaced by nitrogen atoms to form the doping structure.
+    subgraph : Optional[nx.Graph]
+        The subgraph containing the doping structure.
     """
 
-    # ToDo: Maybe saving the subgraph of the structure here would be better programming practice
     species: NitrogenSpecies
     cycle: List[int]
     structure_building_atoms: List[int]
     structure_building_neighbors: List[int]
     nitrogen_atoms: List[int]
+    subgraph: Optional[nx.Graph] = field(default=None)
 
     @classmethod
     def create_structure(
@@ -64,17 +65,20 @@ class DopingStructure:
         start_node: Optional[int] = None,
     ):
         cycle = cls._find_min_cycle_including_neighbors(graph, neighbors)
-        ordered_cycle = cls._order_cycle(graph, cycle, species, start_node)
+        subgraph = graph.subgraph(cycle).copy()
+        ordered_cycle = cls._order_cycle(subgraph, cycle, species, start_node)
         nitrogen_atoms = [node for node in ordered_cycle if graph.nodes[node]["element"] == "N"]
-        return cls(species, ordered_cycle, atoms, neighbors, nitrogen_atoms)
+        return cls(species, ordered_cycle, atoms, neighbors, nitrogen_atoms, subgraph)
 
     @staticmethod
     def _order_cycle(
-        graph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
+        subgraph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
     ) -> List[int]:
         if start_node is None:
             # If no start node is provided, find a suitable starting node based on the nitrogen species
-            start_node = DopingStructure._find_start_node(graph, cycle, species)
+            start_node = DopingStructure._find_start_node(
+                subgraph, cycle, species
+            )  # ToDo: Reicht es hier nicht aus dann nur subgraph oder cycle zu verwenden?
 
         # Initialize the list to store the ordered cycle and a set to track visited nodes
         ordered_cycle = []
@@ -88,7 +92,7 @@ class DopingStructure:
             visited.add(current_node)
 
             # Find the neighbors of the current node that are in the cycle and not yet visited
-            neighbors = [node for node in graph.neighbors(current_node) if node in cycle and node not in visited]
+            neighbors = [node for node in subgraph.neighbors(current_node) if node not in visited]
 
             # If there are unvisited neighbors, move to the next neighbor; otherwise, break the loop
             if neighbors:
@@ -752,9 +756,7 @@ class Graphene:
         start_node = self._handle_species_specific_logic(
             nitrogen_species, doping_structure.structure_building_neighbors
         )
-        # nodes_to_exclude = self.cycle_data.detect_and_register_cycle(
-        #     self.graph, nitrogen_species, doping_structural_components.neighbors, start_node
-        # )
+
         nodes_to_exclude = self.doping_structures.detect_and_add_structure(
             self.graph,
             nitrogen_species,
@@ -857,67 +859,37 @@ class Graphene:
         This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
         configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
-        # ToDo: Refactoring is urgently needed here. Totally stupid solution with Dict and then separate lists.
-        all_cycles = []
-        species_for_cycles = []
+        all_structures = [
+            structure
+            for structure in self.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
 
-        # for species, cycle_list in self.cycle_data.cycles.items():
-        #     for cycle in cycle_list:
-        #         all_cycles.append(cycle)
-        #         species_for_cycles.append(species)
-
-        for structure in self.doping_structures.structures:
-            # Skip GRAPHITIC species since it does not require adjustment
-            if structure.species == NitrogenSpecies.GRAPHITIC:
-                continue
-            all_cycles.append(structure.cycle)
-            species_for_cycles.append(structure.species)
-
-        if not all_cycles:
+        if not all_structures:
             return
 
-        # Initial positions (use existing positions if available)
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
-
-        # Flatten initial positions for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
-
         box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
         def bond_energy(x):
-            """
-            Calculate the bond energy for the given positions.
-
-            Parameters
-            ----------
-            x : ndarray
-                Flattened array of positions of all atoms in the cycle.
-
-            Returns
-            -------
-            energy : float
-                The total bond energy.
-            """
             energy = 0.0
-
-            # Initialize a set to track edges within cycles
             cycle_edges = set()
 
-            # Iterate over each cycle
-            for idx, ordered_cycle in enumerate(all_cycles):
-                # Get species properties for the current cycle
-                species = species_for_cycles[idx]
-                properties = self.species_properties[species]
+            for structure in all_structures:
+                properties = self.species_properties[structure.species]
                 target_bond_lengths = properties.target_bond_lengths
+                ordered_cycle = structure.cycle
+                subgraph_edges = structure.subgraph.edges()
 
-                # Create a subgraph for the current cycle
-                subgraph = self.graph.subgraph(ordered_cycle).copy()
+                # Create the edges in order, including the additional edge for Pyridinic_1
+                edges_in_order = list(pairwise(ordered_cycle + [ordered_cycle[0]]))
+                if structure.species == NitrogenSpecies.PYRIDINIC_1:
+                    all_possible_edges = set(pairwise(ordered_cycle + [ordered_cycle[0]]))
+                    additional_edge = list(set(subgraph_edges) - all_possible_edges)[0]
+                    edges_in_order.append(additional_edge)
 
-                # Calculate bond energy for edges within the cycle
-                cycle_length = len(ordered_cycle)
-                for i in range(cycle_length):
-                    node_i = ordered_cycle[i]
-                    node_j = ordered_cycle[(i + 1) % cycle_length]  # Ensure the last node connects to the first node
+                for idx, (node_i, node_j) in enumerate(edges_in_order):
                     xi, yi = (
                         x[2 * list(self.graph.nodes).index(node_i)],
                         x[2 * list(self.graph.nodes).index(node_i) + 1],
@@ -928,88 +900,39 @@ class Graphene:
                     )
                     pos_i = Position(xi, yi)
                     pos_j = Position(xj, yj)
-
-                    # Calculate the current bond length and target bond length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                    target_length = target_bond_lengths[ordered_cycle.index(node_i)]
+                    target_length = target_bond_lengths[idx % len(target_bond_lengths)]
                     energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
-
-                    # Update bond length in the graph during optimization
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
-
-                    # Add edge to cycle_edges set
                     cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
 
-                if species == NitrogenSpecies.PYRIDINIC_1:
-                    # ToDo: See if you can optimize this so that you don't have to repeat a lot of logic from above and
-                    #  maybe you can also iterate directly over the subgraph.edges in the for loop above and thus save
-                    #  redundant code
-                    for i, j in subgraph.edges():
-                        if (min(i, j), max(i, j)) not in cycle_edges:
-                            xi, yi = (
-                                x[2 * list(self.graph.nodes).index(i)],
-                                x[2 * list(self.graph.nodes).index(i) + 1],
-                            )
-                            xj, yj = (
-                                x[2 * list(self.graph.nodes).index(j)],
-                                x[2 * list(self.graph.nodes).index(j) + 1],
-                            )
-                            pos_i = Position(xi, yi)
-                            pos_j = Position(xj, yj)
-
-                            current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                            target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
-                            energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
-
-                            # Update bond length in the graph during optimization
-                            self.graph.edges[i, j]["bond_length"] = current_length
-
-                            # Add edge to cycle_edges set
-                            cycle_edges.add((min(i, j), max(i, j)))
-
-            # Calculate bond energy for edges outside the cycles
-            for i, j, data in self.graph.edges(data=True):
-                if (min(i, j), max(i, j)) not in cycle_edges:
-                    xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
-                    xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+            for node_i, node_j, data in self.graph.edges(data=True):
+                if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges:
+                    xi, yi = (
+                        x[2 * list(self.graph.nodes).index(node_i)],
+                        x[2 * list(self.graph.nodes).index(node_i) + 1],
+                    )
+                    xj, yj = (
+                        x[2 * list(self.graph.nodes).index(node_j)],
+                        x[2 * list(self.graph.nodes).index(node_j) + 1],
+                    )
                     pos_i = Position(xi, yi)
                     pos_j = Position(xj, yj)
-
-                    # Calculate the current bond length and set default target length
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
                     target_length = 1.42
                     energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
-
-                    # Update bond length in the graph during optimization
-                    self.graph.edges[i, j]["bond_length"] = current_length
+                    self.graph.edges[node_i, node_j]["bond_length"] = current_length
 
             return energy
 
         def angle_energy(x):
-            """
-            Calculate the angle energy for the given positions.
-
-            Parameters
-            ----------
-            x : ndarray
-                Flattened array of positions of all atoms in the cycle.
-
-            Returns
-            -------
-            energy : float
-                The total angle energy.
-            """
             energy = 0.0
-
-            # Initialize a set to track angles within cycles
             counted_angles = set()
 
-            # Iterate over each cycle
-            for idx, ordered_cycle in enumerate(all_cycles):
-                # Get species properties for the current cycle
-                species = species_for_cycles[idx]
-                properties = self.species_properties[species]
+            for structure in all_structures:
+                properties = self.species_properties[structure.species]
                 target_angles = properties.target_angles
+                ordered_cycle = structure.cycle
 
                 for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
                     xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
@@ -1026,70 +949,19 @@ class Graphene:
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
                     energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
-
-                    # Add angles to counted_angles to avoid double-counting
                     counted_angles.add((i, j, k))
                     counted_angles.add((k, j, i))
-
-            # # Calculate angle energy for angles outside the cycles
-            # for node in self.graph.nodes:
-            #     neighbors = list(self.graph.neighbors(node))
-            #     if len(neighbors) < 2:
-            #         continue
-            #     for i in range(len(neighbors)):
-            #         for j in range(i + 1, len(neighbors)):
-            #             ni = neighbors[i]
-            #             nj = neighbors[j]
-            #
-            #             # Skip angles that have already been counted
-            #             if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
-            #                 continue
-            #
-            #             x_node, y_node = (
-            #                 x[2 * list(self.graph.nodes).index(node)],
-            #                 x[2 * list(self.graph.nodes).index(node) + 1],
-            #             )
-            #             x_i, y_i = (x[2 * list(self.graph.nodes).index(ni)],
-            #                         x[2 * list(self.graph.nodes).index(ni) + 1])
-            #             x_j, y_j = (x[2 * list(self.graph.nodes).index(nj)],
-            #                         x[2 * list(self.graph.nodes).index(nj) + 1])
-            #             pos_node = Position(x_node, y_node)
-            #             pos_i = Position(x_i, y_i)
-            #             pos_j = Position(x_j, y_j)
-            #             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
-            #             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
-            #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-            #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-            #             energy += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
             return energy
 
         def total_energy(x):
-            """
-            Calculate the total energy (bond energy + angle energy).
-
-            Parameters
-            ----------
-            x : ndarray
-                Flattened array of positions of all atoms in the cycle.
-
-            Returns
-            -------
-            energy : float
-                The total energy.
-            """
             return bond_energy(x) + angle_energy(x)
 
-        # Optimize positions to minimize energy
         result = minimize(total_energy, x0, method="L-BFGS-B")
-
-        # Show the number of iterations and the final energy
         print(f"Number of iterations: {result.nit}\nFinal energy: {result.fun}")
 
-        # Reshape the 1D array result to 2D coordinates and update positions in the graph
         optimized_positions = result.x.reshape(-1, 2)
 
-        # Update positions in the original graph based on the optimized positions
         for idx, node in enumerate(self.graph.nodes):
             optimized_position = optimized_positions[idx]
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
@@ -1104,31 +976,24 @@ class Graphene:
     #     This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
     #     configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
     #     """
+    #     # ToDo: Refactoring is urgently needed here. Totally stupid solution with Dict and then separate lists.
     #     all_cycles = []
     #     species_for_cycles = []
-    #     bond_lengths_per_cycle = []
-    #     angles_per_cycle = []
     #
-    #     species_to_index = {species: idx for idx, species in enumerate(NitrogenSpecies)}
+    #     # for species, cycle_list in self.cycle_data.cycles.items():
+    #     #     for cycle in cycle_list:
+    #     #         all_cycles.append(cycle)
+    #     #         species_for_cycles.append(species)
     #
     #     for structure in self.doping_structures.structures:
-    #         if structure.species != NitrogenSpecies.GRAPHITIC:  # Skip GRAPHITIC species
-    #             all_cycles.append(structure.cycle)
-    #             species_for_cycles.append(species_to_index[structure.species])
-    #             bond_lengths_per_cycle.append(self.species_properties[structure.species].target_bond_lengths)
-    #             angles_per_cycle.append(self.species_properties[structure.species].target_angles)
+    #         # Skip GRAPHITIC species since it does not require adjustment
+    #         if structure.species == NitrogenSpecies.GRAPHITIC:
+    #             continue
+    #         all_cycles.append(structure.cycle)
+    #         species_for_cycles.append(structure.species)
     #
     #     if not all_cycles:
     #         return
-    #
-    #     # Flatten the bond lengths and angles lists
-    #     flat_bond_lengths = [length for sublist in bond_lengths_per_cycle for length in sublist]
-    #     flat_angles = [angle for sublist in angles_per_cycle for angle in sublist]
-    #     cycle_lengths = [len(cycle) for cycle in all_cycles]
-    #
-    #     # Convert all_cycles to a flat list and store the lengths
-    #     flat_cycles = [node for cycle in all_cycles for node in cycle]
-    #     cycle_start_indices = np.cumsum([0] + cycle_lengths[:-1])
     #
     #     # Initial positions (use existing positions if available)
     #     positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
@@ -1138,98 +1003,202 @@ class Graphene:
     #
     #     box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
     #
-    #     @jit(nopython=True)
-    #     def bond_energy(x, k_inner_bond, k_outer_bond, flat_bond_lengths, cycle_start_indices, cycle_lengths,
-    #                     flat_cycles, species_for_cycles, box_size):
+    #     def bond_energy(x):
+    #         """
+    #         Calculate the bond energy for the given positions.
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total bond energy.
+    #         """
     #         energy = 0.0
+    #
+    #         # Initialize a set to track edges within cycles
     #         cycle_edges = set()
-    #         bond_idx = 0
     #
-    #         for cycle_idx in range(len(cycle_lengths)):
-    #             cycle_length = cycle_lengths[cycle_idx]
-    #             start_idx = cycle_start_indices[cycle_idx]
+    #         # Iterate over each cycle
+    #         for idx, ordered_cycle in enumerate(all_cycles):
+    #             # Get species properties for the current cycle
+    #             species = species_for_cycles[idx]
+    #             properties = self.species_properties[species]
+    #             target_bond_lengths = properties.target_bond_lengths
     #
+    #             # Create a subgraph for the current cycle
+    #             subgraph = self.graph.subgraph(ordered_cycle).copy()
+    #
+    #             # Calculate bond energy for edges within the cycle
+    #             cycle_length = len(ordered_cycle)
     #             for i in range(cycle_length):
-    #                 node_i = flat_cycles[start_idx + i]
-    #                 node_j = flat_cycles[start_idx + (i + 1) % cycle_length]
-    #                 xi, yi = x[2 * node_i], x[2 * node_i + 1]
-    #                 xj, yj = x[2 * node_j], x[2 * node_j + 1]
-    #                 pos_i = np.array([xi, yi])
-    #                 pos_j = np.array([xj, yj])
+    #                 node_i = ordered_cycle[i]
+    #                 node_j = ordered_cycle[(i + 1) % cycle_length]  # Ensure the last node connects to the first node
+    #                 xi, yi = (
+    #                     x[2 * list(self.graph.nodes).index(node_i)],
+    #                     x[2 * list(self.graph.nodes).index(node_i) + 1],
+    #                 )
+    #                 xj, yj = (
+    #                     x[2 * list(self.graph.nodes).index(node_j)],
+    #                     x[2 * list(self.graph.nodes).index(node_j) + 1],
+    #                 )
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
     #
-    #                 current_length = np.linalg.norm(pos_i - pos_j)
-    #                 target_length = flat_bond_lengths[bond_idx]
-    #                 energy += 0.5 * k_inner_bond * ((current_length - target_length) ** 2)
-    #                 bond_idx += 1
+    #                 # Calculate the current bond length and target bond length
+    #                 current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 target_length = target_bond_lengths[ordered_cycle.index(node_i)]
+    #                 energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
     #
+    #                 # Update bond length in the graph during optimization
+    #                 self.graph.edges[node_i, node_j]["bond_length"] = current_length
+    #
+    #                 # Add edge to cycle_edges set
     #                 cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
     #
-    #             if species_for_cycles[cycle_idx] == species_to_index[NitrogenSpecies.PYRIDINIC_1]:
-    #                 for i, j in zip(flat_cycles[start_idx:start_idx + cycle_length],
-    #                                 flat_cycles[start_idx + 1:start_idx + cycle_length + 1]):
+    #             if species == NitrogenSpecies.PYRIDINIC_1:
+    #                 # ToDo: See if you can optimize this so that you don't have to repeat a lot of logic from above
+    #                 #  and
+    #                 #  maybe you can also iterate directly over the subgraph.edges in the for loop above and thus save
+    #                 #  redundant code
+    #                 for i, j in subgraph.edges():
     #                     if (min(i, j), max(i, j)) not in cycle_edges:
-    #                         xi, yi = x[2 * i], x[2 * i + 1]
-    #                         xj, yj = x[2 * j], x[2 * j + 1]
-    #                         pos_i = np.array([xi, yi])
-    #                         pos_j = np.array([xj, yj])
+    #                         xi, yi = (
+    #                             x[2 * list(self.graph.nodes).index(i)],
+    #                             x[2 * list(self.graph.nodes).index(i) + 1],
+    #                         )
+    #                         xj, yj = (
+    #                             x[2 * list(self.graph.nodes).index(j)],
+    #                             x[2 * list(self.graph.nodes).index(j) + 1],
+    #                         )
+    #                         pos_i = Position(xi, yi)
+    #                         pos_j = Position(xj, yj)
     #
-    #                         current_length = np.linalg.norm(pos_i - pos_j)
-    #                         target_length = flat_bond_lengths[bond_idx - 1]  # Last bond length for Pyridinic_1
-    #                         energy += 0.5 * k_inner_bond * ((current_length - target_length) ** 2)
+    #                         current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+    #                         target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
+    #                         energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
     #
+    #                         # Update bond length in the graph during optimization
+    #                         self.graph.edges[i, j]["bond_length"] = current_length
+    #
+    #                         # Add edge to cycle_edges set
     #                         cycle_edges.add((min(i, j), max(i, j)))
     #
-    #         for i in range(0, len(x), 2):
-    #             for j in range(i + 2, len(x), 2):
-    #                 if (min(i // 2, j // 2), max(i // 2, j // 2)) not in cycle_edges:
-    #                     pos_i = x[i:i + 2]
-    #                     pos_j = x[j:j + 2]
-    #                     current_length = np.linalg.norm(pos_i - pos_j)
-    #                     target_length = 1.42
-    #                     energy += 0.5 * k_outer_bond * ((current_length - target_length) ** 2)
+    #         # Calculate bond energy for edges outside the cycles
+    #         for i, j, data in self.graph.edges(data=True):
+    #             if (min(i, j), max(i, j)) not in cycle_edges:
+    #                 xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
+    #                 xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
+    #
+    #                 # Calculate the current bond length and set default target length
+    #                 current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 target_length = 1.42
+    #                 energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
+    #
+    #                 # Update bond length in the graph during optimization
+    #                 self.graph.edges[i, j]["bond_length"] = current_length
     #
     #         return energy
     #
-    #     @jit(nopython=True)
-    #     def angle_energy(x, k_inner_angle, flat_angles, cycle_start_indices, cycle_lengths, flat_cycles,
-    #                      species_for_cycles, box_size):
+    #     def angle_energy(x):
+    #         """
+    #         Calculate the angle energy for the given positions.
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total angle energy.
+    #         """
     #         energy = 0.0
+    #
+    #         # Initialize a set to track angles within cycles
     #         counted_angles = set()
-    #         angle_idx = 0
     #
-    #         for cycle_idx in range(len(cycle_lengths)):
-    #             cycle_length = cycle_lengths[cycle_idx]
-    #             start_idx = cycle_start_indices[cycle_idx]
+    #         # Iterate over each cycle
+    #         for idx, ordered_cycle in enumerate(all_cycles):
+    #             # Get species properties for the current cycle
+    #             species = species_for_cycles[idx]
+    #             properties = self.species_properties[species]
+    #             target_angles = properties.target_angles
     #
-    #             for (i, j, k) in zip(flat_cycles[start_idx:start_idx + cycle_length],
-    #                                  flat_cycles[start_idx + 1:start_idx + cycle_length],
-    #                                  flat_cycles[start_idx + 2:start_idx + cycle_length]):
-    #                 xi, yi = x[2 * i], x[2 * i + 1]
-    #                 xj, yj = x[2 * j], x[2 * j + 1]
-    #                 xk, yk = x[2 * k], x[2 * k + 1]
+    #             for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
+    #                 xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
+    #                 xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+    #                 xk, yk = x[2 * list(self.graph.nodes).index(k)], x[2 * list(self.graph.nodes).index(k) + 1]
     #
-    #                 pos_i = np.array([xi, yi])
-    #                 pos_j = np.array([xj, yj])
-    #                 pos_k = np.array([xk, yk])
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
+    #                 pos_k = Position(xk, yk)
     #
-    #                 v1 = pos_i - pos_j
-    #                 v2 = pos_k - pos_j
+    #                 _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
     #
     #                 cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
     #                 theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-    #                 energy += 0.5 * k_inner_angle * ((theta - np.radians(flat_angles[angle_idx])) ** 2)
-    #                 angle_idx += 1
+    #                 energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
     #
+    #                 # Add angles to counted_angles to avoid double-counting
     #                 counted_angles.add((i, j, k))
     #                 counted_angles.add((k, j, i))
+    #
+    #         # # Calculate angle energy for angles outside the cycles
+    #         # for node in self.graph.nodes:
+    #         #     neighbors = list(self.graph.neighbors(node))
+    #         #     if len(neighbors) < 2:
+    #         #         continue
+    #         #     for i in range(len(neighbors)):
+    #         #         for j in range(i + 1, len(neighbors)):
+    #         #             ni = neighbors[i]
+    #         #             nj = neighbors[j]
+    #         #
+    #         #             # Skip angles that have already been counted
+    #         #             if (ni, node, nj) in counted_angles or (nj, node, ni) in counted_angles:
+    #         #                 continue
+    #         #
+    #         #             x_node, y_node = (
+    #         #                 x[2 * list(self.graph.nodes).index(node)],
+    #         #                 x[2 * list(self.graph.nodes).index(node) + 1],
+    #         #             )
+    #         #             x_i, y_i = (x[2 * list(self.graph.nodes).index(ni)],
+    #         #                         x[2 * list(self.graph.nodes).index(ni) + 1])
+    #         #             x_j, y_j = (x[2 * list(self.graph.nodes).index(nj)],
+    #         #                         x[2 * list(self.graph.nodes).index(nj) + 1])
+    #         #             pos_node = Position(x_node, y_node)
+    #         #             pos_i = Position(x_i, y_i)
+    #         #             pos_j = Position(x_j, y_j)
+    #         #             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
+    #         #             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
+    #         #             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    #         #             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    #         #             energy += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
     #
     #         return energy
     #
     #     def total_energy(x):
-    #         return bond_energy(x, self.k_inner_bond, self.k_outer_bond, flat_bond_lengths, cycle_start_indices,
-    #                            cycle_lengths, flat_cycles, species_for_cycles, box_size) + \
-    #             angle_energy(x, self.k_inner_angle, flat_angles, cycle_start_indices, cycle_lengths, flat_cycles,
-    #                          species_for_cycles, box_size)
+    #         """
+    #         Calculate the total energy (bond energy + angle energy).
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total energy.
+    #         """
+    #         return bond_energy(x) + angle_energy(x)
     #
     #     # Optimize positions to minimize energy
     #     result = minimize(total_energy, x0, method="L-BFGS-B")
@@ -1240,6 +1209,7 @@ class Graphene:
     #     # Reshape the 1D array result to 2D coordinates and update positions in the graph
     #     optimized_positions = result.x.reshape(-1, 2)
     #
+    #     # Update positions in the original graph based on the optimized positions
     #     for idx, node in enumerate(self.graph.nodes):
     #         optimized_position = optimized_positions[idx]
     #         adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
