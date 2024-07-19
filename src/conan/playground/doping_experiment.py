@@ -47,6 +47,7 @@ class DopingStructure:
         List of atoms that were replaced by nitrogen atoms to form the doping structure.
     """
 
+    # ToDo: Maybe saving the subgraph of the structure here would be better programming practice
     species: NitrogenSpecies
     cycle: List[int]
     structure_building_atoms: List[int]
