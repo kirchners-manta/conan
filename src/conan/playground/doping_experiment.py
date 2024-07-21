@@ -23,7 +23,8 @@ from conan.playground.graph_utils import (
     write_xyz,
 )
 
-# Define the namedtuple for structural components
+# Define a namedtuple for structural components
+# This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
 
 
@@ -44,7 +45,7 @@ class DopingStructure:
         - structure_building_neighbors: List of neighbor atom IDs for the structure building atoms. Some (or all) of
         these neighbors will be replaced by nitrogen atoms to form the respective doping structure.
     nitrogen_atoms : List[int]
-        List of atoms that were replaced by nitrogen atoms to form the doping structure.
+        List of atoms that are replaced by nitrogen atoms to form the doping structure.
     cycle : Optional[List[int]]
         List of atom IDs forming the cycle of the doping structure.
     subgraph : Optional[nx.Graph]
@@ -68,6 +69,28 @@ class DopingStructure:
         structural_components: StructuralComponents[List[int], List[int]],
         start_node: Optional[int] = None,
     ):
+        """
+        Create a doping structure within the graphene sheet.
+
+        This method creates a doping structure by detecting the cycle in the graph that includes the
+        structure-building neighbors, ordering the cycle, and adding any necessary edges.
+
+        Parameters
+        ----------
+        graphene : Graphene
+            The graphene sheet.
+        species : NitrogenSpecies
+            The type of nitrogen doping.
+        structural_components : StructuralComponents[List[int], List[int]]
+            The structural components of the doping structure.
+        start_node : Optional[int], optional
+            The start node for ordering the cycle. Default is None.
+
+        Returns
+        -------
+        DopingStructure
+            The created doping structure.
+        """
         graph = graphene.graph
 
         # Detect the cycle and create the subgraph
@@ -76,15 +99,17 @@ class DopingStructure:
         # Order the cycle
         ordered_cycle = cls._order_cycle(subgraph, cycle, species, start_node)
 
-        # Add edge if needed
+        # Add edge if needed (only for PYRIDINIC_1 doping)
         additional_edge = None
         if species == NitrogenSpecies.PYRIDINIC_1:
             additional_edge = cls._add_additional_edge(
                 graphene, subgraph, structural_components.structure_building_neighbors, start_node
             )
 
+        # Identify nitrogen atoms in the ordered cycle
         nitrogen_atoms = [node for node in ordered_cycle if graph.nodes[node]["element"] == "N"]
 
+        # Create and return the DopingStructure instance
         return cls(species, structural_components, nitrogen_atoms, ordered_cycle, subgraph, additional_edge)
 
     @staticmethod
@@ -104,12 +129,19 @@ class DopingStructure:
         Tuple[List[int], nx.Graph]
             The detected cycle and the subgraph containing the cycle.
         """
+        # Find the shortest cycle that includes all the given neighbors
         cycle = DopingStructure._find_min_cycle_including_neighbors(graph, neighbors)
+
+        # Create a subgraph from the detected cycle
         subgraph = graph.subgraph(cycle).copy()
+
+        # Return the cycle and the corresponding subgraph
         return cycle, subgraph
 
     @staticmethod
-    def _add_additional_edge(graphene: "Graphene", subgraph: nx.Graph, neighbors: List[int], start_node: int):
+    def _add_additional_edge(
+        graphene: "Graphene", subgraph: nx.Graph, neighbors: List[int], start_node: int
+    ) -> Tuple[int, int]:
         """
         Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
 
@@ -123,29 +155,63 @@ class DopingStructure:
             List of neighbor atom IDs.
         start_node: int
             The start node ID.
+
+        Returns
+        -------
+        Tuple[int, int]
+            The nodes between which the additional edge was added.
         """
         graph = graphene.graph
+
+        # Remove the start node from the list of neighbors to get the two neighbors to connect
         neighbors.remove(start_node)
+
+        # Get the positions of the two remaining neighbors
         pos1 = graph.nodes[neighbors[0]]["position"]
         pos2 = graph.nodes[neighbors[1]]["position"]
+
+        # Calculate the box size for periodic boundary conditions
         box_size = (
             graphene.actual_sheet_width + graphene.c_c_bond_distance,
             graphene.actual_sheet_height + graphene.cc_y_distance,
         )
+
+        # Calculate the bond length between the two neighbors considering minimum image distance
         bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
+
+        # Add the edge to the main graph and the subgraph
         graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
         subgraph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+
+        # Return the nodes between which the edge was added
         return neighbors[0], neighbors[1]
 
     @staticmethod
     def _order_cycle(
         subgraph: nx.Graph, cycle: List[int], species: NitrogenSpecies, start_node: Optional[int] = None
     ) -> List[int]:
+        """
+        Order the nodes in the cycle starting from a specified node or a suitable node based on the nitrogen species.
+
+        Parameters
+        ----------
+        subgraph : nx.Graph
+            The subgraph containing the cycle.
+        cycle : List[int]
+            List of atom IDs forming the cycle.
+        species : NitrogenSpecies
+            The nitrogen doping species.
+        start_node : Optional[int], optional
+            The start node ID. If None, a suitable start node will be determined based on the nitrogen species.
+
+        Returns
+        -------
+        List[int]
+            The ordered list of nodes in the cycle.
+        """
         if start_node is None:
             # If no start node is provided, find a suitable starting node based on the nitrogen species
-            start_node = DopingStructure._find_start_node(
-                subgraph, cycle, species
-            )  # ToDo: Reicht es hier nicht aus dann nur subgraph oder cycle zu verwenden?
+            start_node = DopingStructure._find_start_node(subgraph, species)
 
         # Initialize the list to store the ordered cycle and a set to track visited nodes
         ordered_cycle = []
@@ -182,7 +248,6 @@ class DopingStructure:
         Parameters
         ----------
         graph: nx.Graph
-
         neighbors : List[int]
             A list of nodes that should be included in the cycle.
 
@@ -226,17 +291,15 @@ class DopingStructure:
             visited_edges.update(new_edges)
 
     @staticmethod
-    def _find_start_node(graph: nx.Graph, cycle: List[int], species: NitrogenSpecies) -> int:
+    def _find_start_node(subgraph: nx.Graph, species: NitrogenSpecies) -> int:
         """
         Find a suitable starting node for a given cycle based on the nitrogen species. The starting node is used to
         ensure a consistent iteration order through the cycle, matching the bond lengths and angles correctly.
 
         Parameters
         ----------
-        graph : nx.Graph
+        subgraph : nx.Graph
             The graph containing the cycle.
-        cycle : List[int]
-            A list containing the atom IDs forming the cycle.
         species : NitrogenSpecies
             The nitrogen doping species that was inserted for the cycle.
 
@@ -253,21 +316,21 @@ class DopingStructure:
         start_node = None
         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
             # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
-            for node in cycle:
+            for node in subgraph.nodes:
                 # Skip the node if it is already a nitrogen atom
-                if graph.nodes[node]["element"] == "N":
+                if subgraph.nodes[node]["element"] == "N":
                     continue
                 # Get the neighbors of the current node
-                neighbors = get_neighbors_via_edges(graph, node)
+                neighbors = get_neighbors_via_edges(subgraph, node)
                 # Check if none of the neighbors of the node are nitrogen atoms, provided the neighbor is within the
                 # cycle
-                if all(graph.nodes[neighbor]["element"] != "N" for neighbor in neighbors if neighbor in cycle):
+                if all(subgraph.nodes[neighbor]["element"] != "N" for neighbor in neighbors):
                     # If the current node meets all conditions, set it as the start node
                     start_node = node
                     break
             # Raise an error if no suitable start node is found
         if start_node is None:
-            raise ValueError(f"No suitable starting node found in the cycle {cycle}.")
+            raise ValueError("No suitable starting node found in the subgraph.")
         return start_node
 
 
