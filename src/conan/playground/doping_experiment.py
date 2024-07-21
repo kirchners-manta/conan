@@ -398,8 +398,15 @@ class Graphene:
         """The networkx graph representing the graphene sheet structure."""
         self._build_graphene_sheet()
 
-        self.possible_carbon_atoms = [node for node, data in self.graph.nodes(data=True) if data["element"] == "C"]
-        """A list of all possible carbon atoms in the graphene sheet for nitrogen doping."""
+        # Initialize the list of possible carbon atoms
+        self.possible_carbon_atoms = [
+            node for node, data in self.graph.nodes(data=True) if data["possible_doping_site"]
+        ]
+
+        # self._possible_carbon_atoms = [node for node, data in self.graph.nodes(data=True) if
+        #                                data["possible_doping_site"]]
+        # """A list of all possible carbon atoms in the graphene sheet for nitrogen doping."""
+        # random.shuffle(self._possible_carbon_atoms)
         # ToDo: Kann evtl. über Property automatisch geupdatet werden, sodass die atom ids nicht zusätzlich zum
         #  Entfernen aus dem Graphen auch noch aus der possible_carbon_atoms Liste entfernt werden müssen;
         #  Es könnte auch über die gefundenen cycles festgestellt werden, ob ein Atom als neue atom_id in Frage kommt
@@ -468,6 +475,33 @@ class Graphene:
         """Calculate the actual height of the graphene sheet based on the number of unit cells and bond distance."""
         return self.num_cells_y * (2 * self.cc_y_distance) - self.cc_y_distance
 
+    def update_possible_carbon_atoms(self):
+        """Update the list of possible carbon atoms without shuffling."""
+        self.possible_carbon_atoms = [
+            node for node, data in self.graph.nodes(data=True) if data.get("possible_doping_site")
+        ]
+
+    # @property
+    # def possible_carbon_atoms(self):
+    #     """Property to get the current list of possible carbon atoms."""
+    #     self._possible_carbon_atoms = [
+    #         node for node, data in self.graph.nodes(data=True) if data.get("possible_doping_site")
+    #     ]
+    #     return self._possible_carbon_atoms
+
+    # def _initialize_possible_carbon_atoms(self):
+    #     """Initialize the list of possible carbon atoms and shuffle it."""
+    #     self._possible_carbon_atoms = [
+    #         node for node, data in self.graph.nodes(data=True) if data.get("possible_doping_site")
+    #     ]
+    #     random.shuffle(self._possible_carbon_atoms)
+
+    def get_next_possible_carbon_atom(self):
+        """Get the next possible carbon atom from the shuffled list."""
+        if not self.possible_carbon_atoms:
+            return None
+        return self.possible_carbon_atoms.pop(random.randint(0, len(self.possible_carbon_atoms) - 1))
+
     def _build_graphene_sheet(self):
         """
         Build the graphene sheet structure by creating nodes and edges (using graph theory via networkx).
@@ -520,7 +554,10 @@ class Graphene:
         ]
 
         # Add nodes with positions and element type (carbon)
-        nodes = [(index + i, {"element": "C", "position": pos}) for i, pos in enumerate(unit_cell_positions)]
+        nodes = [
+            (index + i, {"element": "C", "position": pos, "possible_doping_site": True})
+            for i, pos in enumerate(unit_cell_positions)
+        ]
         self.graph.add_nodes_from(nodes)
 
         # Add internal bonds within the unit cell
@@ -772,7 +809,6 @@ class Graphene:
         other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
         the structure is inserted, all atoms of this structure are excluded from further doping positions.
         """
-
         # Shuffle the list of possible carbon atoms
         possible_carbon_atoms_shuffled = random.sample(self.possible_carbon_atoms, len(self.possible_carbon_atoms))
 
@@ -782,23 +818,25 @@ class Graphene:
             # Randomly select a carbon atom from the shuffled list without replacement and compute its neighbors
             atom_id = possible_carbon_atoms_shuffled.pop(0)
 
-            # Check if the selected atom is a possible carbon atom
-            if atom_id not in self.possible_carbon_atoms:
-                continue  # ToDo: Super blöde Lösung, dass man hier das nochmal überprüfen muss; evtl. möglich, dass das
-                #  possible_carbon_atoms_shuffled geschickter mit self.possible_carbon_atoms funktioniert?
+            # # Check if the selected atom is a possible carbon atom
+            # if atom_id not in self.possible_carbon_atoms:
+            #     continue
+            #     #  possible_carbon_atoms_shuffled geschickter mit self.possible_carbon_atoms funktioniert?
 
-            neighbors = get_neighbors_via_edges(self.graph, atom_id)
+            # neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
             # Check if the selected atom is a valid doping position
-            is_valid, doping_structure = self._valid_doping_position(nitrogen_species, atom_id, neighbors)
+            is_valid, doping_structure = self._valid_doping_position(nitrogen_species, atom_id)
             if not is_valid:
                 continue
 
             # Atom is valid, proceed with nitrogen doping
             if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-                self._handle_graphitic_doping(doping_structure, nitrogen_species)
+                self._handle_graphitic_doping(doping_structure)
             else:
                 self._handle_pyridinic_doping(doping_structure, nitrogen_species)
+
+            self.update_possible_carbon_atoms()
 
         # Warn if not all requested nitrogen atoms could be placed
         if len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen:
@@ -808,7 +846,7 @@ class Graphene:
             )
             print_warning(warning_message)
 
-    def _handle_graphitic_doping(self, doping_structure: DopingStructure, nitrogen_species: NitrogenSpecies):
+    def _handle_graphitic_doping(self, doping_structure: DopingStructure):
         atom_id = doping_structure.structure_building_atoms[0]
         neighbors = doping_structure.structure_building_neighbors
 
@@ -818,12 +856,16 @@ class Graphene:
         # Update the selected atom's element to nitrogen and set its nitrogen species
         self.graph.nodes[atom_id]["element"] = "N"
         self.graph.nodes[atom_id]["nitrogen_species"] = NitrogenSpecies.GRAPHITIC
+        self.graph.nodes[atom_id]["possible_doping_site"] = False
 
-        # Remove the selected atom and its neighbors from the list of potential carbon atoms
-        self.possible_carbon_atoms.remove(atom_id)
+        # # Remove the selected atom and its neighbors from the list of potential carbon atoms
+        # self.possible_carbon_atoms.remove(atom_id)
+        # for neighbor in neighbors:
+        #     if neighbor in self.possible_carbon_atoms:
+        #         self.possible_carbon_atoms.remove(neighbor)
+
         for neighbor in neighbors:
-            if neighbor in self.possible_carbon_atoms:
-                self.possible_carbon_atoms.remove(neighbor)
+            self.graph.nodes[neighbor]["possible_doping_site"] = False
 
         # Add the doping structure to the collection
         doping_structure.nitrogen_atoms.append(atom_id)
@@ -834,7 +876,7 @@ class Graphene:
         # Remove the structure building atom(s) from the graph
         for atom in doping_structure.structure_building_atoms:
             self.graph.remove_node(atom)
-            self.possible_carbon_atoms.remove(atom)
+            # self.possible_carbon_atoms.remove(atom)
 
         start_node = self._handle_species_specific_logic(
             nitrogen_species, doping_structure.structure_building_neighbors
@@ -845,7 +887,7 @@ class Graphene:
         #     nitrogen_species,
         #     doping_structure.structure_building_atoms,
         #     doping_structure.structure_building_neighbors,
-        #     start_node,
+        #     start_node
         # )
 
         # Create the doping structure
@@ -859,9 +901,13 @@ class Graphene:
 
         self.doping_structures.add_structure(doping_structure)
 
+        # for node in doping_structure.cycle:
+        #     if node in self.possible_carbon_atoms:
+        #         self.possible_carbon_atoms.remove(node)
+
         for node in doping_structure.cycle:
-            if node in self.possible_carbon_atoms:
-                self.possible_carbon_atoms.remove(node)
+            self.graph.nodes[node]["possible_doping_site"] = False
+
         # self._add_edge_if_needed(nitrogen_species, doping_structure.structure_building_neighbors, start_node)
 
     def _handle_species_specific_logic(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]) -> Optional[int]:
@@ -953,33 +999,57 @@ class Graphene:
         This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
         configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
+        # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
         all_structures = [
             structure
             for structure in self.doping_structures.structures
             if structure.species != NitrogenSpecies.GRAPHITIC
         ]
 
+        # Return if no doping structures are present
         if not all_structures:
             return
 
+        # Get the initial positions of atoms
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
+        # Flatten the positions into a 1D array for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
+        # Define the box size for minimum image distance calculation
         box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
         def bond_energy(x):
+            """
+            Calculate the bond energy for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total bond energy.
+            """
             energy = 0.0
+
+            # Initialize a set to track edges within cycles
             cycle_edges = set()
 
+            # Iterate over all doping structures and calculate bond energy
             for structure in all_structures:
+                # Get the target bond lengths for the specific nitrogen species
                 properties = self.species_properties[structure.species]
                 target_bond_lengths = properties.target_bond_lengths
+                # Extract the ordered cycle of the doping structure to get the current bond lengths in order
                 ordered_cycle = structure.cycle
 
-                # Create the edges in order, including the additional edge for Pyridinic_1
+                # Get the graph edges in order, including the additional edge in case of Pyridinic_1
                 edges_in_order = list(pairwise(ordered_cycle + [ordered_cycle[0]]))
                 if structure.species == NitrogenSpecies.PYRIDINIC_1:
                     edges_in_order.append(structure.additional_edge)
 
+                # Calculate bond energy for each edge in the doping structure
                 for idx, (node_i, node_j) in enumerate(edges_in_order):
                     xi, yi = (
                         x[2 * list(self.graph.nodes).index(node_i)],
@@ -1308,7 +1378,7 @@ class Graphene:
 
     # ToDo: evtl. Methode etwas umbenennen, da sie ja auch die DopingStructuralComponents setzt
     def _valid_doping_position(
-        self, nitrogen_species: NitrogenSpecies, atom_id: int, neighbors: List[int]
+        self, nitrogen_species: NitrogenSpecies, atom_id: int
     ) -> Tuple[bool, Optional[DopingStructure]]:
         """
         Determine if a given position is valid for nitrogen doping based on the nitrogen species and atom position.
@@ -1350,6 +1420,9 @@ class Graphene:
                 True if all neighbors are possible atoms for doping, False otherwise.
             """
             return all(neighbor in self.possible_carbon_atoms for neighbor in neighbors)
+
+        # Get the neighbors of the selected atom
+        neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
         # Check the proximity constraints based on the nitrogen species
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
@@ -1401,8 +1474,11 @@ class Graphene:
                 # Get neighbors up to depth 2 for the selected atom and a neighboring atom (if provided)
                 neighbors_len_2_atom = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
                 neighbors_len_2_neighbor = get_neighbors_via_edges(self.graph, temp_neighbor, depth=2, inclusive=True)
+
+                # Combine the two lists and remove the atom_id
+                combined_len_2_neighbors = list(set(neighbors_len_2_atom + neighbors_len_2_neighbor))
                 # Ensure all neighbors (from both atoms) are possible atoms for doping
-                if all_neighbors_possible_carbon_atoms(list(set(neighbors_len_2_atom + neighbors_len_2_neighbor))):
+                if all_neighbors_possible_carbon_atoms(combined_len_2_neighbors):
                     # Valid neighbor found
                     selected_neighbor = temp_neighbor
 
