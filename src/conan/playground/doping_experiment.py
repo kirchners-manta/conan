@@ -1033,6 +1033,10 @@ class Graphene:
         """
         Determine if a given position is valid for nitrogen doping based on the nitrogen species and atom position.
 
+        This method tests possible carbon atoms for doping by checking their proximity constraints
+        based on the type of nitrogen species. If a valid position is found, it returns True along with
+        the structural components needed for doping. Otherwise, it returns False.
+
         Parameters
         ----------
         nitrogen_species : NitrogenSpecies
@@ -1042,8 +1046,16 @@ class Graphene:
 
         Returns
         -------
-        Tuple[bool, Optional[int], Optional[DopingStructure]]
+        Tuple[bool, StructuralComponents]
             A tuple containing a boolean indicating if the position is valid and the structure components if valid.
+            If the position is not valid, returns False and (None, None).
+
+        Notes
+        -----
+        - For GRAPHITIC nitrogen species, it checks if all neighbors of the selected carbon atom are not nitrogen.
+        - For PYRIDINIC nitrogen species (PYRIDINIC_1, PYRIDINIC_2, PYRIDINIC_3), it checks neighbors up to depth 2.
+        - For PYRIDINIC_4 species, it checks neighbors up to depth 2 for two atoms and combines the neighbors.
+        - It ensures that the selected atom and its neighbors are not part of any existing doping structures.
         """
 
         def all_neighbors_possible_carbon_atoms(neighbors: List[int]):
@@ -1072,16 +1084,18 @@ class Graphene:
 
         # Check the proximity constraints based on the nitrogen species
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            # Collect elements and nitrogen species of neighbors
             neighbor_elements = [
                 (self.graph.nodes[neighbor]["element"], self.graph.nodes[neighbor].get("nitrogen_species"))
                 for neighbor in neighbors
             ]
             # Ensure all neighbors are not nitrogen atoms
             if all(elem != "N" for elem, _ in neighbor_elements):
+                # Return True if the position is valid for graphitic doping and the structural components
                 return True, StructuralComponents(
                     structure_building_atoms=[atom_id], structure_building_neighbors=neighbors
                 )
-
+            # Return False if the position is not valid for graphitic doping
             return False, (None, None)
 
         elif nitrogen_species in {
@@ -1093,9 +1107,11 @@ class Graphene:
             neighbors_len_2 = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
             # Ensure all neighbors are possible atoms for doping
             if all_neighbors_possible_carbon_atoms(neighbors_len_2):
+                # Return True if the position is valid for pyridinic doping and the structural components
                 return True, StructuralComponents(
                     structure_building_atoms=[atom_id], structure_building_neighbors=neighbors
                 )
+            # Return False if the position is not valid for pyridinic doping
             return False, (None, None)
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
@@ -1120,14 +1136,20 @@ class Graphene:
                     selected_neighbor = temp_neighbor
 
             if selected_neighbor is None:
+                # Return False if no valid neighbor is found for pyridinic 4 doping
                 return False, (None, None)
 
+            # Combine the neighbors and remove atom_id and selected_neighbor
+            # ToDo: This may be solved better by using an additional flag in get_neighbors_via_edges
             combined_neighbors = list(set(neighbors + get_neighbors_via_edges(self.graph, selected_neighbor)))
             combined_neighbors = [n for n in combined_neighbors if n not in {atom_id, selected_neighbor}]
+
+            # Return True if the position is valid for pyridinic 4 doping
             return True, StructuralComponents(
                 structure_building_atoms=[atom_id, selected_neighbor], structure_building_neighbors=combined_neighbors
             )
 
+        # Return False if the nitrogen species is not recognized
         return False, (None, None)
 
 
