@@ -1136,8 +1136,11 @@ class Graphene:
                 target_angles = properties.target_angles
                 ordered_cycle = structure.cycle
 
+                # Extend the cycle to account for the closed loop
+                extended_cycle = ordered_cycle + [ordered_cycle[0], ordered_cycle[1]]
+
                 # Iterate over triplets of nodes (i, j, k) in the ordered cycle to calculate angle energy
-                for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
+                for (i, j, k), angle in zip(zip(extended_cycle, extended_cycle[1:], extended_cycle[2:]), target_angles):
                     # Get the positions of the three nodes forming the angle
                     xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
                     xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
