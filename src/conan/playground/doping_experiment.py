@@ -342,7 +342,7 @@ class DopingStructureCollection:
     Attributes
     ----------
     structures : List[DopingStructure]
-        List of doping structures that have been added to the collection.
+        List of doping structures that are added to the collection.
     chosen_atoms : Dict[NitrogenSpecies, List[int]]
         Dictionary mapping nitrogen species to lists of chosen atom IDs. This is used to keep track of atoms that have
         already been chosen for doping (i.e., replaced by nitrogen atoms) to track the percentage of doping for each
@@ -354,7 +354,7 @@ class DopingStructureCollection:
 
     def add_structure(self, dopings_structure: DopingStructure):
         """
-        Add a doping structure to the collection
+        Add a doping structure to the collection and update the chosen atoms.
         """
         self.structures.append(dopings_structure)
         self.chosen_atoms[dopings_structure.species].extend(dopings_structure.nitrogen_atoms)
@@ -408,7 +408,7 @@ class Graphene:
         """The spring constant for angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
-        self._build_graphene_sheet()
+        self._build_graphene_sheet()  # Build the initial graphene sheet structure
 
         # Initialize the list of possible carbon atoms
         self._possible_carbon_atoms_needs_update = True
@@ -418,7 +418,7 @@ class Graphene:
 
         self.species_properties = self._initialize_species_properties()
         """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
-        This includes bond lengths and angles characteristic to each species."""
+        This includes bond lengths and angles characteristic to each species that we aim to achieve in the doping."""
 
         self.doping_structures = DopingStructureCollection()
         """A dataclass to store information about doping structures in the graphene sheet."""
@@ -474,17 +474,20 @@ class Graphene:
 
     @property
     def possible_carbon_atoms(self):
+        """Get the list of possible carbon atoms for doping."""
         if self._possible_carbon_atoms_needs_update:
             self._update_possible_carbon_atoms()
         return self._possible_carbon_atoms
 
     def _update_possible_carbon_atoms(self):
+        """Update the list of possible carbon atoms for doping."""
         self._possible_carbon_atoms = [
             node for node, data in self.graph.nodes(data=True) if data.get("possible_doping_site")
         ]
         self._possible_carbon_atoms_needs_update = False
 
     def mark_possible_carbon_atoms_for_update(self):
+        """Mark the list of possible carbon atoms as needing an update."""
         self._possible_carbon_atoms_needs_update = True
 
     def _build_graphene_sheet(self):
@@ -538,7 +541,7 @@ class Graphene:
             Position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
         ]
 
-        # Add nodes with positions and element type (carbon)
+        # Add nodes with positions, element type (carbon) and possible doping site flag
         nodes = [
             (index + i, {"element": "C", "position": pos, "possible_doping_site": True})
             for i, pos in enumerate(unit_cell_positions)
@@ -585,6 +588,7 @@ class Graphene:
 
     @staticmethod
     def _initialize_species_properties() -> Dict[NitrogenSpecies, NitrogenSpeciesProperties]:
+        # Initialize properties for PYRIDINIC_4 nitrogen species with target bond lengths and angles
         pyridinic_4_properties = NitrogenSpeciesProperties(
             target_bond_lengths=[1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45, 1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45],
             target_angles=[
@@ -604,6 +608,7 @@ class Graphene:
                 122.91,
             ],
         )
+        # Initialize properties for PYRIDINIC_3 nitrogen species with target bond lengths and angles
         pyridinic_3_properties = NitrogenSpeciesProperties(
             target_bond_lengths=[1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45],
             target_angles=[
@@ -621,6 +626,7 @@ class Graphene:
                 122.21,
             ],
         )
+        # Initialize properties for PYRIDINIC_2 nitrogen species with target bond lengths and angles
         pyridinic_2_properties = NitrogenSpeciesProperties(
             target_bond_lengths=[1.39, 1.42, 1.42, 1.33, 1.35, 1.44, 1.44, 1.35, 1.33, 1.42, 1.42, 1.39],
             target_angles=[
@@ -638,6 +644,7 @@ class Graphene:
                 125.04,
             ],
         )
+        # Initialize properties for PYRIDINIC_1 nitrogen species with target bond lengths and angles
         pyridinic_1_properties = NitrogenSpeciesProperties(
             target_bond_lengths=[1.31, 1.42, 1.45, 1.51, 1.42, 1.40, 1.40, 1.42, 1.51, 1.45, 1.42, 1.31, 1.70],
             target_angles=[
@@ -660,7 +667,7 @@ class Graphene:
         #     target_angles=[120.0],
         # )
 
-        # Initialize other species similarly
+        # Initialize a dictionary mapping each NitrogenSpecies to its corresponding properties
         species_properties = {
             NitrogenSpecies.PYRIDINIC_4: pyridinic_4_properties,
             NitrogenSpecies.PYRIDINIC_3: pyridinic_3_properties,
@@ -672,12 +679,27 @@ class Graphene:
 
     @staticmethod
     def get_next_possible_carbon_atom(atom_list):
-        """Get the next possible carbon atom from the shuffled list."""
+        """
+        Get a randomly selected carbon atom from the list of possible carbon atoms.
+
+        This method randomly selects a carbon atom from the provided list and removes it from the list.
+        This ensures that the same atom is not selected more than once.
+
+        Parameters
+        ----------
+        atom_list : list
+            The list of possible carbon atoms to select from.
+
+        Returns
+        -------
+        int or None
+            The ID of the selected carbon atom, or None if the list is empty.
+        """
         if not atom_list:
-            return None
-        atom_id = random.choice(atom_list)
-        atom_list.remove(atom_id)
-        return atom_id
+            return None  # Return None if the list is empty
+        atom_id = random.choice(atom_list)  # Randomly select an atom ID from the list
+        atom_list.remove(atom_id)  # Remove the selected atom ID from the list
+        return atom_id  # Return the selected atom ID
 
     def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
         """
@@ -706,14 +728,16 @@ class Graphene:
         - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
         - Remaining percentages are distributed equally among the available nitrogen species.
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
-        GRAPHITIC.
+          GRAPHITIC.
         """
         # Validate specific percentages and calculate the remaining percentage
         if percentages:
             if total_percentage is None:
-                total_percentage = sum(percentages.values())  # Set total to sum of specific percentages if not provided
+                # Set total to sum of specific percentages if not provided
+                total_percentage = sum(percentages.values())
             else:
-                specific_total_percentage = sum(percentages.values())  # Sum of provided specific percentages
+                # Sum of provided specific percentages
+                specific_total_percentage = sum(percentages.values())
                 if specific_total_percentage > total_percentage:
                     # Raise an error if the sum of specific percentages exceeds the total percentage
                     raise ValueError(
@@ -725,7 +749,8 @@ class Graphene:
             # Set a default total percentage if not provided
             if total_percentage is None:
                 total_percentage = 10  # Default total percentage
-            percentages = {}  # Initialize an empty dictionary if no specific percentages are provided
+            # Initialize an empty dictionary if no specific percentages are provided
+            percentages = {}
 
         # Calculate the remaining percentage for other species
         remaining_percentage = total_percentage - sum(percentages.values())
@@ -756,6 +781,7 @@ class Graphene:
         ]:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
+                # Insert the doping structures for the current species
                 self._insert_doping_structures(num_nitrogen_atoms, species)
 
         # Calculate the actual percentages of added nitrogen species
@@ -791,7 +817,7 @@ class Graphene:
         Parameters
         ----------
         num_nitrogen : int
-            The number of nitrogen atoms to add.
+            The number of nitrogen atoms of the specified species to add.
         nitrogen_species : NitrogenSpecies
             The type of nitrogen doping to add.
 
@@ -804,26 +830,30 @@ class Graphene:
         the structure is inserted, all atoms of this structure are excluded from further doping positions.
         """
 
+        # Create a copy of the possible carbon atoms to test for doping
         possible_carbon_atoms_to_test = self.possible_carbon_atoms.copy()
 
+        # Loop until the required number of nitrogen atoms is added or there are no more possible carbon atoms to test
         while (
             len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and possible_carbon_atoms_to_test
         ):
-            # Get a valid doping placement for the current nitrogen species
+            # Get a valid doping placement for the current nitrogen species and return the structural components
             is_valid, structural_components = self._find_valid_doping_position(
                 nitrogen_species, possible_carbon_atoms_to_test
             )
             if not is_valid:
-                # No valid doping position found
+                # No valid doping position found, proceed to the next possible carbon atom
                 continue
 
             # The doping position is valid, proceed with nitrogen doping
             if nitrogen_species == NitrogenSpecies.GRAPHITIC:
-                self._handle_graphitic_doping(structural_components, nitrogen_species)
+                # Handle graphitic doping
+                self._handle_graphitic_doping(structural_components)
             else:
+                # Handle pyridinic doping
                 self._handle_pyridinic_doping(structural_components, nitrogen_species)
 
-        # Warn if not all requested nitrogen atoms could be placed
+        # Warn if not all requested nitrogen atoms could be placed due to proximity constraints
         if len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen:
             warning_message = (
                 f"\nWarning: Only {len(self.doping_structures.chosen_atoms[nitrogen_species])} nitrogen atoms of "
@@ -831,56 +861,104 @@ class Graphene:
             )
             print_warning(warning_message)
 
-    def _handle_graphitic_doping(self, structural_components: StructuralComponents, nitrogen_species: NitrogenSpecies):
+    def _handle_graphitic_doping(self, structural_components: StructuralComponents):
+        """
+        Handle the graphitic nitrogen doping process.
+
+        This method takes the provided structural components and performs the doping process by converting a selected
+        carbon atom to a nitrogen atom. It also marks the affected atoms to prevent further doping in those positions
+        and updates the internal data structures accordingly.
+
+        Parameters
+        ----------
+        structural_components : StructuralComponents
+            The structural components required to build the graphitic doping structure. This includes the atom that
+            will be changed to nitrogen and its neighboring atoms.
+        """
+
+        # Get the atom ID of the structure-building atom (the one to be doped with nitrogen)
         atom_id = structural_components.structure_building_atoms[0]
+        # Get the neighbors of the structure-building atom
         neighbors = structural_components.structure_building_neighbors
 
         # Update the selected atom's element to nitrogen and set its nitrogen species
         self.graph.nodes[atom_id]["element"] = "N"
         self.graph.nodes[atom_id]["nitrogen_species"] = NitrogenSpecies.GRAPHITIC
-        self.graph.nodes[atom_id]["possible_doping_site"] = False
 
+        # Mark this atom as no longer a possible doping site
+        self.graph.nodes[atom_id]["possible_doping_site"] = False
+        # Iterate through each neighbor and mark them as no longer possible doping sites
         for neighbor in neighbors:
             self.graph.nodes[neighbor]["possible_doping_site"] = False
+
+        # Flag to indicate that the list of possible carbon atoms needs to be updated
         self.mark_possible_carbon_atoms_for_update()
 
         # Create the doping structure
         doping_structure = DopingStructure(
-            species=nitrogen_species, structural_components=structural_components, nitrogen_atoms=[atom_id]
+            species=NitrogenSpecies.GRAPHITIC,  # Set the nitrogen species
+            structural_components=structural_components,  # Use the provided structural components
+            nitrogen_atoms=[atom_id],  # List of nitrogen atoms in this structure
         )
 
         # Add the doping structure to the collection
         self.doping_structures.add_structure(doping_structure)
 
-    def _handle_pyridinic_doping(self, structual_components: StructuralComponents, nitrogen_species: NitrogenSpecies):
+    def _handle_pyridinic_doping(self, structural_components: StructuralComponents, nitrogen_species: NitrogenSpecies):
+        """
+        Handle the pyridinic nitrogen doping process for the specified nitrogen species.
 
-        # Remove the structure building atom(s) from the graph
-        for atom in structual_components.structure_building_atoms:
-            self.graph.remove_node(atom)
-            # self.possible_carbon_atoms.remove(atom)
+        This method performs pyridinic doping by removing specific carbon atoms and possibly replacing some neighbors
+        with nitrogen atoms, depending on the doping type specified. It also updates internal data structures to reflect
+        the changes and ensures no further doping occurs at these locations.
 
+        Parameters
+        ----------
+        structural_components : StructuralComponents
+            The structural components including the atom(s) to be removed and its/their neighboring atoms.
+        nitrogen_species : NitrogenSpecies
+            The specific type of nitrogen doping to be applied, such as PYRIDINIC_1, PYRIDINIC_2, etc.
+        """
+
+        # Remove the carbon atom(s) specified in the structural components from the graph
+        for atom in structural_components.structure_building_atoms:
+            self.graph.remove_node(atom)  # Remove the atom from the graph
+            # Note: The possible_carbon_atoms list is updated later to ensure synchronization with the graph
+
+        # Determine the start node based on the species-specific logic; this is used to order the cycle correctly to
+        # ensure the bond lengths and angles are consistent with the target values
         start_node = self._handle_species_specific_logic(
-            nitrogen_species, structual_components.structure_building_neighbors
+            nitrogen_species, structural_components.structure_building_neighbors
         )
 
-        # Create the doping structure
+        # Create a new doping structure using the provided nitrogen species and structural components. This involves the
+        # creation of a cycle that includes all neighbors of the removed carbon atom(s) and finding a suitable start
+        # node for the cycle if not already determined. The cycle is used to build the doping structure. In case of
+        # PYRIDINIC_1, an additional edge is added between the neighbors.
         doping_structure = DopingStructure.create_structure(
             self,
             nitrogen_species,
-            structual_components,
+            structural_components,
             start_node,
         )
 
+        # Add the newly created doping structure to the collection for management and tracking
         self.doping_structures.add_structure(doping_structure)
 
+        # Mark all nodes involved in the newly formed cycle as no longer valid for further doping
         for node in doping_structure.cycle:
             self.graph.nodes[node]["possible_doping_site"] = False
 
+        # Update the list of possible carbon atoms since the doping structure may have affected several nodes and edges
         self.mark_possible_carbon_atoms_for_update()
 
     def _handle_species_specific_logic(self, nitrogen_species: NitrogenSpecies, neighbors: List[int]) -> Optional[int]:
         """
         Handle species-specific logic for adding nitrogen atoms.
+
+        This method applies the logic specific to each type of nitrogen doping species. It updates the graph by
+        replacing certain carbon atoms with nitrogen atoms and determines the start node for the doping structure cycle
+        in case of PYRIDINIC_1 and PYRIDINIC_2 species.
 
         Parameters
         ----------
@@ -894,63 +972,35 @@ class Graphene:
         Optional[int]
             The start node ID if applicable, otherwise None.
         """
-        start_node = None
+        start_node = None  # Initialize the start node as None
 
         if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
-            # Replace 1 carbon atom to form pyridinic nitrogen structure
-            selected_neighbor = random.choice(neighbors)
-            self.graph.nodes[selected_neighbor]["element"] = "N"
-            self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species
+            # For PYRIDINIC_1, replace one carbon atom with a nitrogen atom
+            selected_neighbor = random.choice(neighbors)  # Randomly select one neighbor to replace with nitrogen
+            self.graph.nodes[selected_neighbor]["element"] = "N"  # Update the selected neighbor to nitrogen
+            self.graph.nodes[selected_neighbor]["nitrogen_species"] = nitrogen_species  # Set its nitrogen species
 
             # Identify the start node for this cycle as the selected neighbor
             start_node = selected_neighbor
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
-            # Replace 2 carbon atoms to form pyridinic nitrogen structure
-            selected_neighbors = random.sample(neighbors, 2)
+            # For PYRIDINIC_2, replace two carbon atoms with nitrogen atoms
+            selected_neighbors = random.sample(neighbors, 2)  # Randomly select two neighbors to replace with nitrogen
             for neighbor in selected_neighbors:
-                self.graph.nodes[neighbor]["element"] = "N"
-                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                self.graph.nodes[neighbor]["element"] = "N"  # Update the selected neighbors to nitrogen
+                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species  # Set their nitrogen species
 
             # Identify the start node for this cycle using set difference
-            remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()
-            start_node = remaining_neighbor
+            remaining_neighbor = (set(neighbors) - set(selected_neighbors)).pop()  # Find the remaining neighbor
+            start_node = remaining_neighbor  # The start node is the remaining neighbor
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_3 or nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-            # Replace 3 resp. 4 carbon atoms to form pyridinic nitrogen structure
+            # For PYRIDINIC_3 and PYRIDINIC_4, replace three and four carbon atoms respectively with nitrogen atoms
             for neighbor in neighbors:
-                self.graph.nodes[neighbor]["element"] = "N"
-                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species
+                self.graph.nodes[neighbor]["element"] = "N"  # Update all neighbors to nitrogen
+                self.graph.nodes[neighbor]["nitrogen_species"] = nitrogen_species  # Set their nitrogen species
 
-        return start_node
-
-    def _add_edge_if_needed(self, nitrogen_species: NitrogenSpecies, neighbors: List[int], start_node: int):
-        """
-        Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
-
-        Parameters
-        ----------
-        nitrogen_species : NitrogenSpecies
-            The type of nitrogen doping.
-        neighbors : List[int]
-            List of neighbor atom IDs.
-        start_node: int
-        """
-        if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
-            # Remove the start_node from the list of neighbors
-            neighbors.remove(start_node)
-
-            # Calculate the bond length between neighbors[0] and neighbors[1]
-            pos1 = self.graph.nodes[neighbors[0]]["position"]
-            pos2 = self.graph.nodes[neighbors[1]]["position"]
-            box_size = (
-                self.actual_sheet_width + self.c_c_bond_distance,
-                self.actual_sheet_height + self.cc_y_distance,
-            )
-            bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
-
-            # Insert a new binding between the `neighbors_of_neighbor` with the calculated bond length
-            self.graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+        return start_node  # Return the determined start node or None if not applicable
 
     def _adjust_atom_positions(self):
         """
@@ -1013,6 +1063,7 @@ class Graphene:
 
                 # Calculate bond energy for each edge in the doping structure
                 for idx, (node_i, node_j) in enumerate(edges_in_order):
+                    # Get the positions of the two nodes forming the edge
                     xi, yi = (
                         x[2 * list(self.graph.nodes).index(node_i)],
                         x[2 * list(self.graph.nodes).index(node_i) + 1],
@@ -1021,16 +1072,25 @@ class Graphene:
                         x[2 * list(self.graph.nodes).index(node_j)],
                         x[2 * list(self.graph.nodes).index(node_j) + 1],
                     )
+                    # Create Position objects for the two nodes
                     pos_i = Position(xi, yi)
                     pos_j = Position(xj, yj)
+                    # Calculate the current bond length between the two nodes using the minimum image distance
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+                    # Get the target bond length for this edge
                     target_length = target_bond_lengths[idx % len(target_bond_lengths)]
+                    # Calculate the bond energy contribution of this edge and add it to the total energy
                     energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
+                    # Update the bond length in the graph
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
+                    # Add the edge to the set of cycle edges
                     cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
 
+            # Iterate over all edges in the graph to calculate the bond energy for non-cycle edges
             for node_i, node_j, data in self.graph.edges(data=True):
+                # Skip edges that are part of cycles
                 if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges:
+                    # Get the positions of the two nodes forming the edge
                     xi, yi = (
                         x[2 * list(self.graph.nodes).index(node_i)],
                         x[2 * list(self.graph.nodes).index(node_i) + 1],
@@ -1039,52 +1099,94 @@ class Graphene:
                         x[2 * list(self.graph.nodes).index(node_j)],
                         x[2 * list(self.graph.nodes).index(node_j) + 1],
                     )
+                    # Create Position objects for the two nodes
                     pos_i = Position(xi, yi)
                     pos_j = Position(xj, yj)
+                    # Calculate the current bond length between the two nodes using the minimum image distance
                     current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+                    # Set the target bond length for non-cycle edges
                     target_length = 1.42
+                    # Calculate the bond energy contribution of this edge and add it to the total energy
                     energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
+                    # Update the bond length in the graph
                     self.graph.edges[node_i, node_j]["bond_length"] = current_length
 
             return energy
 
         def angle_energy(x):
+            """
+            Calculate the angle energy for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total angle energy.
+            """
             energy = 0.0
             counted_angles = set()
 
+            # Iterate over all doping structures to calculate the angle energy
             for structure in all_structures:
                 properties = self.species_properties[structure.species]
                 target_angles = properties.target_angles
                 ordered_cycle = structure.cycle
 
+                # Iterate over triplets of nodes (i, j, k) in the ordered cycle to calculate angle energy
                 for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
+                    # Get the positions of the three nodes forming the angle
                     xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
                     xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
                     xk, yk = x[2 * list(self.graph.nodes).index(k)], x[2 * list(self.graph.nodes).index(k) + 1]
 
+                    # Create Position objects for the three nodes
                     pos_i = Position(xi, yi)
                     pos_j = Position(xj, yj)
                     pos_k = Position(xk, yk)
 
+                    # Calculate vectors v1 and v2 for the angle calculation
                     _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
                     _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
 
+                    # Calculate the cosine and angle (theta) between vectors v1 and v2
                     cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                     theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                    # Calculate the angle energy contribution of this angle and add it to the total energy
                     energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
+                    # Add the angle to the set of counted angles
                     counted_angles.add((i, j, k))
                     counted_angles.add((k, j, i))
 
             return energy
 
         def total_energy(x):
+            """
+            Calculate the total energy (bond energy + angle energy) for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms in the cycle.
+
+            Returns
+            -------
+            energy : float
+                The total energy.
+            """
             return bond_energy(x) + angle_energy(x)
 
+        # Use L-BFGS-B optimization method to minimize the total energy
         result = minimize(total_energy, x0, method="L-BFGS-B")
         print(f"Number of iterations: {result.nit}\nFinal energy: {result.fun}")
 
+        # Reshape the optimized positions back to the 2D array format
         optimized_positions = result.x.reshape(-1, 2)
 
+        # Update the positions of atoms in the graph with the optimized positions
         for idx, node in enumerate(self.graph.nodes):
             optimized_position = optimized_positions[idx]
             adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
