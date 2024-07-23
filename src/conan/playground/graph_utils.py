@@ -5,6 +5,7 @@ from typing import List, NamedTuple, Tuple
 import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
+from numpy import typing as npt
 from scipy.spatial import KDTree
 
 # from conan.playground.doping_experiment import GrapheneGraph
@@ -111,6 +112,39 @@ def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float
     displacement = Vector(float(d_pos[0]), float(d_pos[1]))
 
     return distance, displacement
+
+
+def minimum_image_distance_vectorized(
+    pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]
+) -> (Tuple)[npt.NDArray, npt.NDArray]:
+    """
+    Calculate the minimum distance between two sets of positions considering periodic boundary conditions.
+
+    Parameters
+    ----------
+    pos1 : npt.NDArray
+        Array of positions of the first set of atoms (N x 2).
+    pos2 : npt.NDArray
+        Array of positions of the second set of atoms (N x 2).
+    box_size : Tuple[float, float]
+        Size of the box in the x and y dimensions (box_width, box_height).
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        A tuple containing:
+        - The minimum distances between the sets of positions as a numpy array.
+        - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
+    """
+    # Calculate the vector difference between the two positions
+    displacement = pos1 - pos2
+
+    # Adjust the difference vector for periodic boundary conditions
+    displacement = displacement - np.array(box_size) * np.round(displacement / np.array(box_size))
+
+    # Calculate the Euclidean distance using the adjusted difference vector
+    distances = np.linalg.norm(displacement, axis=1)
+    return distances, displacement
 
 
 def write_xyz(graph, filename):

@@ -18,6 +18,7 @@ from conan.playground.graph_utils import (
     Position,
     get_neighbors_via_edges,
     minimum_image_distance,
+    minimum_image_distance_vectorized,
     plot_graphene,
     print_warning,
     write_xyz,
@@ -1002,6 +1003,200 @@ class Graphene:
 
         return start_node  # Return the determined start node or None if not applicable
 
+    # def _adjust_atom_positions(self):
+    #     """
+    #     Adjust the positions of atoms in the graphene sheet to optimize the structure including doping.
+    #
+    #     Notes
+    #     -----
+    #     This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
+    #     configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
+    #     """
+    #     # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
+    #     all_structures = [
+    #         structure
+    #         for structure in self.doping_structures.structures
+    #         if structure.species != NitrogenSpecies.GRAPHITIC
+    #     ]
+    #
+    #     # Return if no doping structures are present
+    #     if not all_structures:
+    #         return
+    #
+    #     # Get the initial positions of atoms
+    #     positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
+    #     # Flatten the positions into a 1D array for optimization
+    #     x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
+    #     # Define the box size for minimum image distance calculation
+    #     box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
+    #
+    #     def bond_energy(x):
+    #         """
+    #         Calculate the bond energy for the given positions.
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total bond energy.
+    #         """
+    #         energy = 0.0
+    #
+    #         # Initialize a set to track edges within cycles
+    #         cycle_edges = set()
+    #
+    #         # Iterate over all doping structures and calculate bond energy
+    #         for structure in all_structures:
+    #             # Get the target bond lengths for the specific nitrogen species
+    #             properties = self.species_properties[structure.species]
+    #             target_bond_lengths = properties.target_bond_lengths
+    #             # Extract the ordered cycle of the doping structure to get the current bond lengths in order
+    #             ordered_cycle = structure.cycle
+    #
+    #             # Get the graph edges in order, including the additional edge in case of Pyridinic_1
+    #             edges_in_order = list(pairwise(ordered_cycle + [ordered_cycle[0]]))
+    #             if structure.species == NitrogenSpecies.PYRIDINIC_1:
+    #                 edges_in_order.append(structure.additional_edge)
+    #
+    #             # Calculate bond energy for each edge in the doping structure
+    #             for idx, (node_i, node_j) in enumerate(edges_in_order):
+    #                 # Get the positions of the two nodes forming the edge
+    #                 xi, yi = (
+    #                     x[2 * list(self.graph.nodes).index(node_i)],
+    #                     x[2 * list(self.graph.nodes).index(node_i) + 1],
+    #                 )
+    #                 xj, yj = (
+    #                     x[2 * list(self.graph.nodes).index(node_j)],
+    #                     x[2 * list(self.graph.nodes).index(node_j) + 1],
+    #                 )
+    #                 # Create Position objects for the two nodes
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
+    #                 # Calculate the current bond length between the two nodes using the minimum image distance
+    #                 current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 # Get the target bond length for this edge
+    #                 target_length = target_bond_lengths[idx % len(target_bond_lengths)]
+    #                 # Calculate the bond energy contribution of this edge and add it to the total energy
+    #                 energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
+    #                 # Update the bond length in the graph
+    #                 self.graph.edges[node_i, node_j]["bond_length"] = current_length
+    #                 # Add the edge to the set of cycle edges
+    #                 cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
+    #
+    #         # Iterate over all edges in the graph to calculate the bond energy for non-cycle edges
+    #         for node_i, node_j, data in self.graph.edges(data=True):
+    #             # Skip edges that are part of cycles
+    #             if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges:
+    #                 # Get the positions of the two nodes forming the edge
+    #                 xi, yi = (
+    #                     x[2 * list(self.graph.nodes).index(node_i)],
+    #                     x[2 * list(self.graph.nodes).index(node_i) + 1],
+    #                 )
+    #                 xj, yj = (
+    #                     x[2 * list(self.graph.nodes).index(node_j)],
+    #                     x[2 * list(self.graph.nodes).index(node_j) + 1],
+    #                 )
+    #                 # Create Position objects for the two nodes
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
+    #                 # Calculate the current bond length between the two nodes using the minimum image distance
+    #                 current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 # Set the target bond length for non-cycle edges
+    #                 target_length = 1.42
+    #                 # Calculate the bond energy contribution of this edge and add it to the total energy
+    #                 energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
+    #                 # Update the bond length in the graph
+    #                 self.graph.edges[node_i, node_j]["bond_length"] = current_length
+    #
+    #         return energy
+    #
+    #     def angle_energy(x):
+    #         """
+    #         Calculate the angle energy for the given positions.
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total angle energy.
+    #         """
+    #         energy = 0.0
+    #         counted_angles = set()
+    #
+    #         # Iterate over all doping structures to calculate the angle energy
+    #         for structure in all_structures:
+    #             properties = self.species_properties[structure.species]
+    #             target_angles = properties.target_angles
+    #             ordered_cycle = structure.cycle
+    #
+    #             # Extend the cycle to account for the closed loop
+    #             extended_cycle = ordered_cycle + [ordered_cycle[0], ordered_cycle[1]]
+    #
+    #             # Iterate over triplets of nodes (i, j, k) in the ordered cycle to calculate angle energy
+    #             for (i, j, k), angle in zip(zip(extended_cycle, extended_cycle[1:], extended_cycle[2:]),
+    #             target_angles):
+    #                 # Get the positions of the three nodes forming the angle
+    #                 xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
+    #                 xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
+    #                 xk, yk = x[2 * list(self.graph.nodes).index(k)], x[2 * list(self.graph.nodes).index(k) + 1]
+    #
+    #                 # Create Position objects for the three nodes
+    #                 pos_i = Position(xi, yi)
+    #                 pos_j = Position(xj, yj)
+    #                 pos_k = Position(xk, yk)
+    #
+    #                 # Calculate vectors v1 and v2 for the angle calculation
+    #                 _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
+    #                 _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
+    #
+    #                 # Calculate the cosine and angle (theta) between vectors v1 and v2
+    #                 cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    #                 theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    #                 # Calculate the angle energy contribution of this angle and add it to the total energy
+    #                 energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
+    #                 # Add the angle to the set of counted angles
+    #                 counted_angles.add((i, j, k))
+    #                 counted_angles.add((k, j, i))
+    #
+    #         return energy
+    #
+    #     def total_energy(x):
+    #         """
+    #         Calculate the total energy (bond energy + angle energy) for the given positions.
+    #
+    #         Parameters
+    #         ----------
+    #         x : ndarray
+    #             Flattened array of positions of all atoms in the cycle.
+    #
+    #         Returns
+    #         -------
+    #         energy : float
+    #             The total energy.
+    #         """
+    #         return bond_energy(x) + angle_energy(x)
+    #
+    #     # Use L-BFGS-B optimization method to minimize the total energy
+    #     result = minimize(total_energy, x0, method="L-BFGS-B")
+    #     print(f"Number of iterations: {result.nit}\nFinal energy: {result.fun}")
+    #
+    #     # Reshape the optimized positions back to the 2D array format
+    #     optimized_positions = result.x.reshape(-1, 2)
+    #
+    #     # Update the positions of atoms in the graph with the optimized positions
+    #     for idx, node in enumerate(self.graph.nodes):
+    #         optimized_position = optimized_positions[idx]
+    #         adjusted_position = Position(x=optimized_position[0], y=optimized_position[1])
+    #         self.graph.nodes[node]["position"] = adjusted_position
+
     def _adjust_atom_positions(self):
         """
         Adjust the positions of atoms in the graphene sheet to optimize the structure including doping.
@@ -1025,7 +1220,7 @@ class Graphene:
         # Get the initial positions of atoms
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
         # Flatten the positions into a 1D array for optimization
-        x0 = np.array([coord for node in self.graph.nodes for coord in positions[node]])
+        x0 = np.array([coord for node in self.graph.nodes for coord in [positions[node].x, positions[node].y]])
         # Define the box size for minimum image distance calculation
         box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
@@ -1062,54 +1257,53 @@ class Graphene:
                     edges_in_order.append(structure.additional_edge)
 
                 # Calculate bond energy for each edge in the doping structure
+                node_indices = np.array(
+                    [
+                        (list(self.graph.nodes).index(node_i), list(self.graph.nodes).index(node_j))
+                        for node_i, node_j in edges_in_order
+                    ]
+                )
+                positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
+                positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
+                positions_i = positions_i.reshape(-1, 2)
+                positions_j = positions_j.reshape(-1, 2)
+
+                current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+                target_lengths = np.array(
+                    [target_bond_lengths[idx % len(target_bond_lengths)] for idx in range(len(current_lengths))]
+                )
+                energy += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
+
                 for idx, (node_i, node_j) in enumerate(edges_in_order):
-                    # Get the positions of the two nodes forming the edge
-                    xi, yi = (
-                        x[2 * list(self.graph.nodes).index(node_i)],
-                        x[2 * list(self.graph.nodes).index(node_i) + 1],
-                    )
-                    xj, yj = (
-                        x[2 * list(self.graph.nodes).index(node_j)],
-                        x[2 * list(self.graph.nodes).index(node_j) + 1],
-                    )
-                    # Create Position objects for the two nodes
-                    pos_i = Position(xi, yi)
-                    pos_j = Position(xj, yj)
-                    # Calculate the current bond length between the two nodes using the minimum image distance
-                    current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                    # Get the target bond length for this edge
-                    target_length = target_bond_lengths[idx % len(target_bond_lengths)]
-                    # Calculate the bond energy contribution of this edge and add it to the total energy
-                    energy += 0.5 * self.k_inner_bond * ((current_length - target_length) ** 2)
-                    # Update the bond length in the graph
-                    self.graph.edges[node_i, node_j]["bond_length"] = current_length
-                    # Add the edge to the set of cycle edges
+                    if idx < len(current_lengths):
+                        self.graph.edges[node_i, node_j]["bond_length"] = current_lengths[idx]
                     cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
 
-            # Iterate over all edges in the graph to calculate the bond energy for non-cycle edges
-            for node_i, node_j, data in self.graph.edges(data=True):
-                # Skip edges that are part of cycles
-                if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges:
-                    # Get the positions of the two nodes forming the edge
-                    xi, yi = (
-                        x[2 * list(self.graph.nodes).index(node_i)],
-                        x[2 * list(self.graph.nodes).index(node_i) + 1],
-                    )
-                    xj, yj = (
-                        x[2 * list(self.graph.nodes).index(node_j)],
-                        x[2 * list(self.graph.nodes).index(node_j) + 1],
-                    )
-                    # Create Position objects for the two nodes
-                    pos_i = Position(xi, yi)
-                    pos_j = Position(xj, yj)
-                    # Calculate the current bond length between the two nodes using the minimum image distance
-                    current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                    # Set the target bond length for non-cycle edges
-                    target_length = 1.42
-                    # Calculate the bond energy contribution of this edge and add it to the total energy
-                    energy += 0.5 * self.k_outer_bond * ((current_length - target_length) ** 2)
-                    # Update the bond length in the graph
-                    self.graph.edges[node_i, node_j]["bond_length"] = current_length
+            # Handle non-cycle edges in a vectorized manner
+            non_cycle_edges = [
+                (node_i, node_j)
+                for node_i, node_j, data in self.graph.edges(data=True)
+                if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges
+            ]
+            if non_cycle_edges:
+                node_indices = np.array(
+                    [
+                        (list(self.graph.nodes).index(node_i), list(self.graph.nodes).index(node_j))
+                        for node_i, node_j in non_cycle_edges
+                    ]
+                )
+                positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
+                positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
+                positions_i = positions_i.reshape(-1, 2)
+                positions_j = positions_j.reshape(-1, 2)
+
+                current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+                target_lengths = np.full(len(current_lengths), 1.42)
+                energy += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
+
+                for idx, (node_i, node_j) in enumerate(non_cycle_edges):
+                    if idx < len(current_lengths):
+                        self.graph.edges[node_i, node_j]["bond_length"] = current_lengths[idx]
 
             return energy
 
@@ -1128,7 +1322,6 @@ class Graphene:
                 The total angle energy.
             """
             energy = 0.0
-            counted_angles = set()
 
             # Iterate over all doping structures to calculate the angle energy
             for structure in all_structures:
@@ -1140,29 +1333,30 @@ class Graphene:
                 extended_cycle = ordered_cycle + [ordered_cycle[0], ordered_cycle[1]]
 
                 # Iterate over triplets of nodes (i, j, k) in the ordered cycle to calculate angle energy
-                for (i, j, k), angle in zip(zip(extended_cycle, extended_cycle[1:], extended_cycle[2:]), target_angles):
-                    # Get the positions of the three nodes forming the angle
-                    xi, yi = x[2 * list(self.graph.nodes).index(i)], x[2 * list(self.graph.nodes).index(i) + 1]
-                    xj, yj = x[2 * list(self.graph.nodes).index(j)], x[2 * list(self.graph.nodes).index(j) + 1]
-                    xk, yk = x[2 * list(self.graph.nodes).index(k)], x[2 * list(self.graph.nodes).index(k) + 1]
+                node_indices = np.array(
+                    [
+                        (
+                            list(self.graph.nodes).index(i),
+                            list(self.graph.nodes).index(j),
+                            list(self.graph.nodes).index(k),
+                        )
+                        for i, j, k in zip(extended_cycle, extended_cycle[1:], extended_cycle[2:])
+                    ]
+                )
+                positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
+                positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
+                positions_k = x[np.ravel(np.column_stack((node_indices[:, 2] * 2, node_indices[:, 2] * 2 + 1)))]
+                positions_i = positions_i.reshape(-1, 2)
+                positions_j = positions_j.reshape(-1, 2)
+                positions_k = positions_k.reshape(-1, 2)
 
-                    # Create Position objects for the three nodes
-                    pos_i = Position(xi, yi)
-                    pos_j = Position(xj, yj)
-                    pos_k = Position(xk, yk)
+                _, v1 = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+                _, v2 = minimum_image_distance_vectorized(positions_k, positions_j, box_size)
 
-                    # Calculate vectors v1 and v2 for the angle calculation
-                    _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
-                    _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
-
-                    # Calculate the cosine and angle (theta) between vectors v1 and v2
-                    cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                    theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                    # Calculate the angle energy contribution of this angle and add it to the total energy
-                    energy += 0.5 * self.k_inner_angle * ((theta - np.radians(angle)) ** 2)
-                    # Add the angle to the set of counted angles
-                    counted_angles.add((i, j, k))
-                    counted_angles.add((k, j, i))
+                cos_theta = np.einsum("ij,ij->i", v1, v2) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1))
+                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+                angles_radians = np.radians(target_angles[: len(theta)])
+                energy += 0.5 * self.k_inner_angle * np.sum((theta - angles_radians) ** 2)
 
             return energy
 
