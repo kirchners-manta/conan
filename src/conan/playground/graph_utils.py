@@ -5,6 +5,7 @@ from typing import List, NamedTuple, Tuple
 import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
+from numba import jit
 from numpy import typing as npt
 from scipy.spatial import KDTree
 
@@ -114,9 +115,8 @@ def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float
     return distance, displacement
 
 
-def minimum_image_distance_vectorized(
-    pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]
-) -> (Tuple)[npt.NDArray, npt.NDArray]:
+@jit(nopython=True)
+def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]):
     """
     Calculate the minimum distance between two sets of positions considering periodic boundary conditions.
 
@@ -137,14 +137,54 @@ def minimum_image_distance_vectorized(
         - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
     """
     # Calculate the vector difference between the two positions
-    displacement = pos1 - pos2
+    delta = pos2 - pos1
+
+    # Convert the tuple to a numpy array for broadcasting
+    box_size_arr = np.array(box_size)
 
     # Adjust the difference vector for periodic boundary conditions
-    displacement = displacement - np.array(box_size) * np.round(displacement / np.array(box_size))
+    # This ensures that the atoms are considered within the bounds of the box
+    delta -= np.round(delta / box_size_arr) * box_size_arr
 
     # Calculate the Euclidean distance using the adjusted difference vector
-    distances = np.linalg.norm(displacement, axis=1)
-    return distances, displacement
+    # np.sum(delta**2, axis=1) computes the squared distances for each pair of points
+    # np.sqrt(...) computes the Euclidean distance
+    dist = np.sqrt(np.sum(delta**2, axis=1))
+
+    return dist, delta
+
+
+# def minimum_image_distance_vectorized(
+#     pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]
+# ) -> (Tuple)[npt.NDArray, npt.NDArray]:
+#     """
+#     Calculate the minimum distance between two sets of positions considering periodic boundary conditions.
+#
+#     Parameters
+#     ----------
+#     pos1 : npt.NDArray
+#         Array of positions of the first set of atoms (N x 2).
+#     pos2 : npt.NDArray
+#         Array of positions of the second set of atoms (N x 2).
+#     box_size : Tuple[float, float]
+#         Size of the box in the x and y dimensions (box_width, box_height).
+#
+#     Returns
+#     -------
+#     Tuple[np.ndarray, np.ndarray]
+#         A tuple containing:
+#         - The minimum distances between the sets of positions as a numpy array.
+#         - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
+#     """
+#     # Calculate the vector difference between the two positions
+#     displacement = pos1 - pos2
+#
+#     # Adjust the difference vector for periodic boundary conditions
+#     displacement = displacement - np.array(box_size) * np.round(displacement / np.array(box_size))
+#
+#     # Calculate the Euclidean distance using the adjusted difference vector
+#     distances = np.linalg.norm(displacement, axis=1)
+#     return distances, displacement
 
 
 def write_xyz(graph, filename):
