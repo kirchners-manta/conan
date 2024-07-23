@@ -1274,10 +1274,12 @@ class Graphene:
                 )
                 energy += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
 
-                for idx, (node_i, node_j) in enumerate(edges_in_order):
-                    if idx < len(current_lengths):
-                        self.graph.edges[node_i, node_j]["bond_length"] = current_lengths[idx]
-                    cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
+                edge_updates = {
+                    (node_i, node_j): {"bond_length": current_lengths[idx]}
+                    for idx, (node_i, node_j) in enumerate(edges_in_order)
+                }
+                nx.set_edge_attributes(self.graph, edge_updates)
+                cycle_edges.update((min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in edges_in_order)
 
             # Handle non-cycle edges in a vectorized manner
             non_cycle_edges = [
@@ -1301,9 +1303,11 @@ class Graphene:
                 target_lengths = np.full(len(current_lengths), 1.42)
                 energy += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
 
-                for idx, (node_i, node_j) in enumerate(non_cycle_edges):
-                    if idx < len(current_lengths):
-                        self.graph.edges[node_i, node_j]["bond_length"] = current_lengths[idx]
+                edge_updates = {
+                    (node_i, node_j): {"bond_length": current_lengths[idx]}
+                    for idx, (node_i, node_j) in enumerate(non_cycle_edges)
+                }
+                nx.set_edge_attributes(self.graph, edge_updates)
 
             return energy
 
