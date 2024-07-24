@@ -3,11 +3,13 @@ import os
 import random
 from typing import Optional, Tuple
 
+import networkx as nx
 import numpy as np
 import optuna
 import pandas as pd
 from doping_experiment import Graphene, NitrogenSpecies
-from graph_utils import Position, minimum_image_distance
+from graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
+from networkx.utils import pairwise
 from optuna.visualization import (
     plot_contour,
     plot_edf,
@@ -39,23 +41,18 @@ def calculate_minimal_total_energy(
     Graphene
         The graphene sheet object with optimized positions.
     """
-    all_cycles = []
-    species_for_cycles = []
+    # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
+    all_structures = [
+        structure
+        for structure in graphene.doping_structures.structures
+        if structure.species != NitrogenSpecies.GRAPHITIC
+    ]
 
-    for structure in graphene.doping_structures.structures:
-        if structure.species != NitrogenSpecies.GRAPHITIC:  # Skip GRAPHITIC species
-            all_cycles.append(structure.cycle)
-            species_for_cycles.append(structure.species)
-
-    if not all_cycles:
-        return 0.0, None  # No cycles to optimize
-
-    # Initial positions (use existing positions if available)
+    # Get the initial positions of atoms
     positions = {node: graphene.graph.nodes[node]["position"] for node in graphene.graph.nodes}
-
-    # Flatten initial positions for optimization
-    x0 = np.array([coord for node in graphene.graph.nodes for coord in positions[node]])
-
+    # Flatten the positions into a 1D array for optimization
+    x0 = np.array([coord for node in graphene.graph.nodes for coord in [positions[node].x, positions[node].y]])
+    # Define the box size for minimum image distance calculation
     box_size = (
         graphene.actual_sheet_width + graphene.c_c_bond_distance,
         graphene.actual_sheet_height + graphene.cc_y_distance,
@@ -80,82 +77,97 @@ def calculate_minimal_total_energy(
         # Initialize a set to track edges within cycles
         cycle_edges = set()
 
-        # Iterate over each cycle
-        for idx, ordered_cycle in enumerate(all_cycles):
-            # Get species properties for the current cycle
-            species = species_for_cycles[idx]
-            properties = graphene.species_properties[species]
+        # Collect all edges and their properties
+        all_edges_in_order = []
+        all_target_bond_lengths = []
+
+        for structure in all_structures:
+            # Get the target bond lengths for the specific nitrogen species
+            properties = graphene.species_properties[structure.species]
             target_bond_lengths = properties.target_bond_lengths
+            # Extract the ordered cycle of the doping structure to get the current bond lengths in order
+            ordered_cycle = structure.cycle
 
-            # Create a subgraph for the current cycle
-            subgraph = graphene.graph.subgraph(ordered_cycle).copy()
+            # Get the graph edges in order, including the additional edge in case of Pyridinic_1
+            edges_in_order = list(pairwise(ordered_cycle + [ordered_cycle[0]]))
+            if structure.species == NitrogenSpecies.PYRIDINIC_1:
+                edges_in_order.append(structure.additional_edge)
 
-            # Calculate bond energy for edges within the cycle
-            cycle_length = len(ordered_cycle)
-            for i in range(cycle_length):
-                node_i = ordered_cycle[i]
-                node_j = ordered_cycle[(i + 1) % cycle_length]  # Ensure the last node connects to the first node
-                xi, yi = (
-                    x[2 * list(graphene.graph.nodes).index(node_i)],
-                    x[2 * list(graphene.graph.nodes).index(node_i) + 1],
-                )
-                xj, yj = (
-                    x[2 * list(graphene.graph.nodes).index(node_j)],
-                    x[2 * list(graphene.graph.nodes).index(node_j) + 1],
-                )
-                pos_i = Position(xi, yi)
-                pos_j = Position(xj, yj)
+            # Extend the lists of edges and target bond lengths
+            all_edges_in_order.extend(edges_in_order)
+            all_target_bond_lengths.extend(target_bond_lengths)
 
-                # Calculate the current bond length and target bond length
-                current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                target_length = target_bond_lengths[ordered_cycle.index(node_i)]
-                energy += 0.5 * graphene.k_inner_bond * ((current_length - target_length) ** 2)
+        # Convert lists of edges and target bond lengths to numpy arrays
+        node_indices = np.array(
+            [
+                (list(graphene.graph.nodes).index(node_i), list(graphene.graph.nodes).index(node_j))
+                for node_i, node_j in all_edges_in_order
+            ]
+        )
+        target_lengths = np.array(all_target_bond_lengths)
 
-                # Update bond length in the graph during optimization
-                graphene.graph.edges[node_i, node_j]["bond_length"] = current_length
+        # Extract the x and y coordinates of the nodes referenced by the first indices in node_indices
+        positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
 
-                # Add edge to cycle_edges set
-                cycle_edges.add((min(node_i, node_j), max(node_i, node_j)))
+        # Extract the x and y coordinates of the nodes referenced by the second indices in node_indices
+        positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
 
-            if species == NitrogenSpecies.PYRIDINIC_1:
-                for i, j in subgraph.edges():
-                    if (min(i, j), max(i, j)) not in cycle_edges:
-                        xi, yi = (
-                            x[2 * list(graphene.graph.nodes).index(i)],
-                            x[2 * list(graphene.graph.nodes).index(i) + 1],
-                        )
-                        xj, yj = (
-                            x[2 * list(graphene.graph.nodes).index(j)],
-                            x[2 * list(graphene.graph.nodes).index(j) + 1],
-                        )
-                        pos_i = Position(xi, yi)
-                        pos_j = Position(xj, yj)
+        # Reshape the flattened array back to a 2D array where each row contains the [x, y] coordinates of a node
+        positions_i = positions_i.reshape(-1, 2)
+        positions_j = positions_j.reshape(-1, 2)
 
-                        current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                        target_length = target_bond_lengths[-1]  # Last bond length for Pyridinic_1
-                        energy += 0.5 * graphene.k_inner_bond * ((current_length - target_length) ** 2)
+        # Calculate bond lengths and energy
+        current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+        energy += 0.5 * graphene.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
 
-                        # Update bond length in the graph during optimization
-                        graphene.graph.edges[i, j]["bond_length"] = current_length
+        # Update bond lengths in the graph
+        edge_updates = {
+            (node_i, node_j): {"bond_length": current_lengths[idx]}
+            for idx, (node_i, node_j) in enumerate(all_edges_in_order)
+        }
+        nx.set_edge_attributes(graphene.graph, edge_updates)
+        cycle_edges.update((min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in all_edges_in_order)
 
-                        # Add edge to cycle_edges set
-                        cycle_edges.add((min(i, j), max(i, j)))
+        # Handle non-cycle edges in a vectorized manner
+        non_cycle_edges = [
+            (node_i, node_j)
+            for node_i, node_j, data in graphene.graph.edges(data=True)
+            if (min(node_i, node_j), max(node_i, node_j)) not in cycle_edges
+        ]
+        if non_cycle_edges:
+            # Convert non-cycle edge node pairs to a numpy array of indices
+            node_indices = np.array(
+                [
+                    (list(graphene.graph.nodes).index(node_i), list(graphene.graph.nodes).index(node_j))
+                    for node_i, node_j in non_cycle_edges
+                ]
+            )
+            # Extract the x and y coordinates of the nodes referenced by the first indices in node_indices
+            positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
 
-        # Calculate bond energy for edges outside the cycles
-        for i, j, data in graphene.graph.edges(data=True):
-            if (min(i, j), max(i, j)) not in cycle_edges:
-                xi, yi = x[2 * list(graphene.graph.nodes).index(i)], x[2 * list(graphene.graph.nodes).index(i) + 1]
-                xj, yj = x[2 * list(graphene.graph.nodes).index(j)], x[2 * list(graphene.graph.nodes).index(j) + 1]
-                pos_i = Position(xi, yi)
-                pos_j = Position(xj, yj)
+            # Extract the x and y coordinates of the nodes referenced by the second indices in node_indices
+            positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
 
-                # Calculate the current bond length and set default target length
-                current_length, _ = minimum_image_distance(pos_i, pos_j, box_size)
-                target_length = 1.42
-                energy += 0.5 * graphene.k_outer_bond * ((current_length - target_length) ** 2)
+            # Reshape the flattened array back to a 2D array where each row contains the [x, y] coordinates of a
+            # node
+            positions_i = positions_i.reshape(-1, 2)
+            positions_j = positions_j.reshape(-1, 2)
 
-                # Update bond length in the graph during optimization
-                graphene.graph.edges[i, j]["bond_length"] = current_length
+            # Calculate the current bond lengths using the vectorized minimum image distance function
+            current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+            # Set the target lengths for non-cycle edges to 1.42 (assumed standard bond length)
+            target_lengths = np.full(len(current_lengths), 1.42)
+
+            # Calculate the energy contribution from non-cycle bonds
+            energy += 0.5 * graphene.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
+
+            # Prepare bond length updates for non-cycle edges
+            edge_updates = {
+                (node_i, node_j): {"bond_length": current_lengths[idx]}
+                for idx, (node_i, node_j) in enumerate(non_cycle_edges)
+            }
+            # Update the bond lengths in the graph for non-cycle edges
+            nx.set_edge_attributes(graphene.graph, edge_updates)
 
         return energy
 
@@ -175,35 +187,66 @@ def calculate_minimal_total_energy(
         """
         energy = 0.0
 
+        # Initialize lists to collect all triplets of nodes and their target angles
+        all_triplets = []
+        all_target_angles = []
+
         # Initialize a set to track angles within cycles
         counted_angles = set()
 
-        # Iterate over each cycle
-        for idx, ordered_cycle in enumerate(all_cycles):
-            # Get species properties for the current cycle
-            species = species_for_cycles[idx]
-            properties = graphene.species_properties[species]
+        # Iterate over all doping structures to gather triplets and target angles
+        for structure in all_structures:
+            properties = graphene.species_properties[structure.species]
             target_angles = properties.target_angles
+            ordered_cycle = structure.cycle
 
-            for (i, j, k), angle in zip(zip(ordered_cycle, ordered_cycle[1:], ordered_cycle[2:]), target_angles):
-                xi, yi = x[2 * list(graphene.graph.nodes).index(i)], x[2 * list(graphene.graph.nodes).index(i) + 1]
-                xj, yj = x[2 * list(graphene.graph.nodes).index(j)], x[2 * list(graphene.graph.nodes).index(j) + 1]
-                xk, yk = x[2 * list(graphene.graph.nodes).index(k)], x[2 * list(graphene.graph.nodes).index(k) + 1]
+            # Extend the cycle to account for the closed loop by adding the first two nodes at the end
+            extended_cycle = ordered_cycle + [ordered_cycle[0], ordered_cycle[1]]
 
-                pos_i = Position(xi, yi)
-                pos_j = Position(xj, yj)
-                pos_k = Position(xk, yk)
+            # Collect node triplets (i, j, k) for angle energy calculations
+            triplets = [
+                (
+                    list(graphene.graph.nodes).index(i),
+                    list(graphene.graph.nodes).index(j),
+                    list(graphene.graph.nodes).index(k),
+                )
+                for i, j, k in zip(extended_cycle, extended_cycle[1:], extended_cycle[2:])
+            ]
+            all_triplets.extend(triplets)
+            all_target_angles.extend(target_angles)
 
-                _, v1 = minimum_image_distance(pos_i, pos_j, box_size)
-                _, v2 = minimum_image_distance(pos_k, pos_j, box_size)
-
-                cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-                theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                energy += 0.5 * graphene.k_inner_angle * ((theta - np.radians(angle)) ** 2)
-
+            if include_outer_angles:
                 # Add angles to counted_angles to avoid double-counting
-                counted_angles.add((i, j, k))
-                counted_angles.add((k, j, i))
+                for i, j, k in zip(extended_cycle, extended_cycle[1:], extended_cycle[2:]):
+                    counted_angles.add((i, j, k))
+                    counted_angles.add((k, j, i))
+
+        # Convert lists of triplets and target angles to numpy arrays
+        node_indices = np.array(all_triplets)
+        target_angles = np.radians(np.array(all_target_angles))
+
+        # Extract the x and y coordinates of the nodes referenced by the first, second, and third indices in
+        # node_indices
+        positions_i = x[np.ravel(np.column_stack((node_indices[:, 0] * 2, node_indices[:, 0] * 2 + 1)))]
+        positions_j = x[np.ravel(np.column_stack((node_indices[:, 1] * 2, node_indices[:, 1] * 2 + 1)))]
+        positions_k = x[np.ravel(np.column_stack((node_indices[:, 2] * 2, node_indices[:, 2] * 2 + 1)))]
+        # Reshape the flattened arrays back to 2D arrays where each row contains the [x, y] coordinates of a node
+        positions_i = positions_i.reshape(-1, 2)
+        positions_j = positions_j.reshape(-1, 2)
+        positions_k = positions_k.reshape(-1, 2)
+
+        # Calculate vectors v1 (from j to i) and v2 (from j to k)
+        _, v1 = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+        _, v2 = minimum_image_distance_vectorized(positions_k, positions_j, box_size)
+
+        # Calculate the cosine of the angle between v1 and v2
+        # (cos_theta = dot(v1, v2) / (|v1| * |v2|) element-wise for each pair of vectors)
+        cos_theta = np.einsum("ij,ij->i", v1, v2) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1))
+        # Calculate the angle theta using arccos, ensuring the values are within the valid range for arccos
+        theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+
+        # Calculate the energy contribution from angle deviations and add it to the total energy
+        energy += 0.5 * graphene.k_inner_angle * np.sum((theta - target_angles) ** 2)
 
         if include_outer_angles:
             # Calculate angle energy for angles outside the cycles
@@ -262,10 +305,15 @@ def calculate_minimal_total_energy(
     # Optimize positions to minimize energy
     result = minimize(total_energy, x0, method="L-BFGS-B")
 
-    # Update the positions in the graphene object with the optimized positions
-    optimized_positions = result.x.reshape((-1, 2))
-    for i, node in enumerate(graphene.graph.nodes):
-        graphene.graph.nodes[node]["position"] = (optimized_positions[i][0], optimized_positions[i][1])
+    # Reshape the optimized positions back to the 2D array format
+    optimized_positions = result.x.reshape(-1, 2)
+
+    # Update the positions of atoms in the graph with the optimized positions using NetworkX set_node_attributes
+    position_dict = {
+        node: Position(x=optimized_positions[idx][0], y=optimized_positions[idx][1])
+        for idx, node in enumerate(graphene.graph.nodes)
+    }
+    nx.set_node_attributes(graphene.graph, position_dict, "position")
 
     return result.fun, graphene
 
@@ -333,6 +381,32 @@ def calculate_bond_angle_accuracy(graphene: Graphene) -> Tuple[float, float]:
     angle_accuracy /= len(all_cycles)
 
     return bond_accuracy, angle_accuracy
+
+
+def total_energy_correctness_check(trial):
+
+    # Create Graphene instance and set k_inner_bond and k_outer_bond
+    graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = 23.359776202184758
+    graphene.k_outer_bond = 0.014112166829508662
+    graphene.k_inner_angle = 79.55711394238168
+    graphene.k_outer_angle = 0.019431203948375452
+
+    # Add nitrogen doping to the graphene sheet
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    # Calculate the total energy of the graphene sheet
+    total_energy, graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
+
+    # Write the optimized structure to an XYZ file for comparison to validate the optimization
+    write_xyz(
+        graphene.graph,
+        f"test_all_structures_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
+        f"k_inner_angle_{graphene.k_inner_angle}.xyz",
+    )
+
+    # Return the total energy as the objective value
+    return total_energy
 
 
 def objective_total_energy_pyridinic_4(trial):
@@ -609,3 +683,6 @@ if __name__ == "__main__":
 
     # # Conduct study for combined objective with Pyridinic_4
     # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4_test", n_trials=2)
+
+    # # Validate correctness of the optimization objectives
+    # total_energy_correctness_check(1)
