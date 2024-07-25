@@ -55,10 +55,6 @@ class NitrogenSpeciesProperties:
         A list of bond lengths of the doping structure.
     target_angles : List[float]
         A list of bond angles of the doping structure.
-    # k_inner : float
-    #     The spring constant for bonds and angles within the doping structure.
-    # k_outer : float
-    #     The spring constant for bonds and angles outside the doping structure.
     """
 
     target_bond_lengths: List[float]

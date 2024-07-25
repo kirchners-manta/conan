@@ -246,13 +246,13 @@ class DopingStructure:
 
         This method uses an iterative approach to expand the subgraph starting from the given neighbors. In each
         iteration, it expands the subgraph by adding edges of the current nodes until a cycle containing all neighbors
-        is found.
-        The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs that are
-        incrementally expanded.
+        is found. The cycle detection is done using the `cycle_basis` method, which is efficient for small subgraphs
+        that are incrementally expanded.
 
         Parameters
         ----------
         graph: nx.Graph
+            The whole graphene sheet graph.
         neighbors : List[int]
             A list of nodes that should be included in the cycle.
 
