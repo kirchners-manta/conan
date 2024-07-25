@@ -122,7 +122,9 @@ dependencies = [
     "MDAnalysis",
     "ply",
     "rdkit",
-    "prompt_toolkit"
+    "prompt_toolkit",
+    "numba",
+    "optuna"
 ]
 
 # List additional groups of dependencies here (e.g. development
