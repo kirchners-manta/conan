@@ -92,6 +92,7 @@ class DopingStructure:
         DopingStructure
             The created doping structure.
         """
+
         graph = graphene.graph
 
         # Detect the cycle and create the subgraph
@@ -130,6 +131,7 @@ class DopingStructure:
         Tuple[List[int], nx.Graph]
             The detected cycle and the subgraph containing the cycle.
         """
+
         # Find the shortest cycle that includes all the given neighbors
         cycle = DopingStructure._find_min_cycle_including_neighbors(graph, neighbors)
 
@@ -162,6 +164,7 @@ class DopingStructure:
         Tuple[int, int]
             The nodes between which the additional edge was added.
         """
+
         graph = graphene.graph
 
         # Remove the start node from the list of neighbors to get the two neighbors to connect
@@ -210,6 +213,7 @@ class DopingStructure:
         List[int]
             The ordered list of nodes in the cycle.
         """
+
         if start_node is None:
             # If no start node is provided, find a suitable starting node based on the nitrogen species
             start_node = DopingStructure._find_start_node(subgraph, species)
@@ -257,6 +261,7 @@ class DopingStructure:
         List[int]
             The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
         """
+
         # Initialize the subgraph with the neighbors and their edges
         subgraph = nx.Graph()
         subgraph.add_nodes_from(neighbors)
@@ -314,6 +319,7 @@ class DopingStructure:
         ValueError
             If no suitable starting node is found in the cycle.
         """
+
         start_node = None
         if species in {NitrogenSpecies.PYRIDINIC_4, NitrogenSpecies.PYRIDINIC_3}:
             # Find the starting node that has no "N" neighbors within the cycle and is not "N" itself
@@ -357,6 +363,7 @@ class DopingStructureCollection:
         """
         Add a doping structure to the collection and update the chosen atoms.
         """
+
         self.structures.append(dopings_structure)
         self.chosen_atoms[dopings_structure.species].extend(dopings_structure.nitrogen_atoms)
 
@@ -374,6 +381,7 @@ class DopingStructureCollection:
         List[DopingStructure]
             A list of doping structures for the specified species.
         """
+
         return [structure for structure in self.structures if structure.species == species]
 
 
@@ -393,6 +401,7 @@ class Graphene:
         sheet_size : Tuple[float, float]
             The size of the graphene sheet in the x and y directions.
         """
+
         self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
         self.c_c_bond_angle = 120
@@ -500,6 +509,7 @@ class Graphene:
         This method iterates over the entire sheet, adding nodes and edges for each unit cell.
         It also connects adjacent unit cells and adds periodic boundary conditions.
         """
+
         index = 0
         for y in range(self.num_cells_y):
             for x in range(self.num_cells_x):
@@ -536,6 +546,7 @@ class Graphene:
         y_offset : float
             The y-coordinate offset for the unit cell.
         """
+
         # Define relative positions of atoms within the unit cell
         unit_cell_positions = [
             Position(x_offset, y_offset),
@@ -564,6 +575,7 @@ class Graphene:
 
         This method connects the edges of the sheet to simulate an infinite sheet.
         """
+
         num_nodes_x = self.num_cells_x * 4
 
         # Generate base indices for horizontal boundaries
@@ -698,6 +710,7 @@ class Graphene:
         int or None
             The ID of the selected carbon atom, or None if the list is empty.
         """
+
         if not atom_list:
             return None  # Return None if the list is empty
         atom_id = random.choice(atom_list)  # Randomly select an atom ID from the list
@@ -733,6 +746,7 @@ class Graphene:
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
           GRAPHITIC.
         """
+
         # Validate specific percentages and calculate the remaining percentage
         if percentages:
             if total_percentage is None:
@@ -975,6 +989,7 @@ class Graphene:
         Optional[int]
             The start node ID if applicable, otherwise None.
         """
+
         start_node = None  # Initialize the start node as None
 
         if nitrogen_species == NitrogenSpecies.PYRIDINIC_1:
@@ -1014,6 +1029,7 @@ class Graphene:
         This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
         configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
+
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
         all_structures = [
             structure
@@ -1046,6 +1062,7 @@ class Graphene:
             energy : float
                 The total bond energy.
             """
+
             energy = 0.0
 
             # Initialize a set to track edges within cycles
@@ -1159,6 +1176,7 @@ class Graphene:
             energy : float
                 The total angle energy.
             """
+
             energy = 0.0
 
             # Initialize lists to collect all triplets of nodes and their target angles
@@ -1270,6 +1288,7 @@ class Graphene:
             energy : float
                 The total energy.
             """
+
             return bond_energy(x) + angle_energy(x)
 
         # Use L-BFGS-B optimization method to minimize the total energy
@@ -1335,6 +1354,7 @@ class Graphene:
             bool
                 True if all neighbors are possible atoms for doping, False otherwise.
             """
+
             return all(neighbor in self.possible_carbon_atoms for neighbor in neighbors)
 
         # Get the next possible carbon atom to test for doping and its neighbors
