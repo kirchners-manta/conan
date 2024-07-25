@@ -7,8 +7,6 @@ import networkx as nx
 import numpy as np
 import optuna
 import pandas as pd
-from doping_experiment import Graphene, NitrogenSpecies
-from graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
 from networkx.utils import pairwise
 from optuna.visualization import (
     plot_contour,
@@ -19,6 +17,9 @@ from optuna.visualization import (
     plot_slice,
 )
 from scipy.optimize import minimize
+
+from .doping_experiment import Graphene, NitrogenSpecies
+from .graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
 
 
 def calculate_minimal_total_energy(
