@@ -799,8 +799,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
