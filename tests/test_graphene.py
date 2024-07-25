@@ -3,7 +3,8 @@ import random
 import numpy as np
 import pytest
 
-from conan.playground.doping_experiment import Graphene, get_neighbors_via_edges, get_neighbors_within_distance
+from conan.playground.doping_experiment import Graphene
+from conan.playground.graph_utils import get_neighbors_via_edges, get_neighbors_within_distance
 
 
 class TestGraphene:
