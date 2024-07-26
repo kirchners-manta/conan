@@ -18,8 +18,8 @@ from optuna.visualization import (
 )
 from scipy.optimize import minimize
 
-from .doping_experiment import Graphene, NitrogenSpecies
-from .graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
+from conan.playground.doping_experiment import Graphene, NitrogenSpecies
+from conan.playground.graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
 
 
 def calculate_minimal_total_energy(
@@ -597,7 +597,7 @@ def objective_combined_all_structures_with_outer_angles(trial):
 def save_study_results(study, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     df = study.trials_dataframe()
-    df = df.applymap(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x)
+    df = df.map(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x)
     with open(filename, "w") as f:
         json.dump(df.to_dict(), f, indent=4)
 
