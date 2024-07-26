@@ -124,7 +124,10 @@ dependencies = [
     "rdkit",
     "prompt_toolkit",
     "numba",
-    "optuna"
+    "optuna",  # ToDo: Remove all packages from optuna onwards once we have found the best hyperparameters
+    "plotly",
+    "scikit-learn",
+    "kaleido"
 ]
 
 # List additional groups of dependencies here (e.g. development
