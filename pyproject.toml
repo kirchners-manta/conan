@@ -199,3 +199,9 @@ version = { attr = "conan.VERSION" }
 # If there are data files included in your packages that need to be
 # installed, specify them here.
 #package-data = { "sample" = ["*.dat"] } todo if necessary
+
+include-package-data = true
+
+[tool.setuptools.package-data]
+# Include .tcl files
+"*" = ["*.tcl"]
