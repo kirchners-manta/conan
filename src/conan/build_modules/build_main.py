@@ -21,6 +21,7 @@ def main(args):
             if not command:  # if the command is empty we skip it
                 continue
             if command == "exit":
+                interpreter.exit()
                 print("exiting...")
                 break
             elif command == "undo":
