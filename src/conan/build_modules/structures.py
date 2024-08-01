@@ -1271,8 +1271,8 @@ class Graphene(Structure2d):
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.35 Å")
+            parameters["interlayer_spacing"] = 3.35
 
         # Make sheet template
         base_sheet = Graphene(self.bond_distance, self.sheet_size)
@@ -1423,8 +1423,8 @@ class Boronnitride(Structure2d):
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.5 Å")
+            parameters["interlayer_spacing"] = 3.5
 
         # Make sheet template
         base_sheet = Boronnitride(self.bond_distance, self.sheet_size)
