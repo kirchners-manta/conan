@@ -1278,7 +1278,7 @@ class Graphene(Structure2d):
         base_sheet = Graphene(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
@@ -1430,7 +1430,7 @@ class Boronnitride(Structure2d):
         base_sheet = Boronnitride(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
