@@ -24,6 +24,7 @@ class Interpreter:
             self.current_structure.print_xyz_file(".tmp")
             if self.vmd_is_running:
                 vmd.update_structure()
+
         elif parsed_command["COMMAND"] == "remove":
             self._remove_atom(parsed_command["PARAMETERS"], parsed_command["KEYWORDS"])
         elif parsed_command["COMMAND"] == "add":
@@ -172,8 +173,6 @@ class Interpreter:
             raise InvalidCommand(f"unknown structure type '{parameters['type']}'.")
 
         if not self.current_structure._structure_df.empty:
-            # save number of structural atoms (important for correct vmd representations)
-            self.number_of_structural_atoms = len(self.current_structure._structure_df["group"])
             # print to temporary .xyz file
             self.current_structure.print_xyz_file(".tmp")
             # ddict.printLog("Structure build finished")
