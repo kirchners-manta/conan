@@ -719,12 +719,9 @@ class Structure1d(Structure):
         # times the unit cell size.
         # pbc_size_x = multiplicity_x * unit_cell_x
         # pbc_size_y = multiplicity_y * unit_cell_y
-
+        positions_tube["group"] = "Structure"
         self._structure_df = positions_tube
         self._structure_df.reset_index(inplace=True, drop=True)
-        # TODO: this is just a bandaid solution to filter out wrong entries,
-        # but the wrong entries should not happen at all
-        self._structure_df["group"] = self._structure_df["group"].str.replace("StructureStructure", "Structure")
 
         return self._structure_df
 
