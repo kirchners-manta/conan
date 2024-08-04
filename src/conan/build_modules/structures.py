@@ -16,6 +16,7 @@ from prettytable import PrettyTable
 import conan.build_modules.build_utils as utils
 import conan.defdict as ddict
 
+
 class FunctionalGroup:
     """
     Represents a functional group in a molecular structure.
