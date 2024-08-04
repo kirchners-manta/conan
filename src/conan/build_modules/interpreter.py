@@ -33,6 +33,8 @@ class Interpreter:
                 vmd.update_structure()
         elif parsed_command["COMMAND"] == "load":
             self._load_structure(parsed_command["KEYWORDS"])
+        elif parsed_command["COMMAND"] == "save":
+            self._save_structure(parsed_command["KEYWORDS"])
 
         # VMD interface
         if parsed_command["COMMAND"] == "vmd":
@@ -70,6 +72,12 @@ class Interpreter:
         self.vmd_is_running = False
 
     # PRIVATE
+    def _save_structure(self, keywords):
+        # this function just assumes that all keywords are given filenames
+        if self.current_structure is not None:
+            for file_name in keywords:
+                self.current_structure.print_xyz_file(file_name)
+
     def _remove_atom(self, parameters, keywords):
         if "atom" in keywords:
             self.current_structure.remove_atom_by_index(parameters["index"])

@@ -124,7 +124,6 @@ class Lexer:
 
     # Do no delete the following commit lines:
     # ply does unholy stuff therefore black and flake8 are disabled for this function
-    # TODO: If we really need a lexer I'd suggest to use shlex. A GUI might be more reasonable in the long term.
     # fmt: off
     def __initialize_lexer(self):
         tokens = [  # noqa: F841
@@ -138,7 +137,7 @@ class Lexer:
 
         # next we define all token types listed above
         def t_COMMAND(t):
-            r"(vmd|build|load|functionalize|defects|stack|add|remove|exit|undo)"
+            r"(vmd|build|load|functionalize|defects|stack|add|remove|exit|undo|save)"
             return t
 
         def t_KEYWORD(t):
