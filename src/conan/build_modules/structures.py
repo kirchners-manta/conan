@@ -11,10 +11,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
+from prettytable import PrettyTable
 
 import conan.build_modules.build_utils as utils
 import conan.defdict as ddict
-
 
 class FunctionalGroup:
     """
@@ -226,6 +226,8 @@ class Structure1d(Structure):
         bond_length (float): The bond length between consecutive atoms in the structure.
     """
 
+    type = "cnt"
+
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
         Initializes a Structure1D instance with specified parameters and keywords.
@@ -239,7 +241,8 @@ class Structure1d(Structure):
         # Set the bond length from parameters
         self.bond_length: float = parameters["bond_length"]
         # Method to construct the CNT based on provided parameters and keywords
-        self._build_CNT(parameters, keywords)
+        if self._build_CNT(parameters, keywords) is not None:
+            self._print_data()
 
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -272,6 +275,17 @@ class Structure1d(Structure):
         self._add_group_on_position(position)  # Adds the group at the selected position
 
     # PRIVATE
+    def _print_data(self):
+        tube_table = PrettyTable()
+        tube_table.title = "tube parameters"
+        tube_table.field_names = ["Parameter", "Value"]
+        tube_table.add_row(["configuration", self.tube_configuration])
+        tube_table.add_row(["radius [Å]", round(self.radius, 3)])
+        tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
+        tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+
+        ddict.printLog(tube_table)
+
     def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
@@ -367,8 +381,10 @@ class Structure1d(Structure):
         """
         # Determine the type of carbon nanotube based on the keywords
         if "armchair" in keywords:
+            self.tube_configuration = "armchair"
             tube_kind = 1
         elif "zigzag" in keywords:
+            self.tube_configuration = "zigzag"
             tube_kind = 2
         else:
             ddict.printLog("No valid tube kind found in arguments, use 'zigzag' or 'armchair'")
@@ -376,6 +392,7 @@ class Structure1d(Structure):
 
         tube_size = parameters["tube_size"]  # Number of hexagonal units around the circumference
         tube_length = parameters["tube_length"]  # Length of the tube in the z-direction
+        self.tube_length = parameters["tube_length"]
 
         # Load the provided bond length and calculate the distance between two hexagonal vertices
         distance = float(parameters["bond_length"])
@@ -613,8 +630,9 @@ class Structure1d(Structure):
         # times the unit cell size.
         # pbc_size_x = multiplicity_x * unit_cell_x
         # pbc_size_y = multiplicity_y * unit_cell_y
-
+        positions_tube["group"] = "Structure"
         self._structure_df = positions_tube
+        self._structure_df.reset_index(inplace=True, drop=True)
 
         return self._structure_df
 
@@ -643,6 +661,7 @@ class Structure2d(Structure):
         self.bond_distance = bond_distance
         self.sheet_size = sheet_size
         self._create_sheet()
+        self._print_data()
 
     # INTERFACE
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
@@ -695,6 +714,14 @@ class Structure2d(Structure):
         self._add_group_on_position(position)
 
     # PRIVATE
+    def _print_data(self):
+        wall_table = PrettyTable()
+        wall_table.title = "wall dimensions"
+        wall_table.field_names = ["dimension", "Periodic boundary [Å]"]
+        wall_table.add_row(["x", round(self.sheet_size[0], 3)])
+        wall_table.add_row(["y", round(self.sheet_size[1], 3)])
+        ddict.printLog(wall_table)
+
     def _create_sheet(self):
         """
         Creates the sheet by defining the unit cell and building the sheet.
@@ -870,6 +897,8 @@ class Pore(Structure):
         pore_center (List[float]): The center of the pore.
         cnt_radius (List[float]): The radius of the carbon nanotube.
     """
+
+    type = "pore"
 
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -1145,6 +1174,8 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
+    type = "graphene"
+
     def make_pores(self, parameters, keywords):
         """
         Creates pores in the graphene sheet. Currently only circular pores available.
@@ -1177,14 +1208,14 @@ class Graphene(Structure2d):
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.35 Å")
+            parameters["interlayer_spacing"] = 3.35
 
         # Make sheet template
         base_sheet = Graphene(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
@@ -1323,6 +1354,8 @@ class Boronnitride(Structure2d):
     instead of circular)
     """
 
+    type = "boronnitride"
+
     # INTERFACE
     def make_pores(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
         """
@@ -1368,14 +1401,14 @@ class Boronnitride(Structure2d):
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.5 Å")
+            parameters["interlayer_spacing"] = 3.5
 
         # Make sheet template
         base_sheet = Boronnitride(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
