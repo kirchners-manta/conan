@@ -171,11 +171,12 @@ class Interpreter:
         else:
             raise InvalidCommand(f"unknown structure type '{parameters['type']}'.")
 
-        self.number_of_structural_atoms = len(self.current_structure._structure_df["group"])
-
-        # print to temporary .xyz file
-        self.current_structure.print_xyz_file(".tmp")
-        # ddict.printLog("Structure build finished")
+        if not self.current_structure._structure_df.empty:
+            # save number of structural atoms (important for correct vmd representations)
+            self.number_of_structural_atoms = len(self.current_structure._structure_df["group"])
+            # print to temporary .xyz file
+            self.current_structure.print_xyz_file(".tmp")
+            # ddict.printLog("Structure build finished")
 
         # load updated structure into vmd
         if self.vmd_is_running:

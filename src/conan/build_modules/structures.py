@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
+from prettytable import PrettyTable
 
 import conan.defdict as ddict
 
@@ -84,7 +85,7 @@ class Atom:  # ToDo: Evtl. abstrakte Klasse oder Datenklasse?
         pass
 
 
-class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
+class FunctionalGroup:
     """
     Represents a functional group in a molecular structure.
 
@@ -325,7 +326,8 @@ class Structure1d(Structure):
         # Set the bond length from parameters
         self.bond_length: float = parameters["bond_length"]
         # Method to construct the CNT based on provided parameters and keywords
-        self._build_CNT(parameters, keywords)
+        if self._build_CNT(parameters, keywords) is not None:
+            self._print_data()
 
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -358,6 +360,17 @@ class Structure1d(Structure):
         self._add_group_on_position(position)  # Adds the group at the selected position
 
     # PRIVATE
+    def _print_data(self):
+        tube_table = PrettyTable()
+        tube_table.title = "tube parameters"
+        tube_table.field_names = ["Parameter", "Value"]
+        tube_table.add_row(["configuration", self.tube_configuration])
+        tube_table.add_row(["radius [Å]", round(self.radius, 3)])
+        tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
+        tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+
+        ddict.printLog(tube_table)
+
     def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
@@ -454,8 +467,10 @@ class Structure1d(Structure):
         """
         # Determine the type of carbon nanotube based on the keywords
         if "armchair" in keywords:
+            self.tube_configuration = "armchair"
             tube_kind = 1
         elif "zigzag" in keywords:
+            self.tube_configuration = "zigzag"
             tube_kind = 2
         else:
             ddict.printLog("No valid tube kind found in arguments, use 'zigzag' or 'armchair'")
@@ -463,6 +478,7 @@ class Structure1d(Structure):
 
         tube_size = parameters["tube_size"]  # Number of hexagonal units around the circumference
         tube_length = parameters["tube_length"]  # Length of the tube in the z-direction
+        self.tube_length = parameters["tube_length"]
 
         # Load the provided bond length and calculate the distance between two hexagonal vertices
         distance = float(parameters["bond_length"])
@@ -735,6 +751,7 @@ class Structure2d(Structure):
         self.bond_distance = bond_distance
         self.sheet_size = sheet_size
         self._create_sheet()
+        self._print_data()
 
     # INTERFACE
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
@@ -798,6 +815,14 @@ class Structure2d(Structure):
         self._add_group_on_position(position)
 
     # PRIVATE
+    def _print_data(self):
+        wall_table = PrettyTable()
+        wall_table.title = "wall dimensions"
+        wall_table.field_names = ["dimension", "Periodic boundary [Å]"]
+        wall_table.add_row(["x", round(self.sheet_size[0], 3)])
+        wall_table.add_row(["y", round(self.sheet_size[1], 3)])
+        ddict.printLog(wall_table)
+
     def _create_sheet(self):
         """
         Creates the sheet by defining the unit cell and building the sheet.
