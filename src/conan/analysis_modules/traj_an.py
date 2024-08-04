@@ -266,9 +266,6 @@ def trajectory_analysis(inputdict) -> None:
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
 
-    print("spec_molecule", spec_molecule)
-    print("spec_atom", spec_atom)
-    print("analysis_spec_molecule", analysis_spec_molecule)
     (
         number_of_frames,
         number_of_lines_per_chunk,

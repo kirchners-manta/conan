@@ -122,7 +122,12 @@ dependencies = [
     "MDAnalysis",
     "ply",
     "rdkit",
-    "prompt_toolkit"
+    "prompt_toolkit",
+    "numba",
+    "optuna",  # ToDo: Remove all packages from optuna onwards once we have found the best hyperparameters
+    "plotly",
+    "scikit-learn",
+    "kaleido"
 ]
 
 # List additional groups of dependencies here (e.g. development
@@ -183,6 +188,7 @@ line-length = 120
 
 [tool.isort]
 line_length = 120
+profile = "black"
 
 [tool.setuptools.dynamic]
 version = { attr = "conan.VERSION" }

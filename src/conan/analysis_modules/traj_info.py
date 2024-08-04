@@ -314,18 +314,21 @@ def identify_molecules_and_bonds(atoms, box_size, neglect_atoms=[]) -> Tuple[lis
 
     # If the neglect_atoms list is not empty, change the bond distance for every pair, where one of the atoms is in the
     # neglect_atoms list to 0.0
-    if neglect_atoms:
-        for atom in neglect_atoms:
-            for element in covalent_radii:
-                bond_distances[(atom, element)] = 0.0
-                bond_distances[(element, atom)] = 0.0
+    # if neglect_atoms:
+    #    for atom in neglect_atoms:
+    #        for element in covalent_radii:
+    #            bond_distances[(atom, element)] = 0.0
+    #            bond_distances[(element, atom)] = 0.0
 
-    # Create a graph with atoms as nodes and bonds as edges
-    simbox_G = nx.Graph()
+    for neg_atom in neglect_atoms:
+        atoms = [atom for atom in atoms if atom["element"] != neg_atom]
 
     # Add all atoms as nodes to the graph
     atom_positions = np.array([[atom["x"], atom["y"], atom["z"]] for atom in atoms]) % box_size
     atom_elements = [atom["element"] for atom in atoms]
+
+    # Create a graph with atoms as nodes and bonds as edges
+    simbox_G = nx.Graph()
 
     # Create k-d tree for efficient search
     tree = cKDTree(atom_positions, boxsize=box_size)
@@ -379,9 +382,7 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
 
     # Dataframe with just the structure atoms.
     id_frame["Molecule"] = None
-    # structure_frame = id_frame[id_frame["Struc"]].copy()
-
-    structure_frame = pd.DataFrame()  # CHANGE BACK
+    structure_frame = id_frame[id_frame["Struc"]].copy()
 
     outputdict = maindict
     outputdict["unique_molecule_frame"] = pd.DataFrame()
@@ -400,11 +401,12 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
     which_pores = []
 
     # If the structure_frame is empty, then there are no structures in the simulation box.
-    if structure_frame.empty:
-        ddict.printLog(
-            "No structures were found in the simulation box. \n",
-            color="red",
-        )
+    if structure_frame.empty or args["manual"]:
+        if structure_frame.empty:
+            ddict.printLog(
+                "No structures were found in the simulation box. \n",
+                color="red",
+            )
         define_struc = ddict.get_input("Manually define the structures? [y/n]: ", args, "str")
         if define_struc == "n":
             sys.exit()
@@ -472,8 +474,8 @@ def structure_recognition(maindict) -> Tuple[pd.DataFrame, list, list, list, lis
             structure_frame_copy.loc[structure_frame["Molecule"] == i, "Struc"] = f"Pore{counter_pore}"
             CNTs.append(f"Pore{counter_pore}")
 
-        # If the difference in x, y and z is smaller than 1.0, it is a wall.
-        elif (x_max - x_min) < 1.0 or (y_max - y_min) < 1.0 or (z_max - z_min) < 1.0:
+        # If the difference in x, y and z is smaller than 5.0, it is a wall.
+        elif (x_max - x_min) < 5.0 or (y_max - y_min) < 5.0 or (z_max - z_min) < 5.0:
             counter_wall += 1
             ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
             if (x_max - x_min) < 1.0:
