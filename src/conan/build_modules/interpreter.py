@@ -49,7 +49,7 @@ class Interpreter:
     def exit(self):
         # print final structure
         if self.current_structure is not None:
-            self.current_structure.print_xyz_file("structure")
+            self.current_structure.print_xyz_file(self.current_structure.type)
             # exit vmd
         if self.vmd_is_running:
             vmd.send_command("exit")

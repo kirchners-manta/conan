@@ -310,6 +310,8 @@ class Structure1d(Structure):
         bond_length (float): The bond length between consecutive atoms in the structure.
     """
 
+    type = "cnt"
+
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
         Initializes a Structure1D instance with specified parameters and keywords.
@@ -972,6 +974,8 @@ class Pore(Structure):
         cnt_radius (List[float]): The radius of the carbon nanotube.
     """
 
+    type = "pore"
+
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
         Initializes a Pore instance.
@@ -1246,6 +1250,8 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
+    type = "graphene"
+
     def make_pores(self, parameters, keywords):
         """
         Creates circular pores in the graphene sheet.
@@ -1399,6 +1405,8 @@ class Boronnitride(Structure2d):
     """
     Represents a boron nitride sheet structure.
     """
+
+    type = "boronnitride"
 
     # INTERFACE
     def make_pores(self, parameters, keywords) -> None:
