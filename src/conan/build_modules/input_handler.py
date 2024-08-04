@@ -141,7 +141,7 @@ class Lexer:
             return t
 
         def t_KEYWORD(t):
-            r"\"[^\"]*\"|[a-zA-Z_]+"  # all letters as well as everything within " " is a keyword
+            r"\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*"  # all letters as well as everything within " " is a keyword
             if t.value.startswith('"') and t.value.endswith('"'):
                 # Remove quotes
                 t.value = t.value[1:-1]
