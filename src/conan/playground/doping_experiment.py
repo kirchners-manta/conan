@@ -8,18 +8,18 @@ from typing import Dict, List, Optional, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
-from conan.playground.graph_utils import (  # plot_graphene,
+from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
     Position,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
+    plot_graphene,
     print_warning,
     write_xyz,
 )
@@ -1506,32 +1506,32 @@ class Graphene:
         # Remove inter-layer edges
         self.graph.remove_edges_from(edges_to_remove)
 
-    def plot_3d_graphene(self):
-        """
-        Visualize the graphene layers in a 3D plot.
-        """
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-
-        # Extract position data for plotting
-        pos = nx.get_node_attributes(self.graph, "position")
-
-        for node, position in pos.items():
-            p = position  # Unpack position
-            ax.scatter(p.x, p.y, p.z, color="b" if self.graph.nodes[node]["element"] == "C" else "r")
-
-        # Add edges for visualization (intra-layer only if necessary)
-        for u, v in self.graph.edges():
-            pos_u = pos[u]
-            pos_v = pos[v]
-            # Check if both nodes are in the same layer to avoid inter-layer edges
-            if pos_u.z == pos_v.z:
-                ax.plot([pos_u.x, pos_v.x], [pos_u.y, pos_v.y], [pos_u.z, pos_v.z], color="k")
-
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-        plt.show()
+    # def plot_3d_graphene(self):
+    #     """
+    #     Visualize the graphene layers in a 3D plot.
+    #     """
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111, projection="3d")
+    #
+    #     # Extract position data for plotting
+    #     pos = nx.get_node_attributes(self.graph, "position")
+    #
+    #     for node, position in pos.items():
+    #         p = position  # Unpack position
+    #         ax.scatter(p.x, p.y, p.z, color="b" if self.graph.nodes[node]["element"] == "C" else "r")
+    #
+    #     # Add edges for visualization (intra-layer only if necessary)
+    #     for u, v in self.graph.edges():
+    #         pos_u = pos[u]
+    #         pos_v = pos[v]
+    #         # Check if both nodes are in the same layer to avoid inter-layer edges
+    #         if pos_u.z == pos_v.z:
+    #             ax.plot([pos_u.x, pos_v.x], [pos_u.y, pos_v.y], [pos_u.z, pos_v.z], color="k")
+    #
+    #     ax.set_xlabel("X")
+    #     ax.set_ylabel("Y")
+    #     ax.set_zlabel("Z")
+    #     plt.show()
 
 
 def main():
@@ -1545,7 +1545,6 @@ def main():
     graphene = Graphene(bond_distance=1.42, sheet_size=sheet_size)
 
     # write_xyz(graphene.graph, 'graphene.xyz')
-    # graphene.plot_graphene(with_labels=True)
 
     # Find direct neighbors of a node (depth=1)
     direct_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=1)
@@ -1608,8 +1607,9 @@ def main():
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
     graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
-    graphene.plot_3d_graphene()
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
 
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 

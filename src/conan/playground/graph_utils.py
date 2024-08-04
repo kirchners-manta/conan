@@ -400,9 +400,38 @@ def get_color(element: str, nitrogen_species: NitrogenSpecies = None) -> str:
     return colors.get(element, "pink")
 
 
-def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+def plot_graphene(
+    graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True, dimensions: int = 2
+):
     """
-    Plot the graphene structure using networkx and matplotlib.
+    Plot the graphene structure using networkx and matplotlib, either in 2D or 3D.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the graphene sheet.
+    with_labels : bool, optional
+        Whether to display labels on the nodes (default is False).
+    visualize_periodic_bonds : bool, optional
+        Whether to visualize periodic boundary condition edges (default is True).
+    dimensions : int
+        The number of dimensions to plot (2 or 3).
+
+    Notes
+    -----
+    This method visualizes the graphene structure either in 2D or 3D.
+    """
+    if dimensions == 2:
+        plot_2d_graphene(graph, with_labels, visualize_periodic_bonds)
+    elif dimensions == 3:
+        plot_3d_graphene(graph, with_labels, visualize_periodic_bonds)
+    else:
+        raise ValueError("Invalid dimensions argument; must be 2 or 3.")
+
+
+def plot_2d_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    """
+    Plot the graphene structure using networkx and matplotlib in 2D.
 
     Parameters
     ----------
@@ -419,8 +448,9 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     element type and node ID. Nodes are colored based on their element type and nitrogen species.
     Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
     """
-    # Get positions and elements of nodes
-    pos = nx.get_node_attributes(graph, "position")
+    # Get positions and elements of nodes, using only x and y for 2D plotting
+    pos_2d = {node: (pos[0], pos[1]) for node, pos in nx.get_node_attributes(graph, "position").items()}
+    # pos = nx.get_node_attributes(graph, "position")
     elements = nx.get_node_attributes(graph, "element")
 
     # Determine colors for nodes, considering nitrogen species if present
@@ -434,11 +464,11 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     plt.figure(figsize=(12, 12))
 
     # Draw the regular edges
-    nx.draw(graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+    nx.draw(graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
 
     # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
     if visualize_periodic_bonds:
-        nx.draw_networkx_edges(graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
+        nx.draw_networkx_edges(graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
     # Add legend
     unique_colors = set(colors)
@@ -455,9 +485,83 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     # Add labels if specified
     if with_labels:
         labels = {node: f"{elements[node]}{node}" for node in graph.nodes()}
-        nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
+        nx.draw_networkx_labels(graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
 
     # Show plot
+    plt.show()
+
+
+def plot_3d_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    """
+    Plot the graphene structure in 3D using networkx and matplotlib.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the graphene structure with potentially multiple layers.
+    with_labels : bool, optional
+        Whether to display labels on the nodes (default is False).
+    visualize_periodic_bonds : bool, optional
+        Whether to visualize periodic boundary condition edges (default is True).
+
+    Notes
+    -----
+    This method visualizes the graphene structure, optionally with labels indicating the
+    element type and node ID. Nodes are colored based on their element type and nitrogen species.
+    Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+    """
+
+    # Get positions and elements of nodes
+    pos = nx.get_node_attributes(graph, "position")
+    elements = nx.get_node_attributes(graph, "element")
+
+    # Determine colors for nodes, considering nitrogen species if present
+    colors = [get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()]
+
+    # Separate periodic edges and regular edges
+    regular_edges = [(u, v) for u, v, d in graph.edges(data=True) if not d.get("periodic")]
+    periodic_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("periodic")]
+
+    # Initialize 3D plot
+    fig = plt.figure(figsize=(12, 12))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Draw nodes for each layer separately
+    for node in graph.nodes():
+        x, y, z = pos[node]
+        ax.scatter(x, y, z, color=get_color(elements[node], graph.nodes[node].get("nitrogen_species")), s=20)
+
+    # Draw the regular edges for each layer
+    for u, v in regular_edges:
+        x = [pos[u][0], pos[v][0]]
+        y = [pos[u][1], pos[v][1]]
+        z = [pos[u][2], pos[v][2]]
+        ax.plot(x, y, z, color="black")
+
+    # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+    if visualize_periodic_bonds:
+        for u, v in periodic_edges:
+            x = [pos[u][0], pos[v][0]]
+            y = [pos[u][1], pos[v][1]]
+            z = [pos[u][2], pos[v][2]]
+            ax.plot(x, y, z, color="gray", linestyle="dashed")
+
+    # Add labels if specified
+    if with_labels:
+        for node in graph.nodes():
+            ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+
+    # Add legend
+    unique_colors = set(colors)
+    legend_elements = []
+    for species in NitrogenSpecies:
+        color = get_color("N", species)
+        if color in unique_colors:
+            legend_elements.append(
+                plt.Line2D([0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color)
+            )
+
+    plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
     plt.show()
 
 
