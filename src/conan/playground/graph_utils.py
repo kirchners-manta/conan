@@ -22,10 +22,13 @@ class Position(NamedTuple):
         The x-coordinate of the atom.
     y : float
         The y-coordinate of the atom.
+    z : float, optional
+        The z-coordinate of the atom (default is 0.0).
     """
 
     x: float
     y: float
+    z: float = 0.0  # Default value for z-coordinate
 
 
 class Vector(NamedTuple):
@@ -38,10 +41,13 @@ class Vector(NamedTuple):
         The x-component of the displacement.
     dy : float
         The y-component of the displacement.
+    dz : float, optional
+        The z-component of the displacement (default is 0.0).
     """
 
     dx: float
     dy: float
+    dz: float = 0.0  # Default value for z-component
 
 
 @dataclass
@@ -85,7 +91,7 @@ def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float
     pos2 : Position
         Position of the second atom.
     box_size : Tuple[float, float]
-        Size of the box in the x and y dimensions (box_width, box_height).
+        Size of the box in the x, y and z dimensions (box_width, box_height, box_depth).
 
     Returns
     -------
@@ -102,11 +108,14 @@ def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float
     d_pos = pos1 - pos2
 
     # Adjust the difference vector for periodic boundary conditions
-    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
+    # d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
+    box_size = np.array(box_size)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        d_pos -= box_size * np.round(d_pos / box_size)
 
     # Calculate the Euclidean distance using the adjusted difference vector
     distance = float(np.linalg.norm(d_pos))
-    displacement = Vector(float(d_pos[0]), float(d_pos[1]))
+    displacement = Vector(float(d_pos[0]), float(d_pos[1]), float(d_pos[2]))
 
     return distance, displacement
 
@@ -119,18 +128,18 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
     Parameters
     ----------
     pos1 : npt.NDArray
-        Array of positions of the first set of atoms (N x 2).
+        Array of positions of the first set of atoms (N x 3).
     pos2 : npt.NDArray
-        Array of positions of the second set of atoms (N x 2).
+        Array of positions of the second set of atoms (N x 3).
     box_size : Tuple[float, float]
-        Size of the box in the x and y dimensions (box_width, box_height).
+        Size of the box in the x, y, and z dimensions (box_width, box_height, box_depth).
 
     Returns
     -------
     Tuple[np.ndarray, np.ndarray]
         A tuple containing:
         - The minimum distances between the sets of positions as a numpy array.
-        - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
+        - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 3).
     """
     # Calculate the vector difference between the two positions
     delta = pos2 - pos1
@@ -188,9 +197,9 @@ def write_xyz(graph, filename):
         file.write(f"{graph.number_of_nodes()}\n")
         file.write("XYZ file generated from GrapheneGraph\n")
         for node_id, node_data in graph.nodes(data=True):
-            x, y = node_data["position"]
+            pos = node_data["position"]
             element = node_data["element"]
-            file.write(f"{element} {x:.3f} {y:.3f} 0.000\n")
+            file.write(f"{element} {pos.x:.3f} {pos.y:.3f} {pos.z} 0.000\n")
 
 
 def print_warning(message: str):
