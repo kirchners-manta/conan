@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -12,9 +12,28 @@ from scipy.spatial import KDTree
 # from conan.playground.doping_experiment import GrapheneGraph
 
 
-class Position(NamedTuple):
+# class Position(NamedTuple):
+#     """
+#     Position: Named tuple to represent the coordinates of atoms.
+#
+#     Attributes
+#     ----------
+#     x : float
+#         The x-coordinate of the atom.
+#     y : float
+#         The y-coordinate of the atom.
+#     z : Optional[float]
+#         The z-coordinate of the atom (default is None).
+#     """
+#
+#     x: float
+#     y: float
+#     z: Optional[float] = None  # Optional z-coordinate
+
+
+class Position2D(NamedTuple):
     """
-    Position: Named tuple to represent the coordinates of atoms.
+    Position2D: Named tuple to represent 2D coordinates of atoms.
 
     Attributes
     ----------
@@ -22,13 +41,29 @@ class Position(NamedTuple):
         The x-coordinate of the atom.
     y : float
         The y-coordinate of the atom.
-    z : float, optional
-        The z-coordinate of the atom (default is 0.0).
     """
 
     x: float
     y: float
-    z: float = 0.0  # Default value for z-coordinate
+
+
+class Position3D(NamedTuple):
+    """
+    Position3D: Named tuple to represent 3D coordinates of atoms.
+
+    Attributes
+    ----------
+    x : float
+        The x-coordinate of the atom.
+    y : float
+        The y-coordinate of the atom.
+    z : float
+        The z-coordinate of the atom.
+    """
+
+    x: float
+    y: float
+    z: float
 
 
 class Vector(NamedTuple):
@@ -41,13 +76,35 @@ class Vector(NamedTuple):
         The x-component of the displacement.
     dy : float
         The y-component of the displacement.
-    dz : float, optional
-        The z-component of the displacement (default is 0.0).
     """
 
     dx: float
     dy: float
-    dz: float = 0.0  # Default value for z-component
+
+
+def create_position(*args: Union[float, Tuple[float, float], Tuple[float, float, float]]):
+    """
+    Create a Position instance based on the number of input arguments.
+
+    Parameters
+    ----------
+    *args : Union[float, Tuple[float, float], Tuple[float, float, float]]
+        Coordinates for the position.
+
+    Returns
+    -------
+    Union[Position2D, Position3D]
+        A Position2D or Position3D object based on the input.
+    """
+    if len(args) == 1 and isinstance(args[0], tuple):
+        args = args[0]  # Unpack tuple if a single tuple argument is passed
+
+    if len(args) == 2:
+        return Position2D(args[0], args[1])  # Create 2D position
+    elif len(args) == 3:
+        return Position3D(args[0], args[1], args[2])  # Create 3D position
+    else:
+        raise ValueError("Invalid number of arguments for creating a Position. Expected 2 or 3 values.")
 
 
 @dataclass
@@ -80,18 +137,18 @@ class NitrogenSpecies(Enum):
     # PYRAZOLE = "pyrazole"
 
 
-def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float, float]) -> Tuple[float, Vector]:
+def minimum_image_distance(pos1: Position2D, pos2: Position2D, box_size: Tuple[float, float]) -> Tuple[float, Vector]:
     """
     Calculate the minimum distance between two positions considering periodic boundary conditions.
 
     Parameters
     ----------
-    pos1 : Position
+    pos1 : Position2D
         Position of the first atom.
-    pos2 : Position
+    pos2 : Position2D
         Position of the second atom.
-    box_size : Tuple[float, float]
-        Size of the box in the x, y and z dimensions (box_width, box_height, box_depth).
+    box_size : Tuple[float, float, float]
+        Size of the box in the x and y dimensions (box_width, box_height).
 
     Returns
     -------
@@ -108,14 +165,11 @@ def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float
     d_pos = pos1 - pos2
 
     # Adjust the difference vector for periodic boundary conditions
-    # d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
-    box_size = np.array(box_size)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        d_pos -= box_size * np.round(d_pos / box_size)
+    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
 
     # Calculate the Euclidean distance using the adjusted difference vector
     distance = float(np.linalg.norm(d_pos))
-    displacement = Vector(float(d_pos[0]), float(d_pos[1]), float(d_pos[2]))
+    displacement = Vector(float(d_pos[0]), float(d_pos[1]))
 
     return distance, displacement
 
@@ -132,7 +186,7 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
     pos2 : npt.NDArray
         Array of positions of the second set of atoms (N x 3).
     box_size : Tuple[float, float]
-        Size of the box in the x, y, and z dimensions (box_width, box_height, box_depth).
+        Size of the box in the x and y dimensions (box_width, box_height).
 
     Returns
     -------
@@ -192,14 +246,36 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
 #     return distances, displacement
 
 
-def write_xyz(graph, filename):
+def write_xyz(graph: nx.Graph, filename: str):
+    """
+    Write the atomic positions and elements to an XYZ file.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the atomic structure.
+    filename : str
+        The name of the XYZ file to write to.
+    """
     with open(filename, "w") as file:
-        file.write(f"{graph.number_of_nodes()}\n")
-        file.write("XYZ file generated from GrapheneGraph\n")
-        for node_id, node_data in graph.nodes(data=True):
-            pos = node_data["position"]
-            element = node_data["element"]
-            file.write(f"{element} {pos.x:.3f} {pos.y:.3f} {pos.z} 0.000\n")
+        # Write the number of atoms (nodes) in the graph
+        num_atoms = len(graph.nodes)
+        file.write(f"{num_atoms}\n")
+        file.write("Atoms\n")
+
+        for node in graph.nodes(data=True):
+            # Extract the element and position for each node
+            element = node[1].get("element", "X")  # Default to "X" if no element is specified
+            pos: Union[Position2D, Position3D] = node[1]["position"]
+
+            # Determine the z-coordinate
+            if isinstance(pos, Position2D):
+                z = 0.0
+            else:
+                z = pos.z
+
+            # Write the atom information to the file
+            file.write(f"{element} {pos.x:.3f} {pos.y:.3f} {z:.3f} 0.000\n")
 
 
 def print_warning(message: str):

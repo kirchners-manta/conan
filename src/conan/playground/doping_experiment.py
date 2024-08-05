@@ -1,5 +1,6 @@
 import random
 import time
+from abc import abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from math import cos, pi, sin
@@ -8,18 +9,18 @@ from typing import Dict, List, Optional, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
+from black.trans import ABC
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
-from conan.playground.graph_utils import (
+from conan.playground.graph_utils import (  # plot_graphene,
     NitrogenSpecies,
     NitrogenSpeciesProperties,
-    Position,
+    create_position,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
-    plot_graphene,
     print_warning,
     write_xyz,
 )
@@ -178,7 +179,6 @@ class DopingStructure:
         box_size = (
             graphene.actual_sheet_width + graphene.c_c_bond_distance,
             graphene.actual_sheet_height + graphene.cc_y_distance,
-            0.0,  # No z-direction since we are working with a planar graphene sheet
         )
 
         # Calculate the bond length between the two neighbors considering minimum image distance
@@ -386,6 +386,20 @@ class DopingStructureCollection:
         return [structure for structure in self.structures if structure.species == species]
 
 
+# Abstract base class for material structures
+class MaterialStructure(ABC):
+    def __init__(self):
+        self.structure_graph = nx.Graph()
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    @abstractmethod
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True, is_3d: bool = False):
+        pass
+
+
 class Graphene:
     """
     Represents a graphene sheet structure and manages nitrogen doping within the sheet.
@@ -402,20 +416,20 @@ class Graphene:
         sheet_size : Tuple[float, float]
             The size of the graphene sheet in the x and y directions.
         """
-
+        super().__init__()
         self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
         self.c_c_bond_angle = 120
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 23.359776202184758
+        self.k_inner_bond = 0.010076758181682346
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.014112166829508662
+        self.k_outer_bond = 0.01026215389914262
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 79.55711394238168
+        self.k_inner_angle = 0.1652818474508479
         """The spring constant for angles within the doping structure."""
-        self.k_outer_angle = 0.019431203948375452
+        self.k_outer_angle = 0.010156824710175323
         """The spring constant for angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
@@ -436,6 +450,7 @@ class Graphene:
 
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
+        # self._positions = np.array([self.graph.nodes[node]['position'].to_tuple() for node in self.graph.nodes])
         """The positions of atoms in the graphene sheet."""
         self.kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
         """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
@@ -443,7 +458,7 @@ class Graphene:
         computationally intensive when performed over a graph, especially when dealing with direct distance rather than
         path lengths in the graph."""
 
-        self.include_outer_angles = False  # ToDo: Delete later; just for testing purposes
+        self.include_outer_angles = True  # ToDo: Delete later; just for testing purposes
 
     @property
     def positions(self):
@@ -550,10 +565,10 @@ class Graphene:
 
         # Define relative positions of atoms within the unit cell
         unit_cell_positions = [
-            Position(x_offset, y_offset),
-            Position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
+            create_position(x_offset, y_offset),
+            create_position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
+            create_position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
+            create_position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
         ]
 
         # Add nodes with positions, element type (carbon) and possible doping site flag
@@ -814,8 +829,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1047,11 +1062,7 @@ class Graphene:
         # Flatten the positions into a 1D array for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in [positions[node].x, positions[node].y]])
         # Define the box size for minimum image distance calculation
-        box_size = (
-            self.actual_sheet_width + self.c_c_bond_distance,
-            self.actual_sheet_height + self.cc_y_distance,
-            0.0,  # No z-direction since we are working with a planar graphene sheet
-        )
+        box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
         def bond_energy(x):
             """
@@ -1268,9 +1279,9 @@ class Graphene:
                                 x[2 * list(self.graph.nodes).index(nj)],
                                 x[2 * list(self.graph.nodes).index(nj) + 1],
                             )
-                            pos_node = Position(x_node, y_node)
-                            pos_i = Position(x_i, y_i)
-                            pos_j = Position(x_j, y_j)
+                            pos_node = create_position(x_node, y_node)
+                            pos_i = create_position(x_i, y_i)
+                            pos_j = create_position(x_j, y_j)
                             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -1305,7 +1316,7 @@ class Graphene:
 
         # Update the positions of atoms in the graph with the optimized positions using NetworkX set_node_attributes
         position_dict = {
-            node: Position(x=optimized_positions[idx][0], y=optimized_positions[idx][1])
+            node: create_position(optimized_positions[idx][0], optimized_positions[idx][1])
             for idx, node in enumerate(self.graph.nodes)
         }
         nx.set_node_attributes(self.graph, position_dict, "position")
@@ -1471,7 +1482,7 @@ class Graphene:
                 new_node = node + layer * num_nodes
 
                 # Add the new node to the graph
-                self.graph.add_node(new_node, element="C", position=Position(x, y, z))
+                self.graph.add_node(new_node, element="C", position=create_position(x, y, z))
 
             # Add intra-layer edges for the current layer
             for node in original_graph.nodes:
@@ -1607,9 +1618,9 @@ def main():
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-    graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
 
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
@@ -1623,13 +1634,14 @@ def main():
 
     # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
-    # write_xyz(
-    #     graphene.graph,
-    #     f"all_structures_combined_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
-    #     f"k_inner_angle_{graphene.k_inner_angle}_refactored_2.xyz",
-    # )
+    write_xyz(
+        graphene.graph,
+        f"total_energy_all_structures_including_outer_angles_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_"
+        f"{graphene.k_outer_bond}_"
+        f"k_inner_angle_{graphene.k_inner_angle}_refactored_2.xyz",
+    )
 
-    write_xyz(graphene.graph, "ABA_stacking.xyz")
+    # write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
