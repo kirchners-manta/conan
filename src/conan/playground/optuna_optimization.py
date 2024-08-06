@@ -19,7 +19,12 @@ from optuna.visualization import (
 from scipy.optimize import minimize
 
 from conan.playground.doping_experiment import Graphene, NitrogenSpecies
-from conan.playground.graph_utils import Position, minimum_image_distance, minimum_image_distance_vectorized, write_xyz
+from conan.playground.graph_utils import (
+    create_position,
+    minimum_image_distance,
+    minimum_image_distance_vectorized,
+    write_xyz,
+)
 
 
 def calculate_minimal_total_energy(
@@ -276,9 +281,9 @@ def calculate_minimal_total_energy(
                             x[2 * list(graphene.graph.nodes).index(nj)],
                             x[2 * list(graphene.graph.nodes).index(nj) + 1],
                         )
-                        pos_node = Position(x_node, y_node)
-                        pos_i = Position(x_i, y_i)
-                        pos_j = Position(x_j, y_j)
+                        pos_node = create_position(x_node, y_node)
+                        pos_i = create_position(x_i, y_i)
+                        pos_j = create_position(x_j, y_j)
                         _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
                         _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                         cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -311,7 +316,7 @@ def calculate_minimal_total_energy(
 
     # Update the positions of atoms in the graph with the optimized positions using NetworkX set_node_attributes
     position_dict = {
-        node: Position(x=optimized_positions[idx][0], y=optimized_positions[idx][1])
+        node: create_position(optimized_positions[idx][0], optimized_positions[idx][1])
         for idx, node in enumerate(graphene.graph.nodes)
     }
     nx.set_node_attributes(graphene.graph, position_dict, "position")
