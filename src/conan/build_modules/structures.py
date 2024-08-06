@@ -11,80 +11,13 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
+from prettytable import PrettyTable
 
+import conan.build_modules.build_utils as utils
 import conan.defdict as ddict
 
 
-class Atom:  # ToDo: Evtl. abstrakte Klasse oder Datenklasse?
-    """
-    Represents an atom in a molecular structure.
-
-    Attributes:
-        label (str): The label of the atom.
-        x (float): The x-coordinate of the atom.
-        y (float): The y-coordinate of the atom.
-        z (float): The z-coordinate of the atom.
-        adjacent_groups (Union[List[Atom], None]): The list of adjacent atoms or None.
-    """
-
-    def __init__(self, label: str, x: float, y: float, z: float):
-        """
-        Initializes an Atom instance with specified label and coordinates.
-
-        Args:
-            label (str): The label of the atom.
-            x (float): The x-coordinate of the atom.
-            y (float): The y-coordinate of the atom.
-            z (float): The z-coordinate of the atom.
-        """
-        self.label = label
-        self.x = x
-        self.y = y
-        self.z = z
-        self.adjacent_groups: Union[List[Atom], None] = None
-
-    def find_adjacent_groups(self, group_list: List[Atom], van_der_waals_radii_dict: Dict[str, float]):
-        """
-        Determines which atoms from a provided list are adjacent to this atom based on Van der Waals radii.
-
-        Args:
-            group_list (List[Atom]): The list of groups to check against.
-            van_der_waals_radii_dict (Dict[str, float]): Dictionary of Van der Waals radii.
-        """
-
-        # If the group list is empty, there is nothing to do
-        if not group_list:
-            return
-
-        # Set the adjacent_groups list to empty, so we can fill it
-        self.adjacent_groups = []
-
-        # Loop over all groups
-        for group in group_list:
-            if group == self:
-                continue  # Current group cannot be its own neighbor
-            elif isinstance(group, Atom):  # Ensures the object is an Atom
-                if self._is_atom_neighbor(group, van_der_waals_radii_dict):
-                    self.adjacent_groups.append(group)  # Adds the atom to the adjacent list if they are neighbors
-            else:
-                ddict.printLog(f"WARNING: Unknown group type {group} found in 'find_adjacent_groups'")
-
-    # PRIVATE
-    def _is_atom_neighbor(self, atom: Atom, van_der_waals_radii_dict: Dict[str, float]) -> bool:
-        """
-        Determines if another atom is a neighbor.
-
-        Args:
-            atom (Atom): The other atom.
-            van_der_waals_radii_dict (Dict[str, float]): Dictionary of Van der Waals radii.
-
-        Returns:
-            bool: True if the other atom is a neighbor, False otherwise.
-        """
-        pass
-
-
-class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
+class FunctionalGroup:
     """
     Represents a functional group in a molecular structure.
 
@@ -122,17 +55,9 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         Returns:
             List[Tuple[str, float, float, float]]: Atom positions without anchors.
         """
-        # atom_positions_without_anchor = self.atom_positions
-        # for position in self.atom_positions:
-        #     if position[0] == 'X':
-        #         atom_positions_without_anchor.remove(position)
-        # return atom_positions_without_anchor
 
         # Filter out atoms that are designates as anchors using a list comprehension (typically marked with 'X')
-        return [
-            pos for pos in self.atom_positions if pos[0] != "X"
-        ]  # ToDo: Sollte etwas effizeinter sein, da remove() innerhalb einer Schleife eine worst case complexity von
-        # O(n^2) hat, eine List comprehension hat aber nur eine worst case complexity von O(n)
+        return [pos for pos in self.atom_positions if pos[0] != "X"]
 
     # PRIVATE
     def __read_positions_from_library(self, structure_library_path: str) -> List[Tuple[str, float, float, float]]:
@@ -162,10 +87,7 @@ class FunctionalGroup:  # ToDo: Gedacht für Sauerstoffdotierung?
         return atom_list
 
 
-class Structure(
-    ABC
-):  # ToDo: Klasse sollte wahrscheinlich abstract sein oder, sodass diese nicht selbst instanziiert werden kann, sondern
-    # nur die abgeleiteten Klassen
+class Structure(ABC):
     """
     Represents a molecular structure. This class serves as a base for managing molecular data, designed to be abstract
     to support specific structure types derived from it.
@@ -175,12 +97,12 @@ class Structure(
         group_list (List[FunctionalGroup]): List of functional groups within the structure.
     """
 
-    def __init__(self):  # ToDo: Gibt aktuell noch keine init-Methode für diese Klasse. So vielleicht?
+    def __init__(self):
         """
         Initializes a Structure instance.
         """
-        self._structure_df: pd.DataFrame = pd.DataFrame()  # Empty DataFrame to hold structure data
-        self.group_list: List[FunctionalGroup] = []  # Empty list to hold functional groups
+        self._structure_df: pd.DataFrame = pd.DataFrame()
+        self.group_list: List[FunctionalGroup] = []
 
     @abc.abstractmethod
     def add(self, parameters: Dict[str, Union[str, int, float]]):
@@ -264,12 +186,7 @@ class Structure(
         self.group_list = []
         self.group_list.append(FunctionalGroup(parameters, structure_library_path))  # Adds a new functional group
 
-    def rotation_matrix_from_vectors(
-        self, vec1: npt.NDArray, vec2: npt.NDArray
-    ) -> (
-        npt.NDArray
-    ):  # ToDo: Hier, oder vielleicht sogar besser in utility Modul oder Utility-Klasse, die verchiedene statische
-        # Methoden enthält, da eigentlich nicht sehr objektspezifisch; auf alle Fälle Code-Duplikate vermeiden!
+    def rotation_matrix_from_vectors(self, vec1: npt.NDArray, vec2: npt.NDArray) -> npt.NDArray:
         """
         Computes a rotation matrix to align the first vector (vec1, defaulting to the z-axis [0, 0, 1]) with a second
         vector (vec2).
@@ -310,6 +227,8 @@ class Structure1d(Structure):
         bond_length (float): The bond length between consecutive atoms in the structure.
     """
 
+    type = "cnt"
+
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
         Initializes a Structure1D instance with specified parameters and keywords.
@@ -323,7 +242,8 @@ class Structure1d(Structure):
         # Set the bond length from parameters
         self.bond_length: float = parameters["bond_length"]
         # Method to construct the CNT based on provided parameters and keywords
-        self._build_CNT(parameters, keywords)
+        if self._build_CNT(parameters, keywords) is not None:
+            self._print_data()
 
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -356,6 +276,17 @@ class Structure1d(Structure):
         self._add_group_on_position(position)  # Adds the group at the selected position
 
     # PRIVATE
+    def _print_data(self):
+        tube_table = PrettyTable()
+        tube_table.title = "tube parameters"
+        tube_table.field_names = ["Parameter", "Value"]
+        tube_table.add_row(["configuration", self.tube_configuration])
+        tube_table.add_row(["radius [Å]", round(self.radius, 3)])
+        tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
+        tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+
+        ddict.printLog(tube_table)
+
     def _add_group_on_position(self, selected_position: List[float]):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
@@ -367,8 +298,7 @@ class Structure1d(Structure):
         # Retrieve the first functional group from the list and remove any anchor atoms
         added_group = self.group_list[0].remove_anchors()
         # Randomly rotate the group to introduce variability in the orientation
-        new_atom_coordinates = random_rotate_group_list(added_group.copy())
-
+        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
         # Calculate the normal vector of the surface at the selected position to determine the correct orientation
         normal_vector = self.find_surface_normal_vector(selected_position)
         orientation_vector = np.array([0, 0, 1])  # Orientation of groups from lib is always along the z-axis
@@ -452,8 +382,10 @@ class Structure1d(Structure):
         """
         # Determine the type of carbon nanotube based on the keywords
         if "armchair" in keywords:
+            self.tube_configuration = "armchair"
             tube_kind = 1
         elif "zigzag" in keywords:
+            self.tube_configuration = "zigzag"
             tube_kind = 2
         else:
             ddict.printLog("No valid tube kind found in arguments, use 'zigzag' or 'armchair'")
@@ -461,11 +393,11 @@ class Structure1d(Structure):
 
         tube_size = parameters["tube_size"]  # Number of hexagonal units around the circumference
         tube_length = parameters["tube_length"]  # Length of the tube in the z-direction
+        self.tube_length = parameters["tube_length"]
 
         # Load the provided bond length and calculate the distance between two hexagonal vertices
         distance = float(parameters["bond_length"])
         hex_d = distance * math.cos(30 * math.pi / 180) * 2  # Distance between two hexagonal centers in the lattice
-        # ToDo: Überprüfen?
 
         # If the tube is of the armchair configuration
         if tube_kind == 1:
@@ -598,9 +530,7 @@ class Structure1d(Structure):
             counter = counter + 1
         return self._structure_df
 
-    def _stack_CNTs(
-        self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]
-    ) -> pd.DataFrame:  # ToDo: Warum ist das in Structure1d? Ist doch jetzt nicht mehr eindimensional?
+    def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
         Stacks carbon nanotubes in the structure.
 
@@ -701,8 +631,9 @@ class Structure1d(Structure):
         # times the unit cell size.
         # pbc_size_x = multiplicity_x * unit_cell_x
         # pbc_size_y = multiplicity_y * unit_cell_y
-
+        positions_tube["group"] = "Structure"
         self._structure_df = positions_tube
+        self._structure_df.reset_index(inplace=True, drop=True)
 
         return self._structure_df
 
@@ -719,9 +650,7 @@ class Structure2d(Structure):
         _number_of_unit_cells (Tuple[int, int]): The number of unit cells in x and y directions.
     """
 
-    def __init__(
-        self, bond_distance: float, sheet_size: Tuple[float, float]
-    ):  # ToDo: Der superclass Aufruf hat gefehlt. Habe ich hier mal hinzu gefügt
+    def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
         """
         Initializes a Structure2D instance.
 
@@ -733,6 +662,7 @@ class Structure2d(Structure):
         self.bond_distance = bond_distance
         self.sheet_size = sheet_size
         self._create_sheet()
+        self._print_data()
 
     # INTERFACE
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
@@ -757,30 +687,18 @@ class Structure2d(Structure):
         self._initialize_functional_groups(parameters)
         self.__add_groups_to_sheet()
 
-    # def available_positions(self):
-    #     available_positions = []
-    #     for i, position in self._structure_df.iterrows():
-    #         available_positions.append([position[1], position[2], position[3]])
-    #     return available_positions
-
     def available_positions(
         self,
-    ) -> List[Tuple[float, float, float]]:  # ToDo: Ist Methode für Anbringung der Gruppen? Sicher dann in Structure2d?
+    ) -> List[Tuple[float, float, float]]:
         """
         Gets the available positions on the sheet.
 
         Returns:
             List[Tuple[float, float, float]]: The list of available positions.
         """
-        return [
-            (position.iloc[1], position.iloc[2], position.iloc[3]) for _, position in self._structure_df.iterrows()
-        ]  # ToDo: Sollte dasselbe tun wie Methode oben drüber. Allerdings ist Struktur insgesamt nicht sehr
-        # übersichtlich. Evtl. in Datenklasse auslagern?
+        return [(position.iloc[1], position.iloc[2], position.iloc[3]) for _, position in self._structure_df.iterrows()]
 
-    def add(
-        self, parameters: Dict[str, Union[str, int, float]]
-    ):  # ToDo: Das müssten alles Methoden sein, die in der abstrakten Klasse definiert sind und hier implementiert
-        # werden; Methode evtl. auch besser wo anders hin verlagern?
+    def add(self, parameters: Dict[str, Union[str, int, float]]):
         """
         Adds a functional group to the structure.
 
@@ -792,10 +710,19 @@ class Structure2d(Structure):
         position = [
             self._structure_df.iloc[parameters["position"], 1],
             self._structure_df.iloc[parameters["position"], 2],
+            self._structure_df.iloc[parameters["position"], 3],
         ]
         self._add_group_on_position(position)
 
     # PRIVATE
+    def _print_data(self):
+        wall_table = PrettyTable()
+        wall_table.title = "wall dimensions"
+        wall_table.field_names = ["dimension", "Periodic boundary [Å]"]
+        wall_table.add_row(["x", round(self.sheet_size[0], 3)])
+        wall_table.add_row(["y", round(self.sheet_size[1], 3)])
+        ddict.printLog(wall_table)
+
     def _create_sheet(self):
         """
         Creates the sheet by defining the unit cell and building the sheet.
@@ -839,7 +766,7 @@ class Structure2d(Structure):
             self._unit_cell_vectors[1] * self._number_of_unit_cells[1],  # Adjusted size in y-direction
         ]
 
-    def __add_groups_to_sheet(self):  # ToDo: wirklich hier in Klasse?
+    def __add_groups_to_sheet(self):
         """
         Adds functional groups to the sheet.
         """
@@ -899,12 +826,11 @@ class Structure2d(Structure):
 
         Returns:
             List[Tuple[str, float, float, float]]: The coordinates of the added group.
-            # ToDo: Sollte sowas vielleicht auch in Datenklasse ausgelagert werden?
         """
         # select a position to add the group on
         selected_position = position_list[random.randint(0, len(position_list) - 1)]
         # randomly rotate the group
-        new_atom_coordinates = random_rotate_group_list(added_group.copy())
+        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
         # shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
@@ -923,11 +849,12 @@ class Structure2d(Structure):
         """
         added_group = self.group_list[0].remove_anchors()
         # randomly rotate the group
-        new_atom_coordinates = random_rotate_group_list(added_group.copy())
+        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
         # shift the coordinates to the selected position
         for atom in new_atom_coordinates:
             atom[1] += selected_position[0]
             atom[2] += selected_position[1]
+            atom[3] += selected_position[2]
         new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
         new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
         self._structure_df = pd.concat([self._structure_df, new_atoms_df])
@@ -952,7 +879,7 @@ class Structure2d(Structure):
         # Iterate through each position in the list of available positions
         for position in position_list:
             # Check if the current position is adjacent to the selected position
-            if positions_are_adjacent(position, selected_position, cutoff_distance, self.sheet_size):
+            if utils.positions_are_adjacent(position, selected_position, cutoff_distance, self.sheet_size):
                 # If it is adjacent, add it to the list of adjacent positions
                 adjacent_positions.append(position)
 
@@ -971,6 +898,8 @@ class Pore(Structure):
         pore_center (List[float]): The center of the pore.
         cnt_radius (List[float]): The radius of the carbon nanotube.
     """
+
+    type = "pore"
 
     def __init__(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -1018,7 +947,7 @@ class Pore(Structure):
         self.sheet_size = parameters["sheet_size"]
 
         # Determine the type of pore (closed or open) based on the keywords
-        if "closed" in keywords:  # ToDo: Evtl. besser über Enums lösen
+        if "closed" in keywords:
             pore_kind = 2  # Closed pore
         else:
             pore_kind = 1  # Open pore
@@ -1094,7 +1023,7 @@ class Pore(Structure):
         added_group = self.group_list[0].remove_anchors()
 
         # Give the group a random orientation first
-        new_atom_coordinates = random_rotate_group_list(added_group.copy())
+        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
 
         # Calculate the distance from the selected positioin to the center of the pore
         distance_to_center = math.sqrt(
@@ -1212,7 +1141,7 @@ class Pore(Structure):
         # apply rotation to all coordinates
         rotated_coordinates = []
         for atom in atom_coordinates:
-            rotated_coords = rotate_3d_vector(np.array(atom[1:4]), rotational_axis, angle)
+            rotated_coords = utils.rotate_3d_vector(np.array(atom[1:4]), rotational_axis, angle)
             rotated_coordinates.append([atom[0], *rotated_coords, atom[-1]])
 
         return rotated_coordinates
@@ -1246,15 +1175,24 @@ class Graphene(Structure2d):
     Represents a graphene sheet structure.
     """
 
+    type = "graphene"
+
     def make_pores(self, parameters, keywords):
         """
-        Creates circular pores in the graphene sheet.
+        Creates pores in the graphene sheet. Currently only circular pores available.
 
-        Args:
-            pore_size (float): The size of the pore.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain the 'pore_size' parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
 
-        Returns:
-            pd.Series: The position of the center of the pore.
+        Returns
+        -------
+        None
         """
         return self._make_circular_pore(parameters, keywords)
 
@@ -1271,14 +1209,14 @@ class Graphene(Structure2d):
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.35 Å")
+            parameters["interlayer_spacing"] = 3.35
 
         # Make sheet template
         base_sheet = Graphene(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
@@ -1302,11 +1240,18 @@ class Graphene(Structure2d):
         """
         Creates a circular pore in the graphene sheet at a specified site.
 
-        Args:
-            pore_size (float): The size of the pore.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain "pore_size" parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
 
-        Returns:
-            pd.Series: The position of the center of the pore.
+        Returns
+        -------
+        None
         """
 
         # Make a copy of the DataFrame to avoid mutating the original during processing
@@ -1317,7 +1262,7 @@ class Graphene(Structure2d):
         if "position" in parameters:
             selected_position = atoms_df.iloc[parameters["position"]]
         else:
-            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
+            selected_position = utils.center_position(self.sheet_size, atoms_df)
 
         # Prepare a list to keep track of atoms that should be removed
         atoms_to_remove = []
@@ -1328,7 +1273,7 @@ class Graphene(Structure2d):
             # Calculate the minimum image distance from the selected center to the current atom
             if "all_sheets" in keywords:
                 if (
-                    minimum_image_distance_2d(
+                    utils.minimum_image_distance_2d(
                         atom_position, [selected_position.iloc[1], selected_position.iloc[2]], self.sheet_size
                     )
                     <= parameters["pore_size"]
@@ -1337,7 +1282,7 @@ class Graphene(Structure2d):
                     atoms_to_remove.append(i)
             else:
                 if (
-                    minimum_image_distance_3d(
+                    utils.minimum_image_distance_3d(
                         [*atom_position, atom.iloc[3]],
                         [selected_position.iloc[1], selected_position.iloc[2], selected_position.iloc[3]],
                         [
@@ -1354,12 +1299,20 @@ class Graphene(Structure2d):
         # Remove the atoms that are marked for removal
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
-        # Return the position of the selected center of the pore
+        # Return pore position
         return selected_position
 
-    def _build_sheet(self) -> None:  # ToDo: Müsste abstrakte Methode sein
+    def _build_sheet(self) -> None:
         """
         Builds the graphene sheet from multiple unit cells.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         """
         # Set the z-coordinates of all atoms to 0 (planar sheet)
         Z = [0.0] * 4  # All Z-coordinates are 0
@@ -1397,40 +1350,66 @@ class Graphene(Structure2d):
 
 class Boronnitride(Structure2d):
     """
-    Represents a boron nitride sheet structure.
+    Represents a boron nitride sheet structure. This differs from the Graphene class by
+    composition, stacking of sheets (AA' instead of ABA) and type of pores (triangular
+    instead of circular)
     """
 
-    # INTERFACE
-    def make_pores(self, parameters, keywords) -> None:
-        """
-        Creates triangular pores in the boron nitride sheet.
+    type = "boronnitride"
 
-        Args:
-            pore_size (float): The size of the pore.
+    # INTERFACE
+    def make_pores(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
         """
-        self.__make_triangular_pore(parameters, keywords)
+        Creates pores in the boron nitride sheet.
+
+        For now, only contains triangular pore creation. More options
+        will be added soooon™.
+
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain the 'pore_size' parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            May contain the all_sheets keyword to make a pore at the selected position
+            through the whole stack of sheets (if one exists).
+
+        Returns
+        -------
+        None
+        """
+        if "pore_size" not in parameters:
+            ddict.printLog("Missing pore_size parameter")
+            return
+        self._make_triangular_pore(parameters, keywords)
 
     # PRIVATE
-    def _stack_sheets(self, parameters):
+    def _stack_sheets(self, parameters: Dict[str, Union[str, int, float]]) -> None:
         """
         Stacks multiple instances of graphene sheets based on the provided parameters.
 
-        Args:
-            parameters (Dict[str, Union[str, int, float]]): The parameters for the stacking.
-            keywords (List[str]): The keywords for the stacking.
+        Parameters
+        ----------
+            parameters (Dict[str, Union[str, int, float]]): must contain interlayer_spacing
+            and number_of_layers parameters.
+            keywords (List[str]): Currently none available.
+
+        Returns
+        -------
+        None
         """
         if "number_of_layers" not in parameters:
             ddict.printLog("Missing number_of_layers parameter")
             return
         if "interlayer_spacing" not in parameters:
-            ddict.printLog("Missing interlayer_spacing parameter")
-            return
+            ddict.printLog("Missing interlayer_spacing parameter, set to default of 3.5 Å")
+            parameters["interlayer_spacing"] = 3.5
 
         # Make sheet template
         base_sheet = Boronnitride(self.bond_distance, self.sheet_size)
 
         # loop over number of layers
-        for sheet_number in range(parameters["number_of_layers"]):
+        for sheet_number in range(parameters["number_of_layers"] - 1):
             # copy template into new df
             current_sheet = base_sheet._structure_df.copy()
             # shift current sheet down by interlayer_spacing
@@ -1448,70 +1427,86 @@ class Boronnitride(Structure2d):
         # shift all layers into the box
         self._structure_df["z"] += (sheet_number + 1) * parameters["interlayer_spacing"]
 
-    def __make_triangular_pore(self, parameters, keywords) -> None:
+    def _make_triangular_pore(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> None:
         """
         Creates a triangular pore in the boron nitride sheet.
 
-        Args:
-            pore_size (float): The size of the pore.
+        Parameters
+        ----------
+        parameters : Dict[str, Union[str, int, float]]
+            Must contain "pore_size" parameter. Optionally can also
+            contain the 'position' parameter for specific placement on the sheet.
+        keywords : List[str]
+            Additional keyword arguments for pore creation. Currently there are none,
+            will be added later once more options are implemented.
+
+        Returns
+        -------
+        None
         """
         # Select a starting position based on nitrogen atoms, which typically form one part of the hBN lattice
         atoms_df = self._structure_df.copy()
-        dummy_df = atoms_df[atoms_df["Species"] == "N"]  # Select nitrogen atoms
+
         if "position" in parameters:
             selected_position = atoms_df.iloc[parameters["position"]]
         else:
-            selected_position = atoms_df.iloc[center_position(self.sheet_size, atoms_df)]
-        # find nearest atom in x-direction to get orientation of the triangle
-        dummy_df = atoms_df[atoms_df["Species"] == "B"]
-        dummy_df = dummy_df[dummy_df["y"] > (selected_position.iloc[2] - 0.1)]
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
+            selected_position = utils.center_position(self.sheet_size, atoms_df)
 
-        # Identify the nearest boron atom to define the orientation of the triangular pore
-        dummy_df = atoms_df[atoms_df["Species"] == "B"]  # Select boron atoms
-        dummy_df = dummy_df[
-            dummy_df["y"] > (selected_position.iloc[2] - 0.1)
-        ]  # Narrow down to those close in the y-axis
-        dummy_df = dummy_df[dummy_df["y"] < (selected_position.iloc[2] + 0.1)]
-        nearest_atom_df = dummy_df
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
-        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
-        nearest_atom_df["x"] = nearest_atom_df["x"].apply(lambda x: abs(x - selected_position.iloc[1]))
-        nearest_atom = atoms_df.iloc[nearest_atom_df["x"].idxmin()]
+        # Define the triangular pore using the bond length and pore size
+        pore_size = parameters["pore_size"]
+        # Define the triangle tips based on the starting position and lattice parameters
+        # First we search for any adjacent atoms to define the orientation of the triangle
+        for i, atom in atoms_df.iterrows():
+            current_position = [atom["x"], atom["y"]]
+            if current_position == [selected_position["x"], selected_position["y"]]:
+                continue
+            if utils.positions_are_adjacent(
+                current_position,
+                [selected_position["x"], selected_position["y"]],
+                self.bond_distance * 1.1,  # The 1.1 is arbitrary, just needs to be a little bit larger than 1.0,
+                # otherwise some atoms will not be included
+                self.sheet_size,
+            ):
+                orientation_vector = np.array(current_position) - np.array(
+                    [selected_position["x"], selected_position["y"]]
+                )
+                break
 
-        # Calculate the vector for one side of the triangle based on the nearest atom
-        orientation_vector = [
-            nearest_atom["x"] - selected_position["x"],
-            nearest_atom["y"] - selected_position["y"],
-        ]
-        magnitude = math.sqrt((orientation_vector[0]) ** 2 + (orientation_vector[1]) ** 2) / parameters["pore_size"]
-
-        orientation_vector = [component / magnitude * parameters["pore_size"] for component in orientation_vector]
-
-        # Determine the triangle tips based on the starting position and calculated orientation vector
-        tip1 = [selected_position.iloc[1] + orientation_vector[0], selected_position.iloc[2] + orientation_vector[1]]
-        tip2, tip3 = find_triangle_tips([selected_position.iloc[1], selected_position.iloc[2]], np.array(tip1))
+        # Now we scale the orientation vector accordingly
+        np.linalg.norm(orientation_vector)
+        orientation_vector *= pore_size
+        # Next we can define the triangle tips
+        tip1 = np.array([selected_position["x"], selected_position["y"]]) + orientation_vector
+        tip2, tip3 = utils.find_triangle_tips([selected_position["x"], selected_position["y"]], tip1)
 
         # Remove atoms inside the defined triangle
         atoms_to_remove = []
         for i, atom in self._structure_df.iterrows():
-            atom_position = (atom.iloc[1], atom.iloc[2])
-            if is_point_inside_triangle(tip1, tip2, tip3, atom_position):
+            atom_position = (atom["x"], atom["y"])
+            if utils.point_is_inside_triangle(tip1, tip2, tip3, atom_position):
                 if "all_sheets" not in keywords:
-                    if selected_position.iloc[3] == atom.iloc[3]:
+                    if selected_position["z"] == atom["z"]:
                         atoms_to_remove.append(i)
                 else:
                     atoms_to_remove.append(i)
 
-        # Update the DataFrame by removing atoms inside the triangle
+        # Finally Update the DataFrame by removing atoms inside the triangle
         self._structure_df.drop(atoms_to_remove, inplace=True)
 
-    def _build_sheet(self):
+    def _build_sheet(self) -> None:
         """
         Builds the boron nitride sheet from multiple unit cells.
 
         Boron nitride sheets are composed of alternating boron (B) and nitrogen (N) atoms arranged in a hexagonal
         lattice. This method constructs such a sheet by replicating the defined unit cell across specified dimensions.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         """
         # All Z-coordinates are set to 0 to represent the planar nature of the sheet
         Z = [0.0] * 4  # There are four atoms in each unit cell
@@ -1547,251 +1542,3 @@ class Boronnitride(Structure2d):
         # Create a DataFrame from the list of coordinates
         # This DataFrame represents the complete boron nitride sheet
         self._structure_df = pd.DataFrame(coords, columns=["Species", "x", "y", "z", "group"])
-
-
-def rotate_3d_vector(vec, rotational_axis, angle):
-    """
-    Returns the a vector rotated around the rotational_axis by angle. This uses
-    Rodrigues rotation formula
-
-    Args:
-        vec (np.NDarray): Vector that is rotated.
-        rotational_axis (np.NDarray): Axis around which the vector vec is rotated.
-        angle (float): rotation angle.
-
-    Returns:
-        np.NDarray: Rotated vector.
-    """
-    vec = np.array(vec)
-    return (
-        vec * np.cos(angle)
-        + np.cross(rotational_axis, vec) * np.sin(angle)
-        + rotational_axis * np.dot(rotational_axis, vec) * (1 - np.cos(angle))
-    )
-
-
-def center_position(sheet_size: Tuple[float, float], atoms_df: pd.DataFrame) -> pd.Series:
-    """
-    Returns the coordinates of the atom that is closest to the sheet center.
-
-    Args:
-        sheet_size (Tuple[float, float]): The size of the sheet.
-        atoms_df (pd.DataFrame): The DataFrame containing the atom coordinates.
-
-    Returns:
-        pd.Series: The coordinates of the atom closest to the center.
-    """
-    # Calculate the center point of the sheet
-    center_point = [sheet_size[0] / 2, sheet_size[1] / 2]
-
-    # Compute the distance of each atom to the center point using minimum image distance
-    distance_to_center_point = [
-        minimum_image_distance_2d(center_point, [atom.iloc[1], atom.iloc[2]], sheet_size)
-        for _, atom in atoms_df.iterrows()
-    ]
-
-    # Find the index of the atom with the minimum distance to the center point
-    min_distance_index = distance_to_center_point.index(min(distance_to_center_point))
-
-    # Return the coordinates of the atom closest to the center
-    return int(min_distance_index)
-
-
-def rotate_vector(vec: np.ndarray, angle: float) -> np.ndarray:
-    """
-    Rotates a vector by a given angle.
-
-    Args:
-        vec (np.ndarray): The vector to rotate.
-        angle (float): The angle by which to rotate the vector.
-
-    Returns:
-        np.ndarray: The rotated vector.
-    """
-    # Convert the angle from degrees to radians
-    rad = np.radians(angle)
-
-    # Create a 2D rotation matrix
-    rotation_matrix = np.array(
-        [
-            [np.cos(rad), -np.sin(rad)],  # First row of the rotation matrix
-            [np.sin(rad), np.cos(rad)],  # Second row of the rotation matrix
-        ]
-    )
-
-    # Rotate the vector by multiplying it with the rotation matrix
-    return np.dot(rotation_matrix, vec)
-
-
-def find_triangle_tips(center: np.ndarray, tip1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Finds the tips of a triangle given the center and one tip.
-
-    Args:
-        center (np.ndarray): The center of the triangle.
-        tip1 (np.ndarray): One tip of the triangle.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: The other two tips of the triangle.
-    """
-    # Calculate the vector from the center to the first tip
-    vec1 = np.array(tip1) - np.array(center)
-
-    # Rotate this vector by 120 degrees to find the second tip
-    vec2 = rotate_vector(vec1, 120)
-
-    # Rotate the original vector by 240 degrees to find the third tip
-    vec3 = rotate_vector(vec1, 240)
-
-    # Calculate the coordinates of the second and third tips by adding the rotated vectors to the center
-    tip2 = center + vec2
-    tip3 = center + vec3
-
-    # Return the coordinates of the two additional tips
-    return tip2, tip3
-
-
-def minimum_image_distance_3d(
-    position1: List[float], position2: List[float], system_size: Tuple[float, float, float]
-) -> float:
-    """
-    Calculates the minimum image distance between two positions in 3D periodic system.
-
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        system_size (Tuple[float, float, float]): The size of the periodic system.
-
-    Returns:
-        float: The minimum image distance between the two positions.
-    """
-
-    # Calculate the difference vector, adjusted for periodic boundaries
-    delta = np.array(
-        [
-            position1[i] - position2[i] - system_size[i] * round((position1[i] - position2[i]) / system_size[i])
-            for i in range(3)
-        ]
-    )
-    # Return the minimum image distance between the two positions
-    return np.sqrt(np.sum(delta**2))
-
-
-def minimum_image_distance_2d(
-    position1: List[float], position2: List[float], system_size: Tuple[float, float]
-) -> float:
-    """
-    Calculates the minimum image distance between two positions in a periodic system.
-
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        system_size (Tuple[float, float]): The size of the periodic system.
-
-    Returns:
-        float: The minimum image distance between the two positions.
-    """
-    # Calculate the difference vector, adjusted for periodic boundaries
-    delta = np.array(
-        [
-            position1[i] - position2[i] - system_size[i] * round((position1[i] - position2[i]) / system_size[i])
-            for i in range(2)
-        ]
-    )
-    # Return the minimum image distance between the two positions
-    return np.sqrt(np.sum(delta**2))
-
-
-def positions_are_adjacent(
-    position1: List[float], position2: List[float], cutoff_distance: float, system_size: Tuple[float, float]
-) -> bool:
-    """
-    Checks if two positions are adjacent in a periodic system.
-
-    Args:
-        position1 (List[float]): The first position.
-        position2 (List[float]): The second position.
-        cutoff_distance (float): The cutoff distance for adjacency.
-        system_size (Tuple[float, float]): The size of the periodic system.
-
-    Returns:
-        bool: True if the positions are adjacent, False otherwise.
-    """
-    # Calculate the minimum image distance between the two positions
-    distance = minimum_image_distance_2d(position1, position2, system_size)
-
-    # Return True if the distance is less than the cutoff distance, otherwise False
-    return distance < cutoff_distance
-
-
-def random_rotation_matrix_2d() -> npt.NDArray:
-    """
-    Generates a random 2D rotation matrix.
-
-    Returns:
-        npt.NDArray: The random 2D rotation matrix.
-    """
-    # Generate a random angle theta between 0 and 2*pi radians
-    theta = np.random.uniform(0, 2 * np.pi)
-
-    # Calculate the cosine and sine of the angle
-    cos, sin = np.cos(theta), np.sin(theta)
-
-    # Create the 2D rotation matrix using the cosine and sine values
-    return np.array([[cos, -sin], [sin, cos]])
-
-
-def random_rotate_group_list(group_list: List[List[Union[str, float]]]) -> List[List[Union[str, float]]]:
-    """
-    Rotates a group of atoms randomly in 2D.
-
-    Args:
-        group_list (List[List[Union[str, float]]]): The group of atoms to rotate.
-
-    Returns:
-        List[List[Union[str, float]]]: The randomly rotated group.
-    """
-    # Generate a random 2D rotation matrix
-    rotation_matrix = random_rotation_matrix_2d()
-
-    # Apply the rotation to each atom's x and y coordinates in the group list
-    rotated_group_list = [[atom[0]] + (rotation_matrix.dot(atom[1:3])).tolist() + [atom[3]] for atom in group_list]
-
-    # Return the list of rotated atoms
-    return rotated_group_list
-
-
-def is_point_inside_triangle(
-    tip1: List[float], tip2: List[float], tip3: List[float], point: Tuple[float, float]
-) -> bool:
-    """
-    Checks if a point is inside a triangle.
-
-    Args:
-        tip1 (List[float]): The first tip of the triangle.
-        tip2 (List[float]): The second tip of the triangle.
-        tip3 (List[float]): The third tip of the triangle.
-        point (Tuple[float, float]): The point to check.
-
-    Returns:
-        bool: True if the point is inside the triangle, False otherwise.
-    """
-
-    def area(a: List[float], b: List[float], c: List[float]) -> float:
-        # Calculate the area of the triangle formed by points a, b, and c
-        return 0.5 * abs((a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]))
-
-    # Calculate the area of the whole triangle
-    A = area(tip1, tip2, tip3)
-    # Calculate the area of the triangle formed by the point and the tips
-    A1 = area(point, tip2, tip3)
-    A2 = area(tip1, point, tip3)
-    A3 = area(tip1, tip2, point)
-
-    # Calculate the barycentric coordinates
-    l1 = A1 / A
-    l2 = A2 / A
-    l3 = A3 / A
-
-    # Check if the point is inside the triangle
-    return 0 <= l1 <= 1 and 0 <= l2 <= 1 and 0 <= l3 <= 1 and abs(l1 + l2 + l3 - 1) < 1e-5
