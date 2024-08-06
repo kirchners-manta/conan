@@ -14,13 +14,14 @@ from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
-from conan.playground.graph_utils import (  # plot_graphene,
+from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
     create_position,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
+    plot_graphene,
     print_warning,
     write_xyz,
 )
@@ -423,13 +424,13 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 0.010076758181682346
+        self.k_inner_bond = 0.010062786192274365
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.01026215389914262
+        self.k_outer_bond = 0.010194935874253986
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 0.1652818474508479
+        self.k_inner_angle = 0.2570509560030493
         """The spring constant for angles within the doping structure."""
-        self.k_outer_angle = 0.010156824710175323
+        self.k_outer_angle = 0.01200098244745607
         """The spring constant for angles outside the doping structure."""
         self.graph = nx.Graph()
         """The networkx graph representing the graphene sheet structure."""
@@ -829,8 +830,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.doping_structures.structures):
-            self._adjust_atom_positions()
+        # if any(self.doping_structures.structures):
+        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1612,15 +1613,16 @@ def main():
     # Time the nitrogen doping process
     start_time = time.time()
     graphene.add_nitrogen_doping(total_percentage=15)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     end_time = time.time()
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-    # graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
+    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
 
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
@@ -1634,14 +1636,14 @@ def main():
 
     # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
-    write_xyz(
-        graphene.graph,
-        f"total_energy_all_structures_including_outer_angles_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_"
-        f"{graphene.k_outer_bond}_"
-        f"k_inner_angle_{graphene.k_inner_angle}_refactored_2.xyz",
-    )
+    # write_xyz(
+    #     graphene.graph,
+    #     f"total_energy_pyridinic_4_including_outer_angles_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_"
+    #     f"{graphene.k_outer_bond}_"
+    #     f"k_inner_angle_{graphene.k_inner_angle}_k_outer_angle_{graphene.k_outer_angle}.xyz",
+    # )
 
-    # write_xyz(graphene.graph, "ABA_stacking.xyz")
+    write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
 
