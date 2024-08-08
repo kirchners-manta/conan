@@ -88,8 +88,11 @@ def create_position(*args: Union[float, Tuple[float, float], Tuple[float, float,
 
     Parameters
     ----------
-    *args : Union[float, Tuple[float, float], Tuple[float, float, float]]
-        Coordinates for the position.
+    args
+        Variable length argument list.
+        - If two floats are provided, they are treated as x and y coordinates.
+        - If three floats are provided, they are treated as x, y, and z coordinates.
+        - If a single tuple of two or three floats is provided, it is unpacked to x, y, and z coordinates.
 
     Returns
     -------
