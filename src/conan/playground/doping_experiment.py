@@ -489,9 +489,80 @@ class Structure3D(MaterialStructure):
     def build_structure(self):
         pass
 
-    @abstractmethod
     def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
-        pass
+        """
+        Plot the structure in 3D using networkx and matplotlib.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
+
+        Notes
+        -----
+        This method visualizes the 3D structure, optionally with labels indicating the element type and node ID. Nodes
+        are colored based on their element type and nitrogen species.
+        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+        """
+
+        # Get positions and elements of nodes
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
+
+        # Determine colors for nodes, considering nitrogen species if present
+        colors = [
+            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+        ]
+
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
+        # Initialize 3D plot
+        fig = plt.figure(figsize=(12, 12))
+        ax = fig.add_subplot(111, projection="3d")
+
+        # Draw nodes for each layer separately
+        for node in self.graph.nodes():
+            x, y, z = pos[node]
+            ax.scatter(x, y, z, color=get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")), s=20)
+
+        # Draw the regular edges for each layer
+        for u, v in regular_edges:
+            x = [pos[u][0], pos[v][0]]
+            y = [pos[u][1], pos[v][1]]
+            z = [pos[u][2], pos[v][2]]
+            ax.plot(x, y, z, color="black")
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            for u, v in periodic_edges:
+                x = [pos[u][0], pos[v][0]]
+                y = [pos[u][1], pos[v][1]]
+                z = [pos[u][2], pos[v][2]]
+                ax.plot(x, y, z, color="gray", linestyle="dashed")
+
+        # Add labels if specified
+        if with_labels:
+            for node in self.graph.nodes():
+                ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+
+        # Add legend
+        unique_colors = set(colors)
+        legend_elements = []
+        for species in NitrogenSpecies:
+            color = get_color("N", species)
+            if color in unique_colors:
+                legend_elements.append(
+                    plt.Line2D(
+                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                    )
+                )
+
+        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
+        plt.show()
 
 
 class GrapheneSheet(Structure2D):
@@ -932,8 +1003,8 @@ class GrapheneSheet(Structure2D):
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.doping_structures.structures):
-            self._adjust_atom_positions()
+        # if any(self.doping_structures.structures):
+        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1550,33 +1621,119 @@ class GrapheneSheet(Structure2D):
         # Return False if the nitrogen species is not recognized
         return False, (None, None)
 
-    def aba_stacking(self, layers: int, x_shift: float, z_shift: float):
+    # def aba_stacking(self, layers: int, x_shift: float, z_shift: float):
+    #     """
+    #     Perform ABA stacking of graphene sheets using a graph-theoretical approach.
+    #
+    #     Parameters
+    #     ----------
+    #     layers : int
+    #         Number of layers to stack.
+    #     x_shift : float
+    #         The shift in the x-direction for ABA stacking.
+    #     z_shift : float
+    #         The shift in the z-direction for each layer.
+    #     """
+    #     original_positions = nx.get_node_attributes(self.graph, "position")
+    #     num_nodes = len(original_positions)
+    #
+    #     # Copy the original graph
+    #     original_graph = self.graph.copy()
+    #
+    #     for layer in range(1, layers):
+    #         # Calculate the shift for the current layer
+    #         layer_x_shift = (layer % 2) * x_shift
+    #         layer_z_shift = layer * z_shift
+    #
+    #         # Add nodes for the current layer
+    #         for node, pos in original_positions.items():
+    #             # Check if pos is Position2D or Position3D and handle accordingly
+    #             if isinstance(pos, Position2D):
+    #                 x, y = pos
+    #                 z = layer_z_shift
+    #             else:
+    #                 x, y, z = pos
+    #                 z += layer_z_shift
+    #
+    #             # Calculate new position with x_shift
+    #             x += layer_x_shift
+    #
+    #             # New node index
+    #             new_node = node + layer * num_nodes
+    #
+    #             # Add the new node to the graph
+    #             self.graph.add_node(new_node, element="C", position=Position3D(x, y, z))
+    #
+    #         # Add intra-layer edges for the current layer
+    #         for node in original_graph.nodes:
+    #             for neighbor in original_graph.neighbors(node):
+    #                 new_node = node + layer * num_nodes
+    #                 new_neighbor = neighbor + layer * num_nodes
+    #                 self.graph.add_edge(new_node, new_neighbor, bond_length=self.c_c_bond_distance)
+    #
+    #     # Remove inter-layer edges
+    #     self.remove_interlayer_edges(z_shift)
+    #
+    # def remove_interlayer_edges(self, z_shift: float):
+    #     """
+    #     Remove any edges between different layers.
+    #
+    #     Parameters
+    #     ----------
+    #     z_shift : float
+    #         The shift in the z-direction used for layer separation.
+    #     """
+    #     pos = nx.get_node_attributes(self.graph, "position")
+    #     edges_to_remove = []
+    #
+    #     for u, v in self.graph.edges():
+    #         pos_u = pos[u]
+    #         pos_v = pos[v]
+    #
+    #         # Check if nodes are in different layers
+    #         if isinstance(pos_u, Position3D) and isinstance(pos_v, Position3D):
+    #             if abs(pos_u.z - pos_v.z) > z_shift / 2:
+    #                 edges_to_remove.append((u, v))
+    #
+    #     # Remove inter-layer edges
+    #     self.graph.remove_edges_from(edges_to_remove)
+
+
+class StackedGraphene(Structure3D):
+    def __init__(self, sheets: List[GrapheneSheet], interlayer_spacing: float, number_of_layers: int):
         """
-        Perform ABA stacking of graphene sheets using a graph-theoretical approach.
+        Initialize the StackedGraphene with a list of GrapheneSheet instances and stacking parameters.
 
         Parameters
         ----------
-        layers : int
-            Number of layers to stack.
-        x_shift : float
-            The shift in the x-direction for ABA stacking.
-        z_shift : float
+        sheets : list of GrapheneSheet
+            List of GrapheneSheet instances to stack.
+        interlayer_spacing : float
             The shift in the z-direction for each layer.
+        number_of_layers : int
+            The number of layers to stack.
         """
-        original_positions = nx.get_node_attributes(self.graph, "position")
+        super().__init__()
+        self.sheets = sheets
+        self.interlayer_shift = 1.42  # Fixed shift for ABA stacking
+        # ToDo: muss doch zu self.bond_distance gemacht werden; dafür Klassenstruktur noch abändern
+        self.interlayer_spacing = interlayer_spacing
+        self.number_of_layers = number_of_layers
+        self.build_structure()
+
+    def build_structure(self):
+        """
+        Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
+        """
+        original_positions = nx.get_node_attributes(self.sheets[0].graph, "position")
         num_nodes = len(original_positions)
 
-        # Copy the original graph
-        original_graph = self.graph.copy()
+        for layer in range(self.number_of_layers):
+            layer_graph = self.sheets[layer % len(self.sheets)].graph
+            layer_x_shift = (layer % 2) * self.interlayer_shift
+            layer_z_shift = layer * self.interlayer_spacing
 
-        for layer in range(1, layers):
-            # Calculate the shift for the current layer
-            layer_x_shift = (layer % 2) * x_shift
-            layer_z_shift = layer * z_shift
-
-            # Add nodes for the current layer
-            for node, pos in original_positions.items():
-                # Check if pos is Position2D or Position3D and handle accordingly
+            for node, pos in nx.get_node_attributes(layer_graph, "position").items():
                 if isinstance(pos, Position2D):
                     x, y = pos
                     z = layer_z_shift
@@ -1584,33 +1741,20 @@ class GrapheneSheet(Structure2D):
                     x, y, z = pos
                     z += layer_z_shift
 
-                # Calculate new position with x_shift
                 x += layer_x_shift
-
-                # New node index
                 new_node = node + layer * num_nodes
-
-                # Add the new node to the graph
                 self.graph.add_node(new_node, element="C", position=Position3D(x, y, z))
 
-            # Add intra-layer edges for the current layer
-            for node in original_graph.nodes:
-                for neighbor in original_graph.neighbors(node):
-                    new_node = node + layer * num_nodes
-                    new_neighbor = neighbor + layer * num_nodes
-                    self.graph.add_edge(new_node, new_neighbor, bond_length=self.c_c_bond_distance)
+            for u, v, data in layer_graph.edges(data=True):
+                new_u = u + layer * num_nodes
+                new_v = v + layer * num_nodes
+                self.graph.add_edge(new_u, new_v, **data)
 
-        # Remove inter-layer edges
-        self.remove_interlayer_edges(z_shift)
+        self.remove_interlayer_edges()
 
-    def remove_interlayer_edges(self, z_shift: float):
+    def remove_interlayer_edges(self):
         """
         Remove any edges between different layers.
-
-        Parameters
-        ----------
-        z_shift : float
-            The shift in the z-direction used for layer separation.
         """
         pos = nx.get_node_attributes(self.graph, "position")
         edges_to_remove = []
@@ -1619,40 +1763,18 @@ class GrapheneSheet(Structure2D):
             pos_u = pos[u]
             pos_v = pos[v]
 
-            # Check if nodes are in different layers
             if isinstance(pos_u, Position3D) and isinstance(pos_v, Position3D):
-                if abs(pos_u.z - pos_v.z) > z_shift / 2:
+                if abs(pos_u.z - pos_v.z) > self.interlayer_spacing / 2:
                     edges_to_remove.append((u, v))
 
-        # Remove inter-layer edges
         self.graph.remove_edges_from(edges_to_remove)
 
-    # def plot_3d_graphene(self):
-    #     """
-    #     Visualize the graphene layers in a 3D plot.
-    #     """
-    #     fig = plt.figure()
-    #     ax = fig.add_subplot(111, projection="3d")
-    #
-    #     # Extract position data for plotting
-    #     pos = nx.get_node_attributes(self.graph, "position")
-    #
-    #     for node, position in pos.items():
-    #         p = position  # Unpack position
-    #         ax.scatter(p.x, p.y, p.z, color="b" if self.graph.nodes[node]["element"] == "C" else "r")
-    #
-    #     # Add edges for visualization (intra-layer only if necessary)
-    #     for u, v in self.graph.edges():
-    #         pos_u = pos[u]
-    #         pos_v = pos[v]
-    #         # Check if both nodes are in the same layer to avoid inter-layer edges
-    #         if pos_u.z == pos_v.z:
-    #             ax.plot([pos_u.x, pos_v.x], [pos_u.y, pos_v.y], [pos_u.z, pos_v.z], color="k")
-    #
-    #     ax.set_xlabel("X")
-    #     ax.set_ylabel("Y")
-    #     ax.set_zlabel("Z")
-    #     plt.show()
+
+# Utility function to convert GrapheneSheet instances into StackedGraphene
+def stack_graphene_sheets(
+    sheets: List[GrapheneSheet], interlayer_spacing: float, number_of_layers: int
+) -> StackedGraphene:
+    return StackedGraphene(sheets=sheets, interlayer_spacing=interlayer_spacing, number_of_layers=number_of_layers)
 
 
 def main():
@@ -1663,115 +1785,52 @@ def main():
 
     sheet_size = (20, 20)
 
+    ####################################################################################################################
+    # VERSION 1:
+
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Add nitrogen doping to the graphene sheet
+    # start_time = time.time()  # Time the nitrogen doping process
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the graphene sheet with nitrogen doping
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Stack the graphene sheet
+    # # graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
+    # # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(graphene.graph, "ABA_stacking.xyz")
+
+    ####################################################################################################################
+    # VERSION 2:
+    # Create individual GrapheneSheet instances
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
 
-    # write_xyz(graphene.graph, 'graphene.xyz')
-
-    # Find direct neighbors of a node (depth=1)
-    direct_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=1)
-    print(f"Direct neighbors of C_0: {direct_neighbors}")
-
-    # Find neighbors of a node at an exact depth (depth=2)
-    depth_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2)
-    print(f"Neighbors of C_0 at depth 2: {depth_neighbors}")
-
-    # Find neighbors of a node up to a certain depth (inclusive=True)
-    inclusive_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2, inclusive=True)
-    print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
-
-    # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(
-    #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
-    # )
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(
-    #     percentages={
-    #         NitrogenSpecies.PYRIDINIC_2: 3,
-    #         NitrogenSpecies.PYRIDINIC_3: 3,
-    #         NitrogenSpecies.GRAPHITIC: 20,
-    #         NitrogenSpecies.PYRIDINIC_4: 5,
-    #         NitrogenSpecies.PYRIDINIC_1: 5,
-    #     }
-    # )
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # Time the nitrogen doping process
-    start_time = time.time()
+    # Add nitrogen doping to the graphene sheet
+    start_time = time.time()  # Time the nitrogen doping process
     graphene.add_nitrogen_doping(total_percentage=15)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
     end_time = time.time()
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
+    # Stack sheets into a 3D structure
+    stacked_graphene = stack_graphene_sheets([graphene], interlayer_spacing=3.0, number_of_layers=3)
 
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 60})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # write_xyz(
-    #     graphene.graph,
-    #     f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
-    # )
-
-    # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
-
-    # write_xyz(
-    #     graphene.graph,
-    #     f"total_energy_pyridinic_4_including_outer_angles_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_"
-    #     f"{graphene.k_outer_bond}_"
-    #     f"k_inner_angle_{graphene.k_inner_angle}_k_outer_angle_{graphene.k_outer_angle}.xyz",
-    # )
-
-    write_xyz(graphene.graph, "ABA_stacking.xyz")
-
-    # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
-
-    # source = 0
-    # target = 10
-    # path = get_shortest_path(graphene.graph, source, target)
-    # print(f"Shortest path from C_{source} to C_{target}: {path}")
-    # plot_graphene_with_path(graphene.graph, path)
-    #
-    # plot_graphene_with_depth_neighbors_based_on_bond_length(graphene.graph, 0, 4)
-    #
-    # # Find nodes within a certain distance from a source node
-    # atom_id = 5
-    # max_distance = 5
-    # nodes_within_distance = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
-    # print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
-    #
-    # # Plot the nodes within the specified distance
-    # plot_nodes_within_distance(graphene.graph, nodes_within_distance)
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
 
 if __name__ == "__main__":
