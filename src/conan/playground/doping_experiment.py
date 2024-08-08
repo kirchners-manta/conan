@@ -1,6 +1,6 @@
 import random
 import time
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from math import cos, pi, sin
@@ -9,7 +9,6 @@ from typing import Dict, List, Optional, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
-from black.trans import ABC
 from matplotlib import pyplot as plt
 from networkx.utils import pairwise
 from scipy.optimize import minimize
