@@ -1679,10 +1679,7 @@ class StackedGraphene(Structure3D):
 
         nx.set_node_attributes(original_graph, original_positions, "position")
 
-        # Create a new graph to hold the stacked layers
-        stacked_graph = nx.Graph()
-
-        # Create and stack the layers
+        # Create and stack the layers directly in self.graph
         for layer in range(self.number_of_layers):
             # Create a copy of the original graph for this layer
             layer_graph = original_graph.copy()
@@ -1699,10 +1696,8 @@ class StackedGraphene(Structure3D):
 
             nx.set_node_attributes(layer_graph, layer_positions, "position")
 
-            # Use disjoint_union to combine graphs without connecting edges between layers
-            stacked_graph = nx.disjoint_union(stacked_graph, layer_graph)
-
-        self.graph = stacked_graph
+            # Use disjoint_union to combine graphs directly into self.graph
+            self.graph = nx.disjoint_union(self.graph, layer_graph)
 
 
 def main():
