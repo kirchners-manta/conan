@@ -3,7 +3,7 @@ import random
 import numpy as np
 import pytest
 
-from conan.playground.doping_experiment import Graphene
+from conan.playground.doping_experiment import GrapheneSheet
 from conan.playground.graph_utils import get_neighbors_via_edges, get_neighbors_within_distance
 
 
@@ -15,21 +15,21 @@ class TestGraphene:
 
         Returns
         -------
-        Graphene
+        GrapheneSheet
             An instance of the GrapheneGraph class with a predefined sheet size and bond distance.
         """
         # Set seed for reproducibility
         random.seed(42)
-        graphene = Graphene(bond_distance=1.42, sheet_size=(20, 20))
+        graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
         return graphene
 
-    def test_get_direct_neighbors_via_bonds(self, graphene: Graphene):
+    def test_get_direct_neighbors_via_bonds(self, graphene: GrapheneSheet):
         """
         Test to verify the direct connected neighbors of an atom while considering periodic boundary conditions.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -42,14 +42,14 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {direct_neighbors}"
 
-    def test_get_neighbors_at_exact_depth_via_bonds(self, graphene: Graphene):
+    def test_get_neighbors_at_exact_depth_via_bonds(self, graphene: GrapheneSheet):
         """
         Test to verify the connected neighbors of an atom at an exact depth while considering periodic boundary
         conditions.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -62,14 +62,14 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {depth_neighbors}"
 
-    def test_get_neighbors_up_to_depth_via_bonds(self, graphene: Graphene):
+    def test_get_neighbors_up_to_depth_via_bonds(self, graphene: GrapheneSheet):
         """
         Test to verify the connected neighbors of an atom up to a certain depth while considering periodic boundary
         conditions.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts
@@ -83,13 +83,13 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
 
-    def test_get_neighbors_within_distance(self, graphene: Graphene):
+    def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
         """
         Test to verify neighbors within a given distance using KDTree.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene fixture providing the initialized GrapheneGraph instance.
 
         Asserts

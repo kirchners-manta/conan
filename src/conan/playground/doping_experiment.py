@@ -10,6 +10,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from black.trans import ABC
+from matplotlib import pyplot as plt
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
@@ -17,11 +18,13 @@ from scipy.spatial import KDTree
 from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
+    Position2D,
+    Position3D,
     create_position,
+    get_color,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
-    plot_graphene,
     print_warning,
     write_xyz,
 )
@@ -67,7 +70,7 @@ class DopingStructure:
     @classmethod
     def create_structure(
         cls,
-        graphene: "Graphene",
+        graphene: "GrapheneSheet",
         species: NitrogenSpecies,
         structural_components: StructuralComponents[List[int], List[int]],
         start_node: Optional[int] = None,
@@ -80,7 +83,7 @@ class DopingStructure:
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene sheet.
         species : NitrogenSpecies
             The type of nitrogen doping.
@@ -145,14 +148,14 @@ class DopingStructure:
 
     @staticmethod
     def _add_additional_edge(
-        graphene: "Graphene", subgraph: nx.Graph, neighbors: List[int], start_node: int
+        graphene: "GrapheneSheet", subgraph: nx.Graph, neighbors: List[int], start_node: int
     ) -> Tuple[int, int]:
         """
         Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene sheet.
         subgraph : nx.Graph
             The subgraph containing the cycle.
@@ -390,18 +393,108 @@ class DopingStructureCollection:
 # Abstract base class for material structures
 class MaterialStructure(ABC):
     def __init__(self):
-        self.structure_graph = nx.Graph()
+        self.graph = nx.Graph()
+        """The networkx graph representing the structure of the material (e.g., graphene sheet)."""
 
     @abstractmethod
     def build_structure(self):
         pass
 
     @abstractmethod
-    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True, is_3d: bool = False):
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
         pass
 
 
-class Graphene:
+# Abstract base class for 2D structures
+class Structure2D(MaterialStructure):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        """
+        Plot the structure using networkx and matplotlib in 2D.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
+
+        Notes
+        -----
+        This method visualizes the sheet structure, optionally with labels indicating the
+        element type and node ID. Nodes are colored based on their element type and nitrogen species.
+        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+        """
+        # Get positions and elements of nodes, using only x and y for 2D plotting
+        pos_2d = {node: (pos[0], pos[1]) for node, pos in nx.get_node_attributes(self.graph, "position").items()}
+        # pos = nx.get_node_attributes(graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
+
+        # Determine colors for nodes, considering nitrogen species if present
+        colors = [
+            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+        ]
+
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
+        # Initialize plot
+        plt.figure(figsize=(12, 12))
+
+        # Draw the regular edges
+        nx.draw(self.graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(self.graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray")
+
+        # Add legend
+        unique_colors = set(colors)
+        legend_elements = []
+        for species in NitrogenSpecies:
+            color = get_color("N", species)
+            if color in unique_colors:
+                legend_elements.append(
+                    plt.Line2D(
+                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                    )
+                )
+
+        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
+
+        # Add labels if specified
+        if with_labels:
+            labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
+            nx.draw_networkx_labels(
+                self.graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold"
+            )
+
+        # Show plot
+        plt.show()
+
+
+# Abstract base class for 3D structures
+class Structure3D(MaterialStructure):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    @abstractmethod
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        pass
+
+
+class GrapheneSheet(Structure2D):
     """
     Represents a graphene sheet structure and manages nitrogen doping within the sheet.
     """
@@ -424,17 +517,20 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 0.010062786192274365
+        self.k_inner_bond = 10
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.010194935874253986
+        self.k_outer_bond = 0.1
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 0.2570509560030493
+        self.k_inner_angle = 10
         """The spring constant for angles within the doping structure."""
-        self.k_outer_angle = 0.01200098244745607
+        self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure."""
-        self.graph = nx.Graph()
-        """The networkx graph representing the graphene sheet structure."""
-        self._build_graphene_sheet()  # Build the initial graphene sheet structure
+        # self.graph = nx.Graph()
+        # """The networkx graph representing the graphene sheet structure."""
+        # self._build_graphene_sheet()  # Build the initial graphene sheet structure
+
+        # Build the initial graphene sheet structure
+        self.build_structure()
 
         # Initialize the list of possible carbon atoms
         self._possible_carbon_atoms_needs_update = True
@@ -459,7 +555,7 @@ class Graphene:
         computationally intensive when performed over a graph, especially when dealing with direct distance rather than
         path lengths in the graph."""
 
-        self.include_outer_angles = True  # ToDo: Delete later; just for testing purposes
+        self.include_outer_angles = False  # ToDo: Delete later; just for testing purposes
 
     @property
     def positions(self):
@@ -518,6 +614,12 @@ class Graphene:
     def mark_possible_carbon_atoms_for_update(self):
         """Mark the list of possible carbon atoms as needing an update."""
         self._possible_carbon_atoms_needs_update = True
+
+    def build_structure(self):
+        """
+        Build the graphene sheet structure.
+        """
+        self._build_graphene_sheet()
 
     def _build_graphene_sheet(self):
         """
@@ -830,8 +932,8 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1474,23 +1576,29 @@ class Graphene:
 
             # Add nodes for the current layer
             for node, pos in original_positions.items():
-                # Calculate new position
-                x = pos[0] + layer_x_shift
-                y = pos[1]  # No y-shift needed in this stacking
-                z = pos[2] + layer_z_shift
+                # Check if pos is Position2D or Position3D and handle accordingly
+                if isinstance(pos, Position2D):
+                    x, y = pos
+                    z = layer_z_shift
+                else:
+                    x, y, z = pos
+                    z += layer_z_shift
+
+                # Calculate new position with x_shift
+                x += layer_x_shift
 
                 # New node index
                 new_node = node + layer * num_nodes
 
                 # Add the new node to the graph
-                self.graph.add_node(new_node, element="C", position=create_position(x, y, z))
+                self.graph.add_node(new_node, element="C", position=Position3D(x, y, z))
 
             # Add intra-layer edges for the current layer
             for node in original_graph.nodes:
                 for neighbor in original_graph.neighbors(node):
                     new_node = node + layer * num_nodes
                     new_neighbor = neighbor + layer * num_nodes
-                    self.graph.add_edge(new_node, new_neighbor)
+                    self.graph.add_edge(new_node, new_neighbor, bond_length=self.c_c_bond_distance)
 
         # Remove inter-layer edges
         self.remove_interlayer_edges(z_shift)
@@ -1512,8 +1620,9 @@ class Graphene:
             pos_v = pos[v]
 
             # Check if nodes are in different layers
-            if abs(pos_u[2] - pos_v[2]) > z_shift / 2:
-                edges_to_remove.append((u, v))
+            if isinstance(pos_u, Position3D) and isinstance(pos_v, Position3D):
+                if abs(pos_u.z - pos_v.z) > z_shift / 2:
+                    edges_to_remove.append((u, v))
 
         # Remove inter-layer edges
         self.graph.remove_edges_from(edges_to_remove)
@@ -1554,7 +1663,7 @@ def main():
 
     sheet_size = (20, 20)
 
-    graphene = Graphene(bond_distance=1.42, sheet_size=sheet_size)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
 
     # write_xyz(graphene.graph, 'graphene.xyz')
 
@@ -1620,9 +1729,9 @@ def main():
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     graphene.aba_stacking(layers=3, x_shift=1.42, z_shift=3.35)
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
+    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False, dimensions=3)
 
     # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
 
