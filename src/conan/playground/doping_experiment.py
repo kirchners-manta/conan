@@ -1003,8 +1003,8 @@ class GrapheneSheet(Structure2D):
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1668,50 +1668,41 @@ class StackedGraphene(Structure3D):
         """
         Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
         """
+        original_graph = self.graphene_sheet.graph
         interlayer_shift = 1.42  # Fixed x_shift for ABA stacking
-        # ToDo: Klassenstruktur anpassen, sodass es mit self.bond_distance funktioniert
-        original_positions = nx.get_node_attributes(self.graphene_sheet.graph, "position")
-        num_nodes = len(original_positions)
+        original_positions = nx.get_node_attributes(original_graph, "position")
 
+        # Convert 2D positions to 3D positions in the original graph if not already done
+        for node, pos in original_positions.items():
+            if isinstance(pos, Position2D):
+                original_positions[node] = Position3D(pos.x, pos.y, 0.0)
+
+        nx.set_node_attributes(original_graph, original_positions, "position")
+
+        # Create a new graph to hold the stacked layers
+        stacked_graph = nx.Graph()
+
+        # Create and stack the layers
         for layer in range(self.number_of_layers):
+            # Create a copy of the original graph for this layer
+            layer_graph = original_graph.copy()
+
+            # Calculate the shift for this layer
             layer_x_shift = (layer % 2) * interlayer_shift
             layer_z_shift = layer * self.interlayer_spacing
 
-            for node, pos in nx.get_node_attributes(self.graphene_sheet.graph, "position").items():
-                if isinstance(pos, Position2D):
-                    x, y = pos
-                    z = layer_z_shift
-                else:
-                    x, y, z = pos
-                    z += layer_z_shift
+            # Update positions for this layer
+            layer_positions = {}
+            for node, pos in original_positions.items():
+                new_pos = Position3D(pos.x + layer_x_shift, pos.y, pos.z + layer_z_shift)
+                layer_positions[node] = new_pos
 
-                x += layer_x_shift
-                new_node = node + layer * num_nodes
-                self.graph.add_node(new_node, element="C", position=Position3D(x, y, z))
+            nx.set_node_attributes(layer_graph, layer_positions, "position")
 
-            for u, v, data in self.graphene_sheet.graph.edges(data=True):
-                new_u = u + layer * num_nodes
-                new_v = v + layer * num_nodes
-                self.graph.add_edge(new_u, new_v, **data)
+            # Use disjoint_union to combine graphs without connecting edges between layers
+            stacked_graph = nx.disjoint_union(stacked_graph, layer_graph)
 
-        self.remove_interlayer_edges()
-
-    def remove_interlayer_edges(self):
-        """
-        Remove any edges between different layers.
-        """
-        pos = nx.get_node_attributes(self.graph, "position")
-        edges_to_remove = []
-
-        for u, v in self.graph.edges():
-            pos_u = pos[u]
-            pos_v = pos[v]
-
-            if isinstance(pos_u, Position3D) and isinstance(pos_v, Position3D):
-                if abs(pos_u.z - pos_v.z) > self.interlayer_spacing / 2:
-                    edges_to_remove.append((u, v))
-
-        self.graph.remove_edges_from(edges_to_remove)
+        self.graph = stacked_graph
 
 
 def main():
@@ -1738,16 +1729,16 @@ def main():
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
     # Plot the graphene sheet with nitrogen doping
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Stack the graphene sheet
-    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=3)
+    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
 
     # Plot the stacked structure
     stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Save the structure to a .xyz file
-    write_xyz(graphene.graph, "ABA_stacking.xyz")
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2:
