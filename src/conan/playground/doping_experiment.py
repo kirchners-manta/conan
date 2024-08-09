@@ -20,13 +20,13 @@ from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
     Position3D,
-    convert_to_3d,
     create_position,
     get_color,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
     print_warning,
+    toggle_dimension,
     write_xyz,
 )
 
@@ -1023,8 +1023,8 @@ class GrapheneSheet(Structure2D):
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        # if any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
+        if any(self.doping_structures.structures):
+            self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1749,7 +1749,7 @@ class StackedGraphene(Structure3D):
         """The number of layers to stack."""
 
         # Add the original graphene sheet as the first layer
-        convert_to_3d(graphene_sheet.graph)
+        toggle_dimension(graphene_sheet.graph)
         self.graphene_sheets.append(graphene_sheet)
 
         # Add additional layers by copying the original graphene sheet
@@ -1805,7 +1805,18 @@ class StackedGraphene(Structure3D):
             The total percentage of carbon atoms to replace with nitrogen atoms.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
+            # Convert to 2D before doping
+            toggle_dimension(self.graphene_sheets[layer_index].graph)
+
+            # Perform the doping
             self.graphene_sheets[layer_index].add_nitrogen_doping(total_percentage=total_percentage)
+
+            # Convert back to 3D after doping
+            toggle_dimension(self.graphene_sheets[layer_index].graph)
+            self._shift_sheet(self.graphene_sheets[layer_index], layer_index)
+
+            # Rebuild the main graph in order to update the structure after doping
+            self.build_structure()
         else:
             raise IndexError("Layer index out of range.")
 
@@ -1819,31 +1830,31 @@ def main():
     sheet_size = (20, 20)
 
     ####################################################################################################################
-    # VERSION 1:
-
-    # Create a graphene sheet
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-
-    # Add nitrogen doping to the graphene sheet
-    start_time = time.time()  # Time the nitrogen doping process
-    graphene.add_nitrogen_doping(total_percentage=15)
-    end_time = time.time()
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-
-    # Plot the graphene sheet with nitrogen doping
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Stack the graphene sheet
-    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the structure to a .xyz file
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # # VERSION 1:
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Add nitrogen doping to the graphene sheet
+    # start_time = time.time()  # Time the nitrogen doping process
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the graphene sheet with nitrogen doping
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2:
@@ -1870,25 +1881,27 @@ def main():
     ####################################################################################################################
     # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
 
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-    #
-    # # Extract all layers as individual graphs
-    # connected_subgraphs = [
-    #     stacked_graphene.graph.subgraph(c).copy() for c in nx.connected_components(stacked_graphene.graph)
-    # ]
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
 
-    # # Dope the first and last layer
-    # first_layer = connected_subgraphs[0]
-    # last_layer = connected_subgraphs[-1]
-    #
-    # # Add nitrogen doping to the graphene sheet
-    # start_time = time.time()  # Time the nitrogen doping process
-    # graphene.add_nitrogen_doping(total_percentage=15)
-    # end_time = time.time()
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+
+    # Add individual nitrogen doping only to the first and last layer
+    start_time = time.time()  # Time the nitrogen doping process
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
 
 if __name__ == "__main__":

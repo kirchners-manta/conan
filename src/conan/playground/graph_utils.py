@@ -249,18 +249,25 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
 #     return distances, displacement
 
 
-def convert_to_3d(sheet_graph: nx.Graph):
+def toggle_dimension(sheet_graph: nx.Graph):
     """
-    Convert the 2D graph positions to 3D.
+    Toggle the graph positions between 2D and 3D.
+
+    If the positions are in 2D (Position2D), they will be converted to 3D (Position3D) by adding a z-coordinate of 0.
+    If the positions are in 3D (Position3D), they will be converted to 2D (Position2D) by removing the z-coordinate.
 
     Parameters
     ----------
     sheet_graph : nx.Graph
-        The graph containing the graphene sheet to convert to 3D.
+        The graph containing the sheet structure to convert.
     """
     for node, pos in sheet_graph.nodes(data="position"):
         if isinstance(pos, Position2D):
+            # Convert from 2D to 3D
             sheet_graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
+        elif isinstance(pos, Position3D):
+            # Convert from 3D to 2D
+            sheet_graph.nodes[node]["position"] = Position2D(pos.x, pos.y)
 
 
 def write_xyz(graph: nx.Graph, filename: str):
