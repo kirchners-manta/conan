@@ -433,7 +433,6 @@ class Structure2D(MaterialStructure):
         """
         # Get positions and elements of nodes, using only x and y for 2D plotting
         pos_2d = {node: (pos[0], pos[1]) for node, pos in nx.get_node_attributes(self.graph, "position").items()}
-        # pos = nx.get_node_attributes(graph, "position")
         elements = nx.get_node_attributes(self.graph, "element")
 
         # Determine colors for nodes, considering nitrogen species if present
@@ -445,15 +444,17 @@ class Structure2D(MaterialStructure):
         regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
         periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
 
-        # Initialize plot
-        plt.figure(figsize=(12, 12))
+        # Initialize plot with an Axes object
+        fig, ax = plt.subplots(figsize=(12, 12))
 
         # Draw the regular edges
-        nx.draw(self.graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+        nx.draw(self.graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False, ax=ax)
 
         # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
         if visualize_periodic_bonds:
-            nx.draw_networkx_edges(self.graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray")
+            nx.draw_networkx_edges(
+                self.graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray", ax=ax
+            )
 
         # Add legend
         unique_colors = set(colors)
@@ -466,17 +467,28 @@ class Structure2D(MaterialStructure):
                         [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
                     )
                 )
-
-        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
+        ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
 
         # Add labels if specified
         if with_labels:
             labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
             nx.draw_networkx_labels(
-                self.graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold"
+                self.graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold", ax=ax
             )
 
-        # Show plot
+        # Manually add x- and y-axis labels using ax.text
+        x_min, x_max = min(x for x, y in pos_2d.values()), max(x for x, y in pos_2d.values())
+        y_min, y_max = min(y for x, y in pos_2d.values()), max(y for x, y in pos_2d.values())
+
+        ax.text((x_min + x_max) / 2, y_min - (y_max - y_min) * 0.1, "X [Å]", fontsize=14, ha="center")
+        ax.text(
+            x_min - (x_max - x_min) * 0.1, (y_min + y_max) / 2, "Y [Å]", fontsize=14, va="center", rotation="vertical"
+        )
+
+        # Adjust layout to make sure everything fits
+        plt.tight_layout()
+
+        # Show the plot
         plt.show()
 
 
@@ -551,9 +563,9 @@ class Structure3D(MaterialStructure):
                 ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
 
         # Set the axes labels
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
+        ax.set_xlabel("X [Å]")
+        ax.set_ylabel("Y [Å]")
+        ax.set_zlabel("Z [Å]")
 
         # Add a legend for the nitrogen species
         unique_colors = set(colors)
@@ -1732,7 +1744,7 @@ def main():
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
     # Plot the graphene sheet with nitrogen doping
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Stack the graphene sheet
     stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
