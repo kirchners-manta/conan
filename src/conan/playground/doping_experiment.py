@@ -19,8 +19,8 @@ from scipy.spatial import KDTree
 from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
-    Position2D,
     Position3D,
+    convert_to_3d,
     create_position,
     get_color,
     get_neighbors_via_edges,
@@ -1742,34 +1742,25 @@ class StackedGraphene(Structure3D):
         """
         super().__init__()
         self.graphene_sheets = []
+        """A list to hold individual GrapheneSheet instances."""
         self.interlayer_spacing = interlayer_spacing
+        """The spacing between layers in the z-direction."""
         self.number_of_layers = number_of_layers
+        """The number of layers to stack."""
 
         # Add the original graphene sheet as the first layer
-        self._convert_to_3d(graphene_sheet)
+        convert_to_3d(graphene_sheet.graph)
         self.graphene_sheets.append(graphene_sheet)
 
         # Add additional layers by copying the original graphene sheet
         for layer in range(1, self.number_of_layers):
-            # Kopiere das GrapheneSheet-Objekt
+            # Create a copy of the original graphene sheet and shift it
             new_sheet = copy.deepcopy(graphene_sheet)
             self._shift_sheet(new_sheet, layer)
             self.graphene_sheets.append(new_sheet)
 
+        # Build the structure by combining all graphene sheets
         self.build_structure()
-
-    def _convert_to_3d(self, sheet: GrapheneSheet):
-        """
-        Convert the 2D graphene sheet positions to 3D.
-
-        Parameters
-        ----------
-        sheet : GrapheneSheet
-            The graphene sheet to convert to 3D.
-        """
-        for node, pos in sheet.graph.nodes(data="position"):
-            if isinstance(pos, Position2D):
-                sheet.graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
 
     def _shift_sheet(self, sheet: GrapheneSheet, layer: int):
         """

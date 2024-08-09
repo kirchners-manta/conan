@@ -249,6 +249,20 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
 #     return distances, displacement
 
 
+def convert_to_3d(sheet_graph: nx.Graph):
+    """
+    Convert the 2D graph positions to 3D.
+
+    Parameters
+    ----------
+    sheet_graph : nx.Graph
+        The graph containing the graphene sheet to convert to 3D.
+    """
+    for node, pos in sheet_graph.nodes(data="position"):
+        if isinstance(pos, Position2D):
+            sheet_graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
+
+
 def write_xyz(graph: nx.Graph, filename: str):
     """
     Write the atomic positions and elements to an XYZ file.
