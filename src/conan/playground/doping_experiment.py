@@ -1002,8 +1002,8 @@ class GrapheneSheet(Structure2D):
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.doping_structures.structures):
-            self._adjust_atom_positions()
+        # if any(self.doping_structures.structures):
+        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
@@ -1668,31 +1668,32 @@ class StackedGraphene(Structure3D):
         Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
         """
         original_graph = self.graphene_sheet.graph
-        interlayer_shift = 1.42  # Fixed x_shift for ABA stacking
+        interlayer_shift = 1.42  # Fixed x_shift for ABA stacking  # ToDo: Anpassen, dass hier self.bond_distance steht
         original_positions = nx.get_node_attributes(original_graph, "position")
 
         # Convert 2D positions to 3D positions in the original graph if not already done
         for node, pos in original_positions.items():
             if isinstance(pos, Position2D):
                 original_positions[node] = Position3D(pos.x, pos.y, 0.0)
-
         nx.set_node_attributes(original_graph, original_positions, "position")
 
-        # Create and stack the layers directly in self.graph
-        for layer in range(self.number_of_layers):
-            # Create a copy of the original graph for this layer
-            layer_graph = original_graph.copy()
+        # Add the original graph as the first layer directly to self.graph
+        self.graph = original_graph.copy()
 
+        # Iterate over the remaining layers
+        for layer in range(1, self.number_of_layers):  # Start from layer 1
             # Calculate the shift for this layer
             layer_x_shift = (layer % 2) * interlayer_shift
             layer_z_shift = layer * self.interlayer_spacing
+
+            # Create a copy of the original graph for this layer
+            layer_graph = original_graph.copy()
 
             # Update positions for this layer
             layer_positions = {}
             for node, pos in original_positions.items():
                 new_pos = Position3D(pos.x + layer_x_shift, pos.y, pos.z + layer_z_shift)
                 layer_positions[node] = new_pos
-
             nx.set_node_attributes(layer_graph, layer_positions, "position")
 
             # Use disjoint_union to combine graphs directly into self.graph
