@@ -1,3 +1,4 @@
+import copy
 import random
 import time
 from abc import ABC, abstractmethod
@@ -1659,6 +1660,68 @@ class GrapheneSheet(Structure2D):
         return StackedGraphene(self, interlayer_spacing, number_of_layers)
 
 
+# class StackedGraphene(Structure3D):
+#     """
+#     Represents a stacked graphene structure.
+#     """
+#
+#     def __init__(self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int):
+#         """
+#         Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, and number of layers.
+#
+#         Parameters
+#         ----------
+#         graphene_sheet : GrapheneSheet
+#             The base graphene sheet to be stacked.
+#         interlayer_spacing : float
+#             The spacing between layers in the z-direction.
+#         number_of_layers : int
+#             The number of layers to stack.
+#         """
+#         super().__init__()
+#         self.graphene_sheet = graphene_sheet
+#         self.interlayer_spacing = interlayer_spacing
+#         self.number_of_layers = number_of_layers
+#         self.layers = []  # List to hold individual GrapheneSheet instances
+#         self.build_structure()
+#
+#     def build_structure(self):
+#         """
+#         Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
+#         """
+#         original_graph = self.graphene_sheet.graph
+#         interlayer_shift = 1.42  # Fixed x_shift for ABA stacking
+#         original_positions = nx.get_node_attributes(original_graph, "position")
+#
+#         # Convert 2D positions to 3D positions in the original graph if not already done
+#         for node, pos in original_positions.items():
+#             if isinstance(pos, Position2D):
+#                 original_positions[node] = Position3D(pos.x, pos.y, 0.0)
+#         nx.set_node_attributes(original_graph, original_positions, "position")
+#
+#         # Add the original graph as the first layer directly to self.graph
+#         self.graph = original_graph.copy()
+#
+#         # Iterate over the remaining layers
+#         for layer in range(1, self.number_of_layers):  # Start from layer 1
+#             # Calculate the shift for this layer
+#             layer_x_shift = (layer % 2) * interlayer_shift
+#             layer_z_shift = layer * self.interlayer_spacing
+#
+#             # Create a copy of the original graph for this layer
+#             layer_graph = original_graph.copy()
+#
+#             # Update positions for this layer
+#             layer_positions = {}
+#             for node, pos in original_positions.items():
+#                 new_pos = Position3D(pos.x + layer_x_shift, pos.y, pos.z + layer_z_shift)
+#                 layer_positions[node] = new_pos
+#             nx.set_node_attributes(layer_graph, layer_positions, "position")
+#
+#             # Use disjoint_union to combine graphs directly into self.graph
+#             self.graph = nx.disjoint_union(self.graph, layer_graph)
+
+
 class StackedGraphene(Structure3D):
     """
     Represents a stacked graphene structure.
@@ -1678,46 +1741,82 @@ class StackedGraphene(Structure3D):
             The number of layers to stack.
         """
         super().__init__()
-        self.graphene_sheet = graphene_sheet
+        self.graphene_sheets = []
         self.interlayer_spacing = interlayer_spacing
         self.number_of_layers = number_of_layers
+
+        # Add the original graphene sheet as the first layer
+        self._convert_to_3d(graphene_sheet)
+        self.graphene_sheets.append(graphene_sheet)
+
+        # Add additional layers by copying the original graphene sheet
+        for layer in range(1, self.number_of_layers):
+            # Kopiere das GrapheneSheet-Objekt
+            new_sheet = copy.deepcopy(graphene_sheet)
+            self._shift_sheet(new_sheet, layer)
+            self.graphene_sheets.append(new_sheet)
+
         self.build_structure()
+
+    def _convert_to_3d(self, sheet: GrapheneSheet):
+        """
+        Convert the 2D graphene sheet positions to 3D.
+
+        Parameters
+        ----------
+        sheet : GrapheneSheet
+            The graphene sheet to convert to 3D.
+        """
+        for node, pos in sheet.graph.nodes(data="position"):
+            if isinstance(pos, Position2D):
+                sheet.graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
+
+    def _shift_sheet(self, sheet: GrapheneSheet, layer: int):
+        """
+        Shift the graphene sheet by the appropriate interlayer spacing and x-shift for ABA stacking.
+
+        Parameters
+        ----------
+        sheet : GrapheneSheet
+            The graphene sheet to shift.
+        layer : int
+            The layer number to determine the shifts.
+        """
+        interlayer_shift = 1.42  # Fixed x_shift for ABA stacking  # ToDo: Anpassen, dass hier self.bond_distance steht
+        x_shift = (layer % 2) * interlayer_shift
+        z_shift = layer * self.interlayer_spacing
+
+        # Update the positions in the copied sheet
+        for node, pos in sheet.graph.nodes(data="position"):
+            shifted_pos = Position3D(pos.x + x_shift, pos.y, pos.z + z_shift)
+            sheet.graph.nodes[node]["position"] = shifted_pos
 
     def build_structure(self):
         """
-        Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
+        Combine all the graphene sheets into a single structure.
         """
-        original_graph = self.graphene_sheet.graph
-        interlayer_shift = 1.42  # Fixed x_shift for ABA stacking  # ToDo: Anpassen, dass hier self.bond_distance steht
-        original_positions = nx.get_node_attributes(original_graph, "position")
+        # Start with the graph of the first layer
+        self.graph = self.graphene_sheets[0].graph.copy()
 
-        # Convert 2D positions to 3D positions in the original graph if not already done
-        for node, pos in original_positions.items():
-            if isinstance(pos, Position2D):
-                original_positions[node] = Position3D(pos.x, pos.y, 0.0)
-        nx.set_node_attributes(original_graph, original_positions, "position")
+        # Iterate over the remaining layers and combine them into self.graph
+        for sheet in self.graphene_sheets[1:]:
+            self.graph = nx.disjoint_union(self.graph, sheet.graph)
 
-        # Add the original graph as the first layer directly to self.graph
-        self.graph = original_graph.copy()
+    def add_nitrogen_doping_to_layer(self, layer_index: int, total_percentage: float):
+        """
+        Add nitrogen doping to a specific layer in the stacked graphene structure.
 
-        # Iterate over the remaining layers
-        for layer in range(1, self.number_of_layers):  # Start from layer 1
-            # Calculate the shift for this layer
-            layer_x_shift = (layer % 2) * interlayer_shift
-            layer_z_shift = layer * self.interlayer_spacing
-
-            # Create a copy of the original graph for this layer
-            layer_graph = original_graph.copy()
-
-            # Update positions for this layer
-            layer_positions = {}
-            for node, pos in original_positions.items():
-                new_pos = Position3D(pos.x + layer_x_shift, pos.y, pos.z + layer_z_shift)
-                layer_positions[node] = new_pos
-            nx.set_node_attributes(layer_graph, layer_positions, "position")
-
-            # Use disjoint_union to combine graphs directly into self.graph
-            self.graph = nx.disjoint_union(self.graph, layer_graph)
+        Parameters
+        ----------
+        layer_index : int
+            The index of the layer to dope.
+        total_percentage : float
+            The total percentage of carbon atoms to replace with nitrogen atoms.
+        """
+        if 0 <= layer_index < len(self.graphene_sheets):
+            self.graphene_sheets[layer_index].add_nitrogen_doping(total_percentage=total_percentage)
+        else:
+            raise IndexError("Layer index out of range.")
 
 
 def main():
@@ -1779,6 +1878,26 @@ def main():
 
     ####################################################################################################################
     # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    #
+    # # Extract all layers as individual graphs
+    # connected_subgraphs = [
+    #     stacked_graphene.graph.subgraph(c).copy() for c in nx.connected_components(stacked_graphene.graph)
+    # ]
+
+    # # Dope the first and last layer
+    # first_layer = connected_subgraphs[0]
+    # last_layer = connected_subgraphs[-1]
+    #
+    # # Add nitrogen doping to the graphene sheet
+    # start_time = time.time()  # Time the nitrogen doping process
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # end_time = time.time()
 
 
 if __name__ == "__main__":
