@@ -10,6 +10,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
@@ -523,32 +524,38 @@ class Structure3D(MaterialStructure):
         fig = plt.figure(figsize=(12, 12))
         ax = fig.add_subplot(111, projection="3d")
 
-        # Draw nodes for each layer separately
-        for node in self.graph.nodes():
-            x, y, z = pos[node]
-            ax.scatter(x, y, z, color=get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")), s=20)
+        # Extract node positions
+        xs, ys, zs = zip(*[pos[node] for node in self.graph.nodes()])
 
-        # Draw the regular edges for each layer
-        for u, v in regular_edges:
-            x = [pos[u][0], pos[v][0]]
-            y = [pos[u][1], pos[v][1]]
-            z = [pos[u][2], pos[v][2]]
-            ax.plot(x, y, z, color="black")
+        # Draw nodes in one step
+        ax.scatter(xs, ys, zs, color=colors, s=20)
 
-        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        # Create line segments for regular edges
+        regular_segments = np.array(
+            [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
+        )
+        regular_lines = Line3DCollection(regular_segments, colors="black")
+        ax.add_collection3d(regular_lines)
+
+        # Create line segments for periodic edges if visualize_periodic_bonds is True
         if visualize_periodic_bonds:
-            for u, v in periodic_edges:
-                x = [pos[u][0], pos[v][0]]
-                y = [pos[u][1], pos[v][1]]
-                z = [pos[u][2], pos[v][2]]
-                ax.plot(x, y, z, color="gray", linestyle="dashed")
+            periodic_segments = np.array(
+                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
+            )
+            periodic_lines = Line3DCollection(periodic_segments, colors="gray", linestyles="dashed")
+            ax.add_collection3d(periodic_lines)
 
         # Add labels if specified
         if with_labels:
             for node in self.graph.nodes():
                 ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
 
-        # Add legend
+        # Set the axes labels
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+
+        # Add a legend for the nitrogen species
         unique_colors = set(colors)
         legend_elements = []
         for species in NitrogenSpecies:
@@ -559,8 +566,9 @@ class Structure3D(MaterialStructure):
                         [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
                     )
                 )
+        ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
 
-        plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
+        # Show the plot
         plt.show()
 
 
@@ -1756,6 +1764,9 @@ def main():
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # write_xyz(graphene.graph, "ABA_stacking.xyz")
+
+    ####################################################################################################################
+    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
 
 
 if __name__ == "__main__":
