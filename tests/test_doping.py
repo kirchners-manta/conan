@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 from conan.playground.doping_experiment import GrapheneSheet, NitrogenSpecies
@@ -72,10 +74,15 @@ class TestDopingValidations:
         """
         Test that add_nitrogen_doping works with valid inputs.
         """
-        try:
-            graphene_sheet.add_nitrogen_doping(total_percentage=valid_total_percentage, percentages=valid_percentages)
-        except ValueError:
-            pytest.fail("add_nitrogen_doping raised ValueError unexpectedly!")
+        # Warnungen abfangen und ignorieren
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            try:
+                graphene_sheet.add_nitrogen_doping(
+                    total_percentage=valid_total_percentage, percentages=valid_percentages
+                )
+            except ValueError:
+                pytest.fail("add_nitrogen_doping raised ValueError unexpectedly!")
 
     def test_warning_when_not_all_atoms_placed(self, graphene_sheet):
         with pytest.warns(
