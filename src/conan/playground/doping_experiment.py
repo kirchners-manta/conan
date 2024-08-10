@@ -1,6 +1,7 @@
 import copy
 import random
 import time
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
@@ -25,7 +26,6 @@ from conan.playground.graph_utils import (
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
-    print_warning,
     toggle_dimension,
     write_xyz,
 )
@@ -997,6 +997,27 @@ class GrapheneSheet(Structure2D):
           GRAPHITIC.
         """
 
+        # Validate the input for percentages
+        if percentages is not None:
+            if not isinstance(percentages, dict):
+                raise ValueError(
+                    "percentages must be a dictionary with NitrogenSpecies as keys and int or float as values."
+                )
+
+            for key, value in percentages.items():
+                if not isinstance(key, NitrogenSpecies):
+                    raise ValueError(
+                        f"Invalid key in percentages dictionary: {key}. Keys must be of type NitrogenSpecies."
+                    )
+                if not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"Invalid value in percentages dictionary for key {key}: {value}. Values must be int or float."
+                    )
+
+        # Validate the input for total_percentage
+        if total_percentage is not None and not isinstance(total_percentage, (int, float)):
+            raise ValueError("total_percentage must be an int or float.")
+
         # Validate specific percentages and calculate the remaining percentage
         if percentages:
             if total_percentage is None:
@@ -1040,8 +1061,9 @@ class GrapheneSheet(Structure2D):
 
         # Check if all specific_num_nitrogen values are zero
         if all(count == 0 for count in specific_num_nitrogen.values()):
-            print_warning(
-                "Warning: The selected doping percentage is too low or the structure is too small to allow for doping."
+            warnings.warn(
+                "The selected doping percentage is too low or the structure is too small to allow for doping.",
+                UserWarning,
             )
             return  # Exit the method early if no doping can be done
 
@@ -1133,7 +1155,7 @@ class GrapheneSheet(Structure2D):
                 f"\nWarning: Only {len(self.doping_structures.chosen_atoms[nitrogen_species])} nitrogen atoms of "
                 f"species {nitrogen_species.value} could be placed due to proximity constraints."
             )
-            print_warning(warning_message)
+            warnings.warn(warning_message, UserWarning)
 
     def _handle_graphitic_doping(self, structural_components: StructuralComponents):
         """
@@ -1868,9 +1890,6 @@ def main():
 
     # Create a graphene sheet
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-
-    graphene.add_nitrogen_doping(total_percentage=15)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Stack the graphene sheet
     stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
