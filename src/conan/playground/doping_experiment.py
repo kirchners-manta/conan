@@ -718,8 +718,12 @@ class GrapheneSheet(Structure2D):
     @staticmethod
     def _validate_sheet_size(sheet_size: Tuple[float, float]):
         """Validate the sheet size."""
-        if not isinstance(sheet_size, tuple) or not all(isinstance(i, (int, float)) for i in sheet_size):
-            raise TypeError("sheet_size must be a tuple of two positive floats or ints.")
+        if not isinstance(sheet_size, tuple):
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
+        if len(sheet_size) != 2:  # Überprüfen, ob das Tupel genau zwei Elemente hat
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
+        if not all(isinstance(i, (int, float)) for i in sheet_size):
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
         if any(s <= 0 for s in sheet_size):
             raise ValueError(f"All elements of sheet_size must be positive, but got {sheet_size}.")
 
