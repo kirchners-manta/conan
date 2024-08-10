@@ -1038,6 +1038,13 @@ class GrapheneSheet(Structure2D):
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
+        # Check if all specific_num_nitrogen values are zero
+        if all(count == 0 for count in specific_num_nitrogen.values()):
+            print_warning(
+                "Warning: The selected doping percentage is too low or the structure is too small to allow for doping."
+            )
+            return  # Exit the method early if no doping can be done
+
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
@@ -1805,7 +1812,7 @@ def main():
     # random.seed(3)
     random.seed(0)
 
-    sheet_size = (20, 20)
+    sheet_size = (5, 5)
 
     ####################################################################################################################
     # # VERSION 1:
@@ -1861,6 +1868,9 @@ def main():
 
     # Create a graphene sheet
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+
+    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Stack the graphene sheet
     stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
