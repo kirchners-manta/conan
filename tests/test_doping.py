@@ -8,7 +8,7 @@ def graphene_sheet():
     """
     Fixture to create a GrapheneSheet instance with predefined parameters.
     """
-    return GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    return GrapheneSheet(bond_distance=1.42, sheet_size=(10, 10))
 
 
 class TestDopingValidations:
@@ -77,9 +77,8 @@ class TestDopingValidations:
         except ValueError:
             pytest.fail("add_nitrogen_doping raised ValueError unexpectedly!")
 
-    def test_warning_when_not_all_atoms_placed(self):
-        graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(10, 10))
+    def test_warning_when_not_all_atoms_placed(self, graphene_sheet):
         with pytest.warns(
             UserWarning, match=r"Only \d+ nitrogen atoms of species .* could be placed due to proximity constraints"
         ):
-            graphene.add_nitrogen_doping(total_percentage=50)
+            graphene_sheet.add_nitrogen_doping(total_percentage=50)
