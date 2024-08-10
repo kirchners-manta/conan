@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from math import cos, pi, sin
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -590,15 +590,15 @@ class GrapheneSheet(Structure2D):
     Represents a graphene sheet structure and manages nitrogen doping within the sheet.
     """
 
-    def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
+    def __init__(self, bond_distance: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
         """
         Initialize the GrapheneGraph with given bond distance and sheet size.
 
         Parameters
         ----------
-        bond_distance : float
+        bond_distance : Union[float, int]
             The bond distance between carbon atoms in the graphene sheet.
-        sheet_size : Tuple[float, float]
+        sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheet in the x and y directions.
 
         Raises
