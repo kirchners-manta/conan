@@ -600,6 +600,13 @@ class GrapheneSheet(Structure2D):
             The bond distance between carbon atoms in the graphene sheet.
         sheet_size : Tuple[float, float]
             The size of the graphene sheet in the x and y directions.
+
+        Raises
+        ------
+        TypeError
+            If the types of `bond_distance` or `sheet_size` are incorrect.
+        ValueError
+            If `bond_distance` or any element of `sheet_size` is non-positive.
         """
         super().__init__()
 
