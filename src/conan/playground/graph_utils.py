@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -12,9 +12,28 @@ from scipy.spatial import KDTree
 # from conan.playground.doping_experiment import GrapheneGraph
 
 
-class Position(NamedTuple):
+# class Position(NamedTuple):
+#     """
+#     Position: Named tuple to represent the coordinates of atoms.
+#
+#     Attributes
+#     ----------
+#     x : float
+#         The x-coordinate of the atom.
+#     y : float
+#         The y-coordinate of the atom.
+#     z : Optional[float]
+#         The z-coordinate of the atom (default is None).
+#     """
+#
+#     x: float
+#     y: float
+#     z: Optional[float] = None  # Optional z-coordinate
+
+
+class Position2D(NamedTuple):
     """
-    Position: Named tuple to represent the coordinates of atoms.
+    Position2D: Named tuple to represent 2D coordinates of atoms.
 
     Attributes
     ----------
@@ -26,6 +45,25 @@ class Position(NamedTuple):
 
     x: float
     y: float
+
+
+class Position3D(NamedTuple):
+    """
+    Position3D: Named tuple to represent 3D coordinates of atoms.
+
+    Attributes
+    ----------
+    x : float
+        The x-coordinate of the atom.
+    y : float
+        The y-coordinate of the atom.
+    z : float
+        The z-coordinate of the atom.
+    """
+
+    x: float
+    y: float
+    z: float
 
 
 class Vector(NamedTuple):
@@ -42,6 +80,34 @@ class Vector(NamedTuple):
 
     dx: float
     dy: float
+
+
+def create_position(*args: Union[float, Tuple[float, float], Tuple[float, float, float]]):
+    """
+    Create a Position instance based on the number of input arguments.
+
+    Parameters
+    ----------
+    args
+        Variable length argument list.
+        - If two floats are provided, they are treated as x and y coordinates.
+        - If three floats are provided, they are treated as x, y, and z coordinates.
+        - If a single tuple of two or three floats is provided, it is unpacked to x, y, and z coordinates.
+
+    Returns
+    -------
+    Union[Position2D, Position3D]
+        A Position2D or Position3D object based on the input.
+    """
+    if len(args) == 1 and isinstance(args[0], tuple):
+        args = args[0]  # Unpack tuple if a single tuple argument is passed
+
+    if len(args) == 2:
+        return Position2D(args[0], args[1])  # Create 2D position
+    elif len(args) == 3:
+        return Position3D(args[0], args[1], args[2])  # Create 3D position
+    else:
+        raise ValueError("Invalid number of arguments for creating a Position. Expected 2 or 3 values.")
 
 
 @dataclass
@@ -74,17 +140,17 @@ class NitrogenSpecies(Enum):
     # PYRAZOLE = "pyrazole"
 
 
-def minimum_image_distance(pos1: Position, pos2: Position, box_size: Tuple[float, float]) -> Tuple[float, Vector]:
+def minimum_image_distance(pos1: Position2D, pos2: Position2D, box_size: Tuple[float, float]) -> Tuple[float, Vector]:
     """
     Calculate the minimum distance between two positions considering periodic boundary conditions.
 
     Parameters
     ----------
-    pos1 : Position
+    pos1 : Position2D
         Position of the first atom.
-    pos2 : Position
+    pos2 : Position2D
         Position of the second atom.
-    box_size : Tuple[float, float]
+    box_size : Tuple[float, float, float]
         Size of the box in the x and y dimensions (box_width, box_height).
 
     Returns
@@ -119,9 +185,9 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
     Parameters
     ----------
     pos1 : npt.NDArray
-        Array of positions of the first set of atoms (N x 2).
+        Array of positions of the first set of atoms (N x 3).
     pos2 : npt.NDArray
-        Array of positions of the second set of atoms (N x 2).
+        Array of positions of the second set of atoms (N x 3).
     box_size : Tuple[float, float]
         Size of the box in the x and y dimensions (box_width, box_height).
 
@@ -130,7 +196,7 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
     Tuple[np.ndarray, np.ndarray]
         A tuple containing:
         - The minimum distances between the sets of positions as a numpy array.
-        - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
+        - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 3).
     """
     # Calculate the vector difference between the two positions
     delta = pos2 - pos1
@@ -183,14 +249,57 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
 #     return distances, displacement
 
 
-def write_xyz(graph, filename):
+def toggle_dimension(sheet_graph: nx.Graph):
+    """
+    Toggle the graph positions between 2D and 3D.
+
+    If the positions are in 2D (Position2D), they will be converted to 3D (Position3D) by adding a z-coordinate of 0.
+    If the positions are in 3D (Position3D), they will be converted to 2D (Position2D) by removing the z-coordinate.
+
+    Parameters
+    ----------
+    sheet_graph : nx.Graph
+        The graph containing the sheet structure to convert.
+    """
+    for node, pos in sheet_graph.nodes(data="position"):
+        if isinstance(pos, Position2D):
+            # Convert from 2D to 3D
+            sheet_graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
+        elif isinstance(pos, Position3D):
+            # Convert from 3D to 2D
+            sheet_graph.nodes[node]["position"] = Position2D(pos.x, pos.y)
+
+
+def write_xyz(graph: nx.Graph, filename: str):
+    """
+    Write the atomic positions and elements to an XYZ file.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the atomic structure.
+    filename : str
+        The name of the XYZ file to write to.
+    """
     with open(filename, "w") as file:
-        file.write(f"{graph.number_of_nodes()}\n")
-        file.write("XYZ file generated from GrapheneGraph\n")
-        for node_id, node_data in graph.nodes(data=True):
-            x, y = node_data["position"]
-            element = node_data["element"]
-            file.write(f"{element} {x:.3f} {y:.3f} 0.000\n")
+        # Write the number of atoms (nodes) in the graph
+        num_atoms = len(graph.nodes)
+        file.write(f"{num_atoms}\n")
+        file.write("Atoms\n")
+
+        for node in graph.nodes(data=True):
+            # Extract the element and position for each node
+            element = node[1].get("element", "X")  # Default to "X" if no element is specified
+            pos: Union[Position2D, Position3D] = node[1]["position"]
+
+            # Determine the z-coordinate
+            if isinstance(pos, Position2D):
+                z = 0.0
+            else:
+                z = pos.z
+
+            # Write the atom information to the file
+            file.write(f"{element} {pos.x:.3f} {pos.y:.3f} {z:.3f} 0.000\n")
 
 
 def print_warning(message: str):
@@ -391,9 +500,38 @@ def get_color(element: str, nitrogen_species: NitrogenSpecies = None) -> str:
     return colors.get(element, "pink")
 
 
-def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+def plot_graphene(
+    graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True, dimensions: int = 2
+):
     """
-    Plot the graphene structure using networkx and matplotlib.
+    Plot the graphene structure using networkx and matplotlib, either in 2D or 3D.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the graphene sheet.
+    with_labels : bool, optional
+        Whether to display labels on the nodes (default is False).
+    visualize_periodic_bonds : bool, optional
+        Whether to visualize periodic boundary condition edges (default is True).
+    dimensions : int
+        The number of dimensions to plot (2 or 3).
+
+    Notes
+    -----
+    This method visualizes the graphene structure either in 2D or 3D.
+    """
+    if dimensions == 2:
+        plot_2d_graphene(graph, with_labels, visualize_periodic_bonds)
+    elif dimensions == 3:
+        plot_3d_graphene(graph, with_labels, visualize_periodic_bonds)
+    else:
+        raise ValueError("Invalid dimensions argument; must be 2 or 3.")
+
+
+def plot_2d_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    """
+    Plot the graphene structure using networkx and matplotlib in 2D.
 
     Parameters
     ----------
@@ -410,8 +548,9 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     element type and node ID. Nodes are colored based on their element type and nitrogen species.
     Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
     """
-    # Get positions and elements of nodes
-    pos = nx.get_node_attributes(graph, "position")
+    # Get positions and elements of nodes, using only x and y for 2D plotting
+    pos_2d = {node: (pos[0], pos[1]) for node, pos in nx.get_node_attributes(graph, "position").items()}
+    # pos = nx.get_node_attributes(graph, "position")
     elements = nx.get_node_attributes(graph, "element")
 
     # Determine colors for nodes, considering nitrogen species if present
@@ -425,11 +564,11 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     plt.figure(figsize=(12, 12))
 
     # Draw the regular edges
-    nx.draw(graph, pos, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
+    nx.draw(graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False)
 
     # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
     if visualize_periodic_bonds:
-        nx.draw_networkx_edges(graph, pos, edgelist=periodic_edges, style="dashed", edge_color="gray")
+        nx.draw_networkx_edges(graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray")
 
     # Add legend
     unique_colors = set(colors)
@@ -446,9 +585,83 @@ def plot_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic
     # Add labels if specified
     if with_labels:
         labels = {node: f"{elements[node]}{node}" for node in graph.nodes()}
-        nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
+        nx.draw_networkx_labels(graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold")
 
     # Show plot
+    plt.show()
+
+
+def plot_3d_graphene(graph: nx.Graph, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    """
+    Plot the graphene structure in 3D using networkx and matplotlib.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph representing the graphene structure with potentially multiple layers.
+    with_labels : bool, optional
+        Whether to display labels on the nodes (default is False).
+    visualize_periodic_bonds : bool, optional
+        Whether to visualize periodic boundary condition edges (default is True).
+
+    Notes
+    -----
+    This method visualizes the graphene structure, optionally with labels indicating the
+    element type and node ID. Nodes are colored based on their element type and nitrogen species.
+    Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+    """
+
+    # Get positions and elements of nodes
+    pos = nx.get_node_attributes(graph, "position")
+    elements = nx.get_node_attributes(graph, "element")
+
+    # Determine colors for nodes, considering nitrogen species if present
+    colors = [get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()]
+
+    # Separate periodic edges and regular edges
+    regular_edges = [(u, v) for u, v, d in graph.edges(data=True) if not d.get("periodic")]
+    periodic_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get("periodic")]
+
+    # Initialize 3D plot
+    fig = plt.figure(figsize=(12, 12))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Draw nodes for each layer separately
+    for node in graph.nodes():
+        x, y, z = pos[node]
+        ax.scatter(x, y, z, color=get_color(elements[node], graph.nodes[node].get("nitrogen_species")), s=20)
+
+    # Draw the regular edges for each layer
+    for u, v in regular_edges:
+        x = [pos[u][0], pos[v][0]]
+        y = [pos[u][1], pos[v][1]]
+        z = [pos[u][2], pos[v][2]]
+        ax.plot(x, y, z, color="black")
+
+    # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+    if visualize_periodic_bonds:
+        for u, v in periodic_edges:
+            x = [pos[u][0], pos[v][0]]
+            y = [pos[u][1], pos[v][1]]
+            z = [pos[u][2], pos[v][2]]
+            ax.plot(x, y, z, color="gray", linestyle="dashed")
+
+    # Add labels if specified
+    if with_labels:
+        for node in graph.nodes():
+            ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+
+    # Add legend
+    unique_colors = set(colors)
+    legend_elements = []
+    for species in NitrogenSpecies:
+        color = get_color("N", species)
+        if color in unique_colors:
+            legend_elements.append(
+                plt.Line2D([0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color)
+            )
+
+    plt.legend(handles=legend_elements, title="Nitrogen Doping Species")
     plt.show()
 
 
