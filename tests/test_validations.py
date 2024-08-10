@@ -12,12 +12,13 @@ class TestGrapheneValidations:
         with pytest.raises(TypeError, match=r"bond_distance must be a float or int, but got str."):
             GrapheneSheet(bond_distance="invalid", sheet_size=(20, 20))
 
-    def test_bond_distance_value_error(self):
+    @pytest.mark.parametrize("invalid_bond_distance", [-1.42, 0])
+    def test_bond_distance_value_error(self, invalid_bond_distance):
         """
         Test that a ValueError is raised when bond_distance is not positive.
         """
-        with pytest.raises(ValueError, match=r"bond_distance must be positive, but got -1.42."):
-            GrapheneSheet(bond_distance=-1.42, sheet_size=(20, 20))
+        with pytest.raises(ValueError, match=rf"bond_distance must be positive, but got {invalid_bond_distance}."):
+            GrapheneSheet(bond_distance=invalid_bond_distance, sheet_size=(20, 20))
 
     @pytest.mark.parametrize(
         "invalid_sheet_size",
@@ -37,7 +38,7 @@ class TestGrapheneValidations:
         invalid_sheet_size : various
             Different invalid values for sheet_size that should trigger a TypeError.
         """
-        with pytest.raises(TypeError, match=r"sheet_size must be a tuple of two positive floats or ints."):
+        with pytest.raises(TypeError, match=r"sheet_size must be a tuple of exactly two positive floats or ints."):
             GrapheneSheet(bond_distance=1.42, sheet_size=invalid_sheet_size)
 
     @pytest.mark.parametrize(
