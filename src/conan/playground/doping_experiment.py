@@ -602,6 +602,11 @@ class GrapheneSheet(Structure2D):
             The size of the graphene sheet in the x and y directions.
         """
         super().__init__()
+
+        # Perform validations
+        self._validate_bond_distance(bond_distance)
+        self._validate_sheet_size(sheet_size)
+
         self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
         self.c_c_bond_angle = 120
@@ -695,6 +700,29 @@ class GrapheneSheet(Structure2D):
             self._update_possible_carbon_atoms()
         return self._possible_carbon_atoms
 
+    @staticmethod
+    def _validate_bond_distance(bond_distance: float):
+        """Validate the bond distance."""
+        if not isinstance(bond_distance, (int, float)):
+            raise TypeError(f"bond_distance must be a float or int, but got {type(bond_distance).__name__}.")
+        if bond_distance <= 0:
+            raise ValueError(f"bond_distance must be positive, but got {bond_distance}.")
+
+    @staticmethod
+    def _validate_sheet_size(sheet_size: Tuple[float, float]):
+        """Validate the sheet size."""
+        if not isinstance(sheet_size, tuple) or not all(isinstance(i, (int, float)) for i in sheet_size):
+            raise TypeError("sheet_size must be a tuple of two positive floats or ints.")
+        if any(s <= 0 for s in sheet_size):
+            raise ValueError(f"All elements of sheet_size must be positive, but got {sheet_size}.")
+
+    def _validate_structure(self):
+        """Validate the structure to ensure it can fit within the given sheet size."""
+        if self.num_cells_x < 1 or self.num_cells_y < 1:
+            raise ValueError(
+                f"Sheet size is too small to fit even a single unit cell. Got sheet size {self.sheet_size}."
+            )
+
     def _update_possible_carbon_atoms(self):
         """Update the list of possible carbon atoms for doping."""
         self._possible_carbon_atoms = [
@@ -710,6 +738,7 @@ class GrapheneSheet(Structure2D):
         """
         Build the graphene sheet structure.
         """
+        self._validate_structure()
         self._build_graphene_sheet()
 
     def _build_graphene_sheet(self):
@@ -1658,68 +1687,6 @@ class GrapheneSheet(Structure2D):
             The stacked graphene structure.
         """
         return StackedGraphene(self, interlayer_spacing, number_of_layers)
-
-
-# class StackedGraphene(Structure3D):
-#     """
-#     Represents a stacked graphene structure.
-#     """
-#
-#     def __init__(self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int):
-#         """
-#         Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, and number of layers.
-#
-#         Parameters
-#         ----------
-#         graphene_sheet : GrapheneSheet
-#             The base graphene sheet to be stacked.
-#         interlayer_spacing : float
-#             The spacing between layers in the z-direction.
-#         number_of_layers : int
-#             The number of layers to stack.
-#         """
-#         super().__init__()
-#         self.graphene_sheet = graphene_sheet
-#         self.interlayer_spacing = interlayer_spacing
-#         self.number_of_layers = number_of_layers
-#         self.layers = []  # List to hold individual GrapheneSheet instances
-#         self.build_structure()
-#
-#     def build_structure(self):
-#         """
-#         Build the stacked graphene structure using the provided sheets and stacking parameters (ABA stacking).
-#         """
-#         original_graph = self.graphene_sheet.graph
-#         interlayer_shift = 1.42  # Fixed x_shift for ABA stacking
-#         original_positions = nx.get_node_attributes(original_graph, "position")
-#
-#         # Convert 2D positions to 3D positions in the original graph if not already done
-#         for node, pos in original_positions.items():
-#             if isinstance(pos, Position2D):
-#                 original_positions[node] = Position3D(pos.x, pos.y, 0.0)
-#         nx.set_node_attributes(original_graph, original_positions, "position")
-#
-#         # Add the original graph as the first layer directly to self.graph
-#         self.graph = original_graph.copy()
-#
-#         # Iterate over the remaining layers
-#         for layer in range(1, self.number_of_layers):  # Start from layer 1
-#             # Calculate the shift for this layer
-#             layer_x_shift = (layer % 2) * interlayer_shift
-#             layer_z_shift = layer * self.interlayer_spacing
-#
-#             # Create a copy of the original graph for this layer
-#             layer_graph = original_graph.copy()
-#
-#             # Update positions for this layer
-#             layer_positions = {}
-#             for node, pos in original_positions.items():
-#                 new_pos = Position3D(pos.x + layer_x_shift, pos.y, pos.z + layer_z_shift)
-#                 layer_positions[node] = new_pos
-#             nx.set_node_attributes(layer_graph, layer_positions, "position")
-#
-#             # Use disjoint_union to combine graphs directly into self.graph
-#             self.graph = nx.disjoint_union(self.graph, layer_graph)
 
 
 class StackedGraphene(Structure3D):
