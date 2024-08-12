@@ -1,6 +1,8 @@
 import copy
+import math
 import random
-import time
+
+# import time
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -1828,13 +1830,144 @@ class StackedGraphene(Structure3D):
             raise IndexError("Layer index out of range.")
 
 
+class CNT(Structure3D):
+    """
+    Represents a carbon nanotube structure.
+    """
+
+    def __init__(self, bond_length: float, tube_length: float, tube_size: int, conformation: str):
+        """
+        Initialize the CarbonNanotube with given parameters.
+
+        Parameters
+        ----------
+        bond_length : float
+            The bond length between carbon atoms in the CNT.
+        tube_length : float
+            The length of the CNT.
+        tube_size : int
+            The size of the CNT, i.e., the number of hexagonal units around the circumference.
+        conformation : str
+            The conformation of the CNT ('armchair' or 'zigzag').
+        """
+        super().__init__()
+        self.bond_length = bond_length
+        self.tube_length = tube_length
+        self.tube_size = tube_size
+        self.conformation = conformation.lower()
+
+        # Build the CNT structure
+        self.build_structure()
+
+    def build_structure(self):
+        """
+        Build the CNT structure based on the given parameters.
+        """
+
+        if self.conformation not in ["armchair", "zigzag"]:
+            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+
+        # Calculate distance and radius based on the bond length
+        distance = self.bond_length
+        hex_d = distance * math.cos(30 * math.pi / 180) * 2
+        symmetry_angle = 360 / self.tube_size
+
+        # Initialize list for tube positions
+        positions_tube = []
+        z_max = 0
+        counter = 0
+
+        if self.conformation == "armchair":
+            angle_carbon_bond = 360 / (self.tube_size * 3)
+            radius = distance / (2 * math.sin((angle_carbon_bond * math.pi / 180) / 2))
+            distx = radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180)
+            disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
+            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
+
+            while z_max < self.tube_length:
+                z_coordinate = zstep * 2 * counter
+
+                for i in range(0, self.tube_size):
+                    angle = symmetry_angle * math.pi / 180 * i
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    positions_tube.append((x, y, z_coordinate))
+
+                    angle = (symmetry_angle * i + angle_carbon_bond) * math.pi / 180
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    positions_tube.append((x, y, z_coordinate))
+
+                    angle = (symmetry_angle * i + angle_carbon_bond * 3 / 2) * math.pi / 180
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    z = zstep + z_coordinate
+                    positions_tube.append((x, y, z))
+
+                    angle = (symmetry_angle * i + angle_carbon_bond * 5 / 2) * math.pi / 180
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    z = zstep + z_coordinate
+                    positions_tube.append((x, y, z))
+
+                z_max = z_coordinate + zstep
+                counter += 1
+
+        elif self.conformation == "zigzag":
+            radius = hex_d / (2 * math.sin((symmetry_angle * math.pi / 180) / 2))
+            distx = radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180)
+            disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
+            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
+
+            while z_max < self.tube_length:
+                z_coordinate = (2 * zstep + distance * 2) * counter
+
+                for i in range(0, self.tube_size):
+                    angle = symmetry_angle * math.pi / 180 * i
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    positions_tube.append((x, y, z_coordinate))
+
+                    angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    z = zstep + z_coordinate
+                    positions_tube.append((x, y, z))
+
+                    angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    z = zstep + distance + z_coordinate
+                    positions_tube.append((x, y, z))
+
+                    angle = symmetry_angle * math.pi / 180 * i
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    z = 2 * zstep + distance + z_coordinate
+                    positions_tube.append((x, y, z))
+
+                z_max = z_coordinate + zstep
+                counter += 1
+
+        # Store positions in the graph
+        for idx, (x, y, z) in enumerate(positions_tube):
+            pos = Position3D(x, y, z)
+            self.graph.add_node(idx, element="C", position=pos)
+
+        # Connect nodes to simulate the bonds
+        for idx in range(len(positions_tube) - 1):
+            self.graph.add_edge(idx, idx + 1, bond_length=self.bond_length)
+
+        # Additional code to connect nodes appropriately in the CNT structure
+
+
 def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
     random.seed(0)
 
-    sheet_size = (5, 5)
+    # sheet_size = (5, 5)
 
     ####################################################################################################################
     # # VERSION 1:
@@ -1886,29 +2019,38 @@ def main():
     # write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    #
+    # # Add individual nitrogen doping only to the first and last layer
+    # start_time = time.time()  # Time the nitrogen doping process
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
-    # Create a graphene sheet
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    ####################################################################################################################
+    # Example of creating a CNT
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
+    # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True)
 
-    # Stack the graphene sheet
-    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-
-    # Add individual nitrogen doping only to the first and last layer
-    start_time = time.time()  # Time the nitrogen doping process
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
-    end_time = time.time()
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the structure to a .xyz file
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure.xyz")
 
 
 if __name__ == "__main__":
