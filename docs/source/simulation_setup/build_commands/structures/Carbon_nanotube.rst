@@ -15,7 +15,7 @@ example: ``tube_length=10.0`` for a 10 Angstrom long tube.
 
 specifies the width of the tube. The arg accepts a single integer ``m`` and creates a carbon nanotube with the
 standard cnt nomenclature cnt(m,m).
-example: ``tube_length=8``
+example: ``tube_size=8``
 
 * ``armchair/zigzag``
 
