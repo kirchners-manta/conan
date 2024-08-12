@@ -1856,26 +1856,25 @@ class CNT(Structure3D):
         self.tube_size = tube_size
         self.conformation = conformation.lower()
 
-        # Build the CNT structure
+        # Build the CNT structure using graph theory
         self.build_structure()
 
     def build_structure(self):
         """
         Build the CNT structure based on the given parameters.
         """
-
         if self.conformation not in ["armchair", "zigzag"]:
             raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
 
-        # Calculate distance and radius based on the bond length
+        # Berechne Abstand und Radius basierend auf der Bindungslänge
         distance = self.bond_length
         hex_d = distance * math.cos(30 * math.pi / 180) * 2
         symmetry_angle = 360 / self.tube_size
 
-        # Initialize list for tube positions
-        positions_tube = []
+        # Initialisiere Variablen
         z_max = 0
         counter = 0
+        # node_index = 0
 
         if self.conformation == "armchair":
             angle_carbon_bond = 360 / (self.tube_size * 3)
@@ -1884,31 +1883,32 @@ class CNT(Structure3D):
             disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
             zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
+            positions = []
             while z_max < self.tube_length:
                 z_coordinate = zstep * 2 * counter
 
-                for i in range(0, self.tube_size):
+                for i in range(self.tube_size):
                     angle = symmetry_angle * math.pi / 180 * i
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
-                    positions_tube.append((x, y, z_coordinate))
+                    positions.append((x, y, z_coordinate))
 
                     angle = (symmetry_angle * i + angle_carbon_bond) * math.pi / 180
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
-                    positions_tube.append((x, y, z_coordinate))
+                    positions.append((x, y, z_coordinate))
 
                     angle = (symmetry_angle * i + angle_carbon_bond * 3 / 2) * math.pi / 180
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
                     z = zstep + z_coordinate
-                    positions_tube.append((x, y, z))
+                    positions.append((x, y, z))
 
                     angle = (symmetry_angle * i + angle_carbon_bond * 5 / 2) * math.pi / 180
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
                     z = zstep + z_coordinate
-                    positions_tube.append((x, y, z))
+                    positions.append((x, y, z))
 
                 z_max = z_coordinate + zstep
                 counter += 1
@@ -1919,46 +1919,341 @@ class CNT(Structure3D):
             disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
             zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
+            positions = []
             while z_max < self.tube_length:
                 z_coordinate = (2 * zstep + distance * 2) * counter
 
-                for i in range(0, self.tube_size):
+                for i in range(self.tube_size):
                     angle = symmetry_angle * math.pi / 180 * i
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
-                    positions_tube.append((x, y, z_coordinate))
+                    positions.append((x, y, z_coordinate))
 
                     angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
                     z = zstep + z_coordinate
-                    positions_tube.append((x, y, z))
+                    positions.append((x, y, z))
 
                     angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
                     z = zstep + distance + z_coordinate
-                    positions_tube.append((x, y, z))
+                    positions.append((x, y, z))
 
                     angle = symmetry_angle * math.pi / 180 * i
                     x = radius * math.cos(angle)
                     y = radius * math.sin(angle)
                     z = 2 * zstep + distance + z_coordinate
-                    positions_tube.append((x, y, z))
+                    positions.append((x, y, z))
 
                 z_max = z_coordinate + zstep
                 counter += 1
 
-        # Store positions in the graph
-        for idx, (x, y, z) in enumerate(positions_tube):
+        # Positionen im Graph speichern und die Knoten verbinden
+        for idx, (x, y, z) in enumerate(positions):
             pos = Position3D(x, y, z)
             self.graph.add_node(idx, element="C", position=pos)
 
-        # Connect nodes to simulate the bonds
-        for idx in range(len(positions_tube) - 1):
+        # Knoten verbinden, um die Bindungen zu simulieren
+        for idx in range(len(positions) - 1):
             self.graph.add_edge(idx, idx + 1, bond_length=self.bond_length)
 
-        # Additional code to connect nodes appropriately in the CNT structure
+        # Zusätzliche Verbindungen zwischen den Einheitszellen
+        for idx in range(0, len(positions) - 4, 4):
+            self.graph.add_edge(idx + 1, idx + 4, bond_length=self.bond_length)
+            self.graph.add_edge(idx + 2, idx + 7, bond_length=self.bond_length)
+
+    # def build_structure(self):
+    #     """
+    #     Build the CNT structure based on the given parameters.
+    #     """
+    #
+    #     if self.conformation not in ["armchair", "zigzag"]:
+    #         raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+    #
+    #     # Calculate distance and radius based on the bond length
+    #     distance = self.bond_length
+    #     hex_d = distance * math.cos(30 * math.pi / 180) * 2
+    #     symmetry_angle = 360 / self.tube_size
+    #
+    #     # Initialize variables
+    #     z_max = 0
+    #     counter = 0
+    #     node_index = 0
+    #     previous_layer = []
+    #
+    #     if self.conformation == "armchair":
+    #         angle_carbon_bond = 360 / (self.tube_size * 3)
+    #         radius = distance / (2 * math.sin((angle_carbon_bond * math.pi / 180) / 2))
+    #         distx = radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180)
+    #         disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
+    #         zstep = (distance ** 2 - distx ** 2 - disty ** 2) ** 0.5
+    #
+    #         while z_max < self.tube_length:
+    #             z_coordinate = zstep * 2 * counter
+    #             current_layer = []
+    #
+    #             for i in range(0, self.tube_size):
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 self._add_node_and_edges(node_index, x, y, z_coordinate)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 self._add_node_and_edges(node_index, x, y, z_coordinate)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond * 3 / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 self._add_node_and_edges(node_index, x, y, z)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond * 5 / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 self._add_node_and_edges(node_index, x, y, z)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #             # Connect the nodes from the current layer to the previous layer correctly
+    #             if previous_layer:
+    #                 for j in range(self.tube_size):
+    #                     self.graph.add_edge(previous_layer[4 * j], current_layer[4 * j + 3],
+    #                                         bond_length=self.bond_length)
+    #                     self.graph.add_edge(previous_layer[4 * j + 1], current_layer[4 * j + 2],
+    #                                         bond_length=self.bond_length)
+    #
+    #             previous_layer = current_layer
+    #             z_max = z_coordinate + zstep
+    #             counter += 1
+    #
+    #     elif self.conformation == "zigzag":
+    #         radius = hex_d / (2 * math.sin((symmetry_angle * math.pi / 180) / 2))
+    #         distx = radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180)
+    #         disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
+    #         zstep = (distance ** 2 - distx ** 2 - disty ** 2) ** 0.5
+    #
+    #         while z_max < self.tube_length:
+    #             z_coordinate = (2 * zstep + distance * 2) * counter
+    #             current_layer = []
+    #
+    #             for i in range(0, self.tube_size):
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 self._add_node_and_edges(node_index, x, y, z_coordinate)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 self._add_node_and_edges(node_index, x, y, z)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + distance + z_coordinate
+    #                 self._add_node_and_edges(node_index, x, y, z)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = 2 * zstep + distance + z_coordinate
+    #                 self._add_node_and_edges(node_index, x, y, z)
+    #                 current_layer.append(node_index)
+    #                 node_index += 1
+    #
+    #             # Connect the nodes from the current layer to the previous layer correctly
+    #             if previous_layer:
+    #                 for j in range(self.tube_size):
+    #                     self.graph.add_edge(previous_layer[4 * j], current_layer[4 * j + 3],
+    #                                         bond_length=self.bond_length)
+    #                     self.graph.add_edge(previous_layer[4 * j + 1], current_layer[4 * j + 2],
+    #                                         bond_length=self.bond_length)
+    #
+    #             previous_layer = current_layer
+    #             z_max = z_coordinate + zstep
+    #             counter += 1
+    #
+    # def _add_node_and_edges(self, node_index, x, y, z):
+    #     """
+    #     Helper method to add a node and its edges to the graph.
+    #
+    #     Parameters
+    #     ----------
+    #     node_index : int
+    #         The index of the node to be added.
+    #     x : float
+    #         The x-coordinate of the node.
+    #     y : float
+    #         The y-coordinate of the node.
+    #     z : float
+    #         The z-coordinate of the node.
+    #     """
+    #     pos = Position3D(x, y, z)
+    #     self.graph.add_node(node_index, element="C", position=pos)
+    #
+    #     # Connect the current node to the previous one to form the bonds
+    #     if node_index > 0:
+    #         self.graph.add_edge(node_index - 1, node_index, bond_length=self.bond_length)
+
+    def plot_structure(self, with_labels=False):
+        """
+        Plot the CNT structure in 3D using matplotlib.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            If True, labels the nodes with their index.
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+
+        pos = nx.get_node_attributes(self.graph, "position")
+        xs, ys, zs = [], [], []
+
+        for node in self.graph.nodes():
+            p = pos[node]
+            xs.append(p.x)
+            ys.append(p.y)
+            zs.append(p.z)
+
+        xs = np.array(xs)
+        ys = np.array(ys)
+        zs = np.array(zs)
+
+        ax.scatter(xs, ys, zs, c="r", marker="o")
+
+        for edge in self.graph.edges():
+            p1 = pos[edge[0]]
+            p2 = pos[edge[1]]
+            ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], color="b")
+
+        # Autoscale the plot based on the positions
+        ax.auto_scale_xyz(xs, ys, zs)
+
+        if with_labels:
+            for node, (x, y, z) in zip(self.graph.nodes(), zip(xs, ys, zs)):
+                ax.text(x, y, z, s=str(node), fontsize=10)
+
+        plt.show()
+
+    # def build_structure(self):
+    #     """
+    #     Build the CNT structure based on the given parameters.
+    #     """
+    #
+    #     if self.conformation not in ["armchair", "zigzag"]:
+    #         raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+    #
+    #     # Calculate distance and radius based on the bond length
+    #     distance = self.bond_length
+    #     hex_d = distance * math.cos(30 * math.pi / 180) * 2
+    #     symmetry_angle = 360 / self.tube_size
+    #
+    #     # Initialize list for tube positions
+    #     positions_tube = []
+    #     z_max = 0
+    #     counter = 0
+    #
+    #     if self.conformation == "armchair":
+    #         angle_carbon_bond = 360 / (self.tube_size * 3)
+    #         radius = distance / (2 * math.sin((angle_carbon_bond * math.pi / 180) / 2))
+    #         distx = radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180)
+    #         disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
+    #         zstep = (distance**2 - distx**2 - disty**2) ** 0.5
+    #
+    #         while z_max < self.tube_length:
+    #             z_coordinate = zstep * 2 * counter
+    #
+    #             for i in range(0, self.tube_size):
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 positions_tube.append((x, y, z_coordinate))
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 positions_tube.append((x, y, z_coordinate))
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond * 3 / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 positions_tube.append((x, y, z))
+    #
+    #                 angle = (symmetry_angle * i + angle_carbon_bond * 5 / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 positions_tube.append((x, y, z))
+    #
+    #             z_max = z_coordinate + zstep
+    #             counter += 1
+    #
+    #     elif self.conformation == "zigzag":
+    #         radius = hex_d / (2 * math.sin((symmetry_angle * math.pi / 180) / 2))
+    #         distx = radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180)
+    #         disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
+    #         zstep = (distance**2 - distx**2 - disty**2) ** 0.5
+    #
+    #         while z_max < self.tube_length:
+    #             z_coordinate = (2 * zstep + distance * 2) * counter
+    #
+    #             for i in range(0, self.tube_size):
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 positions_tube.append((x, y, z_coordinate))
+    #
+    #                 angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + z_coordinate
+    #                 positions_tube.append((x, y, z))
+    #
+    #                 angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = zstep + distance + z_coordinate
+    #                 positions_tube.append((x, y, z))
+    #
+    #                 angle = symmetry_angle * math.pi / 180 * i
+    #                 x = radius * math.cos(angle)
+    #                 y = radius * math.sin(angle)
+    #                 z = 2 * zstep + distance + z_coordinate
+    #                 positions_tube.append((x, y, z))
+    #
+    #             z_max = z_coordinate + zstep
+    #             counter += 1
+    #
+    #     # Store positions in the graph
+    #     for idx, (x, y, z) in enumerate(positions_tube):
+    #         pos = Position3D(x, y, z)
+    #         self.graph.add_node(idx, element="C", position=pos)
+    #
+    #     # Connect nodes to simulate the bonds
+    #     for idx in range(len(positions_tube) - 1):
+    #         self.graph.add_edge(idx, idx + 1, bond_length=self.bond_length)
+    #
+    #     # Additional code to connect nodes appropriately in the CNT structure
 
 
 def main():
@@ -2045,9 +2340,9 @@ def main():
 
     ####################################################################################################################
     # Example of creating a CNT
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
     # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True)
+    cnt.plot_structure(with_labels=True)
 
     # Save the CNT structure to a file
     write_xyz(cnt.graph, "CNT_structure.xyz")
