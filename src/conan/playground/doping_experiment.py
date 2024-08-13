@@ -1874,7 +1874,6 @@ class CNT(Structure3D):
         # Initialisiere Variablen
         z_max = 0
         counter = 0
-        # node_index = 0
 
         if self.conformation == "armchair":
             angle_carbon_bond = 360 / (self.tube_size * 3)
@@ -1950,14 +1949,16 @@ class CNT(Structure3D):
                 z_max = z_coordinate + zstep
                 counter += 1
 
-        # Positionen im Graph speichern und die Knoten verbinden
+        # Positionen im Graph speichern
         for idx, (x, y, z) in enumerate(positions):
             pos = Position3D(x, y, z)
             self.graph.add_node(idx, element="C", position=pos)
 
-        # Knoten verbinden, um die Bindungen zu simulieren
-        for idx in range(len(positions) - 1):
+        # Interne Bindungen innerhalb der Einheitszellen
+        for idx in range(0, len(positions), 4):
             self.graph.add_edge(idx, idx + 1, bond_length=self.bond_length)
+            self.graph.add_edge(idx + 1, idx + 2, bond_length=self.bond_length)
+            self.graph.add_edge(idx + 2, idx + 3, bond_length=self.bond_length)
 
         # Zusätzliche Verbindungen zwischen den Einheitszellen
         for idx in range(0, len(positions) - 4, 4):
