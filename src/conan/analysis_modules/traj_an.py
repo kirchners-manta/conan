@@ -70,7 +70,7 @@ def traj_chunk_info(id_frame, args):
 
 
 # MAIN
-def analysis_opt(maindict) -> None:
+def analysis_opt(traj_file, molecules, maindict) -> None:
 
     # id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
     CNT_centers = maindict["CNT_centers"]
@@ -83,11 +83,11 @@ def analysis_opt(maindict) -> None:
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(maindict)
+        generating_pictures(traj_file, maindict)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
-            trajectory_analysis(maindict)
+            trajectory_analysis(traj_file, molecules, maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -96,11 +96,10 @@ def analysis_opt(maindict) -> None:
 
 
 # Generating pictures.
-def generating_pictures(maindict) -> None:
+def generating_pictures(traj_file, maindict) -> None:
 
-    id_frame = maindict["id_frame"]
+    id_frame = traj_file.frame0
     CNT_centers = maindict["CNT_centers"]
-    box_size = maindict["box_size"]
     args = maindict["args"]
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
@@ -170,41 +169,41 @@ def generating_pictures(maindict) -> None:
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"]]
+                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
 
                 elif add_liquid2 == 2:
-                    # Do the molecule recognition.
-                    ddict.printLog("-> Molecule recognition.")
-                    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
-                    id_frame = id_frame.drop(["Charge", "Label", "CNT"], axis=1)
+                    traj_file.frame0 = traj_file.frame0.drop(["Charge", "CNT"], axis=1)
+                    print(traj_file.frame0)
+                    
                     # Add the Molecule column to the CNT_atoms_pic dataframe.
                     CNT_atoms_pic["Molecule"] = np.nan
-                    # Scan the id_frame and add all atoms which are inside the tube to the tube_atoms dataframe.
-                    for index, row in id_frame.iterrows():
+                    print(CNT_atoms_pic)
+                    # Scan the traj_file.frame0 and add all atoms which are inside the tube to the tube_atoms dataframe.
+                    for index, row in traj_file.frame0.iterrows():
                         if (
                             row["Struc"] == "Liquid"
                             and row["z"] <= CNT_atoms_pic["z"].max()
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Molecule"]]
+                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
 
                     # List the molecules which are inside the tube.
                     mol_list = []
                     mol_list.append(CNT_atoms_pic["Molecule"].unique())
-                    tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Molecule"])
+                    tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Label", "Species", "Molecule"])
                     mol_list = mol_list[0]
                     # Scan the id_frame and add all atoms which are in the mol_list to the tube_atoms_mol dataframe.
                     for index, row in id_frame.iterrows():
                         if row["Molecule"] in mol_list:
                             # Add the row to the tube_atoms dataframe.
-                            tube_atoms_mol.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Molecule"]]
+                            tube_atoms_mol.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
                     # Append the tube_atoms_mol dataframe to the tube_atoms_pic dataframe.
                     CNT_atoms_pic = pd.concat([CNT_atoms_pic, tube_atoms_mol], ignore_index=True)
 
                     # Finally remove all duplicates from the tube_atoms_pic dataframe.
                     CNT_atoms_pic = CNT_atoms_pic.drop_duplicates(
-                        subset=["Element", "x", "y", "z", "Molecule"], keep="first"
+                        subset=["Element", "x", "y", "z", "Label", "Species", "Molecule"], keep="first"
                     )
 
             else:
@@ -232,7 +231,7 @@ def generating_pictures(maindict) -> None:
 
 
 # Analysis of the trajectory.
-def trajectory_analysis(inputdict) -> None:
+def trajectory_analysis(traj_file, molecules, inputdict) -> None:
 
     id_frame = inputdict["id_frame"]
     box_size = inputdict["box_size"]
@@ -255,14 +254,6 @@ def trajectory_analysis(inputdict) -> None:
         ddict.printLog("-> The analysis you entered is not known.")
         sys.exit(1)
     ddict.printLog("")
-
-    # MOLECULAR RECOGNITION
-    # Perform the molecule recognition by loading the module molidentifier.
-    if not inputdict["unique_molecule_frame"].empty:
-        unique_molecule_frame = inputdict["unique_molecule_frame"]
-
-    else:
-        id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
 
@@ -325,7 +316,7 @@ def trajectory_analysis(inputdict) -> None:
 
     maindict = inputdict
     maindict["counter"] = counter
-    maindict["unique_molecule_frame"] = unique_molecule_frame
+    maindict["unique_molecule_frame"] = molecules.unique_molecule_frame
     maindict["CNT_atoms"] = CNT_atoms
     maindict["maxdisp_atom_row"] = None
     maindict["maxdisp_atom_dist"] = 0
