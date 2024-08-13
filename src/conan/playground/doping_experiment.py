@@ -1803,7 +1803,9 @@ class StackedGraphene(Structure3D):
         for sheet in self.graphene_sheets[1:]:
             self.graph = nx.disjoint_union(self.graph, sheet.graph)
 
-    def add_nitrogen_doping_to_layer(self, layer_index: int, total_percentage: float):
+    def add_nitrogen_doping_to_layer(
+        self, layer_index: int, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = True
+    ):
         """
         Add nitrogen doping to a specific layer in the stacked graphene structure.
 
@@ -1811,15 +1813,22 @@ class StackedGraphene(Structure3D):
         ----------
         layer_index : int
             The index of the layer to dope.
-        total_percentage : float
-            The total percentage of carbon atoms to replace with nitrogen atoms.
+        total_percentage : float, optional
+            The total percentage of carbon atoms to replace with nitrogen atoms. Default is 10 if not specified.
+        percentages : dict, optional
+            A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
+            values and values should be the percentages for the corresponding species.
+        adjust_positions : bool, optional
+            Whether to adjust the positions of atoms after doping. Default is True.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
             # Convert to 2D before doping
             toggle_dimension(self.graphene_sheets[layer_index].graph)
 
             # Perform the doping
-            self.graphene_sheets[layer_index].add_nitrogen_doping(total_percentage=total_percentage)
+            self.graphene_sheets[layer_index].add_nitrogen_doping(
+                total_percentage=total_percentage, percentages=percentages, adjust_positions=adjust_positions
+            )
 
             # Convert back to 3D after doping
             toggle_dimension(self.graphene_sheets[layer_index].graph)
