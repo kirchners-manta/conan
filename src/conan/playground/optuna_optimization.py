@@ -390,9 +390,10 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
 
 
 def total_energy_correctness_check(trial):
+    random.seed(0)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = 23.359776202184758
     graphene.k_outer_bond = 0.014112166829508662
     graphene.k_inner_angle = 79.55711394238168
@@ -416,6 +417,8 @@ def total_energy_correctness_check(trial):
 
 
 def objective_total_energy_pyridinic_4(trial):
+    random.seed(0)
+
     # Sample k_inner and k_outer
     k_inner_bond = trial.suggest_float("k_inner_bond", 1.0, 1000.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 1.0, 1000.0, log=True)
@@ -440,6 +443,8 @@ def objective_total_energy_pyridinic_4(trial):
 
 
 def objective_total_energy_all_structures(trial):
+    random.seed(0)
+
     # Sample k_inner and k_outer
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
@@ -464,6 +469,8 @@ def objective_total_energy_all_structures(trial):
 
 
 def objective_combined_pyridinic_4(trial):
+    random.seed(0)
+
     # Sample k_inner and k_outer
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
@@ -493,6 +500,8 @@ def objective_combined_pyridinic_4(trial):
 
 
 def objective_combined_all_structures(trial):
+    random.seed(0)
+
     # Sample k_inner and k_outer
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
@@ -521,7 +530,65 @@ def objective_combined_all_structures(trial):
     return objective_value
 
 
+def objective_bond_angle_accuracy_pyridinic_4(trial):
+    random.seed(0)
+
+    # Sample k_inner and k_outer
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
+
+    # Create Graphene instance and set k_inner_bond and k_outer_bond
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    # graphene.k_outer_angle = k_outer_angle
+
+    # Add nitrogen doping to the graphene sheet
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+
+    # Calculate bond and angle accuracy within cycles
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(graphene)
+
+    # Combine objectives
+    objective_value = bond_accuracy + angle_accuracy
+
+    return objective_value
+
+
+def objective_bond_angle_accuracy_all_structures(trial):
+    random.seed(0)
+
+    # Sample k_inner and k_outer
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
+
+    # Create Graphene instance and set k_inner_bond and k_outer_bond
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene.k_inner_bond = k_inner_bond
+    graphene.k_outer_bond = k_outer_bond
+    graphene.k_inner_angle = k_inner_angle
+    # graphene.k_outer_angle = k_outer_angle
+
+    # Add nitrogen doping to the graphene sheet
+    graphene.add_nitrogen_doping(total_percentage=15)
+
+    # Calculate bond and angle accuracy within cycles
+    bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(graphene)
+
+    # Combine objectives
+    objective_value = bond_accuracy + angle_accuracy
+
+    return objective_value
+
+
 def objective_total_energy_pyridinic_4_with_outer_angles(trial):
+    random.seed(0)
+
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
@@ -540,6 +607,8 @@ def objective_total_energy_pyridinic_4_with_outer_angles(trial):
 
 
 def objective_total_energy_all_structures_with_outer_angles(trial):
+    random.seed(0)
+
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
@@ -558,6 +627,8 @@ def objective_total_energy_all_structures_with_outer_angles(trial):
 
 
 def objective_combined_pyridinic_4_with_outer_angles(trial):
+    random.seed(0)
+
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
@@ -579,6 +650,8 @@ def objective_combined_pyridinic_4_with_outer_angles(trial):
 
 
 def objective_combined_all_structures_with_outer_angles(trial):
+    random.seed(0)
+
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
@@ -639,7 +712,7 @@ def save_study_visualizations(study, results_dir):
 
 
 # Conducting and saving multiple studies
-def conduct_study(objective_function, study_name, n_trials=200):
+def conduct_study(objective_function, study_name, n_trials=100):
     study = optuna.create_study(direction="minimize")
     study.optimize(objective_function, n_trials=n_trials)
 
@@ -655,40 +728,47 @@ def conduct_study(objective_function, study_name, n_trials=200):
 
 # Example usage
 if __name__ == "__main__":
-    random.seed(0)
+    # random.seed(0)
 
     os.makedirs("optuna_results", exist_ok=True)
 
-    # Conduct study for total energy with Pyridinic_4
-    conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
-
-    # Conduct study for total energy with all structures
-    conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
-
-    # Conduct study for combined objective with Pyridinic_4
-    conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
-
-    # Conduct study for combined objective with all structures
-    conduct_study(objective_combined_all_structures, "combined_all_structures")
-
-    # Conduct study for total energy with Pyridinic_4 including outer angles
-    conduct_study(
-        objective_total_energy_pyridinic_4_with_outer_angles, "total_energy_pyridinic_4_including_outer_angles"
-    )
-
-    # Conduct study for total energy with all structures including outer angles
-    conduct_study(
-        objective_total_energy_all_structures_with_outer_angles, "total_energy_all_structures_including_outer_angles"
-    )
-
-    # Conduct study for combined objective with Pyridinic_4 including outer angles
-    conduct_study(objective_combined_pyridinic_4_with_outer_angles, "combined_pyridinic_4_including_outer_angles")
-
-    # Conduct study for combined objective with all structures including outer angles
-    conduct_study(objective_combined_all_structures_with_outer_angles, "combined_all_structures_including_outer_angles")
+    # # Conduct study for total energy with Pyridinic_4
+    # conduct_study(objective_total_energy_pyridinic_4, "total_energy_pyridinic_4")
+    #
+    # # Conduct study for total energy with all structures
+    # conduct_study(objective_total_energy_all_structures, "total_energy_all_structures")
+    #
+    # # Conduct study for combined objective with Pyridinic_4
+    # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4")
+    #
+    # # Conduct study for combined objective with all structures
+    # conduct_study(objective_combined_all_structures, "combined_all_structures")
+    #
+    # # Conduct study for total energy with Pyridinic_4 including outer angles
+    # conduct_study(
+    #     objective_total_energy_pyridinic_4_with_outer_angles, "total_energy_pyridinic_4_including_outer_angles"
+    # )
+    #
+    # # Conduct study for total energy with all structures including outer angles
+    # conduct_study(
+    #     objective_total_energy_all_structures_with_outer_angles, "total_energy_all_structures_including_outer_angles"
+    # )
+    #
+    # # Conduct study for combined objective with Pyridinic_4 including outer angles
+    # conduct_study(objective_combined_pyridinic_4_with_outer_angles, "combined_pyridinic_4_including_outer_angles")
+    #
+    # # Conduct study for combined objective with all structures including outer angles
+    # conduct_study(objective_combined_all_structures_with_outer_angles,
+    # "combined_all_structures_including_outer_angles")
 
     # # Conduct study for combined objective with Pyridinic_4
     # conduct_study(objective_combined_pyridinic_4, "combined_pyridinic_4_test", n_trials=2)
 
     # # Validate correctness of the optimization objectives
     # total_energy_correctness_check(1)
+
+    # Conduct study for bond and angle accuracy with Pyridinic_4
+    conduct_study(objective_bond_angle_accuracy_pyridinic_4, "bond_angle_accuracy_pyridinic_4", n_trials=100)
+
+    # Conduct study for bond and angle accuracy with all structures
+    conduct_study(objective_bond_angle_accuracy_all_structures, "bond_angle_accuracy_all_structures", n_trials=100)
