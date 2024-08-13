@@ -2088,7 +2088,7 @@ class CNT(Structure3D):
                     z = 2 * zstep + distance + z_coordinate
                     positions.append((x, y, z))
 
-                z_max = z_coordinate + zstep
+                z_max = z_coordinate + 2 * zstep + distance * 2
                 counter += 1
 
         # Store positions in the graph structure
@@ -2291,7 +2291,7 @@ def main():
 
     ####################################################################################################################
     # Example of creating a CNT
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True)
 
