@@ -74,7 +74,7 @@ class TestDopingValidations:
         """
         Test that add_nitrogen_doping works with valid inputs.
         """
-        # Warnungen abfangen und ignorieren
+        # Ignore UserWarnings for this test
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             try:

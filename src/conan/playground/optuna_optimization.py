@@ -423,7 +423,7 @@ def objective_total_energy_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -447,7 +447,7 @@ def objective_total_energy_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -471,7 +471,7 @@ def objective_combined_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -500,7 +500,7 @@ def objective_combined_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -527,7 +527,7 @@ def objective_total_energy_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -545,7 +545,7 @@ def objective_total_energy_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -563,7 +563,7 @@ def objective_combined_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -584,7 +584,7 @@ def objective_combined_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
