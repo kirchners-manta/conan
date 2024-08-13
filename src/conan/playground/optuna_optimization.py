@@ -393,14 +393,14 @@ def total_energy_correctness_check(trial):
     random.seed(0)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = 23.359776202184758
     graphene.k_outer_bond = 0.014112166829508662
     graphene.k_inner_angle = 79.55711394238168
     graphene.k_outer_angle = 0.019431203948375452
 
     # Add nitrogen doping to the graphene sheet
-    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
 
     # Calculate the total energy of the graphene sheet
     total_energy, graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
@@ -426,14 +426,14 @@ def objective_total_energy_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3}, adjust_positions=False)
 
     # Calculate the total energy of the graphene sheet
     total_energy, _ = calculate_minimal_total_energy(graphene)
@@ -452,14 +452,14 @@ def objective_total_energy_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
-    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
 
     # Calculate the total energy of the graphene sheet
     total_energy, _ = calculate_minimal_total_energy(graphene)
@@ -478,14 +478,14 @@ def objective_combined_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3}, adjust_positions=False)
 
     # Calculate the total energy of the graphene sheet
     total_energy, updated_graphene = calculate_minimal_total_energy(graphene)
@@ -509,14 +509,14 @@ def objective_combined_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     # graphene.k_outer_angle = k_outer_angle
 
     # Add nitrogen doping to the graphene sheet
-    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
 
     # Calculate the total energy of the graphene sheet
     total_energy, updated_graphene = calculate_minimal_total_energy(graphene)
@@ -594,13 +594,13 @@ def objective_total_energy_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     graphene.k_outer_angle = k_outer_angle
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3}, adjust_positions=False)
 
     total_energy, _ = calculate_minimal_total_energy(graphene, include_outer_angles=True)
     return total_energy
@@ -614,13 +614,13 @@ def objective_total_energy_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     graphene.k_outer_angle = k_outer_angle
 
-    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
 
     total_energy, _ = calculate_minimal_total_energy(graphene, include_outer_angles=True)
     return total_energy
@@ -634,13 +634,13 @@ def objective_combined_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     graphene.k_outer_angle = k_outer_angle
 
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3})
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 3}, adjust_positions=False)
 
     total_energy, updated_graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
     bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)
@@ -657,13 +657,13 @@ def objective_combined_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20), adjust_positions=False)
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
     graphene.k_outer_angle = k_outer_angle
 
-    graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
 
     total_energy, updated_graphene = calculate_minimal_total_energy(graphene, include_outer_angles=True)
     bond_accuracy, angle_accuracy = calculate_bond_angle_accuracy(updated_graphene)

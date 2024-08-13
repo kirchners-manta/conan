@@ -592,12 +592,7 @@ class GrapheneSheet(Structure2D):
     Represents a graphene sheet structure and manages nitrogen doping within the sheet.
     """
 
-    def __init__(
-        self,
-        bond_distance: Union[float, int],
-        sheet_size: Union[Tuple[float, float], Tuple[int, int]],
-        adjust_positions: bool = True,
-    ):
+    def __init__(self, bond_distance: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
         """
         Initialize the GrapheneGraph with given bond distance, sheet size, and whether to adjust positions after doping.
 
@@ -607,8 +602,6 @@ class GrapheneSheet(Structure2D):
             The bond distance between carbon atoms in the graphene sheet.
         sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheet in the x and y directions.
-        adjust_positions : bool, optional
-            Whether to adjust the positions of atoms after doping. Default is True.
 
         Raises
         ------
@@ -637,8 +630,6 @@ class GrapheneSheet(Structure2D):
         """The spring constant for angles within the doping structure."""
         self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure."""
-        self.adjust_positions = adjust_positions
-        """Whether to adjust the positions of atoms after doping."""
 
         # Build the initial graphene sheet structure
         self.build_structure()
@@ -975,7 +966,9 @@ class GrapheneSheet(Structure2D):
         atom_list.remove(atom_id)  # Remove the selected atom ID from the list
         return atom_id  # Return the selected atom ID
 
-    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+    def add_nitrogen_doping(
+        self, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = True
+    ):
         """
         Add nitrogen doping to the graphene sheet.
 
@@ -990,6 +983,8 @@ class GrapheneSheet(Structure2D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        adjust_positions : bool, optional
+            Whether to adjust the positions of atoms after doping. Default is True.
 
         Raises
         ------
@@ -1100,7 +1095,7 @@ class GrapheneSheet(Structure2D):
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if self.adjust_positions and any(self.doping_structures.structures):
+        if adjust_positions and any(self.doping_structures.structures):
             self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
