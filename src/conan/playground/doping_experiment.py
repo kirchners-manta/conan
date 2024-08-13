@@ -2021,11 +2021,17 @@ class CNT(Structure3D):
         # Set equal aspect ratio for all axes
         ax.set_box_aspect([1, 1, 1])
 
+        # Ensuring that all axes are scaled equally
+        max_range = np.array([xs.max() - xs.min(), ys.max() - ys.min(), zs.max() - zs.min()]).max()
+        mid_x = (xs.max() + xs.min()) * 0.5
+        mid_y = (ys.max() + ys.min()) * 0.5
+        mid_z = (zs.max() + zs.min()) * 0.5
+        ax.set_xlim(mid_x - max_range / 2, mid_x + max_range / 2)
+        ax.set_ylim(mid_y - max_range / 2, mid_y + max_range / 2)
+        ax.set_zlim(mid_z - max_range / 2, mid_z + max_range / 2)
+
         # Optional: Change the perspective
         ax.view_init(elev=20, azim=30)
-
-        # Autoscale the plot based on the positions
-        ax.auto_scale_xyz(xs, ys, zs)
 
         if with_labels:
             for node, (x, y, z) in zip(self.graph.nodes(), zip(xs, ys, zs)):
