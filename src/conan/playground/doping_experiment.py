@@ -1874,6 +1874,7 @@ class CNT(Structure3D):
         # Initialisiere Variablen
         z_max = 0
         counter = 0
+        positions = []
 
         if self.conformation == "armchair":
             angle_carbon_bond = 360 / (self.tube_size * 3)
@@ -1882,7 +1883,6 @@ class CNT(Structure3D):
             disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
             zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
-            positions = []
             while z_max < self.tube_length:
                 z_coordinate = zstep * 2 * counter
 
@@ -1918,7 +1918,6 @@ class CNT(Structure3D):
             disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
             zstep = (distance**2 - distx**2 - disty**2) ** 0.5
 
-            positions = []
             while z_max < self.tube_length:
                 z_coordinate = (2 * zstep + distance * 2) * counter
 
@@ -1960,10 +1959,32 @@ class CNT(Structure3D):
             self.graph.add_edge(idx + 1, idx + 2, bond_length=self.bond_length)
             self.graph.add_edge(idx + 2, idx + 3, bond_length=self.bond_length)
 
-        # Zusätzliche Verbindungen zwischen den Einheitszellen
+        # Zusätzliche Verbindungen zwischen den Einheitszellen nur innerhalb derselben Ebene
         for idx in range(0, len(positions) - 4, 4):
-            self.graph.add_edge(idx + 1, idx + 4, bond_length=self.bond_length)
-            self.graph.add_edge(idx + 2, idx + 7, bond_length=self.bond_length)
+            if positions[idx][2] == positions[idx + 4][2]:  # Verbindungen nur innerhalb derselben z-Ebene
+                self.graph.add_edge(idx + 1, idx + 4, bond_length=self.bond_length)
+                self.graph.add_edge(idx + 2, idx + 7, bond_length=self.bond_length)
+
+        # Abschluss der Ebenen-Verbindungen, um den Kreis zu schließen
+        for idx in range(0, len(positions), 4 * self.tube_size):
+            # Verbinde den vorletzten und vorvorletzten Knoten der letzten Einheitszelle
+            # mit dem ersten und letzten Knoten der ersten Einheitszelle
+            first_idx_first_cell_of_cycle = idx
+            first_idx_last_cell_of_cycle = idx + 4 * self.tube_size - 4
+
+            self.graph.add_edge(
+                first_idx_last_cell_of_cycle + 1, first_idx_first_cell_of_cycle, bond_length=self.bond_length
+            )  # vorletzter Knoten mit dem ersten Knoten
+            self.graph.add_edge(
+                first_idx_last_cell_of_cycle + 2, first_idx_first_cell_of_cycle + 3, bond_length=self.bond_length
+            )  # letzter Knoten mit dem letzten Knoten
+
+        # Verbindungen zwischen den Ebenen herstellen
+        for idx in range(0, len(positions) - 4 * self.tube_size, 4 * self.tube_size):
+            for i in range(self.tube_size):
+                # Verbindung des letzten Knotens einer Zelle in der aktuellen Ebene
+                # mit dem ersten Knoten der entsprechenden Zelle in der darüberliegenden Ebene
+                self.graph.add_edge(idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size, bond_length=self.bond_length)
 
     # def build_structure(self):
     #     """
