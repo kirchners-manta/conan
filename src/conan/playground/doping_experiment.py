@@ -37,6 +37,57 @@ from conan.playground.graph_utils import (
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
 
 
+class AtomLabeler:
+    def __init__(self, graph: nx.Graph, doping_structures: Optional["DopingStructureCollection"] = None):
+        self.graph = graph
+        """The networkx graph representing the structure of the material (e.g., graphene sheet)."""
+        self.doping_structures = doping_structures
+        """The collection of doping structures within the structure."""
+
+    def label_atoms(self):
+        """
+        Label the atoms in the graphene structure based on their species.
+
+        This method assigns labels to atoms based on the doping structures they belong to.
+        Atoms that are part of a doping structure get labeled according to their specific nitrogen or carbon species.
+        All other carbon atoms are labeled as "CG" for standard graphene carbon.
+        """
+        if not self.doping_structures:
+            # Label all atoms as "CG" if there are no doping structures
+            for node in self.graph.nodes:
+                self.graph.nodes[node]["label"] = "CG"
+            return
+
+        # Loop through each doping structure and label the atoms
+        for structure in self.doping_structures.structures:
+            species = structure.species  # Get the nitrogen species (e.g., PYRIDINIC_1, PYRIDINIC_2, etc.)
+
+            # Determine the appropriate labels for nitrogen and carbon atoms within the doping structure
+            if species == NitrogenSpecies.GRAPHITIC:
+                nitrogen_label = "NG"
+                # Label nitrogen atom in GRAPHITIC species
+                for atom in structure.nitrogen_atoms:
+                    self.graph.nodes[atom]["label"] = nitrogen_label
+            else:
+                # For pyridinic species, use NP1, NP2, NP3, NP4 for nitrogen, and CP1, CP2, CP3, CP4 for carbon
+                nitrogen_label = f"NP{species.value[-1]}"
+                carbon_label = f"CP{species.value[-1]}"
+
+                # Label nitrogen atoms within the doping structure
+                for atom in structure.nitrogen_atoms:
+                    self.graph.nodes[atom]["label"] = nitrogen_label
+
+                # Label carbon atoms in the cycle of the doping structure
+                for atom in structure.cycle:
+                    if atom not in structure.nitrogen_atoms:
+                        self.graph.nodes[atom]["label"] = carbon_label
+
+        # Label remaining carbon atoms as "CG"
+        for node in self.graph.nodes:
+            if "label" not in self.graph.nodes[node]:  # If the node hasn't been labeled yet
+                self.graph.nodes[node]["label"] = "CG"
+
+
 @dataclass
 class DopingStructure:
     """
@@ -2096,10 +2147,53 @@ def main():
     # random.seed(3)
     random.seed(0)
 
-    # sheet_size = (5, 5)
+    ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET
+    # sheet_size = (10, 10)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # # VERSION 1:
+    # # CREATE A GRAPHENE SHEET AND LABEL THE ATOMS
+    # sheet_size = (10, 10)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet.xyz")
+
+    # ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+
+    ####################################################################################################################
+    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Label atoms before writing to XYZ file
+    labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    labeler.label_atoms()
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+
+    ####################################################################################################################
+    # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
     #
     # # Create a graphene sheet
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
