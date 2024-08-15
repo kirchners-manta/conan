@@ -169,12 +169,20 @@ def generating_pictures(traj_file, maindict) -> None:
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
+                            CNT_atoms_pic.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
 
                 elif add_liquid2 == 2:
                     traj_file.frame0 = traj_file.frame0.drop(["Charge", "CNT"], axis=1)
                     print(traj_file.frame0)
-                    
+
                     # Add the Molecule column to the CNT_atoms_pic dataframe.
                     CNT_atoms_pic["Molecule"] = np.nan
                     print(CNT_atoms_pic)
@@ -186,7 +194,15 @@ def generating_pictures(traj_file, maindict) -> None:
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
+                            CNT_atoms_pic.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
 
                     # List the molecules which are inside the tube.
                     mol_list = []
@@ -197,7 +213,15 @@ def generating_pictures(traj_file, maindict) -> None:
                     for index, row in id_frame.iterrows():
                         if row["Molecule"] in mol_list:
                             # Add the row to the tube_atoms dataframe.
-                            tube_atoms_mol.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Label"], row["Species"], row["Molecule"]]
+                            tube_atoms_mol.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
                     # Append the tube_atoms_mol dataframe to the tube_atoms_pic dataframe.
                     CNT_atoms_pic = pd.concat([CNT_atoms_pic, tube_atoms_mol], ignore_index=True)
 
@@ -234,7 +258,6 @@ def generating_pictures(traj_file, maindict) -> None:
 def trajectory_analysis(traj_file, molecules, inputdict) -> None:
 
     id_frame = inputdict["id_frame"]
-    box_size = inputdict["box_size"]
     args = inputdict["args"]
 
     # Analysis choice.

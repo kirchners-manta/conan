@@ -80,7 +80,7 @@ def main():
 
         molecules = traj_info.molecule_recognition2(traj_file, args)
 
-        #append the molecule.ouputdict entries to the maindict
+        # append the molecule.ouputdict entries to the maindict
         maindict.update(molecules.outputdict)
 
         from conan.analysis_modules import traj_an
