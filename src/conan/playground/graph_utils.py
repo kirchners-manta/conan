@@ -281,25 +281,19 @@ def write_xyz(graph: nx.Graph, filename: str):
     filename : str
         The name of the XYZ file to write to.
     """
+
     with open(filename, "w") as file:
-        # Write the number of atoms (nodes) in the graph
         num_atoms = len(graph.nodes)
         file.write(f"{num_atoms}\n")
         file.write("Atoms\n")
 
         for node in graph.nodes(data=True):
-            # Extract the element and position for each node
-            element = node[1].get("element", "X")  # Default to "X" if no element is specified
-            pos: Union[Position2D, Position3D] = node[1]["position"]
+            label = node[1].get("label", node[1].get("element", "X"))  # Fallback to 'X' if no element or label is set
+            pos = node[1]["position"]
 
-            # Determine the z-coordinate
-            if isinstance(pos, Position2D):
-                z = 0.0
-            else:
-                z = pos.z
+            z = 0.0 if isinstance(pos, Position2D) else pos.z
 
-            # Write the atom information to the file
-            file.write(f"{element} {pos.x:.3f} {pos.y:.3f} {z:.3f} 0.000\n")
+            file.write(f"{label} {pos.x:.3f} {pos.y:.3f} {z:.3f}\n")
 
 
 def print_warning(message: str):
