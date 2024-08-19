@@ -1783,6 +1783,12 @@ class GrapheneSheet(Structure2D):
         -------
         StackedGraphene
             The stacked graphene structure.
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
         """
         return StackedGraphene(self, interlayer_spacing, number_of_layers, stacking_type)
 
@@ -1809,15 +1815,36 @@ class StackedGraphene(Structure3D):
             The number of layers to stack.
         stacking_type : str
             The type of stacking to use ('ABA' or 'ABC').
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
         """
         super().__init__()
+
+        # Validate interlayer_spacing
+        if not isinstance(interlayer_spacing, (int, float)) or interlayer_spacing <= 0:
+            raise ValueError(f"interlayer_spacing must be positive number, but got {interlayer_spacing}.")
+
+        # Validate number_of_layers
+        if not isinstance(number_of_layers, int) or number_of_layers <= 0:
+            raise ValueError(f"number_of_layers must be a positive integer, but got {number_of_layers}.")
+
+        # Validate stacking_type after converting it to uppercase
+        self.stacking_type = stacking_type.upper()
+        """The type of stacking to use ('ABA' or 'ABC')."""
+        valid_stacking_types = {"ABA", "ABC"}
+        if self.stacking_type not in valid_stacking_types:
+            raise ValueError(f"stacking_type must be one of {valid_stacking_types}, but got '{self.stacking_type}'.")
+
         self.graphene_sheets = []
         """A list to hold individual GrapheneSheet instances."""
         self.interlayer_spacing = interlayer_spacing
         """The spacing between layers in the z-direction."""
         self.number_of_layers = number_of_layers
         """The number of layers to stack."""
-        self.stacking_type = stacking_type.upper()
 
         # Add the original graphene sheet as the first layer
         toggle_dimension(graphene_sheet.graph)
