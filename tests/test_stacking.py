@@ -32,19 +32,31 @@ class TestStackedGrapheneValidations:
             )
 
     @pytest.mark.parametrize("invalid_stacking_type", ["invalid", 123, [], {}, None])
-    def test_stacking_type_value_error(graphene_sheet, invalid_stacking_type):
+    def test_stacking_type_value_error(self, graphene_sheet, invalid_stacking_type):
         """
         Test that a ValueError is raised when stacking_type is not 'ABA' or 'ABC'.
         """
         if isinstance(invalid_stacking_type, str):
-            expected_message = r"stacking_type must be one of \{'ABC', 'ABA'\}, but got"
+            # Two possible regex patterns to match either 'ABA', 'ABC' or 'ABC', 'ABA' order
+            possible_patterns = [
+                r"stacking_type must be one of \{'ABA', 'ABC'\}, but got",
+                r"stacking_type must be one of \{'ABC', 'ABA'\}, but got",
+            ]
         else:
-            expected_message = "stacking_type must be a string"
+            possible_patterns = ["stacking_type must be a string"]
 
-        with pytest.raises(ValueError, match=expected_message):
-            StackedGraphene(
-                graphene_sheet, interlayer_spacing=3.34, number_of_layers=3, stacking_type=invalid_stacking_type
-            )
+        for pattern in possible_patterns:
+            try:
+                with pytest.raises(ValueError, match=pattern):
+                    StackedGraphene(
+                        graphene_sheet, interlayer_spacing=3.34, number_of_layers=3, stacking_type=invalid_stacking_type
+                    )
+                return  # If a pattern matches, exit the test successfully
+            except AssertionError:
+                continue  # If the pattern doesn't match, try the next one
+
+        # If no pattern matched, fail the test
+        pytest.fail(f"No matching pattern found for the error message. Expected patterns: {possible_patterns}")
 
     def test_valid_stacking(self, graphene_sheet):
         """
