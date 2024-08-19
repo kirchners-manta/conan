@@ -1832,6 +1832,10 @@ class StackedGraphene(Structure3D):
         if not isinstance(number_of_layers, int) or number_of_layers <= 0:
             raise ValueError(f"number_of_layers must be a positive integer, but got {number_of_layers}.")
 
+        # Ensure stacking_type is a string and validate it
+        if not isinstance(stacking_type, str):
+            raise ValueError(f"stacking_type must be a string, but got {type(stacking_type).__name__}.")
+
         # Validate stacking_type after converting it to uppercase
         self.stacking_type = stacking_type.upper()
         """The type of stacking to use ('ABA' or 'ABC')."""
