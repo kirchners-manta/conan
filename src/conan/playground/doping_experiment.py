@@ -2085,7 +2085,10 @@ class CNT(Structure3D):
         else:
             node_indices = list(range(len(positions)))
 
-        nodes = {idx: {"element": "C", "position": Position3D(*pos)} for idx, pos in zip(node_indices, positions)}
+        nodes = {
+            idx: {"element": "C", "position": Position3D(*pos), "possible_doping_site": True}
+            for idx, pos in zip(node_indices, positions)
+        }
         self.graph.add_nodes_from(nodes.items())
 
     def _add_internal_bonds(self, num_positions):
