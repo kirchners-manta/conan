@@ -1926,166 +1926,223 @@ class CNT(Structure3D):
         """
         Build the CNT structure based on the given parameters.
         """
+        # Check if the conformation is valid
         if self.conformation not in ["armchair", "zigzag"]:
             raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
 
-        # Calculate distance and radius based on the bond length
+        # Calculate common parameters
         distance = self.bond_length
-        hex_d = distance * math.cos(30 * math.pi / 180) * 2
+        hex_d = distance * math.cos(math.radians(30)) * 2
         symmetry_angle = 360 / self.tube_size
 
-        # Initialize variables
+        if self.conformation == "armchair":
+            # Calculate the positions for the armchair conformation
+            positions, z_max = self._calculate_armchair_positions(distance, symmetry_angle)
+        else:
+            # Calculate the positions for the zigzag conformation
+            positions, z_max = self._calculate_zigzag_positions(distance, hex_d, symmetry_angle)
+
+        # Add nodes to the graph
+        self._add_nodes_to_graph(positions)
+
+        # Add internal bonds within unit cells
+        self._add_internal_bonds(len(positions))
+
+        # Add connections between unit cells
+        self._add_unit_cell_connections(positions)
+
+        # Add connections to complete the end of each cycle
+        self._complete_cycle_connections(positions)
+
+        # Create connections between different layers of the CNT
+        self._connect_layers(positions)
+
+    def _calculate_armchair_positions(self, distance, symmetry_angle):
+        """
+        Calculate atom positions for the armchair conformation.
+        """
+        angle_carbon_bond = 360 / (self.tube_size * 3)
+        radius = distance / (2 * math.sin(math.radians(angle_carbon_bond) / 2))
+        distx = radius - radius * math.cos(math.radians(angle_carbon_bond / 2))
+        disty = -radius * math.sin(math.radians(angle_carbon_bond / 2))
+        zstep = math.sqrt(distance**2 - distx**2 - disty**2)
+
+        positions = []
         z_max = 0
         counter = 0
+
+        while z_max < self.tube_length:
+            z_coordinate = zstep * 2 * counter
+
+            for i in range(self.tube_size):
+                positions.extend(
+                    self._calculate_armchair_unit_cell_positions(
+                        i, radius, symmetry_angle, angle_carbon_bond, zstep, z_coordinate
+                    )
+                )
+
+            z_max = z_coordinate + zstep
+            counter += 1
+
+        return positions, z_max
+
+    def _calculate_zigzag_positions(self, distance, hex_d, symmetry_angle):
+        """
+        Calculate atom positions for the zigzag conformation.
+        """
+        radius = hex_d / (2 * math.sin(math.radians(symmetry_angle / 2)))
+        distx = radius - radius * math.cos(math.radians(symmetry_angle / 2))
+        disty = -radius * math.sin(math.radians(symmetry_angle / 2))
+        zstep = math.sqrt(distance**2 - distx**2 - disty**2)
+
+        positions = []
+        z_max = 0
+        counter = 0
+
+        while z_max < self.tube_length:
+            z_coordinate = (2 * zstep + distance * 2) * counter
+
+            for i in range(self.tube_size):
+                positions.extend(
+                    self._calculate_zigzag_unit_cell_positions(i, radius, symmetry_angle, zstep, distance, z_coordinate)
+                )
+
+            z_max = z_coordinate + 2 * zstep + distance * 2
+            counter += 1
+
+        return positions, z_max
+
+    def _calculate_armchair_unit_cell_positions(
+        self, i, radius, symmetry_angle, angle_carbon_bond, zstep, z_coordinate
+    ):
+        """
+        Calculate the positions of atoms in one armchair unit cell.
+        """
         positions = []
 
-        # Specific handling for the armchair conformation
+        angle1 = math.radians(symmetry_angle * i)
+        x1 = radius * math.cos(angle1)
+        y1 = radius * math.sin(angle1)
+        positions.append((x1, y1, z_coordinate))
+
+        angle2 = math.radians(symmetry_angle * i + angle_carbon_bond)
+        x2 = radius * math.cos(angle2)
+        y2 = radius * math.sin(angle2)
+        positions.append((x2, y2, z_coordinate))
+
+        angle3 = math.radians(symmetry_angle * i + angle_carbon_bond * 1.5)
+        x3 = radius * math.cos(angle3)
+        y3 = radius * math.sin(angle3)
+        z3 = zstep + z_coordinate
+        positions.append((x3, y3, z3))
+
+        angle4 = math.radians(symmetry_angle * i + angle_carbon_bond * 2.5)
+        x4 = radius * math.cos(angle4)
+        y4 = radius * math.sin(angle4)
+        z4 = zstep + z_coordinate
+        positions.append((x4, y4, z4))
+
+        return positions
+
+    def _calculate_zigzag_unit_cell_positions(self, i, radius, symmetry_angle, zstep, distance, z_coordinate):
+        """
+        Calculate the positions of atoms in one zigzag unit cell.
+        """
+        positions = []
+
+        angle1 = math.radians(symmetry_angle * i)
+        x1 = radius * math.cos(angle1)
+        y1 = radius * math.sin(angle1)
+        positions.append((x1, y1, z_coordinate))
+
+        angle2 = math.radians(symmetry_angle * i + symmetry_angle / 2)
+        x2 = radius * math.cos(angle2)
+        y2 = radius * math.sin(angle2)
+        z2 = zstep + z_coordinate
+        positions.append((x2, y2, z2))
+
+        angle3 = angle2
+        x3 = radius * math.cos(angle3)
+        y3 = radius * math.sin(angle3)
+        z3 = zstep + distance + z_coordinate
+        positions.append((x3, y3, z3))
+
+        angle4 = angle1
+        x4 = radius * math.cos(angle4)
+        y4 = radius * math.sin(angle4)
+        z4 = 2 * zstep + distance + z_coordinate
+        positions.append((x4, y4, z4))
+
+        return positions
+
+    def _add_nodes_to_graph(self, positions):
+        """
+        Add the calculated positions as nodes to the graph.
+        """
         if self.conformation == "armchair":
-            # Calculate the angle between carbon bonds
-            angle_carbon_bond = 360 / (self.tube_size * 3)
-            # Calculate the radius based on the bond angle
-            radius = distance / (2 * math.sin((angle_carbon_bond * math.pi / 180) / 2))
-            # Calculate the horizontal distance steps within the tube
-            distx = radius - radius * math.cos(angle_carbon_bond / 2 * math.pi / 180)
-            disty = 0 - radius * math.sin(angle_carbon_bond / 2 * math.pi / 180)
-            # Calculate the z-axis distance between layers
-            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
-
-            # Generate atom positions until the desired tube length is reached
-            while z_max < self.tube_length:
-                z_coordinate = zstep * 2 * counter
-
-                for i in range(self.tube_size):
-                    # Calculate and store the positions of the four atoms in each unit cell
-
-                    angle1 = symmetry_angle * math.pi / 180 * i
-                    x1 = radius * math.cos(angle1)
-                    y1 = radius * math.sin(angle1)
-                    positions.append((x1, y1, z_coordinate))
-
-                    angle2 = (symmetry_angle * i + angle_carbon_bond) * math.pi / 180
-                    x2 = radius * math.cos(angle2)
-                    y2 = radius * math.sin(angle2)
-                    positions.append((x2, y2, z_coordinate))
-
-                    angle3 = (symmetry_angle * i + angle_carbon_bond * 3 / 2) * math.pi / 180
-                    x3 = radius * math.cos(angle3)
-                    y3 = radius * math.sin(angle3)
-                    z3 = zstep + z_coordinate
-                    positions.append((x3, y3, z3))
-
-                    angle4 = (symmetry_angle * i + angle_carbon_bond * 5 / 2) * math.pi / 180
-                    x4 = radius * math.cos(angle4)
-                    y4 = radius * math.sin(angle4)
-                    z4 = zstep + z_coordinate
-                    positions.append((x4, y4, z4))
-
-                z_max = z_coordinate + zstep
-                counter += 1
-
-        # Specific handling for the zigzag conformation
-        elif self.conformation == "zigzag":
-            # Calculate the tube's radius based on the bond distance
-            radius = hex_d / (2 * math.sin((symmetry_angle * math.pi / 180) / 2))
-            # Calculate the horizontal and vertical distances within the tube
-            distx = radius - radius * math.cos(symmetry_angle / 2 * math.pi / 180)
-            disty = 0 - radius * math.sin(symmetry_angle / 2 * math.pi / 180)
-            zstep = (distance**2 - distx**2 - disty**2) ** 0.5
-
-            # Generate atom positions until the desired tube length is reached
-            while z_max < self.tube_length:
-                z_coordinate = (2 * zstep + distance * 2) * counter
-
-                for i in range(self.tube_size):
-                    # Calculate and store the positions of the four atoms in each unit cell
-
-                    angle = symmetry_angle * math.pi / 180 * i
-                    x = radius * math.cos(angle)
-                    y = radius * math.sin(angle)
-                    positions.append((x, y, z_coordinate))
-
-                    angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
-                    x = radius * math.cos(angle)
-                    y = radius * math.sin(angle)
-                    z = zstep + z_coordinate
-                    positions.append((x, y, z))
-
-                    angle = (symmetry_angle * i + symmetry_angle / 2) * math.pi / 180
-                    x = radius * math.cos(angle)
-                    y = radius * math.sin(angle)
-                    z = zstep + distance + z_coordinate
-                    positions.append((x, y, z))
-
-                    angle = symmetry_angle * math.pi / 180 * i
-                    x = radius * math.cos(angle)
-                    y = radius * math.sin(angle)
-                    z = 2 * zstep + distance + z_coordinate
-                    positions.append((x, y, z))
-
-                z_max = z_coordinate + 2 * zstep + distance * 2
-                counter += 1
-
-        # Store positions in the graph structure
-        if self.conformation == "armchair":
-            # Handle index shifting for armchair conformation
             idx_shift = 4 * self.tube_size
             for i in range(len(positions)):
-                pos = Position3D(positions[i][0], positions[i][1], positions[i][2])
-                if i % idx_shift == 0:
-                    node_idx = i + idx_shift - 1  # First node in each layer gets the highest index
-                else:
-                    node_idx = i - 1  # Other nodes are shifted accordingly
+                pos = Position3D(*positions[i])
+                node_idx = i + idx_shift - 1 if i % idx_shift == 0 else i - 1
                 self.graph.add_node(node_idx, element="C", position=pos)
         else:
-            # Standard node indexing for zigzag conformation
             for idx, (x, y, z) in enumerate(positions):
                 pos = Position3D(x, y, z)
                 self.graph.add_node(idx, element="C", position=pos)
 
-        # Internal bonds within unit cells
-        for idx in range(0, len(positions), 4):
-            self.graph.add_edge(idx, idx + 1, bond_length=self.bond_length)
-            self.graph.add_edge(idx + 1, idx + 2, bond_length=self.bond_length)
-            self.graph.add_edge(idx + 2, idx + 3, bond_length=self.bond_length)
+    def _add_internal_bonds(self, num_positions):
+        """
+        Add internal bonds within unit cells.
+        """
+        edges = [(idx, idx + 1) for idx in range(0, num_positions, 4)]
+        edges += [(idx + 1, idx + 2) for idx in range(0, num_positions, 4)]
+        edges += [(idx + 2, idx + 3) for idx in range(0, num_positions, 4)]
+        self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-        # Additional connections between unit cells
+    def _add_unit_cell_connections(self, positions):
+        """
+        Add connections between unit cells.
+        """
+        edges = []
         for idx in range(0, len(positions) - 4, 4):
-            if self.conformation == "armchair":
-                if positions[idx][2] == positions[idx + 4][2]:
-                    self.graph.add_edge(idx + 3, idx + 4, bond_length=self.bond_length)
-            else:
-                if positions[idx][2] == positions[idx + 4][2]:  # Connections only within the same z-level
-                    self.graph.add_edge(idx + 1, idx + 4, bond_length=self.bond_length)
-                    self.graph.add_edge(idx + 2, idx + 7, bond_length=self.bond_length)
+            if positions[idx][2] == positions[idx + 4][2]:
+                if self.conformation == "armchair":
+                    edges.append((idx + 3, idx + 4))
+                else:
+                    edges.append((idx + 1, idx + 4))
+                    edges.append((idx + 2, idx + 7))
+        self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-        # Complete connections at the end of each cycle
+    def _complete_cycle_connections(self, positions):
+        """
+        Complete connections at the end of each cycle.
+        """
+        edges = []
         for idx in range(0, len(positions), 4 * self.tube_size):
             first_idx_first_cell_of_cycle = idx
             first_idx_last_cell_of_cycle = idx + 4 * self.tube_size - 4
             last_idx_last_cell_of_cycle = idx + 4 * self.tube_size - 1
 
             if self.conformation == "armchair":
-                self.graph.add_edge(
-                    last_idx_last_cell_of_cycle, first_idx_first_cell_of_cycle, bond_length=self.bond_length
-                )
+                edges.append((last_idx_last_cell_of_cycle, first_idx_first_cell_of_cycle))
             else:
-                self.graph.add_edge(
-                    first_idx_last_cell_of_cycle + 1, first_idx_first_cell_of_cycle, bond_length=self.bond_length
-                )
-                self.graph.add_edge(
-                    first_idx_last_cell_of_cycle + 2, first_idx_first_cell_of_cycle + 3, bond_length=self.bond_length
-                )
+                edges.append((first_idx_last_cell_of_cycle + 1, first_idx_first_cell_of_cycle))
+                edges.append((first_idx_last_cell_of_cycle + 2, first_idx_first_cell_of_cycle + 3))
+        self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-        # Create connections between different layers of the CNT
+    def _connect_layers(self, positions):
+        """
+        Create connections between different layers of the CNT.
+        """
+        edges = []
         for idx in range(0, len(positions) - 4 * self.tube_size, 4 * self.tube_size):
             for i in range(self.tube_size):
                 if self.conformation == "armchair":
-                    self.graph.add_edge(
-                        idx + 2 + 4 * i, idx + 3 + 4 * i + 4 * self.tube_size, bond_length=self.bond_length
-                    )
-                    self.graph.add_edge(idx + 1 + 4 * i, idx + 4 * i + 4 * self.tube_size, bond_length=self.bond_length)
+                    edges.append((idx + 2 + 4 * i, idx + 3 + 4 * i + 4 * self.tube_size))
+                    edges.append((idx + 1 + 4 * i, idx + 4 * i + 4 * self.tube_size))
                 else:
-                    self.graph.add_edge(idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size, bond_length=self.bond_length)
+                    edges.append((idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size))
+        self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
     def plot_structure(self, with_labels=False):
         """
@@ -2268,7 +2325,7 @@ def main():
 
     ####################################################################################################################
     # Example of creating a CNT
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True)
 
