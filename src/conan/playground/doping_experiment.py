@@ -1925,6 +1925,11 @@ class CNT(Structure3D):
     def build_structure(self):
         """
         Build the CNT structure based on the given parameters.
+
+        Raises
+        ------
+        ValueError
+            If the conformation is not 'armchair' or 'zigzag'.
         """
         # Check if the conformation is valid
         if self.conformation not in ["armchair", "zigzag"]:
@@ -1957,191 +1962,364 @@ class CNT(Structure3D):
         # Create connections between different layers of the CNT
         self._connect_layers(positions)
 
-    def _calculate_armchair_positions(self, distance, symmetry_angle):
+    def _calculate_armchair_positions(
+        self, distance: float, symmetry_angle: float
+    ) -> Tuple[List[Tuple[float, float, float]], float]:
         """
         Calculate atom positions for the armchair conformation.
+
+        Parameters
+        ----------
+        distance : float
+            The bond length between carbon atoms in the CNT.
+        symmetry_angle : float
+            The angle between repeating units around the circumference of the tube.
+
+        Returns
+        -------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
+        z_max : float
+            The maximum z-coordinate reached by the structure.
         """
+        # Calculate the angle between carbon bonds in the armchair configuration
         angle_carbon_bond = 360 / (self.tube_size * 3)
+        # Calculate the radius of the CNT based on the bond angle
         radius = distance / (2 * math.sin(math.radians(angle_carbon_bond) / 2))
+        # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(angle_carbon_bond / 2))
+        # Calculate the vertical distance between atoms along the y-axis within a unit cell
         disty = -radius * math.sin(math.radians(angle_carbon_bond / 2))
+        # Calculate the step size along the z-axis (height) between layers of atoms
         zstep = math.sqrt(distance**2 - distx**2 - disty**2)
 
+        # Initialize a list to store all the calculated positions of atoms
         positions = []
+        # Initialize the maximum z-coordinate to 0
         z_max = 0
+        # Initialize a counter to track the number of layers
         counter = 0
 
+        # Loop until the maximum z-coordinate reaches or exceeds the desired tube length
         while z_max < self.tube_length:
+            # Calculate the current z-coordinate for this layer of atoms
             z_coordinate = zstep * 2 * counter
 
+            # Loop over the number of atoms in one layer (tube_size) to calculate their positions
             for i in range(self.tube_size):
+                # Calculate and add the positions of atoms in this unit cell to the list
                 positions.extend(
                     self._calculate_armchair_unit_cell_positions(
                         i, radius, symmetry_angle, angle_carbon_bond, zstep, z_coordinate
                     )
                 )
-
+            # Update the maximum z-coordinate reached by the structure after this layer
             z_max = z_coordinate + zstep
+            # Increment the counter to move to the next layer
             counter += 1
 
+        # Return the list of atom positions and the maximum z-coordinate reached
         return positions, z_max
 
-    def _calculate_zigzag_positions(self, distance, hex_d, symmetry_angle):
+    def _calculate_zigzag_positions(
+        self, distance: float, hex_d: float, symmetry_angle: float
+    ) -> Tuple[List[Tuple[float, float, float]], float]:
         """
         Calculate atom positions for the zigzag conformation.
+
+        Parameters
+        ----------
+        distance : float
+            The bond length between carbon atoms in the CNT.
+        hex_d : float
+            The distance between two atoms in a hexagon.
+        symmetry_angle : float
+            The angle between repeating units around the circumference of the tube.
+
+        Returns
+        -------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
+        z_max : float
+            The maximum z-coordinate reached by the structure.
         """
+        # Calculate the radius of the CNT based on the hexagon distance and symmetry angle
         radius = hex_d / (2 * math.sin(math.radians(symmetry_angle / 2)))
+        # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(symmetry_angle / 2))
+        # Calculate the vertical distance between atoms along the y-axis within a unit cell
         disty = -radius * math.sin(math.radians(symmetry_angle / 2))
+        # Calculate the step size along the z-axis (height) between layers of atoms
         zstep = math.sqrt(distance**2 - distx**2 - disty**2)
 
+        # Initialize a list to store all the calculated positions of atoms
         positions = []
+        # Initialize the maximum z-coordinate to 0
         z_max = 0
+        # Initialize a counter to track the number of layers
         counter = 0
 
+        # Loop until the maximum z-coordinate reaches or exceeds the desired tube length
         while z_max < self.tube_length:
+            # Calculate the current z-coordinate for this layer of atoms, including the vertical offset
             z_coordinate = (2 * zstep + distance * 2) * counter
 
+            # Loop over the number of cells in one layer (tube_size) to calculate their positions
             for i in range(self.tube_size):
+                # Calculate and add the positions of atoms in this unit cell to the list
                 positions.extend(
                     self._calculate_zigzag_unit_cell_positions(i, radius, symmetry_angle, zstep, distance, z_coordinate)
                 )
 
+            # Update the maximum z-coordinate reached by the structure after this layer
             z_max = z_coordinate + 2 * zstep + distance * 2
+            # Increment the counter to move to the next layer
             counter += 1
 
+        # Return the list of atom positions and the maximum z-coordinate reached
         return positions, z_max
 
+    @staticmethod
     def _calculate_armchair_unit_cell_positions(
-        self, i, radius, symmetry_angle, angle_carbon_bond, zstep, z_coordinate
-    ):
+        i: int, radius: float, symmetry_angle: float, angle_carbon_bond: float, zstep: float, z_coordinate: float
+    ) -> List[Tuple[float, float, float]]:
         """
         Calculate the positions of atoms in one armchair unit cell.
+
+        Parameters
+        ----------
+        i : int
+            The index of the unit cell around the circumference.
+        radius : float
+            The radius of the CNT.
+        symmetry_angle : float
+            The angle between repeating units around the circumference of the tube.
+        angle_carbon_bond : float
+            The bond angle between carbon atoms.
+        zstep : float
+            The step size along the z-axis between layers.
+        z_coordinate : float
+            The z-coordinate of the current layer.
+
+        Returns
+        -------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
-        positions = []
+        # Initialize an empty list to store the positions of atoms in this unit cell
+        positions: List[Tuple[float, float, float]] = []
 
-        angle1 = math.radians(symmetry_angle * i)
-        x1 = radius * math.cos(angle1)
-        y1 = radius * math.sin(angle1)
-        positions.append((x1, y1, z_coordinate))
+        # Calculate the position of the first atom in the unit cell
+        angle1 = math.radians(symmetry_angle * i)  # Convert the angle to radians
+        x1 = radius * math.cos(angle1)  # Calculate the x-coordinate using the radius and angle
+        y1 = radius * math.sin(angle1)  # Calculate the y-coordinate using the radius and angle
+        positions.append((x1, y1, z_coordinate))  # Append the (x, y, z) position of the first atom
 
-        angle2 = math.radians(symmetry_angle * i + angle_carbon_bond)
-        x2 = radius * math.cos(angle2)
-        y2 = radius * math.sin(angle2)
-        positions.append((x2, y2, z_coordinate))
+        # Calculate the position of the second atom in the unit cell
+        angle2 = math.radians(symmetry_angle * i + angle_carbon_bond)  # Adjust the angle for the second bond
+        x2 = radius * math.cos(angle2)  # Calculate the x-coordinate of the second atom
+        y2 = radius * math.sin(angle2)  # Calculate the y-coordinate of the second atom
+        positions.append((x2, y2, z_coordinate))  # Append the (x, y, z) position of the second atom
 
-        angle3 = math.radians(symmetry_angle * i + angle_carbon_bond * 1.5)
-        x3 = radius * math.cos(angle3)
-        y3 = radius * math.sin(angle3)
-        z3 = zstep + z_coordinate
-        positions.append((x3, y3, z3))
+        # Calculate the position of the third atom in the unit cell, which is shifted along the z-axis
+        angle3 = math.radians(symmetry_angle * i + angle_carbon_bond * 1.5)  # Adjust the angle for the third bond
+        x3 = radius * math.cos(angle3)  # Calculate the x-coordinate of the third atom
+        y3 = radius * math.sin(angle3)  # Calculate the y-coordinate of the third atom
+        z3 = zstep + z_coordinate  # Add the z-step to the z-coordinate for the third atom
+        positions.append((x3, y3, z3))  # Append the (x, y, z) position of the third atom
 
-        angle4 = math.radians(symmetry_angle * i + angle_carbon_bond * 2.5)
-        x4 = radius * math.cos(angle4)
-        y4 = radius * math.sin(angle4)
-        z4 = zstep + z_coordinate
-        positions.append((x4, y4, z4))
+        # Calculate the position of the fourth atom in the unit cell, also shifted along the z-axis
+        angle4 = math.radians(symmetry_angle * i + angle_carbon_bond * 2.5)  # Adjust the angle for the fourth bond
+        x4 = radius * math.cos(angle4)  # Calculate the x-coordinate of the fourth atom
+        y4 = radius * math.sin(angle4)  # Calculate the y-coordinate of the fourth atom
+        z4 = zstep + z_coordinate  # Add the z-step to the z-coordinate for the fourth atom
+        positions.append((x4, y4, z4))  # Append the (x, y, z) position of the fourth atom
 
+        # Return the list of atom positions calculated for this unit cell
         return positions
 
-    def _calculate_zigzag_unit_cell_positions(self, i, radius, symmetry_angle, zstep, distance, z_coordinate):
+    @staticmethod
+    def _calculate_zigzag_unit_cell_positions(
+        i: int, radius: float, symmetry_angle: float, zstep: float, distance: float, z_coordinate: float
+    ) -> List[Tuple[float, float, float]]:
         """
         Calculate the positions of atoms in one zigzag unit cell.
+
+        Parameters
+        ----------
+        i : int
+            The index of the unit cell around the circumference.
+        radius : float
+            The radius of the CNT.
+        symmetry_angle : float
+            The angle between repeating units around the circumference of the tube.
+        zstep : float
+            The step size along the z-axis between layers.
+        distance : float
+            The bond length between carbon atoms in the CNT.
+        z_coordinate : float
+            The z-coordinate of the current layer.
+
+        Returns
+        -------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
-        positions = []
+        # Initialize an empty list to store the positions of atoms in this unit cell
+        positions: List[Tuple[float, float, float]] = []
 
-        angle1 = math.radians(symmetry_angle * i)
-        x1 = radius * math.cos(angle1)
-        y1 = radius * math.sin(angle1)
-        positions.append((x1, y1, z_coordinate))
+        # Calculate the position of the first atom in the unit cell
+        angle1 = math.radians(symmetry_angle * i)  # Convert the angle to radians
+        x1 = radius * math.cos(angle1)  # Calculate the x-coordinate using the radius and angle
+        y1 = radius * math.sin(angle1)  # Calculate the y-coordinate using the radius and angle
+        positions.append((x1, y1, z_coordinate))  # Append the (x, y, z) position of the first atom
 
-        angle2 = math.radians(symmetry_angle * i + symmetry_angle / 2)
-        x2 = radius * math.cos(angle2)
-        y2 = radius * math.sin(angle2)
-        z2 = zstep + z_coordinate
-        positions.append((x2, y2, z2))
+        # Calculate the position of the second atom in the unit cell
+        angle2 = math.radians(symmetry_angle * i + symmetry_angle / 2)  # Adjust the angle by half the symmetry angle
+        x2 = radius * math.cos(angle2)  # Calculate the x-coordinate of the second atom
+        y2 = radius * math.sin(angle2)  # Calculate the y-coordinate of the second atom
+        z2 = zstep + z_coordinate  # Add the z-step to the z-coordinate for the second atom
+        positions.append((x2, y2, z2))  # Append the (x, y, z) position of the second atom
 
-        angle3 = angle2
-        x3 = radius * math.cos(angle3)
-        y3 = radius * math.sin(angle3)
-        z3 = zstep + distance + z_coordinate
-        positions.append((x3, y3, z3))
+        # The third atom shares the same angular position as the second but is further along the z-axis
+        angle3 = angle2  # The angle remains the same as the second atom
+        x3 = radius * math.cos(angle3)  # Calculate the x-coordinate of the third atom
+        y3 = radius * math.sin(angle3)  # Calculate the y-coordinate of the third atom
+        z3 = zstep + distance + z_coordinate  # Add the z-step and bond distance to the z-coordinate
+        positions.append((x3, y3, z3))  # Append the (x, y, z) position of the third atom
 
-        angle4 = angle1
-        x4 = radius * math.cos(angle4)
-        y4 = radius * math.sin(angle4)
-        z4 = 2 * zstep + distance + z_coordinate
-        positions.append((x4, y4, z4))
+        # The fourth atom returns to the angular position of the first atom but is at a different z-coordinate
+        angle4 = angle1  # The angle is the same as the first atom
+        x4 = radius * math.cos(angle4)  # Calculate the x-coordinate of the fourth atom
+        y4 = radius * math.sin(angle4)  # Calculate the y-coordinate of the fourth atom
+        z4 = 2 * zstep + distance + z_coordinate  # Add twice the z-step and bond distance to the z-coordinate
+        positions.append((x4, y4, z4))  # Append the (x, y, z) position of the fourth atom
 
+        # Return the list of atom positions calculated for this unit cell
         return positions
 
-    def _add_nodes_to_graph(self, positions):
+    def _add_nodes_to_graph(self, positions: List[Tuple[float, float, float]]):
         """
         Add the calculated positions as nodes to the graph.
+
+        Parameters
+        ----------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
+        # Check if the CNT conformation is "armchair"
         if self.conformation == "armchair":
+            # Calculate the index shift for armchair conformation to ensure correct node indexing
             idx_shift = 4 * self.tube_size
+
+            # Generate node indices with a specific shift applied for the first node in each unit cell
             node_indices = [i + idx_shift - 1 if i % idx_shift == 0 else i - 1 for i in range(len(positions))]
         else:
+            # For "zigzag" conformation, use a simple sequence of indices
             node_indices = list(range(len(positions)))
 
+        # Create a dictionary of nodes, mapping each node index to its attributes
         nodes = {
-            idx: {"element": "C", "position": Position3D(*pos), "possible_doping_site": True}
-            for idx, pos in zip(node_indices, positions)
+            idx: {
+                "element": "C",  # Set the element type to carbon ("C")
+                "position": Position3D(*pos),  # Convert position tuple to Position3D object
+                "possible_doping_site": True,  # Mark the node as a possible doping site
+            }
+            for idx, pos in zip(node_indices, positions)  # Iterate over node indices and positions
         }
+
+        # Add all nodes to the graph using the dictionary created
         self.graph.add_nodes_from(nodes.items())
 
-    def _add_internal_bonds(self, num_positions):
+    def _add_internal_bonds(self, num_positions: int) -> None:
         """
         Add internal bonds within unit cells.
+
+        Parameters
+        ----------
+        num_positions : int
+            The number of atom positions in the CNT structure.
         """
+        # Connect atoms within the same unit cell
         edges = [(idx, idx + 1) for idx in range(0, num_positions, 4)]
         edges += [(idx + 1, idx + 2) for idx in range(0, num_positions, 4)]
         edges += [(idx + 2, idx + 3) for idx in range(0, num_positions, 4)]
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-    def _add_unit_cell_connections(self, positions):
+    def _add_unit_cell_connections(self, positions: List[Tuple[float, float, float]]):
         """
         Add connections between unit cells.
+
+        Parameters
+        ----------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
         edges = []
         for idx in range(0, len(positions) - 4, 4):
+            # Check if the atoms are in the same layer
             if positions[idx][2] == positions[idx + 4][2]:
                 if self.conformation == "armchair":
+                    # Connect the last atom of the current unit cell with the first atom of the next unit cell
                     edges.append((idx + 3, idx + 4))
                 else:
+                    # Connect the second atom of the current unit cell with the first atom of the next unit cell
                     edges.append((idx + 1, idx + 4))
+                    # Connect the third atom of the current unit cell with the fourth atom of the next unit cell
                     edges.append((idx + 2, idx + 7))
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-    def _complete_cycle_connections(self, positions):
+    def _complete_cycle_connections(self, positions: List[Tuple[float, float, float]]) -> None:
         """
         Complete connections at the end of each cycle.
+
+        Parameters
+        ----------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
-        edges = []
+        edges: List[Tuple[int, int]] = []
         for idx in range(0, len(positions), 4 * self.tube_size):
+            # Get indices of atoms in the first and last cells of the cycle (in the same layer)
             first_idx_first_cell_of_cycle = idx
             first_idx_last_cell_of_cycle = idx + 4 * self.tube_size - 4
             last_idx_last_cell_of_cycle = idx + 4 * self.tube_size - 1
 
             if self.conformation == "armchair":
+                # Connect the last atom of the last unit cell with the first atom of the first unit cell
                 edges.append((last_idx_last_cell_of_cycle, first_idx_first_cell_of_cycle))
             else:
+                # Connect the second atom of the last unit cell with the first atom of the first unit cell
                 edges.append((first_idx_last_cell_of_cycle + 1, first_idx_first_cell_of_cycle))
+                # Connect the third atom of the last unit cell with the fourth atom of the first unit cell
                 edges.append((first_idx_last_cell_of_cycle + 2, first_idx_first_cell_of_cycle + 3))
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-    def _connect_layers(self, positions):
+    def _connect_layers(self, positions: List[Tuple[float, float, float]]):
         """
         Create connections between different layers of the CNT.
+
+        Parameters
+        ----------
+        positions : List[Tuple[float, float, float]]
+            A list of atom positions in the format (x, y, z).
         """
         edges = []
+        # Loop over the positions to create connections between different layers
+        # The loop iterates over the positions with a step of 4 * tube_size (this ensures that we are jumping from one
+        # "layer" to the next)
         for idx in range(0, len(positions) - 4 * self.tube_size, 4 * self.tube_size):
+            # Loop over the number of cells in one layer (tube_size)
             for i in range(self.tube_size):
+                # For the "armchair" conformation
                 if self.conformation == "armchair":
+                    # Connect the third atom of a cell of one layer to the fourth atom of a cell in the layer above
                     edges.append((idx + 2 + 4 * i, idx + 3 + 4 * i + 4 * self.tube_size))
+                    # Connect the second atom of a cell of one layer to the first atom of a cell in the layer above
                     edges.append((idx + 1 + 4 * i, idx + 4 * i + 4 * self.tube_size))
+                # For the "zigzag" conformation
                 else:
+                    # Connect the last atom of a cell of one layer to the first atom of a cell in the layer above
                     edges.append((idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size))
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
@@ -2327,7 +2505,7 @@ def main():
     ####################################################################################################################
     # Example of creating a CNTGrapheneSheet
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True)
 
