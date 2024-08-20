@@ -2081,14 +2081,12 @@ class CNT(Structure3D):
         """
         if self.conformation == "armchair":
             idx_shift = 4 * self.tube_size
-            for i in range(len(positions)):
-                pos = Position3D(*positions[i])
-                node_idx = i + idx_shift - 1 if i % idx_shift == 0 else i - 1
-                self.graph.add_node(node_idx, element="C", position=pos)
+            node_indices = [i + idx_shift - 1 if i % idx_shift == 0 else i - 1 for i in range(len(positions))]
         else:
-            for idx, (x, y, z) in enumerate(positions):
-                pos = Position3D(x, y, z)
-                self.graph.add_node(idx, element="C", position=pos)
+            node_indices = list(range(len(positions)))
+
+        nodes = {idx: {"element": "C", "position": Position3D(*pos)} for idx, pos in zip(node_indices, positions)}
+        self.graph.add_nodes_from(nodes.items())
 
     def _add_internal_bonds(self, num_positions):
         """
@@ -2236,18 +2234,18 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
-    labeler.label_atoms()
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
@@ -2324,7 +2322,8 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # Example of creating a CNT
+    # Example of creating a CNTGrapheneSheet
+
     cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True)
