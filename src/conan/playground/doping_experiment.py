@@ -2439,16 +2439,16 @@ def main():
     # write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    # sheet_size = (20, 20)
-    #
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-    #
-    # # Add individual nitrogen doping only to the first and last layer
+    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    sheet_size = (20, 20)
+
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+
+    # Add individual nitrogen doping only to the first and last layer
     # start_time = time.time()  # Time the nitrogen doping process
     # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
     # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
@@ -2457,12 +2457,12 @@ def main():
     # # Calculate the elapsed time
     # elapsed_time = end_time - start_time
     # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # Example of creating a CNTGrapheneSheet
