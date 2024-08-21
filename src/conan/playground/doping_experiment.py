@@ -1912,7 +1912,9 @@ class CNT(Structure3D):
     Represents a carbon nanotube structure.
     """
 
-    def __init__(self, bond_length: float, tube_length: float, tube_size: int, conformation: str):
+    def __init__(
+        self, bond_length: float, tube_length: float, tube_size: int, conformation: str, periodic: bool = False
+    ):
         """
         Initialize the CarbonNanotube with given parameters.
 
@@ -1926,12 +1928,15 @@ class CNT(Structure3D):
             The size of the CNT, i.e., the number of hexagonal units around the circumference.
         conformation : str
             The conformation of the CNT ('armchair' or 'zigzag').
+        periodic : bool, optional
+            Whether to apply periodic boundary conditions along the tube axis (default is False).
         """
         super().__init__()
         self.bond_length = bond_length
         self.tube_length = tube_length
         self.tube_size = tube_size
         self.conformation = conformation.lower()
+        self.periodic = periodic
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -1975,6 +1980,10 @@ class CNT(Structure3D):
 
         # Create connections between different layers of the CNT
         self._connect_layers(positions)
+
+        # Apply periodic boundary conditions if the 'periodic' attribute is True
+        if self.periodic:
+            self._add_periodic_boundaries(len(positions))
 
     def _calculate_armchair_positions(
         self, distance: float, symmetry_angle: float
@@ -2337,6 +2346,35 @@ class CNT(Structure3D):
                     edges.append((idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size))
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
+    def _add_periodic_boundaries(self, num_atoms: int):
+        """
+        Add periodic boundary conditions along the z-axis of the CNT.
+
+        Parameters
+        ----------
+        num_atoms : int
+            The number of atoms in the CNT structure.
+        """
+        edges: List[Tuple[int, int]] = []
+
+        # Loop through the atoms to connect the first layer with the last, closing the cylinder along the z-axis
+        for i in range(self.tube_size):
+            # Determine the indices for the first and last layers in the positions list
+            first_idx_z_coordinate_first_cell = i * 4
+            first_idx_z_coordinate_last_cell = first_idx_z_coordinate_first_cell + num_atoms - 4 * self.tube_size
+
+            if self.conformation == "armchair":
+                # Connect the second atom of the last cell in one column of cells with the first atom of the first cell
+                edges.append((first_idx_z_coordinate_last_cell + 1, first_idx_z_coordinate_first_cell))
+                # Connect the third atom of the last cell in one column of cells with the fourth atom of the first cell
+                edges.append((first_idx_z_coordinate_last_cell + 2, first_idx_z_coordinate_first_cell + 3))
+            else:
+                # Connect the last atom of the last cell in one column of cells with the first atom of the first cell
+                edges.append((first_idx_z_coordinate_last_cell + 3, first_idx_z_coordinate_first_cell))
+
+        # Add these periodic edges to the graph, marking them as periodic
+        self.graph.add_edges_from(edges, bond_length=self.bond_length, periodic=True)
+
 
 def main():
     # Set seed for reproducibility
@@ -2439,16 +2477,16 @@ def main():
     # write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    sheet_size = (20, 20)
-
-    # Create a graphene sheet
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-
-    # Stack the graphene sheet
-    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-
-    # Add individual nitrogen doping only to the first and last layer
+    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    # sheet_size = (20, 20)
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    #
+    # # Add individual nitrogen doping only to the first and last layer
     # start_time = time.time()  # Time the nitrogen doping process
     # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
     # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
@@ -2457,19 +2495,19 @@ def main():
     # # Calculate the elapsed time
     # elapsed_time = end_time - start_time
     # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the structure to a .xyz file
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # Example of creating a CNTGrapheneSheet
+    # Example of creating a CNT
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=True)
     # cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True)
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=True)
 
     # Save the CNT structure to a file
     write_xyz(cnt.graph, "CNT_structure.xyz")
