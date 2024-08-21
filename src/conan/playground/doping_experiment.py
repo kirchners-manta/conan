@@ -555,6 +555,88 @@ class Structure3D(MaterialStructure):
     def build_structure(self):
         pass
 
+    # def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    #     """
+    #     Plot the structure in 3D using networkx and matplotlib.
+    #
+    #     Parameters
+    #     ----------
+    #     with_labels : bool, optional
+    #         Whether to display labels on the nodes (default is False).
+    #     visualize_periodic_bonds : bool, optional
+    #         Whether to visualize periodic boundary condition edges (default is True).
+    #
+    #     Notes
+    #     -----
+    #     This method visualizes the 3D structure, optionally with labels indicating the element type and node ID. Nodes
+    #     are colored based on their element type and nitrogen species.
+    #     Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+    #     """
+    #
+    #     # Get positions and elements of nodes
+    #     pos = nx.get_node_attributes(self.graph, "position")
+    #     elements = nx.get_node_attributes(self.graph, "element")
+    #
+    #     # Determine colors for nodes, considering nitrogen species if present
+    #     colors = [
+    #         get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+    #     ]
+    #
+    #     # Separate periodic edges and regular edges
+    #     regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+    #     periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+    #
+    #     # Initialize 3D plot
+    #     fig = plt.figure(figsize=(12, 12))
+    #     ax = fig.add_subplot(111, projection="3d")
+    #
+    #     # Extract node positions
+    #     xs, ys, zs = zip(*[pos[node] for node in self.graph.nodes()])
+    #
+    #     # Draw nodes in one step
+    #     ax.scatter(xs, ys, zs, color=colors, s=20)
+    #
+    #     # Create line segments for regular edges
+    #     regular_segments = np.array(
+    #         [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
+    #     )
+    #     regular_lines = Line3DCollection(regular_segments, colors="black")
+    #     ax.add_collection3d(regular_lines)
+    #
+    #     # Create line segments for periodic edges if visualize_periodic_bonds is True
+    #     if visualize_periodic_bonds:
+    #         periodic_segments = np.array(
+    #             [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
+    #         )
+    #         periodic_lines = Line3DCollection(periodic_segments, colors="gray", linestyles="dashed")
+    #         ax.add_collection3d(periodic_lines)
+    #
+    #     # Add labels if specified
+    #     if with_labels:
+    #         for node in self.graph.nodes():
+    #             ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+    #
+    #     # Set the axes labels
+    #     ax.set_xlabel("X [Å]")
+    #     ax.set_ylabel("Y [Å]")
+    #     ax.set_zlabel("Z [Å]")
+    #
+    #     # Add a legend for the nitrogen species
+    #     unique_colors = set(colors)
+    #     legend_elements = []
+    #     for species in NitrogenSpecies:
+    #         color = get_color("N", species)
+    #         if color in unique_colors:
+    #             legend_elements.append(
+    #                 plt.Line2D(
+    #                     [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+    #                 )
+    #             )
+    #     ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
+    #
+    #     # Show the plot
+    #     plt.show()
+
     def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
         """
         Plot the structure in 3D using networkx and matplotlib.
@@ -596,15 +678,21 @@ class Structure3D(MaterialStructure):
         # Draw nodes in one step
         ax.scatter(xs, ys, zs, color=colors, s=20)
 
+        # Manually set the scaling of the axes before adding lines
+        ax.set_xlim([min(xs), max(xs)])
+        ax.set_ylim([min(ys), max(ys)])
+        ax.set_zlim([min(zs), max(zs)])
+
         # Create line segments for regular edges
-        regular_segments = np.array(
-            [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
-        )
-        regular_lines = Line3DCollection(regular_segments, colors="black")
-        ax.add_collection3d(regular_lines)
+        if regular_edges:
+            regular_segments = np.array(
+                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
+            )
+            regular_lines = Line3DCollection(regular_segments, colors="black")
+            ax.add_collection3d(regular_lines)
 
         # Create line segments for periodic edges if visualize_periodic_bonds is True
-        if visualize_periodic_bonds:
+        if visualize_periodic_bonds and periodic_edges:
             periodic_segments = np.array(
                 [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
             )
@@ -2323,58 +2411,58 @@ class CNT(Structure3D):
                     edges.append((idx + 3 + 4 * i, idx + 4 * i + 4 * self.tube_size))
         self.graph.add_edges_from(edges, bond_length=self.bond_length)
 
-    def plot_structure(self, with_labels=False):
-        """
-        Plot the CNT structure in 3D using matplotlib.
-
-        Parameters
-        ----------
-        with_labels : bool, optional
-            If True, labels the nodes with their index.
-        """
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-
-        pos = nx.get_node_attributes(self.graph, "position")
-        xs, ys, zs = [], [], []
-
-        for node in self.graph.nodes():
-            p = pos[node]
-            xs.append(p.x)
-            ys.append(p.y)
-            zs.append(p.z)
-
-        xs = np.array(xs)
-        ys = np.array(ys)
-        zs = np.array(zs)
-
-        ax.scatter(xs, ys, zs, c="r", marker="o")
-
-        for edge in self.graph.edges():
-            p1 = pos[edge[0]]
-            p2 = pos[edge[1]]
-            ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], color="b")
-
-        # Set equal aspect ratio for all axes
-        ax.set_box_aspect([1, 1, 1])
-
-        # Ensuring that all axes are scaled equally
-        max_range = np.array([xs.max() - xs.min(), ys.max() - ys.min(), zs.max() - zs.min()]).max()
-        mid_x = (xs.max() + xs.min()) * 0.5
-        mid_y = (ys.max() + ys.min()) * 0.5
-        mid_z = (zs.max() + zs.min()) * 0.5
-        ax.set_xlim(mid_x - max_range / 2, mid_x + max_range / 2)
-        ax.set_ylim(mid_y - max_range / 2, mid_y + max_range / 2)
-        ax.set_zlim(mid_z - max_range / 2, mid_z + max_range / 2)
-
-        # Optional: Change the perspective
-        ax.view_init(elev=20, azim=30)
-
-        if with_labels:
-            for node, (x, y, z) in zip(self.graph.nodes(), zip(xs, ys, zs)):
-                ax.text(x, y, z, s=str(node), fontsize=10)
-
-        plt.show()
+    # def plot_structure(self, with_labels=False):
+    #     """
+    #     Plot the CNT structure in 3D using matplotlib.
+    #
+    #     Parameters
+    #     ----------
+    #     with_labels : bool, optional
+    #         If True, labels the nodes with their index.
+    #     """
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111, projection="3d")
+    #
+    #     pos = nx.get_node_attributes(self.graph, "position")
+    #     xs, ys, zs = [], [], []
+    #
+    #     for node in self.graph.nodes():
+    #         p = pos[node]
+    #         xs.append(p.x)
+    #         ys.append(p.y)
+    #         zs.append(p.z)
+    #
+    #     xs = np.array(xs)
+    #     ys = np.array(ys)
+    #     zs = np.array(zs)
+    #
+    #     ax.scatter(xs, ys, zs, c="r", marker="o")
+    #
+    #     for edge in self.graph.edges():
+    #         p1 = pos[edge[0]]
+    #         p2 = pos[edge[1]]
+    #         ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], color="b")
+    #
+    #     # Set equal aspect ratio for all axes
+    #     ax.set_box_aspect([1, 1, 1])
+    #
+    #     # Ensuring that all axes are scaled equally
+    #     max_range = np.array([xs.max() - xs.min(), ys.max() - ys.min(), zs.max() - zs.min()]).max()
+    #     mid_x = (xs.max() + xs.min()) * 0.5
+    #     mid_y = (ys.max() + ys.min()) * 0.5
+    #     mid_z = (zs.max() + zs.min()) * 0.5
+    #     ax.set_xlim(mid_x - max_range / 2, mid_x + max_range / 2)
+    #     ax.set_ylim(mid_y - max_range / 2, mid_y + max_range / 2)
+    #     ax.set_zlim(mid_z - max_range / 2, mid_z + max_range / 2)
+    #
+    #     # Optional: Change the perspective
+    #     ax.view_init(elev=20, azim=30)
+    #
+    #     if with_labels:
+    #         for node, (x, y, z) in zip(self.graph.nodes(), zip(xs, ys, zs)):
+    #             ax.text(x, y, z, s=str(node), fontsize=10)
+    #
+    #     plt.show()
 
 
 def main():
@@ -2479,6 +2567,7 @@ def main():
 
     ####################################################################################################################
     # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    # sheet_size = (20, 20)
     #
     # # Create a graphene sheet
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
@@ -2505,7 +2594,7 @@ def main():
     ####################################################################################################################
     # Example of creating a CNTGrapheneSheet
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair")
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag")
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True)
 
