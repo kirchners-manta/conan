@@ -596,10 +596,18 @@ class Structure3D(MaterialStructure):
         # Draw nodes in one step
         ax.scatter(xs, ys, zs, color=colors, s=20)
 
-        # Manually set the scaling of the axes before adding lines
-        ax.set_xlim([min(xs), max(xs)])
-        ax.set_ylim([min(ys), max(ys)])
-        ax.set_zlim([min(zs), max(zs)])
+        # Calculate the range for each axis
+        max_range = np.array([max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs)]).max() / 2.0
+
+        # Calculate midpoints
+        mid_x = (max(xs) + min(xs)) * 0.5
+        mid_y = (max(ys) + min(ys)) * 0.5
+        mid_z = (max(zs) + min(zs)) * 0.5
+
+        # Set the limits for each axis to ensure equal scaling
+        ax.set_xlim(mid_x - max_range, mid_x + max_range)
+        ax.set_ylim(mid_y - max_range, mid_y + max_range)
+        ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
         # Create line segments for regular edges
         if regular_edges:
