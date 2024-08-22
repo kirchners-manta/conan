@@ -465,10 +465,32 @@ class MaterialStructure(ABC):
 
     @abstractmethod
     def build_structure(self):
+        """
+        Abstract method for building the structure.
+        """
         pass
 
     @abstractmethod
     def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        """
+        Abstract method for plotting the structure.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
+        """
+        pass
+
+    @abstractmethod
+    def add_nitrogen_doping(self, *args, **kwargs):
+        """
+        Abstract method for adding nitrogen doping.
+
+        Accepts any arguments and keyword arguments to allow flexibility in subclasses.
+        """
         pass
 
 
