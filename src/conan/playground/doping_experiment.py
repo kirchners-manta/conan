@@ -444,6 +444,19 @@ class DopingStructureCollection:
         return [structure for structure in self.structures if structure.species == species]
 
 
+class DopingHandler:
+    def __init__(self, structure):
+        """
+        Initialize the DopingHandler with a structure.
+
+        Parameters
+        ----------
+        structure : MaterialStructure
+            The structure (e.g., GrapheneSheet or CNT) to be doped.
+        """
+        self.structure = structure
+
+
 # Abstract base class for material structures
 class MaterialStructure(ABC):
     def __init__(self):
