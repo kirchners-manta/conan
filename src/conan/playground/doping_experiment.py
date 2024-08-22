@@ -1076,7 +1076,7 @@ class MaterialStructure(ABC):
         """
         pass
 
-    @abstractmethod
+    # @abstractmethod  # ToDo: Muss später abstrakt gemacht werden (wenn StackedGraphene auch eigene Methode für Doping)
     def add_nitrogen_doping(self, *args, **kwargs):
         """
         Abstract method for adding nitrogen doping.
@@ -2515,14 +2515,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND DOPE IT
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -2533,37 +2533,38 @@ def main():
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Label atoms before writing to XYZ file
-    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
     # labeler.label_atoms()
     #
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-    # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
-    #
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Add nitrogen doping to the graphene sheet
+    # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
+    sheet_size = (20, 20)
+
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+
+    # Add nitrogen doping to the graphene sheet
     # start_time = time.time()  # Time the nitrogen doping process
-    # graphene.add_nitrogen_doping(total_percentage=15)
+    graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False)
     # end_time = time.time()
-    #
-    # # Calculate the elapsed time
+
+    # Calculate the elapsed time
     # elapsed_time = end_time - start_time
     # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Plot the graphene sheet with nitrogen doping
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+
+    # Plot the graphene sheet with nitrogen doping
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2:
