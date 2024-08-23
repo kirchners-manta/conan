@@ -124,7 +124,7 @@ class DopingStructure:
     @classmethod
     def create_structure(
         cls,
-        graphene: "GrapheneSheet",  # ToDo: Muss allgemein auf MaterialStructure erweitert werden und nicht nur Graphene
+        structure: "MaterialStructure",
         species: NitrogenSpecies,
         structural_components: StructuralComponents[List[int], List[int]],
         start_node: Optional[int] = None,
@@ -137,8 +137,8 @@ class DopingStructure:
 
         Parameters
         ----------
-        graphene : GrapheneSheet
-            The graphene sheet.
+        structure : MaterialStructure
+            The carbon structure used for doping (e.g., GrapheneSheet, CNT, ...).
         species : NitrogenSpecies
             The type of nitrogen doping.
         structural_components : StructuralComponents[List[int], List[int]]
@@ -152,7 +152,7 @@ class DopingStructure:
             The created doping structure.
         """
 
-        graph = graphene.graph
+        graph = structure.graph
 
         # Detect the cycle and create the subgraph
         cycle, subgraph = cls._detect_cycle_and_subgraph(graph, structural_components.structure_building_neighbors)
@@ -164,7 +164,7 @@ class DopingStructure:
         additional_edge = None
         if species == NitrogenSpecies.PYRIDINIC_1:
             additional_edge = cls._add_additional_edge(
-                graphene, subgraph, structural_components.structure_building_neighbors, start_node
+                structure, subgraph, structural_components.structure_building_neighbors, start_node
             )
 
         # Identify nitrogen atoms in the ordered cycle
@@ -202,15 +202,15 @@ class DopingStructure:
 
     @staticmethod
     def _add_additional_edge(
-        graphene: "GrapheneSheet", subgraph: nx.Graph, neighbors: List[int], start_node: int
+        structure: "MaterialStructure", subgraph: nx.Graph, neighbors: List[int], start_node: int
     ) -> Tuple[int, int]:
         """
         Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
 
         Parameters
         ----------
-        graphene : GrapheneSheet
-            The graphene sheet.
+        structure : MaterialStructure
+            The carbon structure used for doping (e.g., GrapheneSheet, CNT, ...).
         subgraph : nx.Graph
             The subgraph containing the cycle.
         neighbors : List[int]
@@ -224,7 +224,7 @@ class DopingStructure:
             The nodes between which the additional edge was added.
         """
 
-        graph = graphene.graph
+        graph = structure.graph
 
         # Remove the start node from the list of neighbors to get the two neighbors to connect
         neighbors.remove(start_node)
@@ -233,18 +233,23 @@ class DopingStructure:
         pos1 = graph.nodes[neighbors[0]]["position"]
         pos2 = graph.nodes[neighbors[1]]["position"]
 
-        # Calculate the box size for periodic boundary conditions
-        box_size = (
-            graphene.actual_sheet_width + graphene.c_c_bond_distance,
-            graphene.actual_sheet_height + graphene.cc_y_distance,
-        )
+        if isinstance(structure, GrapheneSheet):
+            # Calculate the box size for periodic boundary conditions
+            box_size = (
+                structure.actual_sheet_width + structure.c_c_bond_distance,
+                structure.actual_sheet_height + structure.cc_y_distance,
+            )
 
-        # Calculate the bond length between the two neighbors considering minimum image distance
-        bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
+            # Calculate the bond length between the two neighbors considering minimum image distance
+            bond_length, _ = minimum_image_distance(pos1, pos2, box_size)
 
-        # Add the edge to the main graph and the subgraph
-        graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
-        subgraph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+            # Add the edge to the main graph and the subgraph with the bond length
+            graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+            subgraph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
+        else:
+            # For CNT or other 3D structures, add the edge without bond length calculation
+            graph.add_edge(neighbors[0], neighbors[1])
+            subgraph.add_edge(neighbors[0], neighbors[1])
 
         # Return the nodes between which the edge was added
         return neighbors[0], neighbors[1]
@@ -2567,14 +2572,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND DOPE IT
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -2648,7 +2653,7 @@ def main():
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
     #
     # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
     #
     # # Add individual nitrogen doping only to the first and last layer
     # start_time = time.time()  # Time the nitrogen doping process
@@ -2664,17 +2669,17 @@ def main():
     # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
-
-    ####################################################################################################################
+    # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
+    #
+    # ####################################################################################################################
     # Example of creating a CNT
 
     cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=True)
-    # cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=True)
+    cnt.add_nitrogen_doping(total_percentage=10)
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure.xyz")
+    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
 
 
 if __name__ == "__main__":
