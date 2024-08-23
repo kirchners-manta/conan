@@ -1573,7 +1573,9 @@ class GrapheneSheet(Structure2D):
 
         # Adjust atom positions if specified
         if adjust_positions:
+            print("\nThe positions of the atoms are now being adjusted. This may take a moment...\n")
             self._adjust_atom_positions()  # ToDo: Funktion sollte dann in Structure2D verlagert werden
+            print("\nThe positions of the atoms have been adjusted.")
 
     def _adjust_atom_positions(self):
         """
@@ -2572,14 +2574,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET AND DOPE IT
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET AND DOPE IT
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -2674,12 +2676,12 @@ def main():
     # ####################################################################################################################
     # Example of creating a CNT
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=True)
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=True)
     cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
+    write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
 
 if __name__ == "__main__":
