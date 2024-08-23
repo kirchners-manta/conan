@@ -1577,6 +1577,12 @@ class GrapheneSheet(Structure2D):
             print("\nThe positions of the atoms are now being adjusted. This may take a moment...\n")
             self._adjust_atom_positions()  # ToDo: Funktion sollte dann in Structure2D verlagert werden
             print("\nThe positions of the atoms have been adjusted.")
+        else:
+            print(
+                "\nNo position adjustment is being performed. Doping has been applied structurally only.\n"
+                "If position adjustment via energy minimization is required, the 'adjust_positions' flag must be set"
+                " to True."
+            )
 
     def _adjust_atom_positions(self):
         """
@@ -2560,6 +2566,12 @@ class CNT(Structure3D):
         # Delegate the doping process to the DopingHandler
         self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
 
+        # Inform the user about the lack of 3D position adjustment
+        print(
+            "\nNote: 3D position adjustment is not currently supported in CONAN. The generated doped structure should "
+            "be used as a basis for further DFT or other computational calculations."
+        )
+
 
 def main():
     # Set seed for reproducibility
@@ -2589,14 +2601,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND DOPE IT
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
