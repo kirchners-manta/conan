@@ -1851,15 +1851,21 @@ class GrapheneSheet(Structure2D):
 
             # Define the maximum number of iterations (e.g., 1000)
 
-        max_iter = 1000
-        with tqdm(total=max_iter, desc="Optimizing positions", unit="iteration") as pbar:
-            # Define a callback function to update the progress bar
-            def callback(xk):
-                pbar.update(1)
+        # Initialize the progress bar without a fixed total
+        pbar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
 
-            # Use the callback in the optimization process
-            result = minimize(total_energy, x0, method="L-BFGS-B", callback=callback)
-            print(f"\nNumber of iterations: {result.nit}\nFinal energy: {result.fun}")
+        def callback(xk):
+            # Update the progress bar by one step
+            pbar.update(1)
+
+        # Start the optimization with the callback
+        result = minimize(total_energy, x0, method="L-BFGS-B", callback=callback)
+
+        # Close the progress bar
+        pbar.close()
+
+        # Print the number of iterations and final energy
+        print(f"\nNumber of iterations: {result.nit}\nFinal energy: {result.fun}")
 
         # Reshape the optimized positions back to the 2D array format
         optimized_positions = result.x.reshape(-1, 2)
