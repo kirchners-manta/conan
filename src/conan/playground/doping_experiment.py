@@ -248,6 +248,9 @@ class DopingStructure:
             graph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
             subgraph.add_edge(neighbors[0], neighbors[1], bond_length=bond_length)
         else:
+            # ToDo: If the position adjustment is then also to be performed for the 3D structures, an alternative for
+            #  the 'minimum_image_distance' function must be found here in order to calculate the bond_length for
+            #  structures that are connected via the periodic edges
             # For CNT or other 3D structures, add the edge without bond length calculation
             graph.add_edge(neighbors[0], neighbors[1])
             subgraph.add_edge(neighbors[0], neighbors[1])
