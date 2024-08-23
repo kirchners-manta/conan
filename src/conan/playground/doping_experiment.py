@@ -1085,7 +1085,7 @@ class MaterialStructure(ABC):
         """
         pass
 
-    # @abstractmethod  # ToDo: Muss später abstrakt gemacht werden (wenn StackedGraphene auch eigene Methode für Doping)
+    @abstractmethod
     def add_nitrogen_doping(self, *args, **kwargs):
         """
         Abstract method for adding nitrogen doping.
@@ -1920,10 +1920,6 @@ class StackedGraphene(Structure3D):
     Represents a stacked graphene structure.
     """
 
-    # ToDo: Hier muss noch die "add_nitrogen_doping"-Methode überschrieben werden (d.h. es muss noch eine zusätzliche
-    #  Methode geben, für wenn man direkt mit "StackedGraphene" arbeitet und nicht über die stacking Methode von
-    #  GrapheneSheet geht
-
     def __init__(
         self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int, stacking_type: str
     ):
@@ -2027,6 +2023,52 @@ class StackedGraphene(Structure3D):
         # Iterate over the remaining layers and combine them into self.graph
         for sheet in self.graphene_sheets[1:]:
             self.graph = nx.disjoint_union(self.graph, sheet.graph)
+
+    def add_nitrogen_doping(
+        self,
+        total_percentage: float = None,
+        percentages: dict = None,
+        adjust_positions: bool = True,
+        layers: Union[List[int], str] = "all",
+    ):
+        """
+        Add nitrogen doping to one or multiple layers in the stacked graphene structure.
+
+        Parameters
+        ----------
+        total_percentage : float, optional
+            The total percentage of carbon atoms to replace with nitrogen atoms. Default is 10 if not specified.
+        percentages : dict, optional
+            A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
+            values and values should be the percentages for the corresponding species.
+        adjust_positions : bool, optional
+            Whether to adjust the positions of atoms after doping. Default is True.
+        layers : Union[List[int], str], optional
+            The layers to apply doping to. Can be a list of layer indices or "all" to apply to all layers. Default is
+            "all".
+
+        Raises
+        ------
+        IndexError
+            If any of the specified layers are out of range.
+        """
+        # Determine which layers to dope
+        if isinstance(layers, str) and layers.lower() == "all":
+            layers = list(range(self.number_of_layers))
+        elif isinstance(layers, list):
+            if any(layer < 0 or layer >= self.number_of_layers for layer in layers):
+                raise IndexError("One or more specified layers are out of range.")
+        else:
+            raise ValueError("Invalid 'layers' parameter. Must be a list of integers or 'all'.")
+
+        # Apply doping to each specified layer
+        for layer_index in layers:
+            self.add_nitrogen_doping_to_layer(
+                layer_index=layer_index,
+                total_percentage=total_percentage,
+                percentages=percentages,
+                adjust_positions=adjust_positions,
+            )
 
     def add_nitrogen_doping_to_layer(
         self, layer_index: int, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = True
@@ -2665,26 +2707,21 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # VERSION 2:
-    # # Create individual GrapheneSheet instances
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Add nitrogen doping to the graphene sheet
-    # start_time = time.time()  # Time the nitrogen doping process
-    # graphene.add_nitrogen_doping(total_percentage=15)
-    # end_time = time.time()
-    #
-    # # Calculate the elapsed time
-    # elapsed_time = end_time - start_time
-    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Stack sheets into a 3D structure
-    # graphene.stack(interlayer_spacing=3.35, number_of_layers=3)
-    #
-    # # Plot the stacked structure
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "ABA_stacking.xyz")
+    # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET
+
+    # Create a graphene sheet
+    graphene_sheet = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+
+    # Create stacked graphene using the graphene sheet
+    stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABA")
+
+    # Add nitrogen doping to the specified graphene sheets
+    stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False, layers=[0, 2, 4])
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
@@ -2713,14 +2750,14 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
     #
     # ####################################################################################################################
-    # Example of creating a CNT
-
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=True)
-    cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    # # Example of creating a CNT
+    #
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=True)
+    # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the CNT structure to a file
+    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
 
 if __name__ == "__main__":
