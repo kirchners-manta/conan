@@ -127,7 +127,8 @@ dependencies = [
     "optuna",  # ToDo: Remove all packages from optuna onwards once we have found the best hyperparameters
     "plotly",
     "scikit-learn",
-    "kaleido"
+    "kaleido",
+    "tqdm"
 ]
 
 # List additional groups of dependencies here (e.g. development
