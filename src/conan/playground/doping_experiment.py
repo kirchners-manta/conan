@@ -2565,14 +2565,23 @@ class CNT(Structure3D):
         - Remaining percentages are distributed equally among the available nitrogen species.
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
           GRAPHITIC.
+
+        Warnings
+        --------
+        Note that three-dimensional position adjustment is currently not implemented in CONAN. Therefore, the generated
+        doped structure should be used as a preliminary model and is recommended for further refinement using DFT or
+        other computational methods. Future versions may include 3D position optimization.
         """
         # Delegate the doping process to the DopingHandler
         self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
 
-        # Inform the user about the lack of 3D position adjustment
-        print(
-            "\nNote: 3D position adjustment is not currently supported in CONAN. The generated doped structure should "
-            "be used as a basis for further DFT or other computational calculations."
+        # Issue a user warning about the lack of 3D position adjustment
+        warnings.warn(
+            "3D position adjustment is not currently supported in CONAN. "
+            "The generated doped structure should be used as a basis for further DFT or other computational "
+            "calculations. "
+            "Future versions may include 3D position optimization.",
+            UserWarning,
         )
 
 
