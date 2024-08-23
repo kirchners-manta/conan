@@ -18,6 +18,7 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
+from tqdm import tqdm
 
 from conan.playground.graph_utils import (
     NitrogenSpecies,
@@ -1848,9 +1849,17 @@ class GrapheneSheet(Structure2D):
 
             return bond_energy(x) + angle_energy(x)
 
-        # Use L-BFGS-B optimization method to minimize the total energy
-        result = minimize(total_energy, x0, method="L-BFGS-B")
-        print(f"Number of iterations: {result.nit}\nFinal energy: {result.fun}")
+            # Define the maximum number of iterations (e.g., 1000)
+
+        max_iter = 1000
+        with tqdm(total=max_iter, desc="Optimizing positions", unit="iteration") as pbar:
+            # Define a callback function to update the progress bar
+            def callback(xk):
+                pbar.update(1)
+
+            # Use the callback in the optimization process
+            result = minimize(total_energy, x0, method="L-BFGS-B", callback=callback)
+            print(f"\nNumber of iterations: {result.nit}\nFinal energy: {result.fun}")
 
         # Reshape the optimized positions back to the 2D array format
         optimized_positions = result.x.reshape(-1, 2)
