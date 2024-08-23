@@ -1,5 +1,6 @@
 import copy
 import random
+import time
 
 # import time
 import warnings
@@ -1763,23 +1764,33 @@ class GrapheneSheet(Structure2D):
         # Return False if the nitrogen species is not recognized
         return False, (None, None)
 
-    def stack(self, interlayer_spacing: float, number_of_layers: int) -> "StackedGraphene":
+    def stack(
+        self, interlayer_spacing: float = 3.34, number_of_layers: int = 3, stacking_type: str = "ABA"
+    ) -> "StackedGraphene":
         """
         Stack graphene sheets using ABA stacking.
 
         Parameters
         ----------
-        interlayer_spacing : float
-            The shift in the z-direction for each layer.
-        number_of_layers : int
-            The number of layers to stack.
+        interlayer_spacing : float, optional
+            The shift in the z-direction for each layer. Default is 3.34 Å.
+        number_of_layers : int, optional
+            The number of layers to stack. Default is 3.
+        stacking_type : str, optional
+            The type of stacking to use ('ABA' or 'ABC'). Default is 'ABA'.
 
         Returns
         -------
         StackedGraphene
             The stacked graphene structure.
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
         """
-        return StackedGraphene(self, interlayer_spacing, number_of_layers)
+        return StackedGraphene(self, interlayer_spacing, number_of_layers, stacking_type)
 
 
 class StackedGraphene(Structure3D):
@@ -1787,9 +1798,12 @@ class StackedGraphene(Structure3D):
     Represents a stacked graphene structure.
     """
 
-    def __init__(self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int):
+    def __init__(
+        self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int, stacking_type: str
+    ):
         """
-        Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, and number of layers.
+        Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, number of layers, and stacking
+        type.
 
         Parameters
         ----------
@@ -1799,8 +1813,36 @@ class StackedGraphene(Structure3D):
             The spacing between layers in the z-direction.
         number_of_layers : int
             The number of layers to stack.
+        stacking_type : str
+            The type of stacking to use ('ABA' or 'ABC').
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
         """
         super().__init__()
+
+        # Validate interlayer_spacing
+        if not isinstance(interlayer_spacing, (int, float)) or interlayer_spacing <= 0:
+            raise ValueError(f"interlayer_spacing must be positive number, but got {interlayer_spacing}.")
+
+        # Validate number_of_layers
+        if not isinstance(number_of_layers, int) or number_of_layers <= 0:
+            raise ValueError(f"number_of_layers must be a positive integer, but got {number_of_layers}.")
+
+        # Ensure stacking_type is a string and validate it
+        if not isinstance(stacking_type, str):
+            raise ValueError(f"stacking_type must be a string, but got {type(stacking_type).__name__}.")
+
+        # Validate stacking_type after converting it to uppercase
+        self.stacking_type = stacking_type.upper()
+        """The type of stacking to use ('ABA' or 'ABC')."""
+        valid_stacking_types = {"ABA", "ABC"}
+        if self.stacking_type not in valid_stacking_types:
+            raise ValueError(f"stacking_type must be one of {valid_stacking_types}, but got '{self.stacking_type}'.")
+
         self.graphene_sheets = []
         """A list to hold individual GrapheneSheet instances."""
         self.interlayer_spacing = interlayer_spacing
@@ -1833,8 +1875,15 @@ class StackedGraphene(Structure3D):
         layer : int
             The layer number to determine the shifts.
         """
-        interlayer_shift = 1.42  # Fixed x_shift for ABA stacking  # ToDo: Anpassen, dass hier self.bond_distance steht
-        x_shift = (layer % 2) * interlayer_shift
+        interlayer_shift = self.graphene_sheets[0].c_c_bond_distance  # Fixed x_shift for ABA stacking
+
+        if self.stacking_type == "ABA":
+            x_shift = (layer % 2) * interlayer_shift
+        elif self.stacking_type == "ABC":
+            x_shift = (layer % 3) * interlayer_shift
+        else:
+            raise ValueError(f"Unsupported stacking type: {self.stacking_type}. Please use 'ABA' or 'ABC'.")
+
         z_shift = layer * self.interlayer_spacing
 
         # Update the positions in the copied sheet
@@ -1930,18 +1979,18 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
-    labeler.label_atoms()
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
@@ -1993,29 +2042,30 @@ def main():
     # write_xyz(graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    #
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
-    #
-    # # Add individual nitrogen doping only to the first and last layer
-    # start_time = time.time()  # Time the nitrogen doping process
-    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
-    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
-    # end_time = time.time()
-    #
-    # # Calculate the elapsed time
-    # elapsed_time = end_time - start_time
-    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    sheet_size = (20, 20)
+
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
+
+    # Add individual nitrogen doping only to the first and last layer
+    start_time = time.time()  # Time the nitrogen doping process
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=False)
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=2, total_percentage=15, adjust_positions=False)
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
 
 if __name__ == "__main__":
