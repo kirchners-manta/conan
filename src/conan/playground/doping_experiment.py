@@ -403,7 +403,7 @@ class DopingStructure:
                     # If the current node meets all conditions, set it as the start node
                     start_node = node
                     break
-            # Raise an error if no suitable start node is found
+        # Raise an error if no suitable start node is found
         if start_node is None:
             raise ValueError("No suitable starting node found in the subgraph.")
         return start_node
@@ -720,10 +720,6 @@ class DopingHandler:
             )
             for species in NitrogenSpecies
         }
-
-        # # Adjust the positions of atoms in all cycles to optimize the structure
-        # if adjust_positions and any(self.doping_structures.structures):
-        #     self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
         total_doping_percentage = sum(actual_percentages.values())
