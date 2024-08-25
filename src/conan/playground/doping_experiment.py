@@ -1337,19 +1337,6 @@ class GrapheneSheet(Structure2D):
         # Build the initial graphene sheet structure
         self.build_structure()
 
-        # # Initialize the list of possible carbon atoms
-        # self._possible_carbon_atoms_needs_update = True
-        # """Flag to indicate that the list of possible carbon atoms needs to be updated."""
-        # self._possible_carbon_atoms = []
-        # """List of possible carbon atoms that can be used for nitrogen doping."""
-        #
-        # self.species_properties = self._initialize_species_properties()
-        # """A dictionary mapping each NitrogenSpecies to its corresponding NitrogenSpeciesProperties.
-        # This includes bond lengths and angles characteristic to each species that we aim to achieve in the doping."""
-        #
-        # self.doping_structures = DopingStructureCollection()
-        # """A dataclass to store information about doping structures in the graphene sheet."""
-
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
         # self._positions = np.array([self.graph.nodes[node]['position'].to_tuple() for node in self.graph.nodes])
