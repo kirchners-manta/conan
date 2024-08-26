@@ -330,7 +330,7 @@ class DopingStructure:
             The shortest cycle that includes all the given neighbors, if such a cycle exists. Otherwise, an empty list.
         """
 
-        # Initialize the subgraph with the neighbors and their edges
+        # Initialize the subgraph with the neighbors
         subgraph = nx.Graph()
         subgraph.add_nodes_from(neighbors)
 
@@ -565,7 +565,7 @@ class DopingHandler:
                 109.52,
                 112.77,
                 110.35,
-                112.76,
+                112.77,
                 109.52,
                 128.28,
                 118.24,
