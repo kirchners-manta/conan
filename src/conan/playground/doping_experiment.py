@@ -1004,6 +1004,11 @@ class DopingHandler:
         }:
             # Get neighbors up to depth 2 for the selected atom
             neighbors_len_2 = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
+
+            # Ensure that the neighbors list has at least 9 elements (otherwise,
+            if not self.carbon_structure.periodic and len(neighbors_len_2) < 9:
+                return False, (None, None)
+
             # Ensure all neighbors are possible atoms for doping
             if all_neighbors_possible_carbon_atoms(neighbors_len_2):
                 # Return True if the position is valid for pyridinic doping and the structural components
@@ -1042,6 +1047,10 @@ class DopingHandler:
             # ToDo: This may be solved better by using an additional flag in get_neighbors_via_edges
             combined_neighbors = list(set(neighbors + get_neighbors_via_edges(self.graph, selected_neighbor)))
             combined_neighbors = [n for n in combined_neighbors if n not in {atom_id, selected_neighbor}]
+
+            # Ensure that the combined neighbors list has at least 14 elements
+            if not self.carbon_structure.periodic and len(combined_len_2_neighbors) < 14:
+                return False, (None, None)
 
             # Return True if the position is valid for pyridinic 4 doping
             return True, StructuralComponents(
@@ -2642,7 +2651,7 @@ def main():
     # sheet_size = (20, 20)
     #
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 3})
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
@@ -2690,21 +2699,22 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET
-
-    # Create a graphene sheet
-    graphene_sheet = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
-
-    # Create stacked graphene using the graphene sheet
-    stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABA")
-
-    # Add nitrogen doping to the specified graphene sheets
-    stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False, layers=[0, 2, 4])
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET
+    #
+    # # Create a graphene sheet
+    # graphene_sheet = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    #
+    # # Create stacked graphene using the graphene sheet
+    # stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5,
+    # stacking_type="ABA")
+    #
+    # # Add nitrogen doping to the specified graphene sheets
+    # stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False, layers=[0, 2, 4])
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
@@ -2733,14 +2743,14 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
     #
     # ####################################################################################################################
-    # # Example of creating a CNT
-    #
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=True)
-    # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    # Example of creating a CNT
+
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    cnt.add_nitrogen_doping(total_percentage=10)
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
 
 if __name__ == "__main__":
