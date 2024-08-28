@@ -981,6 +981,9 @@ class DopingHandler:
         atom_id = self.get_next_possible_carbon_atom(possible_carbon_atoms_to_test)
         neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
+        # Check whether the structure is periodic
+        is_periodic = getattr(self.carbon_structure, "periodic", False)
+
         # Check the proximity constraints based on the nitrogen species
         if nitrogen_species == NitrogenSpecies.GRAPHITIC:
             # Collect elements and nitrogen species of neighbors
@@ -1005,8 +1008,8 @@ class DopingHandler:
             # Get neighbors up to depth 2 for the selected atom
             neighbors_len_2 = get_neighbors_via_edges(self.graph, atom_id, depth=2, inclusive=True)
 
-            # Ensure that the neighbors list has at least 9 elements (otherwise,
-            if not self.carbon_structure.periodic and len(neighbors_len_2) < 9:
+            # If the neighbors list is less than 9, the doping structure would go beyond the edge
+            if not is_periodic and len(neighbors_len_2) < 9:
                 return False, (None, None)
 
             # Ensure all neighbors are possible atoms for doping
@@ -1019,10 +1022,12 @@ class DopingHandler:
             return False, (None, None)
 
         elif nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
-            # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
+            # Initialize some variables containing neighbor information
             selected_neighbor = None
             temp_neighbors = neighbors.copy()
+            combined_len_2_neighbors = []
 
+            # Iterate over the neighbors of the selected atom to find a direct neighbor that has a valid position
             while temp_neighbors and not selected_neighbor:
                 # Find a direct neighbor that also needs to be removed randomly
                 temp_neighbor = random.choice(temp_neighbors)
@@ -1048,8 +1053,8 @@ class DopingHandler:
             combined_neighbors = list(set(neighbors + get_neighbors_via_edges(self.graph, selected_neighbor)))
             combined_neighbors = [n for n in combined_neighbors if n not in {atom_id, selected_neighbor}]
 
-            # Ensure that the combined neighbors list has at least 14 elements
-            if not self.carbon_structure.periodic and len(combined_len_2_neighbors) < 14:
+            # If the neighbors list is less than 9, the doping structure would go beyond the edge
+            if not is_periodic and len(combined_len_2_neighbors) < 14:
                 return False, (None, None)
 
             # Return True if the position is valid for pyridinic 4 doping
@@ -2651,7 +2656,7 @@ def main():
     # sheet_size = (20, 20)
     #
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 3})
+    # graphene.add_nitrogen_doping(total_percentage=10)
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
@@ -2743,9 +2748,9 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
     #
     # ####################################################################################################################
-    # Example of creating a CNT
+    # CREATE A CNT STRUCTURE
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
     cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
