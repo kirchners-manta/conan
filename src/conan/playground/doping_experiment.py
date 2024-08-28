@@ -23,6 +23,7 @@ from tqdm import tqdm
 from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
+    Position2D,
     Position3D,
     create_position,
     get_color,
@@ -1830,6 +1831,12 @@ class GrapheneSheet(Structure2D):
                             pos_node = create_position(x_node, y_node)
                             pos_i = create_position(x_i, y_i)
                             pos_j = create_position(x_j, y_j)
+                            if (
+                                not isinstance(pos_node, Position2D)
+                                or not isinstance(pos_i, Position2D)
+                                or not isinstance(pos_j, Position2D)
+                            ):
+                                raise TypeError("Expected Position2D, but got a different type")
                             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -2652,14 +2659,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET AND DOPE IT
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET AND DOPE IT
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
