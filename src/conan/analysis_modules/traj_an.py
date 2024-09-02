@@ -1,76 +1,17 @@
 # The program is written by Leonard Dick, 2023
 
-import math
-import os
 import sys
 import time
 
 import numpy as np
 import pandas as pd
-from prettytable import PrettyTable
 
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 
 
-# Information on the trajectory / cutting the frames into chunks
-def traj_chunk_info(id_frame, args):
-    # GENERAL INFORMATION ON CHUNKS
-    ddict.printLog("-> Reading the trajectory.\n")
-    trajectory_file_size = os.path.getsize(args["trajectoryfile"])
-    # Calculate how many atoms each frame has.
-    number_of_atoms = len(id_frame)
-    # Calculate how many lines the trajectory file has.
-    with open(args["trajectoryfile"]) as f:
-        number_of_lines = sum(1 for i in f)
-
-    lines_per_frame = 0
-    # Calculate how many frames the trajectory file has.
-    if args["trajectoryfile"].endswith(".xyz") or args["trajectoryfile"].endswith(".pdb"):
-        lines_per_frame = number_of_atoms + 2
-    elif args["trajectoryfile"].endswith(".lammpstrj") or args["trajectoryfile"].endswith(".lmp"):
-        lines_per_frame = number_of_atoms + 9
-
-    number_of_frames = int(number_of_lines / lines_per_frame)
-
-    # Calculate how many bytes each line of the trajectory file has.
-    bytes_per_line = trajectory_file_size / (number_of_lines)
-    # The number of lines in a chunk. Each chunk is roughly 50 MB large.
-    chunk_size = int(100000000 / ((lines_per_frame) * bytes_per_line))
-    # The number of chunks (always round up).
-    number_of_chunks = math.ceil(number_of_frames / chunk_size)
-    # The number of frames in the last chunk.
-    last_chunk_size = number_of_frames - (number_of_chunks - 1) * chunk_size
-    number_of_bytes_per_chunk = chunk_size * (lines_per_frame) * bytes_per_line
-    number_of_lines_per_chunk = chunk_size * (lines_per_frame)
-    number_of_lines_last_chunk = last_chunk_size * (lines_per_frame)
-    # Table with the information on the trajectory file.
-    table = PrettyTable(["", "Trajectory", "Chunk(%d)" % (number_of_chunks)])
-    table.add_row(
-        [
-            "Size in MB",
-            "%0.1f" % (trajectory_file_size / 1000000),
-            "%0.1f (%0.1f)"
-            % (number_of_bytes_per_chunk / 1000000, last_chunk_size * (lines_per_frame) * bytes_per_line / 1000000),
-        ]
-    )
-    table.add_row(["Frames", number_of_frames, "%d(%d)" % (chunk_size, last_chunk_size)])
-    table.add_row(["Lines", number_of_lines, number_of_lines_per_chunk])
-    ddict.printLog(table)
-    ddict.printLog("")
-
-    return (
-        number_of_frames,
-        number_of_lines_per_chunk,
-        number_of_lines_last_chunk,
-        number_of_chunks,
-        chunk_size,
-        last_chunk_size,
-    )
-
-
 # MAIN
-def analysis_opt(maindict) -> None:
+def analysis_opt(traj_file, molecules, maindict) -> None:
 
     # id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
     CNT_centers = maindict["CNT_centers"]
@@ -83,11 +24,11 @@ def analysis_opt(maindict) -> None:
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(maindict)
+        generating_pictures(traj_file, maindict)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
-            trajectory_analysis(maindict)
+            trajectory_analysis(traj_file, molecules, maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -96,11 +37,10 @@ def analysis_opt(maindict) -> None:
 
 
 # Generating pictures.
-def generating_pictures(maindict) -> None:
+def generating_pictures(traj_file, maindict) -> None:
 
-    id_frame = maindict["id_frame"]
+    id_frame = traj_file.frame0
     CNT_centers = maindict["CNT_centers"]
-    box_size = maindict["box_size"]
     args = maindict["args"]
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
@@ -170,41 +110,63 @@ def generating_pictures(maindict) -> None:
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"]]
+                            CNT_atoms_pic.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
 
                 elif add_liquid2 == 2:
-                    # Do the molecule recognition.
-                    ddict.printLog("-> Molecule recognition.")
-                    id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size)
-                    id_frame = id_frame.drop(["Charge", "Label", "CNT"], axis=1)
+                    traj_file.frame0 = traj_file.frame0.drop(["Charge", "CNT"], axis=1)
+
                     # Add the Molecule column to the CNT_atoms_pic dataframe.
                     CNT_atoms_pic["Molecule"] = np.nan
-                    # Scan the id_frame and add all atoms which are inside the tube to the tube_atoms dataframe.
-                    for index, row in id_frame.iterrows():
+                    # Scan the traj_file.frame0 and add all atoms which are inside the tube to the tube_atoms dataframe.
+                    for index, row in traj_file.frame0.iterrows():
                         if (
                             row["Struc"] == "Liquid"
                             and row["z"] <= CNT_atoms_pic["z"].max()
                             and row["z"] >= CNT_atoms_pic["z"].min()
                         ):
                             # Add the row to the tube_atoms dataframe.
-                            CNT_atoms_pic.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Molecule"]]
+                            CNT_atoms_pic.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
 
                     # List the molecules which are inside the tube.
                     mol_list = []
                     mol_list.append(CNT_atoms_pic["Molecule"].unique())
-                    tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Molecule"])
+                    tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Label", "Species", "Molecule"])
                     mol_list = mol_list[0]
                     # Scan the id_frame and add all atoms which are in the mol_list to the tube_atoms_mol dataframe.
                     for index, row in id_frame.iterrows():
                         if row["Molecule"] in mol_list:
                             # Add the row to the tube_atoms dataframe.
-                            tube_atoms_mol.loc[index] = [row["Element"], row["x"], row["y"], row["z"], row["Molecule"]]
+                            tube_atoms_mol.loc[index] = [
+                                row["Element"],
+                                row["x"],
+                                row["y"],
+                                row["z"],
+                                row["Label"],
+                                row["Species"],
+                                row["Molecule"],
+                            ]
                     # Append the tube_atoms_mol dataframe to the tube_atoms_pic dataframe.
                     CNT_atoms_pic = pd.concat([CNT_atoms_pic, tube_atoms_mol], ignore_index=True)
 
                     # Finally remove all duplicates from the tube_atoms_pic dataframe.
                     CNT_atoms_pic = CNT_atoms_pic.drop_duplicates(
-                        subset=["Element", "x", "y", "z", "Molecule"], keep="first"
+                        subset=["Element", "x", "y", "z", "Label", "Species", "Molecule"], keep="first"
                     )
 
             else:
@@ -232,48 +194,36 @@ def generating_pictures(maindict) -> None:
 
 
 # Analysis of the trajectory.
-def trajectory_analysis(inputdict) -> None:
+def trajectory_analysis(traj_file, molecules, inputdict) -> None:
 
     id_frame = inputdict["id_frame"]
-    box_size = inputdict["box_size"]
     args = inputdict["args"]
 
     # Analysis choice.
+    ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
     ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
     ddict.printLog("(4) Calculate the accessibe volume of the CNT")
-    ddict.printLog("(5) Calculate the average density along the z axis of the simulation box")
-    ddict.printLog("(6) Calculate the coordination number")
-    ddict.printLog("(7) Calculate the distance between liquid and pore atoms")
-    ddict.printLog("(8) Calculate the density of the liquid in the simulation box.")
+    ddict.printLog(
+        "(5) Calculate the axial density along the z axis of the simulation box,",
+        " with the accessible volume of the CNT considered.",
+    )
+    ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
+
+    ddict.printLog("\nThese functions are generally applicable.", color="red")
+    ddict.printLog("(7) Calculate the coordination number")
+    ddict.printLog("(8) Calculate the axial density of the liquid.")
 
     # ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
-    analysis_choice2 = int(ddict.get_input("Which analysis should be conducted?:  ", args, "int"))
+    analysis_choice2 = int(ddict.get_input("\nWhat analysis should be performed?:  ", args, "int"))
     analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     if analysis_choice2 not in analysis_choice2_options:
         ddict.printLog("-> The analysis you entered is not known.")
         sys.exit(1)
     ddict.printLog("")
 
-    # MOLECULAR RECOGNITION
-    # Perform the molecule recognition by loading the module molidentifier.
-    if not inputdict["unique_molecule_frame"].empty:
-        unique_molecule_frame = inputdict["unique_molecule_frame"]
-
-    else:
-        id_frame, unique_molecule_frame = traj_info.molecule_recognition(id_frame, box_size, args)
-
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
-
-    (
-        number_of_frames,
-        number_of_lines_per_chunk,
-        number_of_lines_last_chunk,
-        number_of_chunks,
-        chunk_size,
-        last_chunk_size,
-    ) = traj_chunk_info(id_frame, args)
 
     # PREPERATION
     # Main loop preperation.
@@ -305,15 +255,15 @@ def trajectory_analysis(inputdict) -> None:
         from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
 
     if analysis_choice2 == 6:
+        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
+        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
+
+    if analysis_choice2 == 7:
         from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
         from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
         from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
         from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
-
-    if analysis_choice2 == 7:
-        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
-        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
-        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
 
     if analysis_choice2 == 8:
         from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
@@ -325,11 +275,11 @@ def trajectory_analysis(inputdict) -> None:
 
     maindict = inputdict
     maindict["counter"] = counter
-    maindict["unique_molecule_frame"] = unique_molecule_frame
+    maindict["unique_molecule_frame"] = molecules.unique_molecule_frame
     maindict["CNT_atoms"] = CNT_atoms
     maindict["maxdisp_atom_row"] = None
     maindict["maxdisp_atom_dist"] = 0
-    maindict["number_of_frames"] = number_of_frames
+    maindict["number_of_frames"] = traj_file.number_of_frames
     maindict["analysis_choice2"] = analysis_choice2
     maindict["do_xyz_analysis"] = "n"
 
@@ -376,19 +326,19 @@ def trajectory_analysis(inputdict) -> None:
     molecule_label = id_frame["Label"].values
 
     # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
-    trajectory = pd.read_csv(args["trajectoryfile"], chunksize=number_of_lines_per_chunk, header=None)
+    trajectory = pd.read_csv(args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
     chunk_number = 0
     # Loop over chunks.
     for chunk in trajectory:
         chunk_number = chunk_number + 1
         maindict["chunk_number"] = chunk_number
-        print("")
-        print("Chunk %d of %d" % (chunk_number, number_of_chunks))
+        # print("")
+        ddict.printLog("\nChunk %d of %d" % (chunk_number, traj_file.num_chunks))
         # Divide the chunk into individual frames. If the chunk is the last chunk, the number of frames is different.
-        if chunk.shape[0] == number_of_lines_last_chunk:
-            frames = np.split(chunk, last_chunk_size)
+        if chunk.shape[0] == traj_file.lines_last_chunk:
+            frames = np.split(chunk, traj_file.last_chunk_size)
         else:
-            frames = np.split(chunk, chunk_size)
+            frames = np.split(chunk, traj_file.chunk_size)
 
         for frame in frames:
 
@@ -422,10 +372,10 @@ def trajectory_analysis(inputdict) -> None:
             maindict = analysis(maindict)
 
             counter += 1
-            print("Frame %d of %d" % (counter, number_of_frames), end="\r")
+            print("Frame %d of %d" % (counter, traj_file.number_of_frames), end="\r")
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-        if analysis_choice2 == 6:
+        if analysis_choice2 == 7:
             maindict = chunk_processing(maindict)
 
     ddict.printLog("")
@@ -435,7 +385,7 @@ def trajectory_analysis(inputdict) -> None:
     # DATA PROCESSING
     post_processing(maindict)
 
-    ddict.printLog("The main loop took %0.3f seconds to run." % (time.time() - Main_time))
+    ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
 
 
 if __name__ == "__main__":
