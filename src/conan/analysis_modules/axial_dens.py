@@ -134,7 +134,7 @@ def distance_search_prep(inputdict):
     # drop all rows, which are labeled 'Liquid' in the 'Struc' column
     structure_atoms = structure_atoms[structure_atoms["Struc"] != "Liquid"]
 
-    # now transform the CNT atoms into a kd-tree
+    # now transform the structure atoms into a kd-tree
     structure_atoms_tree = scipy.spatial.KDTree(structure_atoms[["x", "y", "z"]].values)
 
     # now add the structure_atoms_tree to the inputdict
@@ -197,10 +197,18 @@ def distance_search_processing(inputdict):
     maximal_distance_row = inputdict["maximal_distance_row"]
 
     ddict.printLog(
-        "The closest atom is: ", minimal_distance_row["Atom"], " with a distance of: ", round(minimal_distance, 2)
+        "The closest atom is: ",
+        minimal_distance_row["Atom"],
+        " with a distance of: ",
+        round(minimal_distance, 2),
+        " \u00C5",
     )
     ddict.printLog(
-        "The furthest atom is: ", maximal_distance_row["Atom"], " with a distance of: ", round(maximal_distance, 2)
+        "The furthest atom is: ",
+        maximal_distance_row["Atom"],
+        " with a distance of: ",
+        round(maximal_distance, 2),
+        " \u00C5",
     )
 
 
@@ -243,9 +251,9 @@ def axial_density_prep(inputdict):
         z_incr_bulk1[i] = min_z_pore[i] / num_increments
         z_incr_bulk2[i] = (box_size[2] - max_z_pore[i]) / num_increments
 
-        ddict.printLog("Increment distance CNT: %0.3f Ang" % (z_incr_CNT[i]))
-        ddict.printLog("Increment distance bulk1: %0.3f Ang" % (z_incr_bulk1[i]))
-        ddict.printLog("Increment distance bulk2: %0.3f Ang" % (z_incr_bulk2[i]))
+        ddict.printLog("Increment distance CNT: %0.3f \u00C5" % (z_incr_CNT[i]))
+        ddict.printLog("Increment distance bulk1: %0.3f \u00C5" % (z_incr_bulk1[i]))
+        ddict.printLog("Increment distance bulk2: %0.3f \u00C5" % (z_incr_bulk2[i]))
 
         z_bin_edges_pore[i] = np.linspace(CNT_atoms["z"].min(), CNT_atoms["z"].max(), num_increments + 1)
         z_bin_edges_bulk1[i] = np.linspace(0, min_z_pore[i], num_increments + 1)
@@ -260,7 +268,10 @@ def axial_density_prep(inputdict):
 
     maxdisp_atom_dist = 0
     which_element_radii = ddict.get_input(
-        "Do you want to use the van der Waals radii (1) or the covalent radii (2) of the elements? [1/2] ", args, "int"
+        "Do you want to use the van der Waals radii (1) or the covalent radii (2) "
+        "of the elements to calculate the acccessible volume? [1/2] ",
+        args,
+        "int",
     )
     if which_element_radii == 1:
         ddict.printLog("-> Using van der Waals radii.")
@@ -409,8 +420,8 @@ def axial_density_processing(inputdict):
             )
         )
         accessible_radius = maxdisp_atom_row["Distance"]
-        ddict.printLog("Maximal displacement: %0.3f" % accessible_radius)
-        ddict.printLog("Accessible volume: %0.3f" % (math.pi * accessible_radius**2 * CNT_length))
+        ddict.printLog("Maximal displacement: %0.3f \u00C5" % accessible_radius)
+        ddict.printLog("Accessible volume: %0.3f \u00C5\u00B3" % (math.pi * accessible_radius**2 * CNT_length))
         if which_radius == "1":
             used_radius = accessible_radius
         if which_radius == "2":
@@ -485,19 +496,19 @@ def axial_density_processing(inputdict):
             label="Axial density function",
             color="black",
         )
-        ax.set(xlabel="Distance from tube center [Ang]", ylabel="Density [g/cm^3]", title="Axial density function")
+        ax.set(
+            xlabel="Distance from tube center [\u00C5]", ylabel="Density [g/cm\u00B3]", title="Axial density function"
+        )
         ax.grid()
         fig.savefig("Axial_density.pdf")
-        ddict.printLog("Axial density function saved as Axial_density.pdf")
+        ddict.printLog("\nAxial density function saved as Axial_density.pdf")
 
     # Save the data.
     results_zd_df.to_csv("Axial_density.csv", sep=";", index=True, header=True, float_format="%.5f")
     ddict.printLog("Axial density data saved as Axial_density.csv")
 
-    raw_data = ddict.get_input("Do you want to save the raw data? (y/n) ", args, "string")
-    if raw_data == "y":
-        zdens_df.to_csv("Axial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
-        ddict.printLog("Raw data saved as Axial_mass_dist_raw.csv")
+    zdens_df.to_csv("Axial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
+    ddict.printLog("\nRaw data saved as Axial_mass_dist_raw.csv")
 
 
 # 3D density analysis
@@ -652,7 +663,7 @@ def density_analysis_processing(inputdict):
 
     # Calculate the volume of each grid point
     grid_volume = inputdict["x_incr_dist"] * inputdict["y_incr_dist"] * inputdict["z_incr_dist"]
-    print("Volume of each grid point: %0.3f Ang^3" % grid_volume)
+    print("Volume of each grid point: %0.3f \u00C5\u00B3" % grid_volume)
 
     # Initialize a list to store the density of each grid point
     grid_point_densities = []
@@ -729,24 +740,20 @@ def density_analysis_processing(inputdict):
     # first the x direction
     fig, ax = plt.subplots()
     ax.plot(x_dens_profile_df["x"], x_dens_profile_df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-    ax.set(xlabel="x [Ang]", ylabel="Density [g/cm^3]", title="Density profile")
+    ax.set(xlabel="x [\u00C5]", ylabel="Density [g/cm\u00B3]", title="Density profile")
     ax.grid()
     fig.savefig("x_density_profile.pdf")
 
     # now the y direction
     fig, ax = plt.subplots()
     ax.plot(y_dens_profile_df["y"], y_dens_profile_df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-    ax.set(xlabel="y [Ang]", ylabel="Density [g/cm^3]", title="Density profile")
+    ax.set(xlabel="y [\u00C5]", ylabel="Density [g/cm\u00B3]", title="Density profile")
     ax.grid()
     fig.savefig("y_density_profile.pdf")
 
     # now the z direction
     fig, ax = plt.subplots()
     ax.plot(z_dens_profile_df["z"], z_dens_profile_df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-    ax.set(xlabel="z [Ang]", ylabel="Density [g/cm^3]", title="Density profile")
+    ax.set(xlabel="z [\u00C5]", ylabel="Density [g/cm\u00B3]", title="Density profile")
     ax.grid()
     fig.savefig("z_density_profile.pdf")
-
-    # Add the grid point densities to the output dictionary
-    # outputdict = inputdict
-    # return outputdict

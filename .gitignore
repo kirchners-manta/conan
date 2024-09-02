@@ -6,6 +6,7 @@ reports/
 _autosummary/
 _autodoc/
 test/
+tries/
 *doping_experiment_old.py
 src/conan/playground/*.xyz
 src/conan/playground/*.png

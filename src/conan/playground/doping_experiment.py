@@ -1,13 +1,20 @@
+import copy
 import random
 import time
+
+# import time
+import warnings
+from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from math import cos, pi, sin
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from networkx.utils import pairwise
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
@@ -15,18 +22,70 @@ from scipy.spatial import KDTree
 from conan.playground.graph_utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
-    Position,
+    Position3D,
+    create_position,
+    get_color,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
-    plot_graphene,
-    print_warning,
+    toggle_dimension,
     write_xyz,
 )
 
 # Define a namedtuple for structural components
 # This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
+
+
+class AtomLabeler:
+    def __init__(self, graph: nx.Graph, doping_structures: Optional["DopingStructureCollection"] = None):
+        self.graph = graph
+        """The networkx graph representing the structure of the material (e.g., graphene sheet)."""
+        self.doping_structures = doping_structures
+        """The collection of doping structures within the structure."""
+
+    def label_atoms(self):
+        """
+        Label the atoms in the graphene structure based on their species.
+
+        This method assigns labels to atoms based on the doping structures they belong to.
+        Atoms that are part of a doping structure get labeled according to their specific nitrogen or carbon species.
+        All other carbon atoms are labeled as "CG" for standard graphene carbon.
+        """
+        if not self.doping_structures:
+            # Label all atoms as "CG" if there are no doping structures
+            for node in self.graph.nodes:
+                self.graph.nodes[node]["label"] = "CG"
+            return
+
+        # Loop through each doping structure and label the atoms
+        for structure in self.doping_structures.structures:
+            species = structure.species  # Get the nitrogen species (e.g., PYRIDINIC_1, PYRIDINIC_2, etc.)
+
+            # Determine the appropriate labels for nitrogen and carbon atoms within the doping structure
+            if species == NitrogenSpecies.GRAPHITIC:
+                nitrogen_label = "NG"
+                # Label nitrogen atom in GRAPHITIC species
+                for atom in structure.nitrogen_atoms:
+                    self.graph.nodes[atom]["label"] = nitrogen_label
+            else:
+                # For pyridinic species, use NP1, NP2, NP3, NP4 for nitrogen, and CP1, CP2, CP3, CP4 for carbon
+                nitrogen_label = f"NP{species.value[-1]}"
+                carbon_label = f"CP{species.value[-1]}"
+
+                # Label nitrogen atoms within the doping structure
+                for atom in structure.nitrogen_atoms:
+                    self.graph.nodes[atom]["label"] = nitrogen_label
+
+                # Label carbon atoms in the cycle of the doping structure
+                for atom in structure.cycle:
+                    if atom not in structure.nitrogen_atoms:
+                        self.graph.nodes[atom]["label"] = carbon_label
+
+        # Label remaining carbon atoms as "CG"
+        for node in self.graph.nodes:
+            if "label" not in self.graph.nodes[node]:  # If the node hasn't been labeled yet
+                self.graph.nodes[node]["label"] = "CG"
 
 
 @dataclass
@@ -65,7 +124,7 @@ class DopingStructure:
     @classmethod
     def create_structure(
         cls,
-        graphene: "Graphene",
+        graphene: "GrapheneSheet",
         species: NitrogenSpecies,
         structural_components: StructuralComponents[List[int], List[int]],
         start_node: Optional[int] = None,
@@ -78,7 +137,7 @@ class DopingStructure:
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene sheet.
         species : NitrogenSpecies
             The type of nitrogen doping.
@@ -143,14 +202,14 @@ class DopingStructure:
 
     @staticmethod
     def _add_additional_edge(
-        graphene: "Graphene", subgraph: nx.Graph, neighbors: List[int], start_node: int
+        graphene: "GrapheneSheet", subgraph: nx.Graph, neighbors: List[int], start_node: int
     ) -> Tuple[int, int]:
         """
         Add an edge between neighbors if the nitrogen species is PYRIDINIC_1.
 
         Parameters
         ----------
-        graphene : Graphene
+        graphene : GrapheneSheet
             The graphene sheet.
         subgraph : nx.Graph
             The subgraph containing the cycle.
@@ -385,22 +444,228 @@ class DopingStructureCollection:
         return [structure for structure in self.structures if structure.species == species]
 
 
-class Graphene:
+# Abstract base class for material structures
+class MaterialStructure(ABC):
+    def __init__(self):
+        self.graph = nx.Graph()
+        """The networkx graph representing the structure of the material (e.g., graphene sheet)."""
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    @abstractmethod
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        pass
+
+
+# Abstract base class for 2D structures
+class Structure2D(MaterialStructure):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        """
+        Plot the structure using networkx and matplotlib in 2D.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
+
+        Notes
+        -----
+        This method visualizes the sheet structure, optionally with labels indicating the
+        element type and node ID. Nodes are colored based on their element type and nitrogen species.
+        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+        """
+        # Get positions and elements of nodes, using only x and y for 2D plotting
+        pos_2d = {node: (pos[0], pos[1]) for node, pos in nx.get_node_attributes(self.graph, "position").items()}
+        elements = nx.get_node_attributes(self.graph, "element")
+
+        # Determine colors for nodes, considering nitrogen species if present
+        colors = [
+            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+        ]
+
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
+        # Initialize plot with an Axes object
+        fig, ax = plt.subplots(figsize=(12, 12))
+
+        # Draw the regular edges
+        nx.draw(self.graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False, ax=ax)
+
+        # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            nx.draw_networkx_edges(
+                self.graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray", ax=ax
+            )
+
+        # Add legend
+        unique_colors = set(colors)
+        legend_elements = []
+        for species in NitrogenSpecies:
+            color = get_color("N", species)
+            if color in unique_colors:
+                legend_elements.append(
+                    plt.Line2D(
+                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                    )
+                )
+        ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
+
+        # Add labels if specified
+        if with_labels:
+            labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
+            nx.draw_networkx_labels(
+                self.graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold", ax=ax
+            )
+
+        # Manually add x- and y-axis labels using ax.text
+        x_min, x_max = min(x for x, y in pos_2d.values()), max(x for x, y in pos_2d.values())
+        y_min, y_max = min(y for x, y in pos_2d.values()), max(y for x, y in pos_2d.values())
+
+        ax.text((x_min + x_max) / 2, y_min - (y_max - y_min) * 0.1, "X [Å]", fontsize=14, ha="center")
+        ax.text(
+            x_min - (x_max - x_min) * 0.1, (y_min + y_max) / 2, "Y [Å]", fontsize=14, va="center", rotation="vertical"
+        )
+
+        # Adjust layout to make sure everything fits
+        plt.tight_layout()
+
+        # Show the plot
+        plt.show()
+
+
+# Abstract base class for 3D structures
+class Structure3D(MaterialStructure):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def build_structure(self):
+        pass
+
+    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+        """
+        Plot the structure in 3D using networkx and matplotlib.
+
+        Parameters
+        ----------
+        with_labels : bool, optional
+            Whether to display labels on the nodes (default is False).
+        visualize_periodic_bonds : bool, optional
+            Whether to visualize periodic boundary condition edges (default is True).
+
+        Notes
+        -----
+        This method visualizes the 3D structure, optionally with labels indicating the element type and node ID. Nodes
+        are colored based on their element type and nitrogen species.
+        Periodic boundary condition edges are shown with dashed lines if visualize_periodic_bonds is True.
+        """
+
+        # Get positions and elements of nodes
+        pos = nx.get_node_attributes(self.graph, "position")
+        elements = nx.get_node_attributes(self.graph, "element")
+
+        # Determine colors for nodes, considering nitrogen species if present
+        colors = [
+            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+        ]
+
+        # Separate periodic edges and regular edges
+        regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
+        periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
+
+        # Initialize 3D plot
+        fig = plt.figure(figsize=(12, 12))
+        ax = fig.add_subplot(111, projection="3d")
+
+        # Extract node positions
+        xs, ys, zs = zip(*[pos[node] for node in self.graph.nodes()])
+
+        # Draw nodes in one step
+        ax.scatter(xs, ys, zs, color=colors, s=20)
+
+        # Create line segments for regular edges
+        regular_segments = np.array(
+            [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
+        )
+        regular_lines = Line3DCollection(regular_segments, colors="black")
+        ax.add_collection3d(regular_lines)
+
+        # Create line segments for periodic edges if visualize_periodic_bonds is True
+        if visualize_periodic_bonds:
+            periodic_segments = np.array(
+                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
+            )
+            periodic_lines = Line3DCollection(periodic_segments, colors="gray", linestyles="dashed")
+            ax.add_collection3d(periodic_lines)
+
+        # Add labels if specified
+        if with_labels:
+            for node in self.graph.nodes():
+                ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+
+        # Set the axes labels
+        ax.set_xlabel("X [Å]")
+        ax.set_ylabel("Y [Å]")
+        ax.set_zlabel("Z [Å]")
+
+        # Add a legend for the nitrogen species
+        unique_colors = set(colors)
+        legend_elements = []
+        for species in NitrogenSpecies:
+            color = get_color("N", species)
+            if color in unique_colors:
+                legend_elements.append(
+                    plt.Line2D(
+                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                    )
+                )
+        ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
+
+        # Show the plot
+        plt.show()
+
+
+class GrapheneSheet(Structure2D):
     """
     Represents a graphene sheet structure and manages nitrogen doping within the sheet.
     """
 
-    def __init__(self, bond_distance: float, sheet_size: Tuple[float, float]):
+    def __init__(self, bond_distance: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
         """
-        Initialize the GrapheneGraph with given bond distance and sheet size.
+        Initialize the GrapheneGraph with given bond distance, sheet size, and whether to adjust positions after doping.
 
         Parameters
         ----------
-        bond_distance : float
+        bond_distance : Union[float, int]
             The bond distance between carbon atoms in the graphene sheet.
-        sheet_size : Tuple[float, float]
+        sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheet in the x and y directions.
+
+        Raises
+        ------
+        TypeError
+            If the types of `bond_distance` or `sheet_size` are incorrect.
+        ValueError
+            If `bond_distance` or any element of `sheet_size` is non-positive.
         """
+        super().__init__()
+
+        # Perform validations
+        self._validate_bond_distance(bond_distance)
+        self._validate_sheet_size(sheet_size)
 
         self.c_c_bond_distance = bond_distance
         """The bond distance between carbon atoms in the graphene sheet."""
@@ -408,17 +673,17 @@ class Graphene:
         """The bond angle between carbon atoms in the graphene sheet."""
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
-        self.k_inner_bond = 23.359776202184758
+        self.k_inner_bond = 10
         """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.014112166829508662
+        self.k_outer_bond = 0.1
         """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 79.55711394238168
+        self.k_inner_angle = 10
         """The spring constant for angles within the doping structure."""
-        self.k_outer_angle = 0.019431203948375452
+        self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure."""
-        self.graph = nx.Graph()
-        """The networkx graph representing the graphene sheet structure."""
-        self._build_graphene_sheet()  # Build the initial graphene sheet structure
+
+        # Build the initial graphene sheet structure
+        self.build_structure()
 
         # Initialize the list of possible carbon atoms
         self._possible_carbon_atoms_needs_update = True
@@ -435,6 +700,7 @@ class Graphene:
 
         # Initialize positions and KDTree for efficient neighbor search
         self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
+        # self._positions = np.array([self.graph.nodes[node]['position'].to_tuple() for node in self.graph.nodes])
         """The positions of atoms in the graphene sheet."""
         self.kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
         """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
@@ -491,6 +757,33 @@ class Graphene:
             self._update_possible_carbon_atoms()
         return self._possible_carbon_atoms
 
+    @staticmethod
+    def _validate_bond_distance(bond_distance: float):
+        """Validate the bond distance."""
+        if not isinstance(bond_distance, (int, float)):
+            raise TypeError(f"bond_distance must be a float or int, but got {type(bond_distance).__name__}.")
+        if bond_distance <= 0:
+            raise ValueError(f"bond_distance must be positive, but got {bond_distance}.")
+
+    @staticmethod
+    def _validate_sheet_size(sheet_size: Tuple[float, float]):
+        """Validate the sheet size."""
+        if not isinstance(sheet_size, tuple):
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
+        if len(sheet_size) != 2:  # Überprüfen, ob das Tupel genau zwei Elemente hat
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
+        if not all(isinstance(i, (int, float)) for i in sheet_size):
+            raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
+        if any(s <= 0 for s in sheet_size):
+            raise ValueError(f"All elements of sheet_size must be positive, but got {sheet_size}.")
+
+    def _validate_structure(self):
+        """Validate the structure to ensure it can fit within the given sheet size."""
+        if self.num_cells_x < 1 or self.num_cells_y < 1:
+            raise ValueError(
+                f"Sheet size is too small to fit even a single unit cell. Got sheet size {self.sheet_size}."
+            )
+
     def _update_possible_carbon_atoms(self):
         """Update the list of possible carbon atoms for doping."""
         self._possible_carbon_atoms = [
@@ -501,6 +794,13 @@ class Graphene:
     def mark_possible_carbon_atoms_for_update(self):
         """Mark the list of possible carbon atoms as needing an update."""
         self._possible_carbon_atoms_needs_update = True
+
+    def build_structure(self):
+        """
+        Build the graphene sheet structure.
+        """
+        self._validate_structure()
+        self._build_graphene_sheet()
 
     def _build_graphene_sheet(self):
         """
@@ -549,10 +849,10 @@ class Graphene:
 
         # Define relative positions of atoms within the unit cell
         unit_cell_positions = [
-            Position(x_offset, y_offset),
-            Position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
-            Position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
+            create_position(x_offset, y_offset),
+            create_position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
+            create_position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
+            create_position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
         ]
 
         # Add nodes with positions, element type (carbon) and possible doping site flag
@@ -717,7 +1017,9 @@ class Graphene:
         atom_list.remove(atom_id)  # Remove the selected atom ID from the list
         return atom_id  # Return the selected atom ID
 
-    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+    def add_nitrogen_doping(
+        self, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = True
+    ):
         """
         Add nitrogen doping to the graphene sheet.
 
@@ -732,6 +1034,8 @@ class Graphene:
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        adjust_positions : bool, optional
+            Whether to adjust the positions of atoms after doping. Default is True.
 
         Raises
         ------
@@ -746,6 +1050,27 @@ class Graphene:
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
           GRAPHITIC.
         """
+
+        # Validate the input for percentages
+        if percentages is not None:
+            if not isinstance(percentages, dict):
+                raise ValueError(
+                    "percentages must be a dictionary with NitrogenSpecies as keys and int or float as values."
+                )
+
+            for key, value in percentages.items():
+                if not isinstance(key, NitrogenSpecies):
+                    raise ValueError(
+                        f"Invalid key in percentages dictionary: {key}. Keys must be of type NitrogenSpecies."
+                    )
+                if not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"Invalid value in percentages dictionary for key {key}: {value}. Values must be int or float."
+                    )
+
+        # Validate the input for total_percentage
+        if total_percentage is not None and not isinstance(total_percentage, (int, float)):
+            raise ValueError("total_percentage must be an int or float.")
 
         # Validate specific percentages and calculate the remaining percentage
         if percentages:
@@ -788,6 +1113,14 @@ class Graphene:
         num_atoms = self.graph.number_of_nodes()
         specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
 
+        # Check if all specific_num_nitrogen values are zero
+        if all(count == 0 for count in specific_num_nitrogen.values()):
+            warnings.warn(
+                "The selected doping percentage is too low or the structure is too small to allow for doping.",
+                UserWarning,
+            )
+            return  # Exit the method early if no doping can be done
+
         # Define the order of nitrogen doping insertion based on the species
         for species in [
             NitrogenSpecies.PYRIDINIC_4,
@@ -813,7 +1146,7 @@ class Graphene:
         }
 
         # Adjust the positions of atoms in all cycles to optimize the structure
-        if any(self.doping_structures.structures):
+        if adjust_positions and any(self.doping_structures.structures):
             self._adjust_atom_positions()
 
         # Display the results in a DataFrame and add the total doping percentage
@@ -876,7 +1209,7 @@ class Graphene:
                 f"\nWarning: Only {len(self.doping_structures.chosen_atoms[nitrogen_species])} nitrogen atoms of "
                 f"species {nitrogen_species.value} could be placed due to proximity constraints."
             )
-            print_warning(warning_message)
+            warnings.warn(warning_message, UserWarning)
 
     def _handle_graphitic_doping(self, structural_components: StructuralComponents):
         """
@@ -1263,9 +1596,9 @@ class Graphene:
                                 x[2 * list(self.graph.nodes).index(nj)],
                                 x[2 * list(self.graph.nodes).index(nj) + 1],
                             )
-                            pos_node = Position(x_node, y_node)
-                            pos_i = Position(x_i, y_i)
-                            pos_j = Position(x_j, y_j)
+                            pos_node = create_position(x_node, y_node)
+                            pos_i = create_position(x_i, y_i)
+                            pos_j = create_position(x_j, y_j)
                             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -1300,7 +1633,7 @@ class Graphene:
 
         # Update the positions of atoms in the graph with the optimized positions using NetworkX set_node_attributes
         position_dict = {
-            node: Position(x=optimized_positions[idx][0], y=optimized_positions[idx][1])
+            node: create_position(optimized_positions[idx][0], optimized_positions[idx][1])
             for idx, node in enumerate(self.graph.nodes)
         }
         nx.set_node_attributes(self.graph, position_dict, "position")
@@ -1431,6 +1764,182 @@ class Graphene:
         # Return False if the nitrogen species is not recognized
         return False, (None, None)
 
+    def stack(
+        self, interlayer_spacing: float = 3.34, number_of_layers: int = 3, stacking_type: str = "ABA"
+    ) -> "StackedGraphene":
+        """
+        Stack graphene sheets using ABA stacking.
+
+        Parameters
+        ----------
+        interlayer_spacing : float, optional
+            The shift in the z-direction for each layer. Default is 3.34 Å.
+        number_of_layers : int, optional
+            The number of layers to stack. Default is 3.
+        stacking_type : str, optional
+            The type of stacking to use ('ABA' or 'ABC'). Default is 'ABA'.
+
+        Returns
+        -------
+        StackedGraphene
+            The stacked graphene structure.
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
+        """
+        return StackedGraphene(self, interlayer_spacing, number_of_layers, stacking_type)
+
+
+class StackedGraphene(Structure3D):
+    """
+    Represents a stacked graphene structure.
+    """
+
+    def __init__(
+        self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int, stacking_type: str
+    ):
+        """
+        Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, number of layers, and stacking
+        type.
+
+        Parameters
+        ----------
+        graphene_sheet : GrapheneSheet
+            The base graphene sheet to be stacked.
+        interlayer_spacing : float
+            The spacing between layers in the z-direction.
+        number_of_layers : int
+            The number of layers to stack.
+        stacking_type : str
+            The type of stacking to use ('ABA' or 'ABC').
+
+        Raises
+        ------
+        ValueError
+            If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
+            not 'ABA' or 'ABC'.
+        """
+        super().__init__()
+
+        # Validate interlayer_spacing
+        if not isinstance(interlayer_spacing, (int, float)) or interlayer_spacing <= 0:
+            raise ValueError(f"interlayer_spacing must be positive number, but got {interlayer_spacing}.")
+
+        # Validate number_of_layers
+        if not isinstance(number_of_layers, int) or number_of_layers <= 0:
+            raise ValueError(f"number_of_layers must be a positive integer, but got {number_of_layers}.")
+
+        # Ensure stacking_type is a string and validate it
+        if not isinstance(stacking_type, str):
+            raise ValueError(f"stacking_type must be a string, but got {type(stacking_type).__name__}.")
+
+        # Validate stacking_type after converting it to uppercase
+        self.stacking_type = stacking_type.upper()
+        """The type of stacking to use ('ABA' or 'ABC')."""
+        valid_stacking_types = {"ABA", "ABC"}
+        if self.stacking_type not in valid_stacking_types:
+            raise ValueError(f"stacking_type must be one of {valid_stacking_types}, but got '{self.stacking_type}'.")
+
+        self.graphene_sheets = []
+        """A list to hold individual GrapheneSheet instances."""
+        self.interlayer_spacing = interlayer_spacing
+        """The spacing between layers in the z-direction."""
+        self.number_of_layers = number_of_layers
+        """The number of layers to stack."""
+
+        # Add the original graphene sheet as the first layer
+        toggle_dimension(graphene_sheet.graph)
+        self.graphene_sheets.append(graphene_sheet)
+
+        # Add additional layers by copying the original graphene sheet
+        for layer in range(1, self.number_of_layers):
+            # Create a copy of the original graphene sheet and shift it
+            new_sheet = copy.deepcopy(graphene_sheet)
+            self._shift_sheet(new_sheet, layer)
+            self.graphene_sheets.append(new_sheet)
+
+        # Build the structure by combining all graphene sheets
+        self.build_structure()
+
+    def _shift_sheet(self, sheet: GrapheneSheet, layer: int):
+        """
+        Shift the graphene sheet by the appropriate interlayer spacing and x-shift for ABA stacking.
+
+        Parameters
+        ----------
+        sheet : GrapheneSheet
+            The graphene sheet to shift.
+        layer : int
+            The layer number to determine the shifts.
+        """
+        interlayer_shift = self.graphene_sheets[0].c_c_bond_distance  # Fixed x_shift for ABA stacking
+
+        if self.stacking_type == "ABA":
+            x_shift = (layer % 2) * interlayer_shift
+        elif self.stacking_type == "ABC":
+            x_shift = (layer % 3) * interlayer_shift
+        else:
+            raise ValueError(f"Unsupported stacking type: {self.stacking_type}. Please use 'ABA' or 'ABC'.")
+
+        z_shift = layer * self.interlayer_spacing
+
+        # Update the positions in the copied sheet
+        for node, pos in sheet.graph.nodes(data="position"):
+            shifted_pos = Position3D(pos.x + x_shift, pos.y, pos.z + z_shift)
+            sheet.graph.nodes[node]["position"] = shifted_pos
+
+    def build_structure(self):
+        """
+        Combine all the graphene sheets into a single structure.
+        """
+        # Start with the graph of the first layer
+        self.graph = self.graphene_sheets[0].graph.copy()
+
+        # Iterate over the remaining layers and combine them into self.graph
+        for sheet in self.graphene_sheets[1:]:
+            self.graph = nx.disjoint_union(self.graph, sheet.graph)
+
+    def add_nitrogen_doping_to_layer(
+        self, layer_index: int, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = True
+    ):
+        """
+        Add nitrogen doping to a specific layer in the stacked graphene structure.
+
+        Parameters
+        ----------
+        layer_index : int
+            The index of the layer to dope.
+        total_percentage : float, optional
+            The total percentage of carbon atoms to replace with nitrogen atoms. Default is 10 if not specified.
+        percentages : dict, optional
+            A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
+            values and values should be the percentages for the corresponding species.
+        adjust_positions : bool, optional
+            Whether to adjust the positions of atoms after doping. Default is True.
+        """
+        if 0 <= layer_index < len(self.graphene_sheets):
+            # Convert to 2D before doping
+            toggle_dimension(self.graphene_sheets[layer_index].graph)
+
+            # Perform the doping
+            self.graphene_sheets[layer_index].add_nitrogen_doping(
+                total_percentage=total_percentage, percentages=percentages, adjust_positions=adjust_positions
+            )
+
+            # Convert back to 3D after doping
+            toggle_dimension(self.graphene_sheets[layer_index].graph)
+
+            # Shift the sheet to its correct position in the stack
+            self._shift_sheet(self.graphene_sheets[layer_index], layer_index)
+
+            # Rebuild the main graph in order to update the structure after doping
+            self.build_structure()
+        else:
+            raise IndexError("Layer index out of range.")
+
 
 def main():
     # Set seed for reproducibility
@@ -1438,110 +1947,125 @@ def main():
     # random.seed(3)
     random.seed(0)
 
+    ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET
+    # sheet_size = (10, 10)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    # write_xyz(graphene.graph, "graphene_sheet.xyz")
+
+    ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET AND LABEL THE ATOMS
+    # sheet_size = (10, 10)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet.xyz")
+
+    # ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+
+    ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+
+    ####################################################################################################################
+    # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Add nitrogen doping to the graphene sheet
+    # start_time = time.time()  # Time the nitrogen doping process
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the graphene sheet with nitrogen doping
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+
+    ####################################################################################################################
+    # # VERSION 2:
+    # # Create individual GrapheneSheet instances
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Add nitrogen doping to the graphene sheet
+    # start_time = time.time()  # Time the nitrogen doping process
+    # graphene.add_nitrogen_doping(total_percentage=15)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Stack sheets into a 3D structure
+    # graphene.stack(interlayer_spacing=3.35, number_of_layers=3)
+    #
+    # # Plot the stacked structure
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "ABA_stacking.xyz")
+
+    ####################################################################################################################
+    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
     sheet_size = (20, 20)
 
-    graphene = Graphene(bond_distance=1.42, sheet_size=sheet_size)
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
 
-    # write_xyz(graphene.graph, 'graphene.xyz')
-    # graphene.plot_graphene(with_labels=True)
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
 
-    # Find direct neighbors of a node (depth=1)
-    direct_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=1)
-    print(f"Direct neighbors of C_0: {direct_neighbors}")
-
-    # Find neighbors of a node at an exact depth (depth=2)
-    depth_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2)
-    print(f"Neighbors of C_0 at depth 2: {depth_neighbors}")
-
-    # Find neighbors of a node up to a certain depth (inclusive=True)
-    inclusive_neighbors = get_neighbors_via_edges(graphene.graph, atom_id=0, depth=2, inclusive=True)
-    print(f"Neighbors of C_0 up to depth 2 (inclusive): {inclusive_neighbors}")
-
-    # graphene.add_nitrogen_doping_old(10, NitrogenSpecies.GRAPHITIC)
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_2: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_3: 2})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(
-    #     percentages={NitrogenSpecies.PYRIDINIC_2: 10, NitrogenSpecies.PYRIDINIC_3: 10, NitrogenSpecies.GRAPHITIC: 20}
-    # )
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(
-    #     percentages={
-    #         NitrogenSpecies.PYRIDINIC_2: 3,
-    #         NitrogenSpecies.PYRIDINIC_3: 3,
-    #         NitrogenSpecies.GRAPHITIC: 20,
-    #         NitrogenSpecies.PYRIDINIC_4: 5,
-    #         NitrogenSpecies.PYRIDINIC_1: 5,
-    #     }
-    # )
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 50, NitrogenSpecies.PYRIDINIC_4: 20})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_1: 30})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(total_percentage=20, percentages={NitrogenSpecies.GRAPHITIC: 10})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 10, NitrogenSpecies.PYRIDINIC_3: 5})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # Time the nitrogen doping process
-    start_time = time.time()
-    graphene.add_nitrogen_doping(total_percentage=15)
+    # Add individual nitrogen doping only to the first and last layer
+    start_time = time.time()  # Time the nitrogen doping process
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=False)
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=2, total_percentage=15, adjust_positions=False)
     end_time = time.time()
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
 
-    plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.GRAPHITIC: 60})
-    # plot_graphene(graphene.graph, with_labels=True, visualize_periodic_bonds=False)
-
-    # write_xyz(
-    #     graphene.graph,
-    #     f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}_including_angles_outside_cycle.xyz",
-    # )
-
-    # write_xyz(graphene.graph, f"graphene_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
-
-    write_xyz(
-        graphene.graph,
-        f"all_structures_combined_k_inner_bond_{graphene.k_inner_bond}_k_outer_bond_{graphene.k_outer_bond}_"
-        f"k_inner_angle_{graphene.k_inner_angle}_refactored_2.xyz",
-    )
-
-    # write_xyz(graphene.graph, f"pyridinic_4_doping_k_inner_{graphene.k_inner}_k_outer_{graphene.k_outer}.xyz")
-
-    # source = 0
-    # target = 10
-    # path = get_shortest_path(graphene.graph, source, target)
-    # print(f"Shortest path from C_{source} to C_{target}: {path}")
-    # plot_graphene_with_path(graphene.graph, path)
-    #
-    # plot_graphene_with_depth_neighbors_based_on_bond_length(graphene.graph, 0, 4)
-    #
-    # # Find nodes within a certain distance from a source node
-    # atom_id = 5
-    # max_distance = 5
-    # nodes_within_distance = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
-    # print(f"Nodes within {max_distance} distance from node {atom_id}: {nodes_within_distance}")
-    #
-    # # Plot the nodes within the specified distance
-    # plot_nodes_within_distance(graphene.graph, nodes_within_distance)
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
 
 if __name__ == "__main__":
