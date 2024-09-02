@@ -1,72 +1,13 @@
 # The program is written by Leonard Dick, 2023
 
-import math
-import os
 import sys
 import time
 
 import numpy as np
 import pandas as pd
-from prettytable import PrettyTable
 
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
-
-
-# Information on the trajectory / cutting the frames into chunks
-def traj_chunk_info(id_frame, args):
-    # GENERAL INFORMATION ON CHUNKS
-    ddict.printLog("-> Reading the trajectory.\n")
-    trajectory_file_size = os.path.getsize(args["trajectoryfile"])
-    # Calculate how many atoms each frame has.
-    number_of_atoms = len(id_frame)
-    # Calculate how many lines the trajectory file has.
-    with open(args["trajectoryfile"]) as f:
-        number_of_lines = sum(1 for i in f)
-
-    lines_per_frame = 0
-    # Calculate how many frames the trajectory file has.
-    if args["trajectoryfile"].endswith(".xyz") or args["trajectoryfile"].endswith(".pdb"):
-        lines_per_frame = number_of_atoms + 2
-    elif args["trajectoryfile"].endswith(".lammpstrj") or args["trajectoryfile"].endswith(".lmp"):
-        lines_per_frame = number_of_atoms + 9
-
-    number_of_frames = int(number_of_lines / lines_per_frame)
-
-    # Calculate how many bytes each line of the trajectory file has.
-    bytes_per_line = trajectory_file_size / (number_of_lines)
-    # The number of lines in a chunk. Each chunk is roughly 50 MB large.
-    chunk_size = int(100000000 / ((lines_per_frame) * bytes_per_line))
-    # The number of chunks (always round up).
-    number_of_chunks = math.ceil(number_of_frames / chunk_size)
-    # The number of frames in the last chunk.
-    last_chunk_size = number_of_frames - (number_of_chunks - 1) * chunk_size
-    number_of_bytes_per_chunk = chunk_size * (lines_per_frame) * bytes_per_line
-    number_of_lines_per_chunk = chunk_size * (lines_per_frame)
-    number_of_lines_last_chunk = last_chunk_size * (lines_per_frame)
-    # Table with the information on the trajectory file.
-    table = PrettyTable(["", "Trajectory", "Chunk(%d)" % (number_of_chunks)])
-    table.add_row(
-        [
-            "Size in MB",
-            "%0.1f" % (trajectory_file_size / 1000000),
-            "%0.1f (%0.1f)"
-            % (number_of_bytes_per_chunk / 1000000, last_chunk_size * (lines_per_frame) * bytes_per_line / 1000000),
-        ]
-    )
-    table.add_row(["Frames", number_of_frames, "%d(%d)" % (chunk_size, last_chunk_size)])
-    table.add_row(["Lines", number_of_lines, number_of_lines_per_chunk])
-    ddict.printLog(table)
-    ddict.printLog("")
-
-    return (
-        number_of_frames,
-        number_of_lines_per_chunk,
-        number_of_lines_last_chunk,
-        number_of_chunks,
-        chunk_size,
-        last_chunk_size,
-    )
 
 
 # MAIN
@@ -181,11 +122,9 @@ def generating_pictures(traj_file, maindict) -> None:
 
                 elif add_liquid2 == 2:
                     traj_file.frame0 = traj_file.frame0.drop(["Charge", "CNT"], axis=1)
-                    print(traj_file.frame0)
 
                     # Add the Molecule column to the CNT_atoms_pic dataframe.
                     CNT_atoms_pic["Molecule"] = np.nan
-                    print(CNT_atoms_pic)
                     # Scan the traj_file.frame0 and add all atoms which are inside the tube to the tube_atoms dataframe.
                     for index, row in traj_file.frame0.iterrows():
                         if (
@@ -261,17 +200,23 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     args = inputdict["args"]
 
     # Analysis choice.
+    ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
     ddict.printLog("(1) Calculate the radial density inside the CNT")
     ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
     ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
     ddict.printLog("(4) Calculate the accessibe volume of the CNT")
-    ddict.printLog("(5) Calculate the average density along the z axis of the simulation box")
-    ddict.printLog("(6) Calculate the coordination number")
-    ddict.printLog("(7) Calculate the distance between liquid and pore atoms")
-    ddict.printLog("(8) Calculate the density of the liquid in the simulation box.")
+    ddict.printLog(
+        "(5) Calculate the axial density along the z axis of the simulation box,",
+        " with the accessible volume of the CNT considered.",
+    )
+    ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
+
+    ddict.printLog("\nThese functions are generally applicable.", color="red")
+    ddict.printLog("(7) Calculate the coordination number")
+    ddict.printLog("(8) Calculate the axial density of the liquid.")
 
     # ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
-    analysis_choice2 = int(ddict.get_input("Which analysis should be conducted?:  ", args, "int"))
+    analysis_choice2 = int(ddict.get_input("\nWhat analysis should be performed?:  ", args, "int"))
     analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     if analysis_choice2 not in analysis_choice2_options:
         ddict.printLog("-> The analysis you entered is not known.")
@@ -279,15 +224,6 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     ddict.printLog("")
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
-
-    (
-        number_of_frames,
-        number_of_lines_per_chunk,
-        number_of_lines_last_chunk,
-        number_of_chunks,
-        chunk_size,
-        last_chunk_size,
-    ) = traj_chunk_info(id_frame, args)
 
     # PREPERATION
     # Main loop preperation.
@@ -319,15 +255,15 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
         from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
 
     if analysis_choice2 == 6:
+        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
+        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
+        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
+
+    if analysis_choice2 == 7:
         from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
         from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
         from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
         from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
-
-    if analysis_choice2 == 7:
-        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
-        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
-        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
 
     if analysis_choice2 == 8:
         from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
@@ -343,7 +279,7 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     maindict["CNT_atoms"] = CNT_atoms
     maindict["maxdisp_atom_row"] = None
     maindict["maxdisp_atom_dist"] = 0
-    maindict["number_of_frames"] = number_of_frames
+    maindict["number_of_frames"] = traj_file.number_of_frames
     maindict["analysis_choice2"] = analysis_choice2
     maindict["do_xyz_analysis"] = "n"
 
@@ -390,19 +326,19 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     molecule_label = id_frame["Label"].values
 
     # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
-    trajectory = pd.read_csv(args["trajectoryfile"], chunksize=number_of_lines_per_chunk, header=None)
+    trajectory = pd.read_csv(args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
     chunk_number = 0
     # Loop over chunks.
     for chunk in trajectory:
         chunk_number = chunk_number + 1
         maindict["chunk_number"] = chunk_number
-        print("")
-        print("Chunk %d of %d" % (chunk_number, number_of_chunks))
+        # print("")
+        ddict.printLog("\nChunk %d of %d" % (chunk_number, traj_file.num_chunks))
         # Divide the chunk into individual frames. If the chunk is the last chunk, the number of frames is different.
-        if chunk.shape[0] == number_of_lines_last_chunk:
-            frames = np.split(chunk, last_chunk_size)
+        if chunk.shape[0] == traj_file.lines_last_chunk:
+            frames = np.split(chunk, traj_file.last_chunk_size)
         else:
-            frames = np.split(chunk, chunk_size)
+            frames = np.split(chunk, traj_file.chunk_size)
 
         for frame in frames:
 
@@ -436,10 +372,10 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
             maindict = analysis(maindict)
 
             counter += 1
-            print("Frame %d of %d" % (counter, number_of_frames), end="\r")
+            print("Frame %d of %d" % (counter, traj_file.number_of_frames), end="\r")
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-        if analysis_choice2 == 6:
+        if analysis_choice2 == 7:
             maindict = chunk_processing(maindict)
 
     ddict.printLog("")
@@ -449,7 +385,7 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     # DATA PROCESSING
     post_processing(maindict)
 
-    ddict.printLog("The main loop took %0.3f seconds to run." % (time.time() - Main_time))
+    ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
 
 
 if __name__ == "__main__":

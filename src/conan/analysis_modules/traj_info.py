@@ -1,5 +1,7 @@
 # The program is written by Leonard Dick, 2023
 
+import math
+import os
 import re
 import sys
 from collections import Counter
@@ -19,13 +21,20 @@ import conan.defdict as ddict
 class TrajectoryFile:
     def __init__(self, file, args):
         self.file = file
-        # self.args = args
         self.file_type = self.get_file_type(file)
         self.num_atoms, self.lines_per_frame = self.get_num_atoms()
         self.box_size = self.simbox_dimension(args)
         self.frame0 = self.get_frame()
         self.frame1 = self.get_frame(1)
         self.frame0 = self.frame_comparison(self.frame0, self.frame1)
+        (
+            self.number_of_frames,
+            self.lines_chunk,
+            self.lines_last_chunk,
+            self.num_chunks,
+            self.chunk_size,
+            self.last_chunk_size,
+        ) = self.traj_chunk_info(args)
 
     def get_file_type(self, file):
         if file.endswith(".xyz"):
@@ -70,7 +79,7 @@ class TrajectoryFile:
     def simbox_dimension(self, args):
 
         if self.file_type == "xyz":
-            ddict.printLog("Enter the dimensions of the simulation box [Ang]:")
+            ddict.printLog("Enter the dimensions of the simulation box [\u00C5]:")
             simbox_x = float(ddict.get_input("[X]   ", args, "float"))
             simbox_y = float(ddict.get_input("[Y]   ", args, "float"))
             simbox_z = float(ddict.get_input("[Z]   ", args, "float"))
@@ -103,7 +112,7 @@ class TrajectoryFile:
 
         box_size = (simbox_x, simbox_y, simbox_z)
         ddict.printLog(
-            f"The simulation box dimensions are [Ang]: {float(box_size[0]):.3f} x {float(box_size[1]):.3f} x "
+            f"The simulation box dimensions are [\u00C5]: {float(box_size[0]):.3f} x {float(box_size[1]):.3f} x "
             f"{float(box_size[2]):.3f}"
         )
 
@@ -129,10 +138,6 @@ class TrajectoryFile:
                 df_frame.columns = ["Element", "x", "y", "z", "Charge"]
             else:
                 raise ValueError("Unexpected number of columns in xyz file")
-
-            # Add the empty label and molecule columns
-            # df_frame["Label"] = None
-            # df_frame["Molecule"] = None
 
         elif self.file_type == "pdb":
             df_frame = pd.read_csv(
@@ -189,16 +194,12 @@ class TrajectoryFile:
                 skiprows=9 + frame_number * self.lines_per_frame,
             )
 
-            print(df_frame)
-
             # Rename the columns according to the positions
             for key, pos in positions.items():
                 if pos is not None:
                     df_frame.rename(columns={pos: key}, inplace=True)
 
             df_frame.drop(columns=["id"], inplace=True)
-
-            print(df_frame)
 
         else:
             ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
@@ -220,6 +221,53 @@ class TrajectoryFile:
         frame0["Struc"] = (frame0["x"] == frame1["x"]) & (frame0["y"] == frame1["y"]) & (frame0["z"] == frame1["z"])
 
         return frame0
+
+    def traj_chunk_info(self, args):
+        # GENERAL INFORMATION ON CHUNKS
+        ddict.printLog("-> Reading the trajectory.\n")
+        trajectory_file_size = os.path.getsize(args["trajectoryfile"])
+        with open(args["trajectoryfile"]) as f:
+            number_of_lines = sum(1 for i in f)
+
+        number_of_frames = int(number_of_lines / self.lines_per_frame)
+
+        # Calculate how many bytes each line of the trajectory file has.
+        bytes_per_line = trajectory_file_size / (number_of_lines)
+        # The number of lines in a chunk. Each chunk is roughly 50 MB large.
+        chunk_size = int(100000000 / ((self.lines_per_frame) * bytes_per_line))
+        # The number of chunks (always round up).
+        number_of_chunks = math.ceil(number_of_frames / chunk_size)
+        # The number of frames in the last chunk.
+        last_chunk_size = number_of_frames - (number_of_chunks - 1) * chunk_size
+        number_of_bytes_per_chunk = chunk_size * (self.lines_per_frame) * bytes_per_line
+        number_of_lines_per_chunk = chunk_size * (self.lines_per_frame)
+        number_of_lines_last_chunk = last_chunk_size * (self.lines_per_frame)
+        # Table with the information on the trajectory file.
+        table = PrettyTable(["", "Trajectory", "Chunk(%d)" % (number_of_chunks)])
+        table.add_row(
+            [
+                "Size in MB",
+                "%0.1f" % (trajectory_file_size / 1000000),
+                "%0.1f (%0.1f)"
+                % (
+                    number_of_bytes_per_chunk / 1000000,
+                    last_chunk_size * (self.lines_per_frame) * bytes_per_line / 1000000,
+                ),
+            ]
+        )
+        table.add_row(["Frames", number_of_frames, "%d(%d)" % (chunk_size, last_chunk_size)])
+        table.add_row(["Lines", number_of_lines, number_of_lines_per_chunk])
+        ddict.printLog(table)
+        ddict.printLog("")
+
+        return (
+            number_of_frames,
+            number_of_lines_per_chunk,
+            number_of_lines_last_chunk,
+            number_of_chunks,
+            chunk_size,
+            last_chunk_size,
+        )
 
 
 class Molecule:
@@ -666,11 +714,11 @@ class Molecule:
                 counter_wall += 1
                 ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
                 if (x_max - x_min) < 1.0:
-                    ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} Ang.\n")
+                    ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} \u00C5.\n")
                 if (y_max - y_min) < 1.0:
-                    ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} Ang.\n")
+                    ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} \u00C5.\n")
                 if (z_max - z_min) < 1.0:
-                    ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} Ang.\n")
+                    ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} \u00C5.\n")
                     Walls_positions.append(z_min)
                 structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Wall{counter_wall}"
                 Walls.append(f"Wall{counter_wall}")
@@ -718,7 +766,7 @@ class Molecule:
             if length_pore[i - 1] > traj_file.box_size[2] - 2.0:
                 length_pore[i - 1] = traj_file.box_size[2]
                 ddict.printLog(f"Pore{i} is considered infinite in z direction.")
-            ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} Ang.")
+            ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} \u00C5.")
 
             # The center of each pore is the average of the minimum and maximum z coordinate.
             center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
@@ -740,7 +788,7 @@ class Molecule:
             ddict.printLog(
                 (
                     f"The center of the CNT in Pore{i} is at "
-                    f"{x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) Ang."
+                    f"{x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) \u00C5."
                 )
             )
             # Combine the x, y and z centers to a numpy array.
@@ -750,7 +798,7 @@ class Molecule:
             # Calculate the radius of the CNT_ring.
             tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
             tuberadii.append(tuberadius)
-            ddict.printLog(f"The radius of the CNT in Pore{i} is {tuberadius:.2f} Ang.\n")
+            ddict.printLog(f"The radius of the CNT in Pore{i} is {tuberadius:.2f} \u00C5.\n")
 
             # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms.
             # If they are smaller/equal as the tuberadius, they belong to the CNT.
@@ -797,7 +845,7 @@ def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tu
     return traj_file
 
 
-def molecule_recognition2(traj_file, args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
+def molecule_recognition(traj_file, args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
 
     molecules = Molecule(traj_file, args)
 

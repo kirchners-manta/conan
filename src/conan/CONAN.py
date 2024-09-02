@@ -78,7 +78,7 @@ def main():
 
         maindict = {"id_frame": traj_file.frame0, "box_size": traj_file.box_size, "args": args}
 
-        molecules = traj_info.molecule_recognition2(traj_file, args)
+        molecules = traj_info.molecule_recognition(traj_file, args)
 
         # append the molecule.ouputdict entries to the maindict
         maindict.update(molecules.outputdict)
