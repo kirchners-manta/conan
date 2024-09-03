@@ -1,0 +1,107 @@
+/home/dick/.local/bin/CONAN -f ../example_trajectories/traj.pdb
+
+###########################################
+##                                       ##
+##   #####  #####  #   #  #####  #   #   ##
+##   #      #   #  ##  #  #   #  ##  #   ##
+##   #      #   #  # # #  #####  # # #   ##
+##   #      #   #  #  ##  #   #  #  ##   ##
+##   #####  #####  #   #  #   #  #   #   ##
+##                                       ##
+###########################################
+
+Find the documentation on the CONAN website: http://con-an.readthedocs.io
+If you use CONAN in your research, please cite the following paper:
+doi.org/10.1021/acs.jcim.3c01075
+doi.org/10.1021/acs.jpcb.3c08493
+
+
+
+Total number of atoms: 15492
+
+The simulation box dimensions are [Å]: 38.340 x 39.352 x 156.228
+-> Reading the trajectory.
+
++------------+------------+-------------+
+|            | Trajectory |   Chunk(1)  |
++------------+------------+-------------+
+| Size in MB |    51.9    | 99.7 (51.9) |
+|   Frames   |     50     |    96(50)   |
+|   Lines    |   774700   |   1487424   |
++------------+------------+-------------+
+
+
++---------+------------------+---------------+------------------------+
+| Species | Chemical formula | No. molecules | No. atoms per molecule |
++---------+------------------+---------------+------------------------+
+|    1    |      C1540       |       1       |          1540          |
+|    2    |      C2H3O2      |      400      |           7            |
+|    3    |       C576       |       2       |          576           |
+|    4    |     C8H15N2      |      400      |           25           |
++---------+------------------+---------------+------------------------+
+Structure 0 is a pore, labeled Pore1
+
+Structure 1 is a wall, labeled Wall1
+The wall extends in xy direction at z = 8.86 Å.
+
+Structure 2 is a wall, labeled Wall2
+The wall extends in xy direction at z = 146.35 Å.
+
+
+Total number of structures: 3
+Number of walls: 2
+Number of pores: 1
+
+Does one of the pores contain CNTs? [y/n]:  y
+Only one Pore in the system.
+
+The length of Pore1 is 41.30 Å.
+The center of the CNT in Pore1 is at 18.46, 19.06, 77.71) Å.
+The radius of the CNT in Pore1 is 4.70 Å.
+
+(1) Produce xyz files of the simulation box or pore structure.
+(2) Analyze the trajectory.
+Picture or analysis mode?:  2
+
+ANALYSIS mode.
+
+These functions are limited to rigid/frozen pores containing undistorted CNTs.
+(1) Calculate the radial density inside the CNT
+(2) Calculate the radial charge density inside the CNT (if charges are provided)
+(3) Calculate the radial velocity of the liquid in the CNT.
+(4) Calculate the accessibe volume of the CNT
+(5) Calculate the axial density along the z axis of the simulation box,  with the accessible volume of the CNT considered.
+(6) Calculate the maximal/minimal distance between the liquid and pore atoms
+
+These functions are generally applicable.
+(7) Calculate the coordination number
+(8) Calculate the density of the liquid along the axes.
+(9) Calculate the velocity of the liquid species in the simulation box.
+(10) Calculate the mean square displacement of the liquid species in the simulation box.
+
+What analysis should be performed?:   1
+
+
+Do you want to perform the analysis for a specific molecule kind? (y/n)  n
+-> All species and atoms will be analyzed.
+
+
+
+-> CNT1
+How many increments do you want to use to calculate the density profile?  100
+Increment distance: 0.047 angstrom
+Do you want the calculation to be performed in a specific region? [y/n]  n
+
+Chunk 1 of 1
+
+Finished processing the trajectory. 50 frames were processed.
+
+
+Do you want to plot the data? (y/n)  n
+Do you want to save the raw data? (y/n)  y
+Raw mass distribution data saved as Radial_mass_dist_raw.csv
+Raw density data saved as Radial_density_raw.csv
+
+The main loop took 13.558 seconds to run.
+
+The program took 59.477 seconds to run.

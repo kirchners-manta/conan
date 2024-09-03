@@ -283,6 +283,7 @@ class Molecule:
         )
         self.print_molecule_info()
         self.print_picture()
+
         self.outputdict = self.structure_recognition(traj_file, args)
 
     def exclude_atom_kind(self, traj_file, args):
@@ -623,7 +624,6 @@ class Molecule:
                     f.write(drawer.GetDrawingText())
 
     def structure_recognition(self, traj_file, args):
-
         structure_frame = traj_file.frame0[traj_file.frame0["Struc"]].copy()
 
         outputdict = {}
@@ -1030,14 +1030,10 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
 
-    # Get the positions of the different columns
-    # atom_id_pos = headers.index("id")
-    # atom_type_pos = headers.index("element")
     atom_type_pos = headers.index("element")
     atom_x_pos = headers.index("xu")
     atom_y_pos = headers.index("yu")
     atom_z_pos = headers.index("zu")
-    # atom_mol_pos = headers.index("mol") if "mol" in headers else None
     atom_charge_pos = headers.index("q") if "q" in headers else None
 
     # Drop the first 9 lines
@@ -1046,7 +1042,6 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     split_frame = frame[0].str.split(expand=True)
     split_frame.reset_index(drop=True, inplace=True)
 
-    # Instead of making new columns, we just rename the old ones for Atom, x, y, and z
     split_frame = split_frame.rename(columns={atom_type_pos: "Atom", atom_x_pos: "X", atom_y_pos: "Y", atom_z_pos: "Z"})
 
     # Modify the 'Atom' column to contain the first character (and the second character if lowercase)

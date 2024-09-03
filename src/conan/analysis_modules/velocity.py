@@ -4,6 +4,7 @@ import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
 import conan.analysis_modules.rad_velocity as rad_vel
+import conan.analysis_modules.utils as ut
 import conan.defdict as ddict
 
 
@@ -85,17 +86,18 @@ def velocity_calc_molecule(
     box_size = inputdict["box_size"]
 
     old_frame = inputdict["old_frame"]
-    new_frame = inputdict["split_frame"]
+    split_frame = inputdict["split_frame"]
+
     # calculate the COM for the new frame
-    new_frame = COM_calculation(new_frame)
+    new_frame = COM_calculation(split_frame)
 
     # rename the columns of both frames from X_COM to X, Y_COM to Y and Z_COM to Z
     old_frame.rename(columns={"X_COM": "X", "Y_COM": "Y", "Z_COM": "Z"}, inplace=True)
     new_frame.rename(columns={"X_COM": "X", "Y_COM": "Y", "Z_COM": "Z"}, inplace=True)
 
     # wrap the coordinates of the frames
-    old_frame = axdens.wrapping_coordinates(box_size, old_frame)
-    new_frame = axdens.wrapping_coordinates(box_size, new_frame)
+    old_frame = ut.wrapping_coordinates(box_size, old_frame)
+    new_frame = ut.wrapping_coordinates(box_size, new_frame)
 
     # combine the dataframes
     all_coords = pd.concat(
@@ -209,19 +211,16 @@ def velocity_processing(inputdict):
 
     grid_points_average_velocities = inputdict["grid_point_average_velocities"]
 
-    # currently the velocity is calulated in Angstrom/fs. We want to convert it to m/s
-    # 1 Angstrom = 1e-10 m
-    # 1 fs = 1e-15 s
-    # 1 Angstrom/fs = 1e-10 m / 1e-15 s = 1e5 m/s
+    # currently the velocity is calulated in Angstrom/fs.
 
     for i in range(len(grid_points_average_velocities)):
-        grid_points_average_velocities[i] = float(grid_points_average_velocities[i]) * 1e5
+        grid_points_average_velocities[i] = float(grid_points_average_velocities[i])
 
     # print the maximum value of the velocities
-    ddict.printLog(f"The maximum velocity is: {max(grid_points_average_velocities)} ")
+    ddict.printLog(f"The maximum velocity is: {max(grid_points_average_velocities):.5f} \u00C5/fs\n")
     # write a cube file from the grid_points_velocities
     inputdict["grid_point_densities"] = grid_points_average_velocities
-    axdens.write_cube_file(inputdict, filename="velocity.cube")
+    ut.write_cube_file(inputdict, filename="velocity.cube")
 
     # Reshape the velocity data
     velocities = np.array(grid_points_average_velocities).reshape(
@@ -278,7 +277,11 @@ def velocity_processing(inputdict):
     for direction, df in zip(["x", "y", "z"], [x_vel_df, y_vel_df, z_vel_df]):
         fig, ax = plt.subplots()
         ax.plot(df.iloc[:, 0], df["Velocity"], "-", label="Velocity profile", color="black")
-        ax.set(xlabel=f"{direction} [Ang]", ylabel="Velocity", title=f"Velocity Profile along {direction.upper()}")
+        ax.set(
+            xlabel=f"{direction} [\u00C5]",
+            ylabel="Velocity [\u00C5/fs]",
+            title=f"Velocity Profile along {direction.upper()}",
+        )
         ax.grid()
         fig.savefig(f"{direction}_velocity_profile.pdf")
 

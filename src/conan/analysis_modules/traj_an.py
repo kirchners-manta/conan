@@ -11,11 +11,10 @@ from conan.analysis_modules import traj_info
 
 
 # MAIN
-def analysis_opt(traj_file, molecules, maindict) -> None:
+def analysis_opt(traj_file, molecules, maindict, args) -> None:
 
-    # id_frame, CNT_centers, box_size, tuberadii, min_z_pore, max_z_pore, length_pore, Walls_positions, args
     CNT_centers = maindict["CNT_centers"]
-    args = maindict["args"]
+    # args = maindict["args"]
 
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
@@ -28,7 +27,7 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(CNT_centers) >= 0:
-            trajectory_analysis(traj_file, molecules, maindict)
+            trajectory_analysis(traj_file, molecules, maindict, args)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -39,7 +38,6 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
 # Generating pictures.
 def generating_pictures(traj_file, maindict) -> None:
 
-    id_frame = traj_file.frame0
     CNT_centers = maindict["CNT_centers"]
     args = maindict["args"]
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
@@ -51,11 +49,11 @@ def generating_pictures(traj_file, maindict) -> None:
         ddict.printLog("\n-> Pics of box.")
         # Write the xyz file. The first line has the number of atoms (column in the first_drame), the second line is
         # empty.
-        id_frame_print = open("simbox_frame.xyz", "w")
-        id_frame_print.write("%d\n#Made with CONAN\n" % len(id_frame))
-        for index, row in id_frame.iterrows():
-            id_frame_print.write("%s\t%0.3f\t%0.3f\t%0.3f\n" % (row["Element"], row["x"], row["y"], row["z"]))
-        id_frame_print.close()
+        frame_print = open("simbox_frame.xyz", "w")
+        frame_print.write("%d\n#Made with CONAN\n" % len(traj_file.frame0))
+        for index, row in traj_file.frame0.iterrows():
+            frame_print.write("%s\t%0.3f\t%0.3f\t%0.3f\n" % (row["Element"], row["x"], row["y"], row["z"]))
+        frame_print.close()
         ddict.printLog("-> Saved simulation box as simbox_frame.xyz.")
 
     elif analysis1_choice == 2:
@@ -63,11 +61,11 @@ def generating_pictures(traj_file, maindict) -> None:
         # Loop over the number of entries in the tuberadius numpy array.
         for i in range(len(CNT_centers)):
             # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the
-            # id_frame. They are labeled Pore1, Pore2... in the Struc column.
-            CNT_atoms_pic = id_frame.loc[id_frame["Struc"] == "Pore%d" % (i + 1)]
+            # traj_file.frame0. They are labeled Pore1, Pore2... in the Struc column.
+            CNT_atoms_pic = traj_file.frame0.loc[traj_file.frame0["Struc"] == "Pore%d" % (i + 1)]
             # Remove all columns except the Element, x, y, and z columns.
             ddict.printLog(CNT_atoms_pic)
-            CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule"], axis=1)
+            CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule", "Label", "Species"], axis=1)
             add_centerpoint = ddict.get_input("Add the center point of the CNT to the file? [y/n] ", args, "string")
             if add_centerpoint == "y":
                 # Add the center point of the CNT to the dataframe, labeled as X in a new row.
@@ -90,8 +88,8 @@ def generating_pictures(traj_file, maindict) -> None:
 
         for i in range(len(CNT_centers)):
             # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the
-            # id_frame.
-            CNT_atoms_pic = pd.DataFrame(id_frame.loc[id_frame["CNT"] == i + 1])
+            # traj_file.frame0.
+            CNT_atoms_pic = pd.DataFrame(traj_file.frame0.loc[traj_file.frame0["CNT"] == i + 1])
             # Remove all columns except the Element, x, y, and z columns.
             CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule"], axis=1)
             add_liquid = ddict.get_input(f"Add liquid which is inside the CNT{i + 1}? [y/n] ", args, "string")
@@ -102,8 +100,8 @@ def generating_pictures(traj_file, maindict) -> None:
                 )
 
                 if add_liquid2 == 1:
-                    # Scan the id_frame and add all atoms which are inside the tube to the tube_atoms dataframe.
-                    for index, row in id_frame.iterrows():
+                    # Scan the traj_file.frame0 and add all atoms which are inside the tube to the tube_atoms dataframe.
+                    for index, row in traj_file.frame0.iterrows():
                         if (
                             row["Struc"] == "Liquid"
                             and row["z"] <= CNT_atoms_pic["z"].max()
@@ -148,8 +146,8 @@ def generating_pictures(traj_file, maindict) -> None:
                     mol_list.append(CNT_atoms_pic["Molecule"].unique())
                     tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Label", "Species", "Molecule"])
                     mol_list = mol_list[0]
-                    # Scan the id_frame and add all atoms which are in the mol_list to the tube_atoms_mol dataframe.
-                    for index, row in id_frame.iterrows():
+                    # Scan the traj_file.frame0 and add all atoms to the tube_atoms_mol dataframe.
+                    for index, row in traj_file.frame0.iterrows():
                         if row["Molecule"] in mol_list:
                             # Add the row to the tube_atoms dataframe.
                             tube_atoms_mol.loc[index] = [
@@ -194,10 +192,7 @@ def generating_pictures(traj_file, maindict) -> None:
 
 
 # Analysis of the trajectory.
-def trajectory_analysis(traj_file, molecules, inputdict) -> None:
-
-    id_frame = inputdict["id_frame"]
-    args = inputdict["args"]
+def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
 
     # Analysis choice.
     ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
@@ -213,17 +208,19 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
 
     ddict.printLog("\nThese functions are generally applicable.", color="red")
     ddict.printLog("(7) Calculate the coordination number")
-    ddict.printLog("(8) Calculate the axial density of the liquid.")
+    ddict.printLog("(8) Calculate the density of the liquid along the axes.")
+    ddict.printLog("(9) Calculate the velocity of the liquid species in the simulation box.")
+    ddict.printLog("(10) Calculate the mean square displacement of the liquid species in the simulation box.\n")
 
     # ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
-    analysis_choice2 = int(ddict.get_input("\nWhat analysis should be performed?:  ", args, "int"))
+    analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", args, "int"))
     analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     if analysis_choice2 not in analysis_choice2_options:
         ddict.printLog("-> The analysis you entered is not known.")
         sys.exit(1)
     ddict.printLog("")
 
-    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, id_frame, 1)
+    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(args, traj_file.frame0, 1)
 
     # PREPERATION
     # Main loop preperation.
@@ -270,8 +267,18 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
         from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
         from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
 
+    if analysis_choice2 == 9:
+        from conan.analysis_modules.velocity import velocity_analysis as analysis
+        from conan.analysis_modules.velocity import velocity_prep as main_loop_preparation
+        from conan.analysis_modules.velocity import velocity_processing as post_processing
+
+    if analysis_choice2 == 10:
+        from conan.analysis_modules.msd import msd_analysis as analysis
+        from conan.analysis_modules.msd import msd_prep as main_loop_preparation
+        from conan.analysis_modules.msd import msd_processing as post_processing
+
     counter = 0
-    CNT_atoms = id_frame[id_frame["CNT"].notnull()]
+    CNT_atoms = traj_file.frame0[traj_file.frame0["CNT"].notnull()]
 
     maindict = inputdict
     maindict["counter"] = counter
@@ -320,10 +327,10 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
     element_masses = ddict.dict_mass()
 
     # Molecule information.
-    molecule_id = id_frame["Molecule"].values
-    molecule_species = id_frame["Species"].values
-    molecule_structure = id_frame["Struc"].values
-    molecule_label = id_frame["Label"].values
+    molecule_id = traj_file.frame0["Molecule"].values
+    molecule_species = traj_file.frame0["Species"].values
+    molecule_structure = traj_file.frame0["Struc"].values
+    molecule_label = traj_file.frame0["Label"].values
 
     # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
     trajectory = pd.read_csv(args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
@@ -343,7 +350,7 @@ def trajectory_analysis(traj_file, molecules, inputdict) -> None:
         for frame in frames:
 
             # First load the frame into the function run() to get a dataframe. Then reset the index.
-            split_frame = run(frame, element_masses, id_frame)
+            split_frame = run(frame, element_masses, traj_file.frame0)
             split_frame.reset_index(drop=True, inplace=True)
 
             # Add the necessary columns to the dataframe.

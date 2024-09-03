@@ -85,7 +85,7 @@ def main():
 
         from conan.analysis_modules import traj_an
 
-        traj_an.analysis_opt(traj_file, molecules, maindict)
+        traj_an.analysis_opt(traj_file, molecules, maindict, args)
 
     ddict.printLog("The program took %0.3f seconds to run." % (time.time() - start_time))
 
