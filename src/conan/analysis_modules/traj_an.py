@@ -14,7 +14,6 @@ from conan.analysis_modules import traj_info
 def analysis_opt(traj_file, molecules, maindict, args) -> None:
 
     CNT_centers = maindict["CNT_centers"]
-    # args = maindict["args"]
 
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
@@ -209,10 +208,7 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
     ddict.printLog("\nThese functions are generally applicable.", color="red")
     ddict.printLog("(7) Calculate the coordination number")
     ddict.printLog("(8) Calculate the density along the axes.")
-    ddict.printLog("(9) Calculate the velocity of the liquid species in the simulation box.")
-    ddict.printLog("(10) Calculate the mean square displacement of the liquid species in the simulation box.\n")
 
-    # ddict.printLog('(10) Calculate the occurrence of a specific atom in the simulation box.')
     analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", args, "int"))
     analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     if analysis_choice2 not in analysis_choice2_options:
@@ -266,16 +262,6 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
         from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
         from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
         from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
-
-    if analysis_choice2 == 9:
-        from conan.analysis_modules.velocity import velocity_analysis as analysis
-        from conan.analysis_modules.velocity import velocity_prep as main_loop_preparation
-        from conan.analysis_modules.velocity import velocity_processing as post_processing
-
-    if analysis_choice2 == 10:
-        from conan.analysis_modules.msd import msd_analysis as analysis
-        from conan.analysis_modules.msd import msd_prep as main_loop_preparation
-        from conan.analysis_modules.msd import msd_processing as post_processing
 
     counter = 0
     CNT_atoms = traj_file.frame0[traj_file.frame0["CNT"].notnull()]
