@@ -208,7 +208,7 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
 
     ddict.printLog("\nThese functions are generally applicable.", color="red")
     ddict.printLog("(7) Calculate the coordination number")
-    ddict.printLog("(8) Calculate the density of the liquid along the axes.")
+    ddict.printLog("(8) Calculate the density along the axes.")
     ddict.printLog("(9) Calculate the velocity of the liquid species in the simulation box.")
     ddict.printLog("(10) Calculate the mean square displacement of the liquid species in the simulation box.\n")
 
@@ -332,15 +332,20 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
     molecule_structure = traj_file.frame0["Struc"].values
     molecule_label = traj_file.frame0["Label"].values
 
-    # The trajectory xyz file is read in chunks of size chunk_size. The last chunk is smaller than the other chunks.
+    # Start frame and frame interval.
+    start_frame = int(ddict.get_input("Start frame: ", args, "int"))
+    frame_interval = int(ddict.get_input("Frame interval: ", args, "int"))
+
     trajectory = pd.read_csv(args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
     chunk_number = 0
+    frame_counter = 0
+
     # Loop over chunks.
     for chunk in trajectory:
-        chunk_number = chunk_number + 1
+        chunk_number += 1
         maindict["chunk_number"] = chunk_number
-        # print("")
         ddict.printLog("\nChunk %d of %d" % (chunk_number, traj_file.num_chunks))
+
         # Divide the chunk into individual frames. If the chunk is the last chunk, the number of frames is different.
         if chunk.shape[0] == traj_file.lines_last_chunk:
             frames = np.split(chunk, traj_file.last_chunk_size)
@@ -348,6 +353,11 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
             frames = np.split(chunk, traj_file.chunk_size)
 
         for frame in frames:
+            frame_counter += 1
+
+            # Skip frames based on start_frame and frame_interval
+            if frame_counter < start_frame or (frame_counter - start_frame) % frame_interval != 0:
+                continue
 
             # First load the frame into the function run() to get a dataframe. Then reset the index.
             split_frame = run(frame, element_masses, traj_file.frame0)
@@ -379,7 +389,9 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
             maindict = analysis(maindict)
 
             counter += 1
-            print("Frame %d of %d" % (counter, traj_file.number_of_frames), end="\r")
+            print(
+                "Processed frame %d (frame %d of %d)" % (counter, frame_counter, traj_file.number_of_frames), end="\r"
+            )
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
         if analysis_choice2 == 7:

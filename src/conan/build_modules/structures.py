@@ -284,6 +284,7 @@ class Structure1d(Structure):
         tube_table.add_row(["radius [Å]", round(self.radius, 3)])
         tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
         tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+        tube_table.add_row(["pbc length [Å]", round(self.pbc_length, 3)])
 
         ddict.printLog(tube_table)
 
@@ -454,7 +455,7 @@ class Structure1d(Structure):
                     positions_tube.append((x, y, z))
                     angles.append(angle)
 
-                z_max = z_coordinate + zstep  # Update maximum z-coordinate reached
+                z_max = z  # Update maximum z-coordinate reached
                 counter += 1  # Increment the counter
 
         # If the tube is of the zigzag configuration
@@ -509,11 +510,22 @@ class Structure1d(Structure):
                     z = 2 * zstep + distance + z_coordinate
                     positions_tube.append((x, y, z))
 
-                z_max = z_coordinate + zstep  # Update maximum z-coordinate reached
+                z_max = z  # Update maximum z-coordinate reached
                 counter += 1  # Increment counter
 
         # Store the radius of the tube
         self.radius = radius
+
+        # adjusted to give correct tube length
+        self.tube_length = z_max
+
+        # get PBC tube length
+        # armchair configuration
+        if tube_kind == 1:
+            self.pbc_length = z_max + zstep
+        # zigzag configuration
+        if tube_kind == 2:
+            self.pbc_length = z_max + distance
 
         # Create DataFrame from the list of positions
         self._structure_df = pd.DataFrame(positions_tube)

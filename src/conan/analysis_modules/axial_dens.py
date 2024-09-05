@@ -708,29 +708,44 @@ def density_analysis_processing(inputdict):
     sum_gp_y = int(inputdict["x_incr"] * inputdict["z_incr"])
     sum_gp_z = int(inputdict["x_incr"] * inputdict["y_incr"])
 
-    # divide each value in the density profiles by the number of grid points in the corresponding direction * the volume
-    # of each grid point
+    # divide each value in the density profiles by the number of grid points in the corresponding direction
     x_dens_profile = x_dens_profile / sum_gp_x
     y_dens_profile = y_dens_profile / sum_gp_y
     z_dens_profile = z_dens_profile / sum_gp_z
 
+    # Calculate total mass per slice
+    total_mass_x = x_dens_profile * sum_gp_x * grid_volume
+    total_mass_y = y_dens_profile * sum_gp_y * grid_volume
+    total_mass_z = z_dens_profile * sum_gp_z * grid_volume
+
+    # Calculate volume of each slice
+    volume_x = sum_gp_x * grid_volume
+    volume_y = sum_gp_y * grid_volume
+    volume_z = sum_gp_z * grid_volume
+
     # now we print the density profiles to dataframes. The first column is the x (y,z) coordinate of the grid point,
-    # the second column is the density
+    # the second column is the density. Also calculate the density in g/cm^3.
+    # the last columns print the total mass per slice and the volume of the slice.
     x_dens_profile_df = pd.DataFrame()
     x_dens_profile_df["x"] = inputdict["x_grid"]
     x_dens_profile_df["Density [u/Ang^3]"] = x_dens_profile
     x_dens_profile_df["Density [g/cm^3]"] = x_dens_profile_df["Density [u/Ang^3]"] * 1.66053907
+    x_dens_profile_df["Total Mass [u]"] = total_mass_x
+    x_dens_profile_df["Volume [Ang^3]"] = volume_x
 
     y_dens_profile_df = pd.DataFrame()
     y_dens_profile_df["y"] = inputdict["y_grid"]
     y_dens_profile_df["Density [u/Ang^3]"] = y_dens_profile
     y_dens_profile_df["Density [g/cm^3]"] = y_dens_profile_df["Density [u/Ang^3]"] * 1.66053907
+    y_dens_profile_df["Total Mass [u]"] = total_mass_y
+    y_dens_profile_df["Volume [Ang^3]"] = volume_y
 
     z_dens_profile_df = pd.DataFrame()
     z_dens_profile_df["z"] = inputdict["z_grid"]
     z_dens_profile_df["Density [u/Ang^3]"] = z_dens_profile
     z_dens_profile_df["Density [g/cm^3]"] = z_dens_profile_df["Density [u/Ang^3]"] * 1.66053907
-
+    z_dens_profile_df["Total Mass [u]"] = total_mass_z
+    z_dens_profile_df["Volume [Ang^3]"] = volume_z
     # now we save the dataframes to csv files
     x_dens_profile_df.to_csv("x_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
     y_dens_profile_df.to_csv("y_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
