@@ -657,7 +657,7 @@ class Molecule:
                 spec_molecule = molecule_choice(args, traj_file.frame0, 2)
                 structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
-                outputdict["unique_molecule_frame"] = self.unique_molecule_frame
+                #outputdict["unique_molecule_frame"] = self.unique_molecule_frame
 
         # convert atom information to a list of dictionaries
         str_atom_list = []

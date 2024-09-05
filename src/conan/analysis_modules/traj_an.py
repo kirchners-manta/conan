@@ -385,7 +385,7 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
             # Save the split_frame in maindict
             maindict["split_frame"] = split_frame
             maindict["counter"] = counter
-
+ 
             maindict = analysis(maindict)
 
             counter += 1
@@ -405,7 +405,6 @@ def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
     post_processing(maindict)
 
     ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
-
 
 if __name__ == "__main__":
     # ARGUMENTS
