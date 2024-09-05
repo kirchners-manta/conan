@@ -283,6 +283,7 @@ class Molecule:
         )
         self.print_molecule_info()
         self.print_picture()
+
         self.outputdict = self.structure_recognition(traj_file, args)
 
     def exclude_atom_kind(self, traj_file, args):
@@ -623,7 +624,6 @@ class Molecule:
                     f.write(drawer.GetDrawingText())
 
     def structure_recognition(self, traj_file, args):
-
         structure_frame = traj_file.frame0[traj_file.frame0["Struc"]].copy()
 
         outputdict = {}
@@ -640,9 +640,11 @@ class Molecule:
         tuberadii = []
         CNT_atoms = []
         which_pores = []
+        rigid_bodies = 1
 
         # If the structure_frame is empty, then there are no structures in the simulation box.
         if structure_frame.empty or args["manual"]:
+            rigid_bodies = 0
             if structure_frame.empty:
                 ddict.printLog(
                     "No structures were found in the simulation box. \n",
@@ -655,7 +657,7 @@ class Molecule:
                 spec_molecule = molecule_choice(args, traj_file.frame0, 2)
                 structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
-                outputdict["unique_molecule_frame"] = self.unique_molecule_frame
+                # outputdict["unique_molecule_frame"] = self.unique_molecule_frame
 
         # convert atom information to a list of dictionaries
         str_atom_list = []
@@ -695,7 +697,10 @@ class Molecule:
                 if structure_frame.loc[structure_frame["Molecule"] == molecule, "Element"].isin(["Au", "Ag"]).any():
                     pass
                     counter_wall += 1
-                    ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}\n")
+                    ddict.printLog(
+                        f"Structure {i} is a wall, labeled Wall{counter_wall} (Species: "
+                        f"{structure_frame.loc[structure_frame['Molecule'] == molecule, 'Species'].unique()})\n"
+                    )
                     structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Wall{counter_wall}"
                     Walls.append(f"Wall{counter_wall}")
                     Walls_positions.append(z_min)
@@ -703,7 +708,10 @@ class Molecule:
                     continue
 
                 counter_pore += 1
-                ddict.printLog(f"Structure {i} is a pore, labeled Pore{counter_pore}\n")
+                ddict.printLog(
+                    f"Structure {i} is a pore, labeled Pore{counter_pore} "
+                    f"(Species: {structure_frame.loc[structure_frame['Molecule'] == molecule, 'Species'].unique()})\n"
+                )
 
                 # Change the structure column to pore{i}
                 structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Pore{counter_pore}"
@@ -712,7 +720,10 @@ class Molecule:
             # If the difference in x, y and z is smaller than 5.0, it is a wall.
             elif (x_max - x_min) < 5.0 or (y_max - y_min) < 5.0 or (z_max - z_min) < 5.0:
                 counter_wall += 1
-                ddict.printLog(f"Structure {i} is a wall, labeled Wall{counter_wall}")
+                ddict.printLog(
+                    f"Structure {i} is a wall, labeled Wall{counter_wall} "
+                    f"(Species: {structure_frame.loc[structure_frame['Molecule'] == molecule, 'Species'].unique()})"
+                )
                 if (x_max - x_min) < 1.0:
                     ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} \u00C5.\n")
                 if (y_max - y_min) < 1.0:
@@ -735,22 +746,23 @@ class Molecule:
         ddict.printLog(f"Number of walls: {len(Walls)}")
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
-        CNT_pore_question = ddict.get_input("Does one of the pores contain CNTs? [y/n]: ", args, "str")
-        if CNT_pore_question == "y":
-            if len(CNTs) == 0:
-                ddict.printLog("There are no pores in the system.\n", color="red")
-                sys.exit()
-            if len(CNTs) == 1:
-                which_pores = [1]
-                ddict.printLog("Only one Pore in the system.\n")
-            else:
-                which_pores = ddict.get_input(f"Which pores contains a CNT? [1-{len(CNTs)}]: ", args, "str")
-                ddict.printLog("")
+        if rigid_bodies == 1:
+            CNT_pore_question = ddict.get_input("Does one of the pores contain rigid CNTs? [y/n]: ", args, "str")
+            if CNT_pore_question == "y":
+                if len(CNTs) == 0:
+                    ddict.printLog("There are no pores in the system.\n", color="red")
+                    sys.exit()
+                if len(CNTs) == 1:
+                    which_pores = [1]
+                    ddict.printLog("Only one Pore in the system.\n")
+                else:
+                    which_pores = ddict.get_input(f"Which pores contains a CNT? [1-{len(CNTs)}]: ", args, "str")
+                    ddict.printLog("")
 
-                # split the input string into a list of integers. They are divided by a comma.
-                which_pores = [int(i) for i in which_pores.split(",")]
-                # keep all entries, which are equal or smaller than the number of pores.
-                which_pores = [i for i in which_pores if i <= len(CNTs)]
+                    # split the input string into a list of integers. They are divided by a comma.
+                    which_pores = [int(i) for i in which_pores.split(",")]
+                    # keep all entries, which are equal or smaller than the number of pores.
+                    which_pores = [i for i in which_pores if i <= len(CNTs)]
 
         for i in which_pores:
             pore = traj_file.frame0[traj_file.frame0["Struc"] == f"Pore{i}"].copy()
@@ -1030,14 +1042,10 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
 
-    # Get the positions of the different columns
-    # atom_id_pos = headers.index("id")
-    # atom_type_pos = headers.index("element")
     atom_type_pos = headers.index("element")
     atom_x_pos = headers.index("xu")
     atom_y_pos = headers.index("yu")
     atom_z_pos = headers.index("zu")
-    # atom_mol_pos = headers.index("mol") if "mol" in headers else None
     atom_charge_pos = headers.index("q") if "q" in headers else None
 
     # Drop the first 9 lines
@@ -1046,7 +1054,6 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     split_frame = frame[0].str.split(expand=True)
     split_frame.reset_index(drop=True, inplace=True)
 
-    # Instead of making new columns, we just rename the old ones for Atom, x, y, and z
     split_frame = split_frame.rename(columns={atom_type_pos: "Atom", atom_x_pos: "X", atom_y_pos: "Y", atom_z_pos: "Z"})
 
     # Modify the 'Atom' column to contain the first character (and the second character if lowercase)

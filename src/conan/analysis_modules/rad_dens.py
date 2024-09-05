@@ -105,7 +105,7 @@ def raddens_prep(inputdict):
     return outputdict
 
 
-def radial_density_analysis(inputdict):
+def common_radial_analysis(inputdict, property_name):
     split_frame = inputdict["split_frame"]
     raddens_df = inputdict["raddens_df"]
     raddens_bin_edges = inputdict["raddens_bin_edges"]
@@ -122,8 +122,23 @@ def radial_density_analysis(inputdict):
     split_frame["Y"] = split_frame["Y"].astype(float) % box_size[1]
     split_frame["Z"] = split_frame["Z"].astype(float) % box_size[2]
 
-    split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
-    split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+    # we need to also account this for the max and min z_pore values
+    max_z_pore[0] = max_z_pore[0] % box_size[2]
+    min_z_pore[0] = min_z_pore[0] % box_size[2]
+
+    # we also need to do this for the CNT_centers
+    CNT_centers[0][0] = CNT_centers[0][0] % box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % box_size[1]
+
+    # if the pore is split over the periodic boundary (pot. because of modulo operation)
+    if min_z_pore[0] > max_z_pore[0]:
+        # Split the selection into two parts
+        part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+        part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = pd.concat([part1, part2])
+    else:
+        split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
 
     # Calculate the radial density function with the remaining atoms.
     split_frame["X_adjust"] = split_frame["X"].astype(float) - CNT_centers[0][0]
@@ -132,9 +147,9 @@ def radial_density_analysis(inputdict):
     split_frame["Distance"] = np.sqrt(split_frame["X_adjust"] ** 2 + split_frame["Y_adjust"] ** 2)
     split_frame["Distance_bin"] = pd.cut(split_frame["Distance"], bins=raddens_bin_edges, labels=raddens_bin_labels + 1)
 
-    # Add all masses of the atoms in each bin to the corresponding bin.
+    # Add all specified property (mass or charge) of the atoms in each bin to the corresponding bin.
     raddens_df_temp = (
-        split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges))["Mass"]
+        split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges))[property_name]
         .sum()
         .reset_index(name="Weighted_counts")
     )
@@ -149,11 +164,20 @@ def radial_density_analysis(inputdict):
 
     # Remove the raddens_df_temp dataframe every loop.
     del raddens_df_temp
+
     # Prepare output dict
     outputdict = inputdict
     outputdict["raddens_df"] = raddens_df
 
     return outputdict
+
+
+def radial_density_analysis(inputdict):
+    return common_radial_analysis(inputdict, "Mass")
+
+
+def radial_charge_density_analysis(inputdict):
+    return common_radial_analysis(inputdict, "Charge")
 
 
 def raddens_post_processing(inputdict):
@@ -346,56 +370,3 @@ def raddens_post_processing(inputdict):
         ddict.printLog("Raw density data saved as Radial_density_raw.csv")
 
     # Radial charge density analysis
-
-
-def radial_charge_density_analysis(inputdict):
-    split_frame = inputdict["split_frame"]
-    raddens_df = inputdict["raddens_df"]
-    raddens_bin_edges = inputdict["raddens_bin_edges"]
-    raddens_bin_labels = inputdict["raddens_bin_labels"]
-    num_increments = inputdict["num_increments"]
-    counter = inputdict["counter"]
-    CNT_centers = inputdict["CNT_centers"]
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
-    box_size = inputdict["box_size"]
-
-    # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
-    split_frame["X"] = split_frame["X"].astype(float) % box_size[0]
-    split_frame["Y"] = split_frame["Y"].astype(float) % box_size[1]
-    split_frame["Z"] = split_frame["Z"].astype(float) % box_size[2]
-
-    split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
-    split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
-
-    # Calculate the radial density function with the remaining atoms.
-    split_frame["X_adjust"] = split_frame["X"].astype(float) - CNT_centers[0][0]
-    split_frame["Y_adjust"] = split_frame["Y"].astype(float) - CNT_centers[0][1]
-
-    # Calculate the distance of each atom to the center of the CNT.
-    split_frame["Distance"] = np.sqrt(split_frame["X_adjust"] ** 2 + split_frame["Y_adjust"] ** 2)
-    split_frame["Distance_bin"] = pd.cut(split_frame["Distance"], bins=raddens_bin_edges, labels=raddens_bin_labels + 1)
-
-    # Add all masses of the atoms in each bin to the corresponding bin.
-    raddens_df_temp = (
-        split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges))["Charge"]
-        .sum()
-        .reset_index(name="Weighted_counts")
-    )
-    raddens_df_temp = pd.DataFrame(raddens_df_temp)
-
-    # Add a new first column with the index+1 of the bin.
-    raddens_df_temp.insert(0, "Bin", raddens_df_temp.index + 1)
-
-    # Write the results into the raddens_df dataframe. The row is defined by the frame number.
-    for i in range(num_increments):
-        raddens_df.loc[counter, "Bin %d" % (i + 1)] = raddens_df_temp.loc[i, "Weighted_counts"]
-
-    # Remove the raddens_df_temp dataframe every loop.
-    del raddens_df_temp
-
-    # Prepare output dict
-    outputdict = inputdict
-    outputdict["raddens_df"] = raddens_df
-
-    return outputdict
