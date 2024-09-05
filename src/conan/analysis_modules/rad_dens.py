@@ -104,6 +104,7 @@ def raddens_prep(inputdict):
 
     return outputdict
 
+
 def common_radial_analysis(inputdict, property_name):
     split_frame = inputdict["split_frame"]
     raddens_df = inputdict["raddens_df"]
@@ -170,8 +171,10 @@ def common_radial_analysis(inputdict, property_name):
 
     return outputdict
 
+
 def radial_density_analysis(inputdict):
     return common_radial_analysis(inputdict, "Mass")
+
 
 def radial_charge_density_analysis(inputdict):
     return common_radial_analysis(inputdict, "Charge")
