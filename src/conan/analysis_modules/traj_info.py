@@ -275,16 +275,28 @@ class Molecule:
 
         self.neglect_atom_kind = self.exclude_atom_kind(traj_file, args)
         self.all_atoms = self.dataframe_to_list(traj_file.frame0)
-        self.molecules, self.molecule_bonds, self.molecules_sym, self.molecule_bonds_sym, self.molecule_counter = (
+        (self.molecules, self.molecule_bonds, self.molecules_sym, self.molecule_bonds_sym, self.molecule_counter) = (
             self.identify_molecules_and_bonds(traj_file)
         )
-        self.molecule_frame, self.unique_molecule_frame, self.molecule_count = self.get_unique_molecule_frame(
+
+        (self.molecule_frame, self.unique_molecule_frame, self.molecule_count) = self.get_unique_molecule_frame(
             traj_file.frame0
         )
+
         self.print_molecule_info()
         self.print_picture()
 
-        self.outputdict = self.structure_recognition(traj_file, args)
+        (
+            self.structure_data,
+            self.min_z_pore,
+            self.max_z_pore,
+            self.length_pore,
+            self.center_pore,
+            self.CNT_centers,
+            self.tuberadii,
+            self.CNT_atoms,
+            self.Walls_positions,
+        ) = self.structure_recognition(traj_file, args)
 
     def exclude_atom_kind(self, traj_file, args):
 
@@ -626,7 +638,7 @@ class Molecule:
     def structure_recognition(self, traj_file, args):
         structure_frame = traj_file.frame0[traj_file.frame0["Struc"]].copy()
 
-        outputdict = {}
+        output = {}
         CNTs = []
         counter_pore = 0
         Walls = []
@@ -657,7 +669,7 @@ class Molecule:
                 spec_molecule = molecule_choice(args, traj_file.frame0, 2)
                 structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
-                # outputdict["unique_molecule_frame"] = self.unique_molecule_frame
+                # output["unique_molecule_frame"] = self.unique_molecule_frame
 
         # convert atom information to a list of dictionaries
         str_atom_list = []
@@ -837,16 +849,26 @@ class Molecule:
         if "CNT" not in traj_file.frame0.columns:
             traj_file.frame0["CNT"] = None
 
-        outputdict["id_frame"] = traj_file.frame0
-        outputdict["min_z_pore"] = min_z_pore
-        outputdict["max_z_pore"] = max_z_pore
-        outputdict["length_pore"] = length_pore
-        outputdict["CNT_centers"] = CNT_centers
-        outputdict["tuberadii"] = tuberadii
-        outputdict["CNT_atoms"] = CNT_atoms
-        outputdict["Walls_positions"] = Walls_positions
+        output["id_frame"] = traj_file.frame0
+        output["min_z_pore"] = min_z_pore
+        output["max_z_pore"] = max_z_pore
+        output["length_pore"] = length_pore
+        output["CNT_centers"] = CNT_centers
+        output["tuberadii"] = tuberadii
+        output["CNT_atoms"] = CNT_atoms
+        output["Walls_positions"] = Walls_positions
 
-        return outputdict
+        return (
+            output,
+            min_z_pore,
+            max_z_pore,
+            length_pore,
+            center_pore,
+            CNT_centers,
+            tuberadii,
+            CNT_atoms,
+            Walls_positions,
+        )
 
 
 def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:

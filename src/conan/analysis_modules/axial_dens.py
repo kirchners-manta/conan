@@ -10,24 +10,21 @@ import scipy
 import conan.defdict as ddict
 from conan.analysis_modules import utils as ut
 
+
 # Accessible volume
+def accessible_volume_prep(inputdict, traj_file, molecules):
 
-
-def accessible_volume_prep(inputdict):
-    CNT_centers = inputdict["CNT_centers"]
     args = inputdict["args"]
 
-    maxdisp_atom_dist = 0
     element_radii = dict()
     ddict.printLog("")
 
-    if len(CNT_centers) > 1:
+    if len(molecules.structure_data["CNT_centers"]) > 1:
         ddict.printLog("-> Multiple CNTs detected. The analysis will be conducted on the first CNT.\n", color="red")
-    if len(CNT_centers) == 0:
+    if len(molecules.structure_data["CNT_centers"]) == 0:
         ddict.printLog("-> No CNTs detected. Aborting...\n", color="red")
         sys.exit(1)
 
-    maxdisp_atom_dist = 0
     which_element_radii = ddict.get_input(
         "Do you want to use the van der Waals radii (1) or the covalent radii (2) of the elements? [1/2] ", args, "int"
     )
@@ -38,31 +35,52 @@ def accessible_volume_prep(inputdict):
         ddict.printLog("-> Using covalent radii.")
         element_radii = ddict.dict_covalent()
 
-    # Prepare output dict
     outputdict = inputdict
     outputdict["element_radii"] = element_radii
-    outputdict["maxdisp_atom_dist"] = maxdisp_atom_dist
+    outputdict["maxdisp_atom_dist"] = 0
 
     return outputdict
 
 
-def accessible_volume_analysis(inputdict):
-    split_frame = inputdict["split_frame"]
-    CNT_centers = inputdict["CNT_centers"]
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
+def accessible_volume_analysis(inputdict, traj_file, molecules, analysis):
+
+    split_frame = analysis.split_frame
+    CNT_centers = molecules.CNT_centers
+    max_z_pore = molecules.max_z_pore
+    min_z_pore = molecules.min_z_pore
+
     element_radii = inputdict["element_radii"]
     maxdisp_atom_dist = inputdict["maxdisp_atom_dist"]
     maxdisp_atom_row = inputdict["maxdisp_atom_row"]
 
-    split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
-    split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+    # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
+    split_frame["X"] = split_frame["X"].astype(float) % traj_file.box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % traj_file.box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % traj_file.box_size[2]
+
+    # we need to also account this for the max and min z_pore values
+    max_z_pore[0] = max_z_pore[0] % traj_file.box_size[2]
+    min_z_pore[0] = min_z_pore[0] % traj_file.box_size[2]
+
+    # we also need to do this for the CNT_centers
+    CNT_centers[0][0] = CNT_centers[0][0] % traj_file.box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
+
+    # if the pore is split over the periodic boundary (pot. because of modulo operation)
+    if min_z_pore[0] > max_z_pore[0]:
+        # Split the selection into two parts
+        part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+        part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = pd.concat([part1, part2])
+    else:
+        split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
 
     # Calculate the radial density function with the remaining atoms.
     split_frame["X_adjust"] = split_frame["X"].astype(float) - CNT_centers[0][0]
     split_frame["Y_adjust"] = split_frame["Y"].astype(float) - CNT_centers[0][1]
 
-    # While caluclating the (most displaced) distance, add the elements radius.
+    # While calculating the (most displaced) distance, add the elements radius.
     split_frame["Distance"] = np.sqrt(split_frame["X_adjust"] ** 2 + split_frame["Y_adjust"] ** 2) + split_frame[
         "Atom"
     ].map(element_radii)
@@ -74,11 +92,8 @@ def accessible_volume_analysis(inputdict):
 
     inputdict["maxdisp_atom_row"] = maxdisp_atom_row
     inputdict["maxdisp_atom_dist"] = maxdisp_atom_dist
-    # Prepare output dict
-    outputdict = inputdict
-    outputdict["split_frame"] = split_frame
 
-    return outputdict
+    return inputdict
 
 
 def accessible_volume_processing(inputdict):
@@ -128,11 +143,10 @@ def accessible_volume_processing(inputdict):
 # Distance search
 
 
-def distance_search_prep(inputdict):
-    # first get the input structure atoms from the id_frame in the inputdict
-    structure_atoms = inputdict["id_frame"]
+def distance_search_prep(inputdict, traj_file, molecules):
+
     # drop all rows, which are labeled 'Liquid' in the 'Struc' column
-    structure_atoms = structure_atoms[structure_atoms["Struc"] != "Liquid"]
+    structure_atoms = traj_file.frame0[traj_file.frame0["Struc"] != "Liquid"]
 
     # now transform the structure atoms into a kd-tree
     structure_atoms_tree = scipy.spatial.KDTree(structure_atoms[["x", "y", "z"]].values)
@@ -154,13 +168,12 @@ def distance_search_prep(inputdict):
     return inputdict
 
 
-def distance_search_analysis(inputdict):
+def distance_search_analysis(inputdict, traj_file, molecules, analysis):
     # get the structure atoms from the inputdict
     structure_atoms_tree = inputdict["structure_atoms_tree"]
-    split_frame = inputdict["split_frame"]
 
     # check if there are any atoms outside the simulation box
-    split_frame = ut.wrapping_coordinates(inputdict["box_size"], split_frame)
+    split_frame = ut.wrapping_coordinates(traj_file.box_size, analysis.split_frame)
 
     # now get the coordinates of the split_frame
     split_frame_coords = split_frame[["X", "Y", "Z"]].values
@@ -215,14 +228,10 @@ def distance_search_processing(inputdict):
 # Axial density profile
 
 
-def axial_density_prep(inputdict):
+def axial_density_prep(inputdict, traj_file, molecules):
+
     args = inputdict["args"]
-    CNT_centers = inputdict["CNT_centers"]
-    length_pore = inputdict["length_pore"]
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
-    box_size = inputdict["box_size"]
-    number_of_frames = inputdict["number_of_frames"]
+    # CNT_atoms = molecules.CNT_atoms
     CNT_atoms = inputdict["CNT_atoms"]
 
     num_increments = int(
@@ -236,28 +245,28 @@ def axial_density_prep(inputdict):
         color="red",
     )
     # Initialize arrays
-    z_incr_CNT = [0] * len(CNT_centers)
-    z_incr_bulk1 = [0] * len(CNT_centers)
-    z_incr_bulk2 = [0] * len(CNT_centers)
-    z_bin_edges_pore = [0] * len(CNT_centers)
-    z_bin_edges_bulk1 = [0] * len(CNT_centers)
-    z_bin_edges_bulk2 = [0] * len(CNT_centers)
-    z_bin_edges = [0] * len(CNT_centers)
-    z_bin_labels = [0] * len(CNT_centers)
+    z_incr_CNT = [0] * len(molecules.CNT_centers)
+    z_incr_bulk1 = [0] * len(molecules.CNT_centers)
+    z_incr_bulk2 = [0] * len(molecules.CNT_centers)
+    z_bin_edges_pore = [0] * len(molecules.CNT_centers)
+    z_bin_edges_bulk1 = [0] * len(molecules.CNT_centers)
+    z_bin_edges_bulk2 = [0] * len(molecules.CNT_centers)
+    z_bin_edges = [0] * len(molecules.CNT_centers)
+    z_bin_labels = [0] * len(molecules.CNT_centers)
 
     # Calculate the increment distance for each section.
-    for i in range(len(CNT_centers)):
-        z_incr_CNT[i] = length_pore[i] / num_increments
-        z_incr_bulk1[i] = min_z_pore[i] / num_increments
-        z_incr_bulk2[i] = (box_size[2] - max_z_pore[i]) / num_increments
+    for i in range(len(molecules.CNT_centers)):
+        z_incr_CNT[i] = molecules.length_pore[i] / num_increments
+        z_incr_bulk1[i] = molecules.min_z_pore[i] / num_increments
+        z_incr_bulk2[i] = (traj_file.box_size[2] - molecules.max_z_pore[i]) / num_increments
 
         ddict.printLog("Increment distance CNT: %0.3f \u00C5" % (z_incr_CNT[i]))
         ddict.printLog("Increment distance bulk1: %0.3f \u00C5" % (z_incr_bulk1[i]))
         ddict.printLog("Increment distance bulk2: %0.3f \u00C5" % (z_incr_bulk2[i]))
 
         z_bin_edges_pore[i] = np.linspace(CNT_atoms["z"].min(), CNT_atoms["z"].max(), num_increments + 1)
-        z_bin_edges_bulk1[i] = np.linspace(0, min_z_pore[i], num_increments + 1)
-        z_bin_edges_bulk2[i] = np.linspace(max_z_pore[i], box_size[2], num_increments + 1)
+        z_bin_edges_bulk1[i] = np.linspace(0, molecules.min_z_pore[i], num_increments + 1)
+        z_bin_edges_bulk2[i] = np.linspace(molecules.max_z_pore[i], traj_file.box_size[2], num_increments + 1)
         z_bin_edges[i] = np.concatenate((z_bin_edges_bulk1[i], z_bin_edges_pore[i], z_bin_edges_bulk2[i]))
         z_bin_edges[i] = np.unique(z_bin_edges[i])
         num_increments = len(z_bin_edges[i]) - 1
@@ -281,7 +290,7 @@ def axial_density_prep(inputdict):
         element_radii = ddict.dict_covalent()
 
     # Make new dataframe with the number of frames of the trajectory.
-    zdens_df_dummy = pd.DataFrame(np.arange(1, number_of_frames + 1), columns=["Frame"])
+    zdens_df_dummy = pd.DataFrame(np.arange(1, traj_file.number_of_frames + 1), columns=["Frame"])
     for i in range(num_increments):
         zdens_df_dummy["Bin %d" % (i + 1)] = 0
         zdens_df_dummy = zdens_df_dummy.copy()
@@ -305,13 +314,14 @@ def axial_density_prep(inputdict):
     return outputdict
 
 
-def axial_density_analysis(inputdict):
+def axial_density_analysis(inputdict, traj_file, molecules, analysis):
+
     num_increments = inputdict["num_increments"]
     max_z_pore = inputdict["max_z_pore"]
     min_z_pore = inputdict["min_z_pore"]
     zdens_df = inputdict["zdens_df"]
-    CNT_centers = inputdict["CNT_centers"]
-    counter = inputdict["counter"]
+    CNT_centers = molecules.CNT_centers
+    counter = analysis.counter
     split_frame = inputdict["split_frame"]
     z_bin_edges = inputdict["z_bin_edges"]
     z_bin_labels = inputdict["z_bin_labels"]
@@ -319,7 +329,7 @@ def axial_density_analysis(inputdict):
     maxdisp_atom_dist = inputdict["maxdisp_atom_dist"]
     maxdisp_atom_row = inputdict["maxdisp_atom_row"]
 
-    split_frame = ut.wrapping_coordinates(inputdict["box_size"], split_frame)
+    split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
 
     # For now we concentate the edges/bins (This has to be changed in the future for the analysis on multiple CNTs).
     z_bin_edges = np.ravel(z_bin_edges)
@@ -524,7 +534,7 @@ def axial_density_processing(inputdict):
     """
 
 
-def density_analysis_prep(inputdict):
+def density_analysis_prep(inputdict, traj_file, molecules):
     # call the grid generator function
     inputdict = ut.grid_generator(inputdict)
 
@@ -592,15 +602,17 @@ def chunk_processing(inputdict):
     return inputdict
 
 
-def density_analysis_analysis(inputdict):
-    split_frame = inputdict["split_frame"]
-    box_size = inputdict["box_size"]
-    # first wrap the coordinates
-    split_frame = ut.wrapping_coordinates(box_size, split_frame)
+def density_analysis_analysis(inputdict, traj_file, molecules, analysis):
+    split_frame = analysis.split_frame
+    box_size = traj_file.box_size
+
     cube_array = inputdict["cube_array"]
     grid_points_tree = inputdict["grid_points_tree"]
     grid_point_atom_labels = inputdict["grid_point_atom_labels"]
     analysis_counter = inputdict["analysis_counter"]
+
+    # first wrap the coordinates
+    split_frame = ut.wrapping_coordinates(box_size, split_frame)
 
     # now get the coordinates of the split_frame
     split_frame_coords = np.array(split_frame[["X", "Y", "Z"]])
@@ -633,7 +645,6 @@ def density_analysis_analysis(inputdict):
 
     outputdict["cube_array"] = cube_array
     outputdict["analysis_counter"] = analysis_counter
-    outputdict["split_frame"] = split_frame
 
     return outputdict
 

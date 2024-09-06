@@ -10,7 +10,7 @@ import conan.defdict as ddict
 from conan.analysis_modules import utils
 
 
-def Coord_number_prep(inputdict):
+def Coord_number_prep(inputdict, traj_file, molecules):
     # Get values from inputdict
     min_z_pore = inputdict["min_z_pore"]
     max_z_pore = inputdict["max_z_pore"]
@@ -26,7 +26,7 @@ def Coord_number_prep(inputdict):
         ddict.printLog("No CNTs detected, performing bulk analysis.\n")
 
     do_xyz_analysis = ddict.get_input(
-        "Do you want to perform a 3d analysis of the coordination number? [y/n]", args, "string"
+        "Do you want to perform a 3d analysis of the coordination number? [y/n] ", args, "string"
     )
 
     # Set up reference point
@@ -36,11 +36,11 @@ def Coord_number_prep(inputdict):
     structure_as_reference = "n"
     if do_xyz_analysis == "n":
         referencepoint = ddict.get_input(
-            "Should the distance to a reference point (e.g. a Wall or CNT) be calculated? [y/n]", args, "string"
+            "Should the distance to a reference point (e.g. a Wall or CNT) be calculated? [y/n] ", args, "string"
         )
         if referencepoint == "y":
             structure_as_reference = ddict.get_input(
-                "Should an existing structure be used as reference point? [y/n]", args, "string"
+                "Should an existing structure be used as reference point? [y/n] ", args, "string"
             )
             if structure_as_reference == "n":
                 ddict.printLog("Setting user-defined reference point for the analysis.\n")
@@ -58,7 +58,7 @@ def Coord_number_prep(inputdict):
                 z_referencepoint[3] = z_referencepoint[2] + box_size[2]
             elif structure_as_reference == "y":
                 poresonly = ddict.get_input(
-                    "Do you want to calculte the coordination number only inside a pore? [y/n]", args, "string"
+                    "Do you want to calculte the coordination number only inside a pore? [y/n] ", args, "string"
                 )
                 if poresonly == "n":
                     # Calculate z-coordinates of all pores that need to be considered (4 pores for one CNT)
@@ -91,7 +91,7 @@ def Coord_number_prep(inputdict):
                 sys.exit(1)
         elif (referencepoint == "n") & (len(CNT_centers) != 0):
             poresonly = ddict.get_input(
-                "Do you want to calculte the coordination number only inside a pore? [y/n]", args, "string"
+                "Do you want to calculte the coordination number only inside a pore? [y/n] ", args, "string"
             )
         else:
             ddict.printLog("Invalid input.\n")
@@ -152,12 +152,12 @@ def Coord_number_prep(inputdict):
     return outputdict
 
 
-def Coord_number_analysis(inputdict):
+def Coord_number_analysis(inputdict, traj_file, molecules, analysis):
     if (inputdict["do_xyz_analysis"]) == "y":
-        outputdict = Coord_number_xyz_analysis(inputdict)
+        outputdict = Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis)
         return outputdict
     elif (inputdict["referencepoint"] == "y") & (inputdict["poresonly"] == "y"):
-        outputdict = Coord_number_pore_analysis(inputdict)
+        outputdict = Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis)
         return outputdict
 
     # Get values from inputdict
@@ -171,9 +171,8 @@ def Coord_number_analysis(inputdict):
     poresonly = inputdict["poresonly"]
     split_frame = inputdict["split_frame"]
     chunk_distances_df = inputdict["chunk_distances_df"]
-    box_dimension = inputdict["box_dimension"]
+    box_dimension = np.array(traj_file.box_size)
     coord_dist = inputdict["coord_dist"]
-    counter = inputdict["counter"]
 
     # Remove any unwanted atoms
     if poresonly == "y":
@@ -235,7 +234,7 @@ def Coord_number_analysis(inputdict):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": counter + 1,
+        "Frame": analysis.analysis.counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "Species2": mol_com["Species"].values[indices[1]],
@@ -664,15 +663,14 @@ def Coord_post_processing(inputdict):
     plt.close("all")
 
 
-def Coord_number_xyz_analysis(inputdict):
+def Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis):
     # Get values from inputdict
-    regional = inputdict["regional"]
-    regions = inputdict["regions"]
-    split_frame = inputdict["split_frame"]
+    regional = analysis.regional_q
+    regions = analysis.regions
+    split_frame = analysis.split_frame
     chunk_distances_df = inputdict["chunk_distances_df"]
-    box_dimension = inputdict["box_dimension"]
+    box_dimension = np.array(traj_file.box_size)
     coord_dist = inputdict["coord_dist"]
-    counter = inputdict["counter"]
 
     # Remove any unwanted atoms
     if regional == "y":
@@ -735,7 +733,7 @@ def Coord_number_xyz_analysis(inputdict):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": counter + 1,
+        "Frame": analysis.counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "X_COM": mol_com_reference["X_COM"].values[indices[0]],
@@ -991,7 +989,7 @@ def Coord_xyz_post_processing(inputdict):
     plt.close("all")
 
 
-def Coord_number_pore_analysis(inputdict):
+def Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis):
     # Get values from inputdict
     min_z_pore = inputdict["min_z_pore"]
     max_z_pore = inputdict["max_z_pore"]
@@ -999,9 +997,8 @@ def Coord_number_pore_analysis(inputdict):
     # referencepoint = inputdict["referencepoint"]
     split_frame = inputdict["split_frame"]
     chunk_distances_df = inputdict["chunk_distances_df"]
-    box_dimension = inputdict["box_dimension"]
+    box_dimension = np.array(traj_file.box_size)
     coord_dist = inputdict["coord_dist"]
-    counter = inputdict["counter"]
 
     # Remove any unwanted atoms
     split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
@@ -1052,7 +1049,7 @@ def Coord_number_pore_analysis(inputdict):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": counter + 1,
+        "Frame": analysis.analysis.counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "Species2": mol_com["Species"].values[indices[1]],

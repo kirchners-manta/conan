@@ -1,4 +1,4 @@
-C:\Users\dickl\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\CONAN -f ..\example_trajectories\traj.pdb
+/home/dick/.local/bin/CONAN -f ../example_trajectories/traj.pdb
 
 ###########################################
 ##                                       ##
@@ -19,15 +19,15 @@ doi.org/10.1021/acs.jpcb.3c08493
 
 Total number of atoms: 15492
 
-The simulation box dimensions are [�]: 38.340 x 39.352 x 156.228
+The simulation box dimensions are [Å]: 38.340 x 39.352 x 156.228
 -> Reading the trajectory.
 
 +------------+------------+-------------+
 |            | Trajectory |   Chunk(1)  |
 +------------+------------+-------------+
-| Size in MB |    52.7    | 99.0 (52.7) |
-|   Frames   |     50     |    94(50)   |
-|   Lines    |   774700   |   1456436   |
+| Size in MB |    51.9    | 99.7 (51.9) |
+|   Frames   |     50     |    96(50)   |
+|   Lines    |   774700   |   1487424   |
 +------------+------------+-------------+
 
 
@@ -42,10 +42,10 @@ The simulation box dimensions are [�]: 38.340 x 39.352 x 156.228
 Structure 0 is a pore, labeled Pore1 (Species: [1])
 
 Structure 1 is a wall, labeled Wall1 (Species: [3])
-The wall extends in xy direction at z = 8.86 �.
+The wall extends in xy direction at z = 8.86 Å.
 
 Structure 2 is a wall, labeled Wall2 (Species: [3])
-The wall extends in xy direction at z = 146.35 �.
+The wall extends in xy direction at z = 146.35 Å.
 
 
 Total number of structures: 3
@@ -55,9 +55,9 @@ Number of pores: 1
 Does one of the pores contain rigid CNTs? [y/n]:  y
 Only one Pore in the system.
 
-The length of Pore1 is 41.30 �.
-The center of the CNT in Pore1 is at 18.46, 19.06, 77.71) �.
-The radius of the CNT in Pore1 is 4.70 �.
+The length of Pore1 is 41.30 Å.
+The center of the CNT in Pore1 is at 18.46, 19.06, 77.71) Å.
+The radius of the CNT in Pore1 is 4.70 Å.
 
 (1) Produce xyz files of the simulation box or pore structure.
 (2) Analyze the trajectory.
@@ -76,36 +76,20 @@ These functions are limited to rigid/frozen pores containing undistorted CNTs.
 These functions are generally applicable.
 (7) Calculate the coordination number
 (8) Calculate the density along the axes.
-(9) Calculate the velocity of the liquid species in the simulation box.
-(10) Calculate the mean square displacement of the liquid species in the simulation box.
-
-What analysis should be performed?:   2
+What analysis should be performed?:   7
 
 
 Do you want to perform the analysis for a specific molecule kind? (y/n)  n
 -> All species and atoms will be analyzed.
 
 
-
--> CNT1
-How many increments do you want to use to calculate the density profile?  100
-Increment distance: 0.047 angstrom
--> Charges detected.
-
+Do you want to perform a 3d analysis of the coordination number? [y/n]  y
+How many bins in x direction?  30
+How many bins in y direction?  30
+How many bins in z direction?  30
+Up to which distance should the coordination number be calculated?  5.0
 Do you want the calculation to be performed in a specific region? [y/n]  n
-Start frame:  1
-Frame interval:  1
+Start analysis at which frame?:  1
+Analyse every nth step:  1
 
 Chunk 1 of 1
-
-Finished processing the trajectory. 50 frames were processed.
-
-
-Do you want to plot the data? (y/n)  y
-Do you want to save the raw data? (y/n)  y
-Raw mass distribution data saved as Radial_mass_dist_raw.csv
-Raw density data saved as Radial_density_raw.csv
-
-The main loop took 13.562 seconds to run.
-
-The program took 27.190 seconds to run.
