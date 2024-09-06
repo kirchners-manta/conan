@@ -231,7 +231,6 @@ def distance_search_processing(inputdict):
 def axial_density_prep(inputdict, traj_file, molecules):
 
     args = inputdict["args"]
-    # CNT_atoms = molecules.CNT_atoms
     CNT_atoms = inputdict["CNT_atoms"]
 
     num_increments = int(
@@ -244,29 +243,47 @@ def axial_density_prep(inputdict, traj_file, molecules):
         "increments set here is the number of increments for each section.\n",
         color="red",
     )
+
+    max_z_pore = molecules.max_z_pore
+    min_z_pore = molecules.min_z_pore
+    CNT_centers = molecules.CNT_centers
+
+    # we need to also account this for the max and min z_pore values
+    max_z_pore[0] = max_z_pore[0] % traj_file.box_size[2]
+    min_z_pore[0] = min_z_pore[0] % traj_file.box_size[2]
+
+    # we also need to do this for the CNT_centers
+    CNT_centers[0][0] = CNT_centers[0][0] % traj_file.box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
+
+    # do the same for the CNT_atoms
+    CNT_atoms["x"] = CNT_atoms["x"] % traj_file.box_size[0]
+    CNT_atoms["y"] = CNT_atoms["y"] % traj_file.box_size[1]
+    CNT_atoms["z"] = CNT_atoms["z"] % traj_file.box_size[2]
+
     # Initialize arrays
-    z_incr_CNT = [0] * len(molecules.CNT_centers)
-    z_incr_bulk1 = [0] * len(molecules.CNT_centers)
-    z_incr_bulk2 = [0] * len(molecules.CNT_centers)
-    z_bin_edges_pore = [0] * len(molecules.CNT_centers)
-    z_bin_edges_bulk1 = [0] * len(molecules.CNT_centers)
-    z_bin_edges_bulk2 = [0] * len(molecules.CNT_centers)
-    z_bin_edges = [0] * len(molecules.CNT_centers)
-    z_bin_labels = [0] * len(molecules.CNT_centers)
+    z_incr_CNT = [0] * len(CNT_centers)
+    z_incr_bulk1 = [0] * len(CNT_centers)
+    z_incr_bulk2 = [0] * len(CNT_centers)
+    z_bin_edges_pore = [0] * len(CNT_centers)
+    z_bin_edges_bulk1 = [0] * len(CNT_centers)
+    z_bin_edges_bulk2 = [0] * len(CNT_centers)
+    z_bin_edges = [0] * len(CNT_centers)
+    z_bin_labels = [0] * len(CNT_centers)
 
     # Calculate the increment distance for each section.
-    for i in range(len(molecules.CNT_centers)):
+    for i in range(len(CNT_centers)):
         z_incr_CNT[i] = molecules.length_pore[i] / num_increments
-        z_incr_bulk1[i] = molecules.min_z_pore[i] / num_increments
-        z_incr_bulk2[i] = (traj_file.box_size[2] - molecules.max_z_pore[i]) / num_increments
+        z_incr_bulk1[i] = min_z_pore[i] / num_increments
+        z_incr_bulk2[i] = (traj_file.box_size[2] - max_z_pore[i]) / num_increments
 
         ddict.printLog("Increment distance CNT: %0.3f \u00C5" % (z_incr_CNT[i]))
         ddict.printLog("Increment distance bulk1: %0.3f \u00C5" % (z_incr_bulk1[i]))
         ddict.printLog("Increment distance bulk2: %0.3f \u00C5" % (z_incr_bulk2[i]))
 
         z_bin_edges_pore[i] = np.linspace(CNT_atoms["z"].min(), CNT_atoms["z"].max(), num_increments + 1)
-        z_bin_edges_bulk1[i] = np.linspace(0, molecules.min_z_pore[i], num_increments + 1)
-        z_bin_edges_bulk2[i] = np.linspace(molecules.max_z_pore[i], traj_file.box_size[2], num_increments + 1)
+        z_bin_edges_bulk1[i] = np.linspace(0, min_z_pore[i], num_increments + 1)
+        z_bin_edges_bulk2[i] = np.linspace(max_z_pore[i], traj_file.box_size[2], num_increments + 1)
         z_bin_edges[i] = np.concatenate((z_bin_edges_bulk1[i], z_bin_edges_pore[i], z_bin_edges_bulk2[i]))
         z_bin_edges[i] = np.unique(z_bin_edges[i])
         num_increments = len(z_bin_edges[i]) - 1
@@ -317,17 +334,18 @@ def axial_density_prep(inputdict, traj_file, molecules):
 def axial_density_analysis(inputdict, traj_file, molecules, analysis):
 
     num_increments = inputdict["num_increments"]
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
     zdens_df = inputdict["zdens_df"]
-    CNT_centers = molecules.CNT_centers
-    counter = analysis.counter
-    split_frame = inputdict["split_frame"]
     z_bin_edges = inputdict["z_bin_edges"]
     z_bin_labels = inputdict["z_bin_labels"]
     element_radii = inputdict["element_radii"]
     maxdisp_atom_dist = inputdict["maxdisp_atom_dist"]
     maxdisp_atom_row = inputdict["maxdisp_atom_row"]
+
+    counter = analysis.counter
+    split_frame = analysis.split_frame
+    CNT_centers = molecules.CNT_centers
+    max_z_pore = molecules.max_z_pore
+    min_z_pore = molecules.min_z_pore
 
     split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
 
@@ -361,8 +379,28 @@ def axial_density_analysis(inputdict, traj_file, molecules, analysis):
     # TUBE SECTION -> displacement for accessible volume.
     # All atoms are dropped which have a z coordinate larger than the maximum z coordinate of the CNT or smaller than
     # the minimum z coordinate of the CNT.
-    split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
-    split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+    # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
+    split_frame["X"] = split_frame["X"].astype(float) % traj_file.box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % traj_file.box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % traj_file.box_size[2]
+
+    # we need to also account this for the max and min z_pore values
+    max_z_pore[0] = max_z_pore[0] % traj_file.box_size[2]
+    min_z_pore[0] = min_z_pore[0] % traj_file.box_size[2]
+
+    # we also need to do this for the CNT_centers
+    CNT_centers[0][0] = CNT_centers[0][0] % traj_file.box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
+
+    # if the pore is split over the periodic boundary (pot. because of modulo operation)
+    if min_z_pore[0] > max_z_pore[0]:
+        # Split the selection into two parts
+        part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+        part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = pd.concat([part1, part2])
+    else:
+        split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
 
     # Calculate the radial density function with the remaining atoms.
     split_frame["X_adjust"] = split_frame["X"].astype(float) - CNT_centers[0][0]
@@ -614,31 +652,29 @@ def density_analysis_analysis(inputdict, traj_file, molecules, analysis):
     # first wrap the coordinates
     split_frame = ut.wrapping_coordinates(box_size, split_frame)
 
-    # now get the coordinates of the split_frame
+    # get the coordinates of the split_frame
     split_frame_coords = np.array(split_frame[["X", "Y", "Z"]])
     split_frame_coords = split_frame_coords.astype(float)
 
-    # now find the corresponding grid point for each atom
+    # find the corresponding grid point for each atom
     closest_grid_point_dist, closest_grid_point_idx = grid_points_tree.query(split_frame_coords)
 
-    # now print the corresponding atom label to the cube_array. If there is already an atom label, add the new atom
+    # print the corresponding atom label to the cube_array. If there is already an atom label, add the new atom
     # label to the existing one.
     cube_array[closest_grid_point_idx] = split_frame["Mass"].values
 
-    # now add the atom label to the grid_point_atom_labels list
+    # add the atom label to the grid_point_atom_labels list
     for i in range(len(split_frame)):
         grid_point_atom_labels[closest_grid_point_idx[i]].append(split_frame["Label"].values[i])
 
-    # now add the grid_point_atom_labels to the inputdict
+    # add the grid_point_atom_labels to the inputdict
     inputdict["grid_point_atom_labels"] = grid_point_atom_labels
 
     analysis_counter += 1
     outputdict = inputdict
-    # for every 20 steps we need to do the chunk processing
+    # for every 500 steps do the chunk processing
     if analysis_counter == 500:
-        # now call the chunk processing function
         inputdict = chunk_processing(inputdict)
-        # now reset the analysis_counter
         analysis_counter = 0
     else:
         outputdict["grid_point_atom_labels"] = grid_point_atom_labels

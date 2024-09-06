@@ -1,4 +1,4 @@
-/home/dick/.local/bin/CONAN -f ../example_trajectories/traj.pdb
+/home/dick/.local/bin/CONAN -f ../example_trajectories/traj.lammpstrj
 
 ###########################################
 ##                                       ##
@@ -17,47 +17,44 @@ doi.org/10.1021/acs.jpcb.3c08493
 
 
 
-Total number of atoms: 15492
+Total number of atoms: 19610
 
-The simulation box dimensions are [Å]: 38.340 x 39.352 x 156.228
+The simulation box dimensions are [Å]: 38.340 x 39.352 x 190.183
 -> Reading the trajectory.
 
 +------------+------------+-------------+
 |            | Trajectory |   Chunk(1)  |
 +------------+------------+-------------+
-| Size in MB |    51.9    | 99.7 (51.9) |
-|   Frames   |     50     |    96(50)   |
-|   Lines    |   774700   |   1487424   |
+| Size in MB |    6.4     | 100.0 (6.4) |
+|   Frames   |     10     |   156(10)   |
+|   Lines    |   196190   |   3060564   |
 +------------+------------+-------------+
 
 
 +---------+------------------+---------------+------------------------+
 | Species | Chemical formula | No. molecules | No. atoms per molecule |
 +---------+------------------+---------------+------------------------+
-|    1    |      C1540       |       1       |          1540          |
-|    2    |      C2H3O2      |      400      |           7            |
-|    3    |       C576       |       2       |          576           |
-|    4    |     C8H15N2      |      400      |           25           |
+|    1    |      C1626       |       1       |          1626          |
+|    2    |    C2F6N1O4S2    |      512      |           15           |
+|    3    |       C576       |       1       |          576           |
+|    4    |     C6H11N2      |      512      |           19           |
 +---------+------------------+---------------+------------------------+
 Structure 0 is a pore, labeled Pore1 (Species: [1])
 
 Structure 1 is a wall, labeled Wall1 (Species: [3])
-The wall extends in xy direction at z = 8.86 Å.
-
-Structure 2 is a wall, labeled Wall2 (Species: [3])
-The wall extends in xy direction at z = 146.35 Å.
+The wall extends in xy direction at z = 93.73 Å.
 
 
-Total number of structures: 3
-Number of walls: 2
+Total number of structures: 2
+Number of walls: 1
 Number of pores: 1
 
 Does one of the pores contain rigid CNTs? [y/n]:  y
 Only one Pore in the system.
 
-The length of Pore1 is 41.30 Å.
-The center of the CNT in Pore1 is at 18.46, 19.06, 77.71) Å.
-The radius of the CNT in Pore1 is 4.70 Å.
+The length of Pore1 is 36.92 Å.
+The center of the CNT in Pore1 is at -0.58, -17.73, -2.14) Å.
+The radius of the CNT in Pore1 is 7.06 Å.
 
 (1) Produce xyz files of the simulation box or pore structure.
 (2) Analyze the trajectory.
@@ -76,20 +73,63 @@ These functions are limited to rigid/frozen pores containing undistorted CNTs.
 These functions are generally applicable.
 (7) Calculate the coordination number
 (8) Calculate the density along the axes.
-What analysis should be performed?:   7
+What analysis should be performed?:   5
 
 
 Do you want to perform the analysis for a specific molecule kind? (y/n)  n
 -> All species and atoms will be analyzed.
 
+How many increments per section do you want to use to calculate the density profile?  100
 
-Do you want to perform a 3d analysis of the coordination number? [y/n]  y
-How many bins in x direction?  30
-How many bins in y direction?  30
-How many bins in z direction?  30
-Up to which distance should the coordination number be calculated?  5.0
+Note here, that the simulation box is subdivided between two bulk phases and the pore.
+The number of increments set here is the number of increments for each section.
+
+Increment distance CNT: 0.369 Å
+Increment distance bulk1: -0.206 Å
+Increment distance bulk2: 1.739 Å
+
+Total number of increments: 300
+Number of edges: 301
+Do you want to use the van der Waals radii (1) or the covalent radii (2) of the elements to calculate the acccessible volume? [1/2]  1
+-> Using van der Waals radii.
 Do you want the calculation to be performed in a specific region? [y/n]  n
 Start analysis at which frame?:  1
 Analyse every nth step:  1
 
 Chunk 1 of 1
+
+Finished processing the trajectory. 10 frames were processed.
+
+Do you want to use the accessible radius (1) or the CNT radius (2) to compute the increments' volume? [1/2]  1
+
+Maximal displaced atom: O (38.213|25.737|3.248)
+Maximal displacement: 59.776 Å
+Accessible volume: 414467.360 Å³
+Do you want to mirror the results inside the CNT to increase the binning? (y/n)  y
+
+     Bin      Mass  Bin_lowedge  Bin_highedge  Bin_center       Volume  Density [u/Ang^3]
+0      1    0.0000   -20.602600    -20.396574  -20.499587  2312.766842           0.002874
+1      2    0.0000   -20.396574    -20.233384  -20.314979  1831.906754           0.004502
+2      3    0.0000   -20.233384    -20.190548  -20.211966   480.860088           0.005410
+3      4    0.0000   -20.190548    -19.984522  -20.087535  2312.766842           0.005722
+4      5    0.0000   -19.984522    -19.864168  -19.924345  1351.046667           0.006883
+..   ...       ...          ...           ...         ...          ...                ...
+295  296   41.2277   181.489577    183.228215  182.358896  2623.179432           0.015717
+296  297  203.5954   183.228215    184.966852  184.097533  2623.179432           0.077614
+297  298  158.1806   184.966852    186.705490  185.836171  2623.179432           0.060301
+298  299   26.8456   186.705490    188.444127  187.574809  2623.179432           0.010234
+299  300  186.3550   188.444127    190.182765  189.313446  2623.179432           0.071042
+
+[300 rows x 7 columns]
+
+Do you want to set the center of the simulation box to zero? (y/n)  y
+Do you want to plot the data? (y/n)  y
+
+Axial density function saved as Axial_density.pdf
+Axial density data saved as Axial_density.csv
+
+Raw data saved as Axial_mass_dist_raw.csv
+
+The main loop took 14.860 seconds to run.
+
+The program took 36.184 seconds to run.

@@ -101,21 +101,49 @@ def rad_velocity_prep(inputdict, traj_file, molecules):
 
 def rad_velocity_analysis(inputdict, traj_file, molecules, analysis):
 
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
+    CNT_centers = molecules.CNT_centers
+    max_z_pore = molecules.max_z_pore
+    min_z_pore = molecules.min_z_pore
+    counter = analysis.counter
+    split_frame = analysis.split_frame
 
-    inputdict["split_frame"] = inputdict["split_frame"][inputdict["split_frame"]["Z"].astype(float) <= max_z_pore[0]]
-    inputdict["split_frame"] = inputdict["split_frame"][inputdict["split_frame"]["Z"].astype(float) >= min_z_pore[0]]
+    # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
+    split_frame["X"] = split_frame["X"].astype(float) % traj_file.box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % traj_file.box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % traj_file.box_size[2]
+
+    # we need to also account this for the max and min z_pore values
+    max_z_pore[0] = max_z_pore[0] % traj_file.box_size[2]
+    min_z_pore[0] = min_z_pore[0] % traj_file.box_size[2]
+
+    # we also need to do this for the CNT_centers
+    CNT_centers[0][0] = CNT_centers[0][0] % traj_file.box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
+
+    # if the pore is split over the periodic boundary (pot. because of modulo operation)
+    if min_z_pore[0] > max_z_pore[0]:
+        # Split the selection into two parts
+        part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+        part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = pd.concat([part1, part2])
+    else:
+        split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+        split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+
+    inputdict["split_frame"] = split_frame
+    inputdict["counter"] = counter
+    inputdict["CNT_centers"] = CNT_centers
+    inputdict["max_z_pore"] = max_z_pore
+    inputdict["min_z_pore"] = min_z_pore
+
     # Calculate velocity using velocity_calc_atom function
     inputdict = velocity_calc_atom(inputdict)
 
     # Extract the frame with velocity information
     velocity_frame = inputdict["old_frame"]
-    CNT_centers = inputdict["CNT_centers"]
     velocity_bin_edges = inputdict["velocity_bin_edges"]
     velocity_bin_labels = inputdict["velocity_bin_labels"]
     num_increments = inputdict["num_increments"]
-    counter = inputdict["counter"]
     velocity_df = inputdict["velocity_df"]
     velocity_bin_counter = inputdict["velocity_bin_counter"]
 
