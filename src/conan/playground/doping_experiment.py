@@ -109,7 +109,7 @@ class DopingStructure:
     nitrogen_atoms : List[int]
         List of atoms that are replaced by nitrogen atoms to form the doping structure.
     cycle : Optional[List[int]]
-        List of atom IDs forming the cycle of the doping structure.
+        List of atom IDs forming the cycle of the doping structure (this is only relevant for pyridinic doping).
     subgraph : Optional[nx.Graph]
         The subgraph containing the doping structure.
     additional_edge : Optional[Tuple[int, int]]
@@ -428,13 +428,13 @@ class DopingStructureCollection:
     structures: List[DopingStructure] = field(default_factory=list)
     chosen_atoms: Dict[NitrogenSpecies, List[int]] = field(default_factory=lambda: defaultdict(list))
 
-    def add_structure(self, dopings_structure: DopingStructure):
+    def add_structure(self, doping_structure: DopingStructure):
         """
         Add a doping structure to the collection and update the chosen atoms.
         """
 
-        self.structures.append(dopings_structure)
-        self.chosen_atoms[dopings_structure.species].extend(dopings_structure.nitrogen_atoms)
+        self.structures.append(doping_structure)
+        self.chosen_atoms[doping_structure.species].extend(doping_structure.nitrogen_atoms)
 
     def get_structures_for_species(self, species: NitrogenSpecies) -> List[DopingStructure]:
         """
