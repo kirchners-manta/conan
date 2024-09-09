@@ -478,7 +478,7 @@ class DopingHandler:
         This includes bond lengths and angles characteristic to each species that we aim to achieve in the doping."""
 
         self.doping_structures = DopingStructureCollection()
-        """A dataclass to store information about doping structures in the graphene sheet."""
+        """A dataclass to store information about doping structures in the carbon structure."""
 
     @property
     def possible_carbon_atoms(self):
@@ -642,7 +642,8 @@ class DopingHandler:
                     )
                 if not isinstance(value, (int, float)):
                     raise ValueError(
-                        f"Invalid value in percentages dictionary for key {key}: {value}. Values must be int or float."
+                        f"Invalid value in percentages dictionary for key {key} with value {value}. Values must be int "
+                        f"or float."
                     )
 
         # Validate the input for total_percentage
@@ -1305,7 +1306,7 @@ class Structure3D(MaterialStructure):
 
 class GrapheneSheet(Structure2D):
     """
-    Represents a graphene sheet structure and manages nitrogen doping within the sheet.
+    Represents a graphene sheet structure.
     """
 
     def __init__(self, bond_distance: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
@@ -1417,7 +1418,7 @@ class GrapheneSheet(Structure2D):
         """Validate the sheet size."""
         if not isinstance(sheet_size, tuple):
             raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
-        if len(sheet_size) != 2:  # Überprüfen, ob das Tupel genau zwei Elemente hat
+        if len(sheet_size) != 2:
             raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
         if not all(isinstance(i, (int, float)) for i in sheet_size):
             raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
@@ -1894,7 +1895,7 @@ class GrapheneSheet(Structure2D):
         self, interlayer_spacing: float = 3.34, number_of_layers: int = 3, stacking_type: str = "ABA"
     ) -> "StackedGraphene":
         """
-        Stack graphene sheets using ABA stacking.
+        Stack graphene sheets using ABA or ABC stacking.
 
         Parameters
         ----------
