@@ -74,15 +74,18 @@ def main():
         # Load the atom data.
         from conan.analysis_modules import traj_info
 
-        id_frame, box_size = traj_info.read_first_frame(args)
+        traj_file = traj_info.read_first_frame(args)
 
-        maindict = {"id_frame": id_frame, "box_size": box_size, "args": args}
+        maindict = {"id_frame": traj_file.frame0, "box_size": traj_file.box_size, "args": args}
 
-        maindict = traj_info.structure_recognition(maindict)
+        molecules = traj_info.molecule_recognition(traj_file, args)
+
+        # append the molecule.ouputdict entries to the maindict
+        maindict.update(molecules.outputdict)
 
         from conan.analysis_modules import traj_an
 
-        traj_an.analysis_opt(maindict)
+        traj_an.analysis_opt(traj_file, molecules, maindict)
 
     ddict.printLog("The program took %0.3f seconds to run." % (time.time() - start_time))
 
