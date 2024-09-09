@@ -2663,9 +2663,9 @@ class Pore(Structure3D):
         self.pore_radius = pore_radius
 
         # Build the structure
-        self.build_pore()
+        self.build_structure()
 
-    def build_pore(self):
+    def build_structure(self):
         """
         Build the Pore structure by connecting the two graphene sheets with the CNT.
         """
@@ -2801,6 +2801,14 @@ class Pore(Structure3D):
         """
         for g_idx, c_idx in zip(graphene_edge_atoms, cnt_edge_atoms):
             self.graph.add_edge(g_idx, c_idx, bond_length=self.graphene1.bond_length)
+
+    def add_nitrogen_doping(self, total_percentage: float = 10):
+        """
+        Optionally add nitrogen doping to the pore structure.
+        Currently, this is a placeholder and can be implemented as needed.
+        """
+        # For now, leave this as an unimplemented feature if nitrogen doping is not needed
+        pass
 
 
 def main():
