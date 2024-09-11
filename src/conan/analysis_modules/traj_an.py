@@ -10,7 +10,6 @@ import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 
 
-# MAIN
 def analysis_opt(traj_file, molecules, maindict) -> None:
 
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
@@ -24,7 +23,7 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(molecules.structure_data["CNT_centers"]) >= 0:
-            trajectory_analysis(traj_file, molecules, maindict)
+            traj_analysis(traj_file, molecules, maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -32,7 +31,6 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
     ddict.printLog("")
 
 
-# Generating pictures.
 def generating_pictures(traj_file, molecules) -> None:
 
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
@@ -221,45 +219,30 @@ def frame_question(traj_file) -> int:
     return start_frame, frame_interval
 
 
-# Analysis of the trajectory.
-def trajectory_analysis(traj_file, molecules, inputdict) -> None:
+def analysis_choice(traj_file) -> None:
+    # Analysis choice.
+    ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
+    ddict.printLog("(1) Calculate the radial density inside the CNT")
+    ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
+    ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
+    ddict.printLog("(4) Calculate the accessibe volume of the CNT")
+    ddict.printLog(
+        "(5) Calculate the axial density along the z axis of the simulation box,",
+        " with the accessible volume of the CNT considered.",
+    )
+    ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
+    ddict.printLog("\nThese functions are generally applicable.", color="red")
+    ddict.printLog("(7) Calculate the coordination number")
+    ddict.printLog("(8) Calculate the density along the axes.")
 
-    analysis_opt = Analysis(traj_file)
+    analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
+    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8]
+    if analysis_choice2 not in analysis_choice2_options:
+        ddict.printLog("-> The analysis you entered is not known.")
+        sys.exit(1)
+    ddict.printLog("")
 
-    traj_analysis(analysis_opt, traj_file, molecules, inputdict)
-
-    return analysis_opt
-
-
-class Analysis:
-    def __init__(self, traj_file):
-
-        self.choice2 = self.analysis_choice(traj_file)
-
-    def analysis_choice(self, traj_file) -> None:
-        # Analysis choice.
-        ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
-        ddict.printLog("(1) Calculate the radial density inside the CNT")
-        ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
-        ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
-        ddict.printLog("(4) Calculate the accessibe volume of the CNT")
-        ddict.printLog(
-            "(5) Calculate the axial density along the z axis of the simulation box,",
-            " with the accessible volume of the CNT considered.",
-        )
-        ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
-        ddict.printLog("\nThese functions are generally applicable.", color="red")
-        ddict.printLog("(7) Calculate the coordination number")
-        ddict.printLog("(8) Calculate the density along the axes.")
-
-        analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8]
-        if analysis_choice2 not in analysis_choice2_options:
-            ddict.printLog("-> The analysis you entered is not known.")
-            sys.exit(1)
-        ddict.printLog("")
-
-        return analysis_choice2
+    return analysis_choice2
 
 
 def prepare_analysis_dict(maindict, traj_file, molecules, choice2) -> dict:
@@ -295,33 +278,33 @@ def get_preperation(choice2) -> callable:
     return main_loop_preparation
 
 
-def get_analysis_and_processing(analysis_opt, maindict):
-    if analysis_opt.choice2 in [1, 2]:
-        if analysis_opt.choice2 == 1:
+def get_analysis_and_processing(choice2, maindict) -> callable:
+    if choice2 in [1, 2]:
+        if choice2 == 1:
             from conan.analysis_modules.rad_dens import radial_density_analysis as analysis
-        elif analysis_opt.choice2 == 2:
+        elif choice2 == 2:
             from conan.analysis_modules.rad_dens import radial_charge_density_analysis as analysis
         from conan.analysis_modules.rad_dens import raddens_post_processing as post_processing
-    elif analysis_opt.choice2 == 3:
+    elif choice2 == 3:
         from conan.analysis_modules.rad_velocity import rad_velocity_analysis as analysis
         from conan.analysis_modules.rad_velocity import rad_velocity_processing as post_processing
-    elif analysis_opt.choice2 == 4:
+    elif choice2 == 4:
         from conan.analysis_modules.axial_dens import accessible_volume_analysis as analysis
         from conan.analysis_modules.axial_dens import accessible_volume_processing as post_processing
-    elif analysis_opt.choice2 == 5:
+    elif choice2 == 5:
         from conan.analysis_modules.axial_dens import axial_density_analysis as analysis
         from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
-    elif analysis_opt.choice2 == 6:
+    elif choice2 == 6:
         from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
         from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
-    elif analysis_opt.choice2 == 7:
+    elif choice2 == 7:
         if maindict["do_xyz_analysis"] == "y":
             from conan.analysis_modules.coordination_number import Coord_number_xyz_analysis as analysis
             from conan.analysis_modules.coordination_number import Coord_xyz_post_processing as post_processing
         else:
             from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
             from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
-    elif analysis_opt.choice2 == 8:
+    elif choice2 == 8:
         from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
         from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
     else:
@@ -339,18 +322,32 @@ def get_chunk_processing(maindict) -> callable:
     return chunk_processing
 
 
-def traj_analysis(analysis_opt, traj_file, molecules, maindict) -> None:
-    maindict = prepare_analysis_dict(maindict, traj_file, molecules, analysis_opt.choice2)
+def get_traj_module(traj_file) -> callable:
+    if traj_file.args["trajectoryfile"].endswith(".xyz"):
+        from conan.analysis_modules.traj_info import xyz as run
+    elif traj_file.args["trajectoryfile"].endswith(".pdb"):
+        from conan.analysis_modules.traj_info import pdb as run
+    elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(".lammpstrj"):
+        from conan.analysis_modules.traj_info import lammpstrj as run
+    else:
+        raise ValueError("Unsupported trajectory file format")
+    return run
+
+
+def traj_analysis(traj_file, molecules, maindict) -> None:
+
+    choice2 = analysis_choice(traj_file)
+    maindict = prepare_analysis_dict(maindict, traj_file, molecules, choice2)
 
     # Get the preparation function
-    main_loop_preparation = get_preperation(analysis_opt.choice2)
+    main_loop_preparation = get_preperation(choice2)
 
     maindict = main_loop_preparation(maindict, traj_file, molecules)
 
     # Get the analysis and post-processing functions
-    analysis, post_processing = get_analysis_and_processing(analysis_opt, maindict)
+    analysis, post_processing = get_analysis_and_processing(choice2, maindict)
 
-    if analysis_opt.choice2 == 7:
+    if choice2 == 7:
         chunk_processing = get_chunk_processing(maindict)
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
@@ -362,21 +359,13 @@ def traj_analysis(analysis_opt, traj_file, molecules, maindict) -> None:
     regional_q, regions = region_question(maindict, traj_file)
     start_frame, frame_interval = frame_question(traj_file)
 
-    # MAIN LOOP
-    # Define which function to use reading the trajectory file.
-    if traj_file.args["trajectoryfile"].endswith(".xyz"):
-        from conan.analysis_modules.traj_info import xyz as run
-    elif traj_file.args["trajectoryfile"].endswith(".pdb"):
-        from conan.analysis_modules.traj_info import pdb as run
-    elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(".lammpstrj"):
-        from conan.analysis_modules.traj_info import lammpstrj as run
-
-    # Atomic masses.
+    run = get_traj_module(traj_file)
     element_masses = ddict.dict_mass()
     trajectory = pd.read_csv(traj_file.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
     chunk_number = 0
     frame_counter = 0
 
+    # MAIN LOOP
     # Loop over chunks.
     for chunk in trajectory:
         chunk_number += 1
@@ -441,7 +430,7 @@ def traj_analysis(analysis_opt, traj_file, molecules, maindict) -> None:
             )
 
         # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-        if analysis_opt.choice2 == 7:
+        if choice2 == 7:
             maindict = chunk_processing(maindict)
 
     ddict.printLog("")
