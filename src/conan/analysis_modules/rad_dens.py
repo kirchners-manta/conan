@@ -7,41 +7,40 @@ import pandas as pd
 
 import conan.defdict as ddict
 
+
 # Radial density
+def raddens_prep(inputdict, traj_file, molecules):
 
-
-def raddens_prep(inputdict):
-    CNT_centers = inputdict["CNT_centers"]
-    tuberadii = inputdict["tuberadii"]
-    number_of_frames = inputdict["number_of_frames"]
     args = inputdict["args"]
+
     ddict.printLog("")
-    if len(CNT_centers) > 1:
+    if len(molecules.structure_data["CNT_centers"]) > 1:
         ddict.printLog("-> Multiple CNTs detected. The analysis will be conducted on the first CNT.\n", color="red")
-    if len(CNT_centers) == 0:
+    if len(molecules.structure_data["CNT_centers"]) == 0:
         ddict.printLog("-> No CNTs detected. Aborting...\n", color="red")
         sys.exit(1)
-    for i in range(len(CNT_centers)):
+    for i in range(len(molecules.structure_data["CNT_centers"])):
         ddict.printLog(f"\n-> CNT{i + 1}")
         num_increments = int(
             ddict.get_input("How many increments do you want to use to calculate the density profile? ", args, "int")
         )
-        rad_increment = tuberadii[i] / num_increments
-        # Make an array which start at 0 and end at tuberadius with num_increments + 1 steps.
-        raddens_bin_edges = np.linspace(0, tuberadii[0], num_increments + 1)
-        # Define raddens_bin_labels, they are a counter for the bin edges.
+        rad_increment = molecules.structure_data["tuberadii"][i] / num_increments
+        raddens_bin_edges = np.linspace(0, molecules.structure_data["tuberadii"][0], num_increments + 1)
         raddens_bin_labels = np.arange(1, len(raddens_bin_edges), 1)
         ddict.printLog("Increment distance: %0.3f angstrom" % (rad_increment))
-    raddens_bin_labels = np.arange(0, num_increments, 1)
-    # Make new dataframe with the number of frames of the trajectory.
-    raddens_df_dummy = pd.DataFrame(np.arange(1, number_of_frames + 1), columns=["Frame"])
-    # Add a column to the dataframe for each increment.
-    for i in range(num_increments):
-        raddens_df_dummy["Bin %d" % (i + 1)] = 0
-        raddens_df_dummy = raddens_df_dummy.copy()
-    raddens_df = raddens_df_dummy.copy()
 
-    # Prepare output dict
+    data = {"Frame": np.arange(1, traj_file.number_of_frames + 1)}
+
+    # Add columns for each bin
+    for i in range(num_increments):
+        data["Bin %d" % (i + 1)] = np.zeros(traj_file.number_of_frames)
+
+    # Create the DataFrame from the dictionary
+    raddens_df = pd.DataFrame(data)
+
+    # If needed, create a copy to de-fragment the DataFrame
+    raddens_df = raddens_df.copy()
+
     outputdict = {
         "rad_increment": rad_increment,
         "raddens_bin_edges": raddens_bin_edges,
@@ -53,12 +52,10 @@ def raddens_prep(inputdict):
     id_frame = inputdict["id_frame"]
     analysis_choice2 = inputdict["analysis_choice2"]
     if analysis_choice2 == 2:
-        # check if the charge column is empty (None) of if there are actual values given
         if id_frame["Charge"].isnull().values.all():
             ddict.printLog("-> No charges detected.")
             charge_add = ddict.get_input("Do you want to add charges? (y/n) ", args, "string")
             if charge_add == "y":
-                # first make a new column with the combination of 'Struc'_'Species'_'Label'
                 id_frame["Struc_Species_Label"] = (
                     id_frame["Struc"].astype(str)
                     + "_"
@@ -66,69 +63,48 @@ def raddens_prep(inputdict):
                     + "_"
                     + id_frame["Label"].astype(str)
                 )
-                id_frame["Struc_Species_Label"] = id_frame["Struc_Species_Label"].astype(str)
-                # then we find all unique labels
                 unique_labels = id_frame["Struc_Species_Label"].unique()
-                # convert unique_labels back to a pandas Series
                 unique_labels_series = pd.Series(unique_labels)
-                # throw away all entries that are not liquid
                 unique_labels = unique_labels_series[unique_labels_series.str.contains("Liquid")]
-                # now we loop over all unique labels and ask the user for a charge
-                charge_dict = {}
-                for label in unique_labels:
-                    charge = ddict.get_input(f"What is the charge of {label}? ", args, "float")
-                    charge_dict[label] = charge
-                # now we loop over all liquid atoms in the system and assign the charge to the atom
+                charge_dict = {
+                    label: ddict.get_input(f"What is the charge of {label}? ", args, "float") for label in unique_labels
+                }
                 for label in unique_labels:
                     id_frame.loc[id_frame["Struc_Species_Label"] == label, "Charge"] = charge_dict[label]
-                    # all remaining entries in the column which are not defined yet are set to 0
-                    id_frame["Charge"].fillna(0, inplace=True)
-                print(id_frame)
-                # now we remove the column 'Struc_Species_Label'
+                id_frame["Charge"].fillna(0, inplace=True)
                 id_frame.drop("Struc_Species_Label", axis=1, inplace=True)
         else:
             ddict.printLog("-> Charges detected.\n")
 
-    # Prepare output dict
-    outputdict = {
-        "rad_increment": rad_increment,
-        "raddens_bin_edges": raddens_bin_edges,
-        "raddens_bin_labels": raddens_bin_labels,
-        "raddens_df": raddens_df,
-        "num_increments": num_increments,
-        "atom_charges": id_frame["Charge"].values,
-    }
-
-    # Load inputdict into new dict
-    outputdict.update(**inputdict)
+    outputdict.update({"atom_charges": id_frame["Charge"].values, **inputdict})
 
     return outputdict
 
 
-def common_radial_analysis(inputdict, property_name):
-    split_frame = inputdict["split_frame"]
+def radial_analysis(inputdict, traj_file, molecules, analysis, property_name):
+
     raddens_df = inputdict["raddens_df"]
     raddens_bin_edges = inputdict["raddens_bin_edges"]
     raddens_bin_labels = inputdict["raddens_bin_labels"]
     num_increments = inputdict["num_increments"]
+    split_frame = inputdict["split_frame"]
     counter = inputdict["counter"]
-    CNT_centers = inputdict["CNT_centers"]
-    max_z_pore = inputdict["max_z_pore"]
-    min_z_pore = inputdict["min_z_pore"]
-    box_size = inputdict["box_size"]
+    CNT_centers = molecules.CNT_centers
+    max_z_pore = molecules.max_z_pore
+    min_z_pore = molecules.min_z_pore
 
     # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
-    split_frame["X"] = split_frame["X"].astype(float) % box_size[0]
-    split_frame["Y"] = split_frame["Y"].astype(float) % box_size[1]
-    split_frame["Z"] = split_frame["Z"].astype(float) % box_size[2]
+    split_frame["X"] = split_frame["X"].astype(float) % traj_file.box_size[0]
+    split_frame["Y"] = split_frame["Y"].astype(float) % traj_file.box_size[1]
+    split_frame["Z"] = split_frame["Z"].astype(float) % traj_file.box_size[2]
 
     # we need to also account this for the max and min z_pore values
-    max_z_pore[0] = max_z_pore[0] % box_size[2]
-    min_z_pore[0] = min_z_pore[0] % box_size[2]
+    max_z_pore[0] = max_z_pore[0] % traj_file.box_size[2]
+    min_z_pore[0] = min_z_pore[0] % traj_file.box_size[2]
 
     # we also need to do this for the CNT_centers
-    CNT_centers[0][0] = CNT_centers[0][0] % box_size[0]
-    CNT_centers[0][1] = CNT_centers[0][1] % box_size[1]
+    CNT_centers[0][0] = CNT_centers[0][0] % traj_file.box_size[0]
+    CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
 
     # if the pore is split over the periodic boundary (pot. because of modulo operation)
     if min_z_pore[0] > max_z_pore[0]:
@@ -172,12 +148,12 @@ def common_radial_analysis(inputdict, property_name):
     return outputdict
 
 
-def radial_density_analysis(inputdict):
-    return common_radial_analysis(inputdict, "Mass")
+def radial_density_analysis(inputdict, traj_file, molecules, analysis):
+    return radial_analysis(inputdict, traj_file, molecules, analysis, "Mass")
 
 
-def radial_charge_density_analysis(inputdict):
-    return common_radial_analysis(inputdict, "Charge")
+def radial_charge_density_analysis(inputdict, traj_file, molecules, analysis):
+    return radial_analysis(inputdict, traj_file, molecules, analysis, "Charge")
 
 
 def raddens_post_processing(inputdict):

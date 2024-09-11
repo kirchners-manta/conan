@@ -20,13 +20,15 @@ import conan.defdict as ddict
 
 class TrajectoryFile:
     def __init__(self, file, args):
+        self.args = args
         self.file = file
-        self.file_type = self.get_file_type(file)
+        self.file_type = self.get_file_type()
         self.num_atoms, self.lines_per_frame = self.get_num_atoms()
-        self.box_size = self.simbox_dimension(args)
+        self.box_size = self.simbox_dimension()
         self.frame0 = self.get_frame()
         self.frame1 = self.get_frame(1)
         self.frame0 = self.frame_comparison(self.frame0, self.frame1)
+
         (
             self.number_of_frames,
             self.lines_chunk,
@@ -34,14 +36,14 @@ class TrajectoryFile:
             self.num_chunks,
             self.chunk_size,
             self.last_chunk_size,
-        ) = self.traj_chunk_info(args)
+        ) = self.traj_chunk_info()
 
-    def get_file_type(self, file):
-        if file.endswith(".xyz"):
+    def get_file_type(self):
+        if self.file.endswith(".xyz"):
             return "xyz"
-        elif file.endswith(".pdb"):
+        elif self.file.endswith(".pdb"):
             return "pdb"
-        elif file.endswith(".lmp") or file.endswith(".lammpstrj"):
+        elif self.file.endswith(".lmp") or self.file.endswith(".lammpstrj"):
             return "lmp"
         else:
             return None
@@ -76,13 +78,13 @@ class TrajectoryFile:
 
         return num_atoms, lines_per_frame
 
-    def simbox_dimension(self, args):
+    def simbox_dimension(self):
 
         if self.file_type == "xyz":
             ddict.printLog("Enter the dimensions of the simulation box [\u00C5]:")
-            simbox_x = float(ddict.get_input("[X]   ", args, "float"))
-            simbox_y = float(ddict.get_input("[Y]   ", args, "float"))
-            simbox_z = float(ddict.get_input("[Z]   ", args, "float"))
+            simbox_x = float(ddict.get_input("[X]   ", self.args, "float"))
+            simbox_y = float(ddict.get_input("[Y]   ", self.args, "float"))
+            simbox_z = float(ddict.get_input("[Z]   ", self.args, "float"))
             ddict.printLog("")
 
         elif self.file_type == "pdb":
@@ -121,112 +123,122 @@ class TrajectoryFile:
     def get_frame(self, frame_number=0):
         df_frame = pd.DataFrame()
 
-        if self.file_type == "xyz":
-            # Skip the first two lines of the frame and read the next `num_atoms` lines
-            df_frame = pd.read_csv(
-                self.file,
-                sep=r"\s+",
-                header=None,
-                skiprows=2 + frame_number * self.lines_per_frame,
-                nrows=self.num_atoms,
-            )
+        try:
+            if self.file_type == "xyz":
+                # Skip the first two lines of the frame and read the next `num_atoms` lines
+                df_frame = pd.read_csv(
+                    self.file,
+                    sep=r"\s+",
+                    header=None,
+                    skiprows=2 + frame_number * self.lines_per_frame,
+                    nrows=self.num_atoms,
+                )
 
-            if df_frame.shape[1] == 4:
-                df_frame.columns = ["Element", "x", "y", "z"]
-                # df_frame["Charge"] = None
-            elif df_frame.shape[1] == 5:
-                df_frame.columns = ["Element", "x", "y", "z", "Charge"]
+                if df_frame.shape[1] == 5:
+                    df_frame.columns = ["Element", "x", "y", "z", "Charge"]
+                else:
+                    # raise ValueError("Unexpected number of columns in xyz file")
+                    # drop all columns except the first 4
+                    df_frame = df_frame.iloc[:, :4]
+                    df_frame.columns = ["Element", "x", "y", "z"]
+
+            elif self.file_type == "pdb":
+                df_frame = pd.read_csv(
+                    self.file,
+                    sep=r"\s+",
+                    nrows=self.num_atoms,
+                    header=None,
+                    skiprows=1 + frame_number * self.lines_per_frame,
+                    names=["Record", "Atom number", "Label", "Molecule", "x", "y", "z", "Charge"],
+                )
+                df_frame["Element"] = df_frame["Label"].str[0]
+                df_frame.drop(columns=["Record", "Atom number", "Label"], inplace=True)
+
+            elif self.file_type == "lmp":
+                with open(self.file, "r") as f:
+                    for i in range(8 + frame_number * self.lines_per_frame):
+                        next(f)
+                    header = f.readline().strip().split()
+                    atom_id_pos = header.index("id") - 2
+                    atom_type_pos = header.index("element") - 2
+
+                    x_keywords = ["xu", "x", "ix"]
+                    y_keywords = ["yu", "y", "iy"]
+                    z_keywords = ["zu", "z", "iz"]
+
+                    def find_index(header, keywords):
+                        for keyword in keywords:
+                            if keyword in header:
+                                return header.index(keyword) - 2
+                        raise ValueError("None of the position keywords found in header")
+
+                    atom_x_pos = find_index(header, x_keywords)
+                    atom_y_pos = find_index(header, y_keywords)
+                    atom_z_pos = find_index(header, z_keywords)
+                    atom_mol_pos = header.index("mol") - 2 if "mol" in header else None
+                    atom_charge_pos = header.index("q") - 2 if "q" in header else None
+
+                    positions = {
+                        "id": atom_id_pos,
+                        "Element": atom_type_pos,
+                        "x": atom_x_pos,
+                        "y": atom_y_pos,
+                        "z": atom_z_pos,
+                        "Molecule": atom_mol_pos,
+                        "Charge": atom_charge_pos,
+                    }
+
+                # now read the frame
+                df_frame = pd.read_csv(
+                    self.file,
+                    sep=r"\s+",
+                    nrows=self.num_atoms,
+                    header=None,
+                    skiprows=9 + frame_number * self.lines_per_frame,
+                )
+
+                # Rename the columns according to the positions
+                for key, pos in positions.items():
+                    if pos is not None:
+                        df_frame.rename(columns={pos: key}, inplace=True)
+
+                df_frame.drop(columns=["id"], inplace=True)
+
             else:
-                raise ValueError("Unexpected number of columns in xyz file")
+                ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
+                sys.exit()
 
-        elif self.file_type == "pdb":
-            df_frame = pd.read_csv(
-                self.file,
-                sep=r"\s+",
-                nrows=self.num_atoms,
-                header=None,
-                skiprows=1 + frame_number * self.lines_per_frame,
-                names=["Record", "Atom number", "Label", "Molecule", "x", "y", "z", "Charge"],
-            )
-            df_frame["Element"] = df_frame["Label"].str[0]
-            df_frame.drop(columns=["Record", "Atom number", "Label"], inplace=True)
+            # check if there is a 'Label', 'Molecule' and 'Charge' column in the dataframe. If not, add an empty column.
+            if "Molecule" not in df_frame.columns:
+                df_frame["Molecule"] = None
+            if "Charge" not in df_frame.columns:
+                df_frame["Charge"] = None
 
-        elif self.file_type == "lmp":
-            with open(self.file, "r") as f:
-                for i in range(8 + frame_number * self.lines_per_frame):
-                    next(f)
-                header = f.readline().strip().split()
-                atom_id_pos = header.index("id") - 2
-                atom_type_pos = header.index("element") - 2
+            df_frame = df_frame[["Element", "x", "y", "z", "Molecule", "Charge"]]
 
-                x_keywords = ["xu", "x", "ix"]
-                y_keywords = ["yu", "y", "iy"]
-                z_keywords = ["zu", "z", "iz"]
-
-                def find_index(header, keywords):
-                    for keyword in keywords:
-                        if keyword in header:
-                            return header.index(keyword) - 2
-                    raise ValueError("None of the position keywords found in header")
-
-                atom_x_pos = find_index(header, x_keywords)
-                atom_y_pos = find_index(header, y_keywords)
-                atom_z_pos = find_index(header, z_keywords)
-                atom_mol_pos = header.index("mol") - 2 if "mol" in header else None
-                atom_charge_pos = header.index("q") - 2 if "q" in header else None
-
-                positions = {
-                    "id": atom_id_pos,
-                    "Element": atom_type_pos,
-                    "x": atom_x_pos,
-                    "y": atom_y_pos,
-                    "z": atom_z_pos,
-                    "Molecule": atom_mol_pos,
-                    "Charge": atom_charge_pos,
-                }
-
-            # now read the frame
-            df_frame = pd.read_csv(
-                self.file,
-                sep=r"\s+",
-                nrows=self.num_atoms,
-                header=None,
-                skiprows=9 + frame_number * self.lines_per_frame,
-            )
-
-            # Rename the columns according to the positions
-            for key, pos in positions.items():
-                if pos is not None:
-                    df_frame.rename(columns={pos: key}, inplace=True)
-
-            df_frame.drop(columns=["id"], inplace=True)
-
-        else:
-            ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
-            sys.exit()
-
-        # check if there is a 'Label', 'Molecule' and 'Charge' column in the dataframe. If not, add an empty column.
-        if "Molecule" not in df_frame.columns:
-            df_frame["Molecule"] = None
-        if "Charge" not in df_frame.columns:
-            df_frame["Charge"] = None
-
-        df_frame = df_frame[["Element", "x", "y", "z", "Molecule", "Charge"]]
+        except (pd.errors.EmptyDataError, ValueError, IndexError) as e:
+            # Handle the case where the frame does not exist or cannot be read
+            print(f"Warning: Could not read frame {frame_number}. Error: {e}")
+            df_frame = pd.DataFrame()
 
         return df_frame
 
     def frame_comparison(self, frame0, frame1):
+        # Check if frame1 is empty. If so, return frame0 with an empty 'Struc' column.
+        if frame1.empty:
+            frame0["Struc"] = False
         # Check which atoms did not move, they should have the same x y z coordinates. Label them as True in the Struc
         # column.
-        frame0["Struc"] = (frame0["x"] == frame1["x"]) & (frame0["y"] == frame1["y"]) & (frame0["z"] == frame1["z"])
+        else:
+            frame0["Struc"] = (frame0["x"] == frame1["x"]) & (frame0["y"] == frame1["y"]) & (frame0["z"] == frame1["z"])
 
         return frame0
 
-    def traj_chunk_info(self, args):
+    def traj_chunk_info(self):
         # GENERAL INFORMATION ON CHUNKS
         ddict.printLog("-> Reading the trajectory.\n")
-        trajectory_file_size = os.path.getsize(args["trajectoryfile"])
-        with open(args["trajectoryfile"]) as f:
+        trajectory_file_size = os.path.getsize(self.args["trajectoryfile"])
+        with open(self.args["trajectoryfile"]) as f:
             number_of_lines = sum(1 for i in f)
 
         number_of_frames = int(number_of_lines / self.lines_per_frame)
@@ -271,22 +283,34 @@ class TrajectoryFile:
 
 
 class Molecule:
-    def __init__(self, traj_file, args):
+    def __init__(self, traj_file):
 
-        self.neglect_atom_kind = self.exclude_atom_kind(traj_file, args)
+        self.neglect_atom_kind = self.exclude_atom_kind(traj_file)
         self.all_atoms = self.dataframe_to_list(traj_file.frame0)
-        self.molecules, self.molecule_bonds, self.molecules_sym, self.molecule_bonds_sym, self.molecule_counter = (
+        (self.molecules, self.molecule_bonds, self.molecules_sym, self.molecule_bonds_sym, self.molecule_counter) = (
             self.identify_molecules_and_bonds(traj_file)
         )
-        self.molecule_frame, self.unique_molecule_frame, self.molecule_count = self.get_unique_molecule_frame(
+
+        (self.molecule_frame, self.unique_molecule_frame, self.molecule_count) = self.get_unique_molecule_frame(
             traj_file.frame0
         )
+
         self.print_molecule_info()
         self.print_picture()
 
-        self.outputdict = self.structure_recognition(traj_file, args)
+        (
+            self.structure_data,
+            self.min_z_pore,
+            self.max_z_pore,
+            self.length_pore,
+            self.center_pore,
+            self.CNT_centers,
+            self.tuberadii,
+            self.CNT_atoms,
+            self.Walls_positions,
+        ) = self.structure_recognition(traj_file)
 
-    def exclude_atom_kind(self, traj_file, args):
+    def exclude_atom_kind(self, traj_file):
 
         exclude_atom_kind = ["Na", "Zn", "Li", "D", "X"]
         neglect_atoms = []
@@ -295,7 +319,9 @@ class Molecule:
             if any(traj_file.frame0["Element"] == atom):
                 exclude_atom = str(
                     ddict.get_input(
-                        f"Should {atom} atoms be excluded from the molecular recognition? [y/n]:  ", args, "str"
+                        f"Should {atom} atoms be excluded from the molecular recognition? [y/n]:  ",
+                        traj_file.args,
+                        "str",
                     )
                 )
                 if exclude_atom == "y":
@@ -623,10 +649,10 @@ class Molecule:
                 with open(f'{row["Molecule"]}.png', "wb") as f:
                     f.write(drawer.GetDrawingText())
 
-    def structure_recognition(self, traj_file, args):
+    def structure_recognition(self, traj_file):
         structure_frame = traj_file.frame0[traj_file.frame0["Struc"]].copy()
 
-        outputdict = {}
+        output = {}
         CNTs = []
         counter_pore = 0
         Walls = []
@@ -643,21 +669,21 @@ class Molecule:
         rigid_bodies = 1
 
         # If the structure_frame is empty, then there are no structures in the simulation box.
-        if structure_frame.empty or args["manual"]:
+        if structure_frame.empty or traj_file.args["manual"]:
             rigid_bodies = 0
             if structure_frame.empty:
                 ddict.printLog(
                     "No structures were found in the simulation box. \n",
                     color="red",
                 )
-            define_struc = ddict.get_input("Manually define the structures? [y/n]: ", args, "str")
+            define_struc = ddict.get_input("Manually define the structures? [y/n]: ", traj_file.args, "str")
             if define_struc == "n":
                 sys.exit()
             else:
-                spec_molecule = molecule_choice(args, traj_file.frame0, 2)
+                spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
                 structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
-                # outputdict["unique_molecule_frame"] = self.unique_molecule_frame
+                # output["unique_molecule_frame"] = self.unique_molecule_frame
 
         # convert atom information to a list of dictionaries
         str_atom_list = []
@@ -747,7 +773,9 @@ class Molecule:
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
         if rigid_bodies == 1:
-            CNT_pore_question = ddict.get_input("Does one of the pores contain rigid CNTs? [y/n]: ", args, "str")
+            CNT_pore_question = ddict.get_input(
+                "Does one of the pores contain rigid CNTs? [y/n]: ", traj_file.args, "str"
+            )
             if CNT_pore_question == "y":
                 if len(CNTs) == 0:
                     ddict.printLog("There are no pores in the system.\n", color="red")
@@ -756,7 +784,9 @@ class Molecule:
                     which_pores = [1]
                     ddict.printLog("Only one Pore in the system.\n")
                 else:
-                    which_pores = ddict.get_input(f"Which pores contains a CNT? [1-{len(CNTs)}]: ", args, "str")
+                    which_pores = ddict.get_input(
+                        f"Which pores contains a CNT? [1-{len(CNTs)}]: ", traj_file.args, "str"
+                    )
                     ddict.printLog("")
 
                     # split the input string into a list of integers. They are divided by a comma.
@@ -837,16 +867,26 @@ class Molecule:
         if "CNT" not in traj_file.frame0.columns:
             traj_file.frame0["CNT"] = None
 
-        outputdict["id_frame"] = traj_file.frame0
-        outputdict["min_z_pore"] = min_z_pore
-        outputdict["max_z_pore"] = max_z_pore
-        outputdict["length_pore"] = length_pore
-        outputdict["CNT_centers"] = CNT_centers
-        outputdict["tuberadii"] = tuberadii
-        outputdict["CNT_atoms"] = CNT_atoms
-        outputdict["Walls_positions"] = Walls_positions
+        output["id_frame"] = traj_file.frame0
+        output["min_z_pore"] = min_z_pore
+        output["max_z_pore"] = max_z_pore
+        output["length_pore"] = length_pore
+        output["CNT_centers"] = CNT_centers
+        output["tuberadii"] = tuberadii
+        output["CNT_atoms"] = CNT_atoms
+        output["Walls_positions"] = Walls_positions
 
-        return outputdict
+        return (
+            output,
+            min_z_pore,
+            max_z_pore,
+            length_pore,
+            center_pore,
+            CNT_centers,
+            tuberadii,
+            CNT_atoms,
+            Walls_positions,
+        )
 
 
 def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
@@ -857,9 +897,9 @@ def read_first_frame(args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tu
     return traj_file
 
 
-def molecule_recognition(traj_file, args) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
+def molecule_recognition(traj_file) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, tuple]:
 
-    molecules = Molecule(traj_file, args)
+    molecules = Molecule(traj_file)
 
     return molecules
 
