@@ -44,7 +44,7 @@ def accessible_volume_prep(inputdict, traj_file, molecules):
 
 def accessible_volume_analysis(inputdict, traj_file, molecules, analysis):
 
-    split_frame = analysis.split_frame
+    split_frame = inputdict["split_frame"]
     CNT_centers = molecules.CNT_centers
     max_z_pore = molecules.max_z_pore
     min_z_pore = molecules.min_z_pore
@@ -169,11 +169,13 @@ def distance_search_prep(inputdict, traj_file, molecules):
 
 
 def distance_search_analysis(inputdict, traj_file, molecules, analysis):
+
+    split_frame = inputdict["split_frame"]
     # get the structure atoms from the inputdict
     structure_atoms_tree = inputdict["structure_atoms_tree"]
 
     # check if there are any atoms outside the simulation box
-    split_frame = ut.wrapping_coordinates(traj_file.box_size, analysis.split_frame)
+    split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
 
     # now get the coordinates of the split_frame
     split_frame_coords = split_frame[["X", "Y", "Z"]].values
@@ -341,8 +343,8 @@ def axial_density_analysis(inputdict, traj_file, molecules, analysis):
     maxdisp_atom_dist = inputdict["maxdisp_atom_dist"]
     maxdisp_atom_row = inputdict["maxdisp_atom_row"]
 
-    counter = analysis.counter
-    split_frame = analysis.split_frame
+    counter = inputdict["counter"]
+    split_frame = inputdict["split_frame"]
     CNT_centers = molecules.CNT_centers
     max_z_pore = molecules.max_z_pore
     min_z_pore = molecules.min_z_pore
@@ -641,7 +643,7 @@ def chunk_processing(inputdict):
 
 
 def density_analysis_analysis(inputdict, traj_file, molecules, analysis):
-    split_frame = analysis.split_frame
+    split_frame = inputdict["split_frame"]
     box_size = traj_file.box_size
 
     cube_array = inputdict["cube_array"]

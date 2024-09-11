@@ -104,8 +104,8 @@ def rad_velocity_analysis(inputdict, traj_file, molecules, analysis):
     CNT_centers = molecules.CNT_centers
     max_z_pore = molecules.max_z_pore
     min_z_pore = molecules.min_z_pore
-    counter = analysis.counter
-    split_frame = analysis.split_frame
+    counter = inputdict["counter"]
+    split_frame = inputdict["split_frame"]
 
     # instead of checking the global coordinates, we consider the PBC and check the modulus of the box_size
     split_frame["X"] = split_frame["X"].astype(float) % traj_file.box_size[0]

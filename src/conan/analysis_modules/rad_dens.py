@@ -29,9 +29,17 @@ def raddens_prep(inputdict, traj_file, molecules):
         raddens_bin_labels = np.arange(1, len(raddens_bin_edges), 1)
         ddict.printLog("Increment distance: %0.3f angstrom" % (rad_increment))
 
-    raddens_df = pd.DataFrame(np.arange(1, traj_file.number_of_frames + 1), columns=["Frame"])
+    data = {"Frame": np.arange(1, traj_file.number_of_frames + 1)}
+
+    # Add columns for each bin
     for i in range(num_increments):
-        raddens_df["Bin %d" % (i + 1)] = 0
+        data["Bin %d" % (i + 1)] = np.zeros(traj_file.number_of_frames)
+
+    # Create the DataFrame from the dictionary
+    raddens_df = pd.DataFrame(data)
+
+    # If needed, create a copy to de-fragment the DataFrame
+    raddens_df = raddens_df.copy()
 
     outputdict = {
         "rad_increment": rad_increment,
@@ -73,14 +81,14 @@ def raddens_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def common_radial_analysis(inputdict, traj_file, molecules, analysis, property_name):
+def radial_analysis(inputdict, traj_file, molecules, analysis, property_name):
 
     raddens_df = inputdict["raddens_df"]
     raddens_bin_edges = inputdict["raddens_bin_edges"]
     raddens_bin_labels = inputdict["raddens_bin_labels"]
     num_increments = inputdict["num_increments"]
-
-    split_frame = analysis.split_frame
+    split_frame = inputdict["split_frame"]
+    counter = inputdict["counter"]
     CNT_centers = molecules.CNT_centers
     max_z_pore = molecules.max_z_pore
     min_z_pore = molecules.min_z_pore
@@ -128,7 +136,7 @@ def common_radial_analysis(inputdict, traj_file, molecules, analysis, property_n
 
     # Write the results into the raddens_df dataframe. The row is defined by the frame number.
     for i in range(num_increments):
-        raddens_df.loc[analysis.counter, "Bin %d" % (i + 1)] = raddens_df_temp.loc[i, "Weighted_counts"]
+        raddens_df.loc[counter, "Bin %d" % (i + 1)] = raddens_df_temp.loc[i, "Weighted_counts"]
 
     # Remove the raddens_df_temp dataframe every loop.
     del raddens_df_temp
@@ -141,11 +149,11 @@ def common_radial_analysis(inputdict, traj_file, molecules, analysis, property_n
 
 
 def radial_density_analysis(inputdict, traj_file, molecules, analysis):
-    return common_radial_analysis(inputdict, traj_file, molecules, analysis, "Mass")
+    return radial_analysis(inputdict, traj_file, molecules, analysis, "Mass")
 
 
 def radial_charge_density_analysis(inputdict, traj_file, molecules, analysis):
-    return common_radial_analysis(inputdict, traj_file, molecules, analysis, "Charge")
+    return radial_analysis(inputdict, traj_file, molecules, analysis, "Charge")
 
 
 def raddens_post_processing(inputdict):

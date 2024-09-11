@@ -164,7 +164,7 @@ def Coord_number_analysis(inputdict, traj_file, molecules, analysis):
     min_z_pore = inputdict["min_z_pore"]
     max_z_pore = inputdict["max_z_pore"]
     z_referencepoint = inputdict["z_referencepoint"]
-    # CNT_centers = inputdict["CNT_centers"]
+    counter = inputdict["counter"]
     regional = inputdict["regional"]
     regions = inputdict["regions"]
     referencepoint = inputdict["referencepoint"]
@@ -234,7 +234,7 @@ def Coord_number_analysis(inputdict, traj_file, molecules, analysis):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": analysis.analysis.counter + 1,
+        "Frame": counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "Species2": mol_com["Species"].values[indices[1]],
@@ -665,9 +665,10 @@ def Coord_post_processing(inputdict):
 
 def Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis):
     # Get values from inputdict
-    regional = analysis.regional_q
-    regions = analysis.regions
-    split_frame = analysis.split_frame
+    regional = inputdict["regional_q"]
+    regions = inputdict["regions"]
+    split_frame = inputdict["split_frame"]
+    counter = inputdict["counter"]
     chunk_distances_df = inputdict["chunk_distances_df"]
     box_dimension = np.array(traj_file.box_size)
     coord_dist = inputdict["coord_dist"]
@@ -733,7 +734,7 @@ def Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": analysis.counter + 1,
+        "Frame": counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "X_COM": mol_com_reference["X_COM"].values[indices[0]],
@@ -993,9 +994,9 @@ def Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis):
     # Get values from inputdict
     min_z_pore = inputdict["min_z_pore"]
     max_z_pore = inputdict["max_z_pore"]
-    # CNT_centers = inputdict["CNT_centers"]
     # referencepoint = inputdict["referencepoint"]
     split_frame = inputdict["split_frame"]
+    counter = inputdict["counter"]
     chunk_distances_df = inputdict["chunk_distances_df"]
     box_dimension = np.array(traj_file.box_size)
     coord_dist = inputdict["coord_dist"]
@@ -1049,7 +1050,7 @@ def Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis):
 
     # Create a DataFrame with the results
     data = {
-        "Frame": analysis.analysis.counter + 1,
+        "Frame": counter + 1,
         "Species1": mol_com_reference["Species"].values[indices[0]],
         "Molecule1": mol_com_reference["Molecule"].values[indices[0]],
         "Species2": mol_com["Species"].values[indices[1]],

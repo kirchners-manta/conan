@@ -11,20 +11,20 @@ from conan.analysis_modules import traj_info
 
 
 # MAIN
-def analysis_opt(traj_file, molecules, maindict, args) -> None:
+def analysis_opt(traj_file, molecules, maindict) -> None:
 
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
-    choice = int(ddict.get_input("Picture or analysis mode?: ", args, "int"))
+    choice = int(ddict.get_input("Picture or analysis mode?: ", traj_file.args, "int"))
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(traj_file, molecules, args)
+        generating_pictures(traj_file, molecules)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(molecules.structure_data["CNT_centers"]) >= 0:
-            trajectory_analysis(traj_file, molecules, maindict, args)
+            trajectory_analysis(traj_file, molecules, maindict)
         else:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
@@ -33,17 +33,42 @@ def analysis_opt(traj_file, molecules, maindict, args) -> None:
 
 
 # Generating pictures.
-def generating_pictures(traj_file, molecules, args) -> None:
+def generating_pictures(traj_file, molecules) -> None:
 
     ddict.printLog("(1) Produce xyz file of the whole simulation box.")
     ddict.printLog("(2) Produce xyz file of empty pore structure.")
     ddict.printLog("(3) Produce xyz file of the pore structures' tube.")
-    analysis1_choice = int(ddict.get_input("What do you want to do?: ", args, "int"))
+    analysis1_choice = int(ddict.get_input("What do you want to do?: ", traj_file.args, "int"))
 
     if analysis1_choice == 1:
-        ddict.printLog("\n-> Pics of box.")
-        # Write the xyz file. The first line has the number of atoms (column in the first_drame), the second line is
-        # empty.
+        ddict.printLog("\n-> xyz file of simulation box.")
+        # Write the xyz file. The first line has the number of atoms (column in the first_frame).
+        sort_species = ddict.get_input(
+            "Do you want to sort the rows in a certain species order? [y/n]: ", traj_file.args, "string"
+        )
+        if sort_species == "y":
+            species_order = ddict.get_input(
+                "Enter the species in the order you want them to be sorted: ", traj_file.args, "string"
+            )
+            # They will be given as 3,2,1,4,5,6 for example
+            species_order = species_order.split(",")
+            # The entries in the species_order list are strings, so they need to be converted to integers
+            species_order = [int(i) for i in species_order]
+            # Convert the 'Species' column to a categorical type with the specified order
+            traj_file.frame0["Species"] = pd.Categorical(
+                traj_file.frame0["Species"], categories=species_order, ordered=True
+            )
+            # Sort the frame0 dataframe by species and molecule and then by the row index.
+            # store the original index
+            traj_file.frame0["index"] = traj_file.frame0.index
+            traj_file.frame0 = traj_file.frame0.sort_values(by=["Species", "Molecule", "index"])
+        else:
+            species_order = None
+            # Sort the frame0 dataframe by species and molecule
+            traj_file.frame0 = traj_file.frame0.sort_values(by=["Species", "Molecule"])
+
+        traj_file.frame0 = traj_file.frame0.drop("index", axis=1)
+        print(traj_file.frame0)
         frame_print = open("simbox_frame.xyz", "w")
         frame_print.write("%d\n#Made with CONAN\n" % len(traj_file.frame0))
         for index, row in traj_file.frame0.iterrows():
@@ -61,7 +86,9 @@ def generating_pictures(traj_file, molecules, args) -> None:
             # Remove all columns except the Element, x, y, and z columns.
             ddict.printLog(CNT_atoms_pic)
             CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule", "Label", "Species"], axis=1)
-            add_centerpoint = ddict.get_input("Add the center point of the CNT to the file? [y/n] ", args, "string")
+            add_centerpoint = ddict.get_input(
+                "Add the center point of the CNT to the file? [y/n] ", traj_file.args, "string"
+            )
             if add_centerpoint == "y":
                 # Add the center point of the CNT to the dataframe, labeled as X in a new row.
                 CNT_atoms_pic.loc[len(CNT_atoms_pic.index)] = [
@@ -86,11 +113,11 @@ def generating_pictures(traj_file, molecules, args) -> None:
             CNT_atoms_pic = pd.DataFrame(traj_file.frame0.loc[traj_file.frame0["CNT"] == i + 1])
             # Remove all unneeded columns except the Element, x, y, and z.
             CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule"], axis=1)
-            add_liquid = ddict.get_input(f"Add liquid which is inside the CNT{i + 1}? [y/n] ", args, "string")
+            add_liquid = ddict.get_input(f"Add liquid which is inside the CNT{i + 1}? [y/n] ", traj_file.args, "string")
 
             if add_liquid == "y":
                 add_liquid2 = ddict.get_input(
-                    "Add all confined atoms (1), or entire molecules (2) ? [1/2] ", args, "int"
+                    "Add all confined atoms (1), or entire molecules (2) ? [1/2] ", traj_file.args, "int"
                 )
 
                 # if add_liquid2 == 1:
@@ -144,7 +171,7 @@ def generating_pictures(traj_file, molecules, args) -> None:
 
             else:
                 add_centerpoint = ddict.get_input(
-                    f"Add the center point of the CNT{i + 1} to the file? [y/n] ", args, "string"
+                    f"Add the center point of the CNT{i + 1} to the file? [y/n] ", traj_file.args, "string"
                 )
                 if add_centerpoint == "y":
                     CNT_atoms_pic.loc[len(CNT_atoms_pic.index)] = [
@@ -166,43 +193,50 @@ def generating_pictures(traj_file, molecules, args) -> None:
     ddict.printLog("")
 
 
-# Analysis of the trajectory.
-def trajectory_analysis(traj_file, molecules, inputdict, args) -> None:
-
-    analysis = Analysis(traj_file, molecules, inputdict, args)
-
-    return analysis
-
-
-def region_question(maindict, traj_file, args) -> dict:
+def region_question(maindict, traj_file) -> dict:
 
     maindict["box_dimension"] = np.array(traj_file.box_size)
 
     # Ask if the analysis should be performed in a specific region
     regional_q = ddict.get_input(
-        "Do you want the calculation to be performed in a specific region? [y/n] ", args, "string"
+        "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
     )
     regions = [0] * 6
     if regional_q == "y":
-        regions[0] = float(ddict.get_input("Enter minimum x-value ", args, "float"))
-        regions[1] = float(ddict.get_input("Enter maximum x-value ", args, "float"))
-        regions[2] = float(ddict.get_input("Enter minimum y-value ", args, "float"))
-        regions[3] = float(ddict.get_input("Enter maximum y-value ", args, "float"))
-        regions[4] = float(ddict.get_input("Enter minimum z-value ", args, "float"))
-        regions[5] = float(ddict.get_input("Enter maximum z-value ", args, "float"))
+        regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
+        regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
+        regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
+        regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
+        regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
+        regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
 
     return regional_q, regions
 
 
+def frame_question(traj_file) -> int:
+
+    start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
+    frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
+
+    return start_frame, frame_interval
+
+
+# Analysis of the trajectory.
+def trajectory_analysis(traj_file, molecules, inputdict) -> None:
+
+    analysis_opt = Analysis(traj_file)
+
+    traj_analysis(analysis_opt, traj_file, molecules, inputdict)
+
+    return analysis_opt
+
+
 class Analysis:
-    def __init__(self, traj_file, molecules, inputdict, args):
+    def __init__(self, traj_file):
 
-        self.args = args
-        self.choice2 = self.analysis_choice()
+        self.choice2 = self.analysis_choice(traj_file)
 
-        self.traj_analysis(traj_file, molecules, inputdict)
-
-    def analysis_choice(self) -> None:
+    def analysis_choice(self, traj_file) -> None:
         # Analysis choice.
         ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
         ddict.printLog("(1) Calculate the radial density inside the CNT")
@@ -218,7 +252,7 @@ class Analysis:
         ddict.printLog("(7) Calculate the coordination number")
         ddict.printLog("(8) Calculate the density along the axes.")
 
-        analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", self.args, "int"))
+        analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
         analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
@@ -227,176 +261,197 @@ class Analysis:
 
         return analysis_choice2
 
-    def prepare_analysis_dict(self, maindict, traj_file, molecules) -> dict:
 
-        maindict["maxdisp_atom_row"] = None
-        maindict["maxdisp_atom_dist"] = 0
+def prepare_analysis_dict(maindict, traj_file, molecules, choice2) -> dict:
 
-        maindict["analysis_choice2"] = self.choice2
-        maindict["unique_molecule_frame"] = molecules.unique_molecule_frame
-        maindict["CNT_atoms"] = traj_file.frame0[traj_file.frame0["CNT"].notnull()]
-        maindict["number_of_frames"] = traj_file.number_of_frames
+    maindict["maxdisp_atom_row"] = None
+    maindict["maxdisp_atom_dist"] = 0
 
-        return maindict
+    maindict["analysis_choice2"] = choice2
+    maindict["unique_molecule_frame"] = molecules.unique_molecule_frame
+    maindict["CNT_atoms"] = traj_file.frame0[traj_file.frame0["CNT"].notnull()]
+    maindict["number_of_frames"] = traj_file.number_of_frames
 
-    # Analysis of the trajectory.
-    def traj_analysis(self, traj_file, molecules, maindict) -> None:
+    return maindict
 
-        spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(self.args, traj_file.frame0, 1)
 
-        Main_time = time.time()
+def get_preperation(choice2) -> callable:
+    if choice2 in [1, 2]:
+        from conan.analysis_modules.rad_dens import raddens_prep as main_loop_preparation
+    elif choice2 == 3:
+        from conan.analysis_modules.rad_velocity import rad_velocity_prep as main_loop_preparation
+    elif choice2 == 4:
+        from conan.analysis_modules.axial_dens import accessible_volume_prep as main_loop_preparation
+    elif choice2 == 5:
+        from conan.analysis_modules.axial_dens import axial_density_prep as main_loop_preparation
+    elif choice2 == 6:
+        from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
+    elif choice2 == 7:
+        from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
+    elif choice2 == 8:
+        from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
+    else:
+        raise ValueError("Invalid choice")
+    return main_loop_preparation
 
-        self.counter = 0
 
-        maindict = self.prepare_analysis_dict(maindict, traj_file, molecules)
+def get_analysis_and_processing(analysis_opt, maindict):
+    if analysis_opt.choice2 in [1, 2]:
+        if analysis_opt.choice2 == 1:
+            from conan.analysis_modules.rad_dens import radial_density_analysis as analysis
+        elif analysis_opt.choice2 == 2:
+            from conan.analysis_modules.rad_dens import radial_charge_density_analysis as analysis
+        from conan.analysis_modules.rad_dens import raddens_post_processing as post_processing
+    elif analysis_opt.choice2 == 3:
+        from conan.analysis_modules.rad_velocity import rad_velocity_analysis as analysis
+        from conan.analysis_modules.rad_velocity import rad_velocity_processing as post_processing
+    elif analysis_opt.choice2 == 4:
+        from conan.analysis_modules.axial_dens import accessible_volume_analysis as analysis
+        from conan.analysis_modules.axial_dens import accessible_volume_processing as post_processing
+    elif analysis_opt.choice2 == 5:
+        from conan.analysis_modules.axial_dens import axial_density_analysis as analysis
+        from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
+    elif analysis_opt.choice2 == 6:
+        from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
+        from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
+    elif analysis_opt.choice2 == 7:
+        if maindict["do_xyz_analysis"] == "y":
+            from conan.analysis_modules.coordination_number import Coord_number_xyz_analysis as analysis
+            from conan.analysis_modules.coordination_number import Coord_xyz_post_processing as post_processing
+        else:
+            from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
+            from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
+    elif analysis_opt.choice2 == 8:
+        from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
+        from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
+    else:
+        raise ValueError("Invalid choice")
 
-        # Analysis preperation.
-        if self.choice2 in [1, 2]:
-            from conan.analysis_modules.rad_dens import raddens_prep as main_loop_preparation
+    return analysis, post_processing
 
-            if self.choice2 == 1:
-                from conan.analysis_modules.rad_dens import radial_density_analysis as analysis
-            if self.choice2 == 2:
-                from conan.analysis_modules.rad_dens import radial_charge_density_analysis as analysis
-            from conan.analysis_modules.rad_dens import raddens_post_processing as post_processing
 
-        if self.choice2 == 3:
-            from conan.analysis_modules.rad_velocity import rad_velocity_analysis as analysis
-            from conan.analysis_modules.rad_velocity import rad_velocity_prep as main_loop_preparation
-            from conan.analysis_modules.rad_velocity import rad_velocity_processing as post_processing
+def get_chunk_processing(maindict) -> callable:
 
-        if self.choice2 == 4:
-            from conan.analysis_modules.axial_dens import accessible_volume_analysis as analysis
-            from conan.analysis_modules.axial_dens import accessible_volume_prep as main_loop_preparation
-            from conan.analysis_modules.axial_dens import accessible_volume_processing as post_processing
+    if maindict["do_xyz_analysis"] == "y":
+        from conan.analysis_modules.coordination_number import Coord_xyz_chunk_processing as chunk_processing
+    else:
+        from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
+    return chunk_processing
 
-        if self.choice2 == 5:
-            from conan.analysis_modules.axial_dens import axial_density_analysis as analysis
-            from conan.analysis_modules.axial_dens import axial_density_prep as main_loop_preparation
-            from conan.analysis_modules.axial_dens import axial_density_processing as post_processing
 
-        if self.choice2 == 6:
-            from conan.analysis_modules.axial_dens import distance_search_analysis as analysis
-            from conan.analysis_modules.axial_dens import distance_search_prep as main_loop_preparation
-            from conan.analysis_modules.axial_dens import distance_search_processing as post_processing
+def traj_analysis(analysis_opt, traj_file, molecules, maindict) -> None:
+    maindict = prepare_analysis_dict(maindict, traj_file, molecules, analysis_opt.choice2)
 
-        if self.choice2 == 7:
-            from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
+    # Get the preparation function
+    main_loop_preparation = get_preperation(analysis_opt.choice2)
 
-        if self.choice2 == 8:
-            from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
-            from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
-            from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
+    maindict = main_loop_preparation(maindict, traj_file, molecules)
 
-        # maindict = main_loop_preparation(maindict)
-        maindict = main_loop_preparation(maindict, traj_file, molecules)
+    # Get the analysis and post-processing functions
+    analysis, post_processing = get_analysis_and_processing(analysis_opt, maindict)
 
-        if self.choice2 == 7:
-            if maindict["do_xyz_analysis"] == "y":
-                from conan.analysis_modules.coordination_number import Coord_number_xyz_analysis as analysis
-                from conan.analysis_modules.coordination_number import Coord_xyz_chunk_processing as chunk_processing
-                from conan.analysis_modules.coordination_number import Coord_xyz_post_processing as post_processing
-            else:
-                from conan.analysis_modules.coordination_number import Coord_chunk_processing as chunk_processing
-                from conan.analysis_modules.coordination_number import Coord_number_analysis as analysis
-                from conan.analysis_modules.coordination_number import Coord_post_processing as post_processing
+    if analysis_opt.choice2 == 7:
+        chunk_processing = get_chunk_processing(maindict)
 
-        (self.regional_q, self.regions) = region_question(maindict, traj_file, self.args)
+    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
 
-        # MAIN LOOP
-        # Define which function to use reading the trajectory file.
-        if self.args["trajectoryfile"].endswith(".xyz"):
-            from conan.analysis_modules.traj_info import xyz as run
-        elif self.args["trajectoryfile"].endswith(".pdb"):
-            from conan.analysis_modules.traj_info import pdb as run
-        elif self.args["trajectoryfile"].endswith(".lmp") or self.args["trajectoryfile"].endswith(".lammpstrj"):
-            from conan.analysis_modules.traj_info import lammpstrj as run
+    Main_time = time.time()
 
-        # Atomic masses.
-        element_masses = ddict.dict_mass()
+    counter = 0
 
-        # Start frame and frame interval.
-        start_frame = int(ddict.get_input("Start analysis at which frame?: ", self.args, "int"))
-        frame_interval = int(ddict.get_input("Analyse every nth step: ", self.args, "int"))
+    regional_q, regions = region_question(maindict, traj_file)
+    start_frame, frame_interval = frame_question(traj_file)
 
-        trajectory = pd.read_csv(self.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
-        self.chunk_number = 0
-        self.frame_counter = 0
+    # MAIN LOOP
+    # Define which function to use reading the trajectory file.
+    if traj_file.args["trajectoryfile"].endswith(".xyz"):
+        from conan.analysis_modules.traj_info import xyz as run
+    elif traj_file.args["trajectoryfile"].endswith(".pdb"):
+        from conan.analysis_modules.traj_info import pdb as run
+    elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(".lammpstrj"):
+        from conan.analysis_modules.traj_info import lammpstrj as run
 
-        # Loop over chunks.
-        for chunk in trajectory:
-            self.chunk_number += 1
-            maindict["chunk_number"] = self.chunk_number
-            ddict.printLog("\nChunk %d of %d" % (self.chunk_number, traj_file.num_chunks))
+    # Atomic masses.
+    element_masses = ddict.dict_mass()
+    trajectory = pd.read_csv(traj_file.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
+    chunk_number = 0
+    frame_counter = 0
 
-            # Divide chunk into individual frames. If it is the last chunk, the number of frames is smaller.
-            if chunk.shape[0] == traj_file.lines_last_chunk:
-                frames = np.split(chunk, traj_file.last_chunk_size)
-            else:
-                frames = np.split(chunk, traj_file.chunk_size)
+    # Loop over chunks.
+    for chunk in trajectory:
+        chunk_number += 1
+        maindict["chunk_number"] = chunk_number
+        ddict.printLog("\nChunk %d of %d" % (chunk_number, traj_file.num_chunks))
 
-            for frame in frames:
-                self.frame_counter += 1
+        # Divide chunk into individual frames. If it is the last chunk, the number of frames is smaller.
+        if chunk.shape[0] == traj_file.lines_last_chunk:
+            frames = np.split(chunk, traj_file.last_chunk_size)
+        else:
+            frames = np.split(chunk, traj_file.chunk_size)
 
-                # Skip frames based on start_frame and frame_interval
-                if self.frame_counter < start_frame or (self.frame_counter - start_frame) % frame_interval != 0:
-                    continue
+        for frame in frames:
+            frame_counter += 1
 
-                # First load the frame into the function run() to get a dataframe. Then reset the index.
-                self.split_frame = run(frame, element_masses, traj_file.frame0)
-                self.split_frame.reset_index(drop=True, inplace=True)
+            # Skip frames based on start_frame and frame_interval
+            if frame_counter < start_frame or (frame_counter - start_frame) % frame_interval != 0:
+                continue
 
-                # Add the necessary columns to the dataframe.
-                self.split_frame["Struc"] = traj_file.frame0["Struc"].values
-                self.split_frame["Molecule"] = traj_file.frame0["Molecule"].values
-                self.split_frame["Species"] = traj_file.frame0["Species"].values
-                self.split_frame["Label"] = traj_file.frame0["Label"].values
+            # First load the frame into the function run() to get a dataframe. Then reset the index.
+            split_frame = run(frame, element_masses, traj_file.frame0)
+            split_frame.reset_index(drop=True, inplace=True)
 
-                # Drop all CNT and carbon_wall atoms, just the Liquid atoms are needed for the analysis.
-                self.split_frame = self.split_frame[self.split_frame["Struc"] == "Liquid"]
-                self.split_frame = self.split_frame.drop(["Struc"], axis=1)
+            # Add the necessary columns to the dataframe.
+            split_frame["Struc"] = traj_file.frame0["Struc"].values
+            split_frame["Molecule"] = traj_file.frame0["Molecule"].values
+            split_frame["Species"] = traj_file.frame0["Species"].values
+            split_frame["Label"] = traj_file.frame0["Label"].values
 
-                # Drop the other atoms which are not needed for the analysis.
-                if analysis_spec_molecule == "y":
-                    self.split_frame = self.split_frame[self.split_frame["Species"].isin(spec_molecule)]
-                    # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
-                    if spec_atom[0] != "all":
-                        # If specific atoms are requested, only these atoms are kept.
-                        self.split_frame = self.split_frame[self.split_frame["Label"].isin(spec_atom)]
+            # Drop all CNT and carbon_wall atoms, just the Liquid atoms are needed for the analysis.
+            split_frame = split_frame[split_frame["Struc"] == "Liquid"]
+            split_frame = split_frame.drop(["Struc"], axis=1)
 
-                if self.regional_q == "y":
-                    self.split_frame = self.split_frame[self.split_frame["X"].astype(float) >= self.regions[0]]
-                    self.split_frame = self.split_frame[self.split_frame["X"].astype(float) <= self.regions[1]]
-                    self.split_frame = self.split_frame[self.split_frame["Y"].astype(float) >= self.regions[2]]
-                    self.split_frame = self.split_frame[self.split_frame["Y"].astype(float) <= self.regions[3]]
-                    self.split_frame = self.split_frame[self.split_frame["Z"].astype(float) >= self.regions[4]]
-                    self.split_frame = self.split_frame[self.split_frame["Z"].astype(float) <= self.regions[5]]
+            # Drop the other atoms which are not needed for the analysis.
+            if analysis_spec_molecule == "y":
+                split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
+                # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
+                if spec_atom[0] != "all":
+                    # If specific atoms are requested, only these atoms are kept.
+                    split_frame = split_frame[split_frame["Label"].isin(spec_atom)]
 
-                # Save the split_frame in maindict
-                maindict["split_frame"] = self.split_frame
-                maindict["counter"] = self.counter
+            if regional_q == "y":
+                split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]
+                split_frame = split_frame[split_frame["X"].astype(float) <= regions[1]]
+                split_frame = split_frame[split_frame["Y"].astype(float) >= regions[2]]
+                split_frame = split_frame[split_frame["Y"].astype(float) <= regions[3]]
+                split_frame = split_frame[split_frame["Z"].astype(float) >= regions[4]]
+                split_frame = split_frame[split_frame["Z"].astype(float) <= regions[5]]
 
-                maindict = analysis(maindict, traj_file, molecules, self)
+            # Save the split_frame in maindict
+            maindict["split_frame"] = split_frame
+            maindict["counter"] = counter
+            maindict["regions"] = regions
+            maindict["regional_q"] = regional_q
 
-                self.counter += 1
-                print(
-                    "Processed frame %d (frame %d of %d)"
-                    % (self.counter, self.frame_counter, traj_file.number_of_frames),
-                    end="\r",
-                )
+            maindict = analysis(maindict, traj_file, molecules, analysis_opt)
 
-            # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
-            if self.choice2 == 7:
-                maindict = chunk_processing(maindict)
+            counter += 1
+            print(
+                "Processed frame %d (frame %d of %d)" % (counter, frame_counter, traj_file.number_of_frames),
+                end="\r",
+            )
 
-        ddict.printLog("")
-        ddict.printLog("Finished processing the trajectory. %d frames were processed." % (self.counter))
-        ddict.printLog("")
+        # For memory intensive analyses (e.g. CN) we need to do the processing after every chunk
+        if analysis_opt.choice2 == 7:
+            maindict = chunk_processing(maindict)
 
-        # DATA PROCESSING
-        post_processing(maindict)
+    ddict.printLog("")
+    ddict.printLog("Finished processing the trajectory. %d frames were processed." % (counter))
+    ddict.printLog("")
 
-        ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
+    # DATA PROCESSING
+    post_processing(maindict)
+
+    ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
 
 
 if __name__ == "__main__":
