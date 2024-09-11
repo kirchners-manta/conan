@@ -234,9 +234,10 @@ def analysis_choice(traj_file) -> None:
     ddict.printLog("\nThese functions are generally applicable.", color="red")
     ddict.printLog("(7) Calculate the coordination number")
     ddict.printLog("(8) Calculate the density along the axes.")
+    ddict.printLog("(9) Calculate the velocity of the liquid in the CNT.")
 
     analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8]
+    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     if analysis_choice2 not in analysis_choice2_options:
         ddict.printLog("-> The analysis you entered is not known.")
         sys.exit(1)
@@ -273,6 +274,8 @@ def get_preperation(choice2) -> callable:
         from conan.analysis_modules.coordination_number import Coord_number_prep as main_loop_preparation
     elif choice2 == 8:
         from conan.analysis_modules.axial_dens import density_analysis_prep as main_loop_preparation
+    elif choice2 == 9:
+        from conan.analysis_modules.velocity import velocity_prep as main_loop_preparation
     else:
         raise ValueError("Invalid choice")
     return main_loop_preparation
