@@ -281,9 +281,11 @@ class Structure1d(Structure):
         tube_table.title = "tube parameters"
         tube_table.field_names = ["Parameter", "Value"]
         tube_table.add_row(["configuration", self.tube_configuration])
+        tube_table.add_row(["tube size", self.tube_size])
         tube_table.add_row(["radius [Å]", round(self.radius, 3)])
         tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
         tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+        tube_table.add_row(["pbc length [Å]", round(self.pbc_length, 3)])
 
         ddict.printLog(tube_table)
 
@@ -392,6 +394,7 @@ class Structure1d(Structure):
             return None
 
         tube_size = parameters["tube_size"]  # Number of hexagonal units around the circumference
+        self.tube_size = tube_size
         tube_length = parameters["tube_length"]  # Length of the tube in the z-direction
         self.tube_length = parameters["tube_length"]
 
@@ -454,7 +457,7 @@ class Structure1d(Structure):
                     positions_tube.append((x, y, z))
                     angles.append(angle)
 
-                z_max = z_coordinate + zstep  # Update maximum z-coordinate reached
+                z_max = z  # Update maximum z-coordinate reached
                 counter += 1  # Increment the counter
 
         # If the tube is of the zigzag configuration
@@ -509,11 +512,22 @@ class Structure1d(Structure):
                     z = 2 * zstep + distance + z_coordinate
                     positions_tube.append((x, y, z))
 
-                z_max = z_coordinate + zstep  # Update maximum z-coordinate reached
+                z_max = z  # Update maximum z-coordinate reached
                 counter += 1  # Increment counter
 
         # Store the radius of the tube
         self.radius = radius
+
+        # adjusted to give correct tube length
+        self.tube_length = z_max
+
+        # get PBC tube length
+        # armchair configuration
+        if tube_kind == 1:
+            self.pbc_length = z_max + zstep
+        # zigzag configuration
+        if tube_kind == 2:
+            self.pbc_length = z_max + distance
 
         # Create DataFrame from the list of positions
         self._structure_df = pd.DataFrame(positions_tube)
@@ -614,23 +628,33 @@ class Structure1d(Structure):
 
         # now within the dataframe, the molcules need to be sorted by the following criteria: Species number -> Molecule
         # number -> Label.
-        # The according column names are 'Species', 'Molecule' and 'Label'. The first two are floats, the last one is a
-        # string.
-        # In case of the label the sorting should be done like C1, C2, C3, ... C10, C11, ... C100, C101, ... C1000,
-        # C1001, ...
-        # Extract the numerical part from the 'Label' column and convert it to integer
+        # The according column names are 'Species', 'Molecule' and 'Label'.
+        # In case of the label the sorting should be done like C1, C2, C3, ... C10, C11, ... C100, C101, ... C1000...
         positions_tube["Label_num"] = positions_tube["Label"].str.extract(r"(\d+)").astype(int)
 
-        # Sort the dataframe by 'Element', 'Molecule', and 'Label_num'
+        # Sort the dataframe by 'Species', 'Molecule', and 'Label_num'
         positions_tube = positions_tube.sort_values(by=["Species", "Molecule", "Label_num"])
-
-        # Drop the 'Label_num' column as it's no longer needed
         positions_tube = positions_tube.drop(columns=["Label_num"])
 
-        # # Finally compute the PBC size of the simulation box. It is given by the multiplicity in x and y direction
-        # times the unit cell size.
-        # pbc_size_x = multiplicity_x * unit_cell_x
-        # pbc_size_y = multiplicity_y * unit_cell_y
+        # Compute the PBC size of the simulation box.
+        pbc_size_x = multiplicity_x * unit_cell_x
+        pbc_size_y = multiplicity_y * unit_cell_y
+
+        tube_table = PrettyTable()
+        tube_table.title = "stacked tube parameters"
+        tube_table.field_names = ["Parameter", "Value"]
+        tube_table.add_row(["configuration", self.tube_configuration])
+        tube_table.add_row(["tube size", self.tube_size])
+        tube_table.add_row(["radius [Å]", round(self.radius, 3)])
+        tube_table.add_row(["diameter [Å]", round(self.radius * 2, 3)])
+        tube_table.add_row(["length [Å]", round(self.tube_length, 3)])
+        tube_table.add_row(["pbc length [Å]", round(self.pbc_length, 3)])
+        tube_table.add_row(["tube distance [Å]", round(distance_tubes, 3)])
+        tube_table.add_row(["multiplicity x", multiplicity_x])
+        tube_table.add_row(["multiplicity y", multiplicity_y])
+        tube_table.add_row(["pbc size x [Å]", round(pbc_size_x, 3)])
+        tube_table.add_row(["pbc size y [Å]", round(pbc_size_y, 3)])
+        ddict.printLog(tube_table)
         positions_tube["group"] = "Structure"
         self._structure_df = positions_tube
         self._structure_df.reset_index(inplace=True, drop=True)
