@@ -87,14 +87,15 @@ class AtomLabeler:
                 for atom in structure.cycle:
                     if atom not in structure.nitrogen_atoms:
                         # Efficient one-liner to assign the label based on neighbors
-                        neighbors = structure.subgraph.neighbors(atom)
+                        cycle_neighbors = structure.subgraph.neighbors(atom)
                         self.graph.nodes[atom]["label"] = (
                             f"{carbon_label_base}_CC"
-                            if all(self.graph.nodes[n]["element"] == "C" for n in neighbors)
+                            if all(self.graph.nodes[n]["element"] == "C" for n in cycle_neighbors)
                             else f"{carbon_label_base}_CN"
                         )
 
                         # Check for additional cases where a neighboring atom is Graphitic-N
+                        neighbors = self.graph.neighbors(atom)
                         if any(
                             self.graph.nodes[n].get("nitrogen_species") == NitrogenSpecies.GRAPHITIC for n in neighbors
                         ):
@@ -1963,7 +1964,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(0)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
