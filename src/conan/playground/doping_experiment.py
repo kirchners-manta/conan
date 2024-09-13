@@ -1588,7 +1588,8 @@ class GrapheneSheet(Structure2D):
 
     def _adjust_atom_positions(self):
         """
-        Adjust the positions of atoms in the graphene sheet to optimize the structure including doping.
+        Adjust the positions of atoms in the graphene sheet to optimize the structure including doping (minimize
+        structural strain).
 
         Notes
         -----
@@ -1614,9 +1615,9 @@ class GrapheneSheet(Structure2D):
         # Define the box size for minimum image distance calculation
         box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 
-        def bond_energy(x):
+        def bond_strain(x):
             """
-            Calculate the bond energy for the given positions.
+            Calculate the bond strain for the given atom positions.
 
             Parameters
             ----------
@@ -1625,11 +1626,11 @@ class GrapheneSheet(Structure2D):
 
             Returns
             -------
-            energy : float
-                The total bond energy.
+            total_strain : float
+                The total bond strain in the structure.
             """
 
-            energy = 0.0
+            total_strain = 0.0
 
             # Initialize a set to track edges within cycles
             cycle_edges = set()
@@ -1675,7 +1676,7 @@ class GrapheneSheet(Structure2D):
 
             # Calculate bond lengths and energy
             current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
-            energy += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
+            total_strain += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
 
             # Update bond lengths in the graph
             edge_updates = {
@@ -1716,7 +1717,7 @@ class GrapheneSheet(Structure2D):
                 target_lengths = np.full(len(current_lengths), 1.42)
 
                 # Calculate the energy contribution from non-cycle bonds
-                energy += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
+                total_strain += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
 
                 # Prepare bond length updates for non-cycle edges
                 edge_updates = {
@@ -1726,11 +1727,11 @@ class GrapheneSheet(Structure2D):
                 # Update the bond lengths in the graph for non-cycle edges
                 nx.set_edge_attributes(self.graph, edge_updates)
 
-            return energy
+            return total_strain
 
-        def angle_energy(x):
+        def angle_strain(x):
             """
-            Calculate the angle energy for the given positions.
+            Calculate the angle strain for the given atom positions.
 
             Parameters
             ----------
@@ -1739,11 +1740,11 @@ class GrapheneSheet(Structure2D):
 
             Returns
             -------
-            energy : float
-                The total angle energy.
+            total_strain : float
+                The total angular strain in the structure.
             """
 
-            energy = 0.0
+            total_strain = 0.0
 
             # Initialize lists to collect all triplets of nodes and their target angles
             all_triplets = []
@@ -1800,7 +1801,7 @@ class GrapheneSheet(Structure2D):
             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
 
             # Calculate the energy contribution from angle deviations and add it to the total energy
-            energy += 0.5 * self.k_inner_angle * np.sum((theta - target_angles) ** 2)
+            total_strain += 0.5 * self.k_inner_angle * np.sum((theta - target_angles) ** 2)
 
             if self.include_outer_angles:
                 # Calculate angle energy for angles outside the cycles
@@ -1842,13 +1843,13 @@ class GrapheneSheet(Structure2D):
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                            energy += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+                            total_strain += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
 
-            return energy
+            return total_strain
 
-        def total_energy(x):
+        def total_strain(x):
             """
-            Calculate the total energy (bond energy + angle energy) for the given positions.
+            Calculate the total structural strain (bond + angular) for the given positions.
 
             Parameters
             ----------
@@ -1857,29 +1858,29 @@ class GrapheneSheet(Structure2D):
 
             Returns
             -------
-            energy : float
-                The total energy.
+            total_strain : float
+                The total structural strain in the system.
             """
 
-            return bond_energy(x) + angle_energy(x)
+            return bond_strain(x) + angle_strain(x)
 
             # Define the maximum number of iterations (e.g., 1000)
 
         # Initialize the progress bar without a fixed total
-        pbar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
+        progress_bar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
 
-        def callback(xk):
+        def optimization_callback(xk):
             # Update the progress bar by one step
-            pbar.update(1)
+            progress_bar.update(1)
 
-        # Start the optimization with the callback
-        result = minimize(total_energy, x0, method="L-BFGS-B", callback=callback)
+        # Start the optimization process with the callback to update progress
+        result = minimize(total_strain, x0, method="L-BFGS-B", callback=optimization_callback)
 
         # Close the progress bar
-        pbar.close()
+        progress_bar.close()
 
         # Print the number of iterations and final energy
-        print(f"\nNumber of iterations: {result.nit}\nFinal energy: {result.fun}")
+        print(f"\nNumber of iterations: {result.nit}\nFinal structural strain: {result.fun}")
 
         # Reshape the optimized positions back to the 2D array format
         optimized_positions = result.x.reshape(-1, 2)
@@ -2849,18 +2850,18 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Label atoms before writing to XYZ file
-    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
-    # labeler.label_atoms()
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Label atoms before writing to XYZ file
+    labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
+    labeler.label_atoms()
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
@@ -2945,27 +2946,27 @@ def main():
     # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A PORE STRUCTURE
-    # Set parameters for graphene sheets
-    graphene_params = {"bond_distance": 1.42, "sheet_size": (20, 20)}  # in angstrom  # 20x20 unit cells
-
-    # Set parameters for CNT
-    cnt_params = {
-        "bond_length": 1.42,  # in angstrom
-        "tube_length": 10.0,  # length of the tube
-        "tube_size": 8,  # size of the CNT
-        "conformation": "zigzag",  # conformation of the CNT
-    }
-
-    # Set pore radius (adjust this to your CNT radius)
-    pore_radius = 4.0
-
-    # Create a pore structure
-    pore = Pore(graphene_params, cnt_params, pore_radius)
-
-    # Visualize or write the pore structure to a file
-    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    write_xyz(pore.graph, "pore_structure.xyz")
+    # # CREATE A PORE STRUCTURE
+    # # Set parameters for graphene sheets
+    # graphene_params = {"bond_distance": 1.42, "sheet_size": (20, 20)}  # in angstrom  # 20x20 unit cells
+    #
+    # # Set parameters for CNT
+    # cnt_params = {
+    #     "bond_length": 1.42,  # in angstrom
+    #     "tube_length": 10.0,  # length of the tube
+    #     "tube_size": 8,  # size of the CNT
+    #     "conformation": "zigzag",  # conformation of the CNT
+    # }
+    #
+    # # Set pore radius (adjust this to your CNT radius)
+    # pore_radius = 4.0
+    #
+    # # Create a pore structure
+    # pore = Pore(graphene_params, cnt_params, pore_radius)
+    #
+    # # Visualize or write the pore structure to a file
+    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    # write_xyz(pore.graph, "pore_structure.xyz")
 
 
 if __name__ == "__main__":
