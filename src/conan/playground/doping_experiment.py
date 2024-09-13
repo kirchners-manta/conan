@@ -46,11 +46,18 @@ class AtomLabeler:
 
     def label_atoms(self):
         """
-        Label the atoms in the graphene structure based on their species.
+        Label the atoms in the graphene structure based on their doping species and local environment.
 
-        This method assigns labels to atoms based on the doping structures they belong to.
+        This method assigns labels to atoms based on the doping structures they belong to and their immediate
+        environment.
         Atoms that are part of a doping structure get labeled according to their specific nitrogen or carbon species.
+        In each doping cycle, the neighboring atoms of a C atom that are also within a cycle are also specified, as well
+        as a graphitic-N neighbor outside the cycle, if present.
         All other carbon atoms are labeled as "CG" for standard graphene carbon.
+
+        In other words:
+        Atoms in the same symmetrically equivalent environment get the same label, while those in different
+        environments are labeled differently.
         """
         if not self.doping_structures:
             # Label all atoms as "CG" if there are no doping structures
