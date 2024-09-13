@@ -1582,8 +1582,8 @@ class GrapheneSheet(Structure2D):
         else:
             print(
                 "\nNo position adjustment is being performed. Doping has been applied structurally only.\n"
-                "If position adjustment via energy minimization is required, the 'adjust_positions' flag must be set"
-                " to True."
+                "If structural optimization is required to adjust the positions, the 'adjust_positions' flag must be "
+                "set to True."
             )
 
     def _adjust_atom_positions(self):
@@ -1863,8 +1863,6 @@ class GrapheneSheet(Structure2D):
             """
 
             return bond_strain(x) + angle_strain(x)
-
-            # Define the maximum number of iterations (e.g., 1000)
 
         # Initialize the progress bar without a fixed total
         progress_bar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
@@ -2626,8 +2624,8 @@ class CNT(Structure3D):
         # Issue a user warning about the lack of 3D position adjustment
         warnings.warn(
             "3D position adjustment is not currently supported in CONAN. "
-            "The generated doped structure should be used as a basis for further DFT or other computational "
-            "calculations. "
+            "The generated doped structure should be treated with care and may be used as a basis for further DFT or "
+            "other computational calculations."
             "Future versions may include 3D position optimization.",
             UserWarning,
         )
