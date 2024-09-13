@@ -50,8 +50,8 @@ class AtomLabeler:
         This method assigns labels to atoms based on the doping structures they belong to and their immediate
         environment.
         Atoms that are part of a doping structure get labeled according to their specific nitrogen or carbon species.
-        In each doping cycle, the neighboring atoms of a C atom that are also within a cycle are also specified, as well
-        as a graphitic-N neighbor outside the cycle, if present.
+        In each doping cycle, the neighboring atoms of a C atom that are also within a cycle are also specified (_CC or
+        _CN), as well as a graphitic-N neighbor outside the cycle, if present (_G).
         All other carbon atoms are labeled as "CG" for standard graphene carbon.
 
         In other words:
