@@ -2759,7 +2759,7 @@ class Pore(Structure3D):
             A list of atom indices to remove.
         """
         pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-        positions = np.array([node["position"].to_tuple() for node in graphene.graph.nodes.values()])
+        positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
 
         kdtree = KDTree(positions)
         indices = kdtree.query_ball_point(pore_center, r=self.bond_length * 1.5)  # Adjust as needed
@@ -2798,7 +2798,7 @@ class Pore(Structure3D):
             A list of edge atom indices.
         """
         pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-        positions = np.array([node["position"].to_tuple() for node in graphene.graph.nodes.values()])
+        positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
         kdtree = KDTree(positions)
         edge_atoms = kdtree.query_ball_point(pore_center, r=self.bond_length * 2)
         return edge_atoms
