@@ -238,6 +238,7 @@ class DopingStructure:
             box_size = (
                 structure.actual_sheet_width + structure.c_c_bond_distance,
                 structure.actual_sheet_height + structure.cc_y_distance,
+                0.0,
             )
 
             # Calculate the bond length between the two neighbors considering minimum image distance
@@ -1627,7 +1628,7 @@ class GrapheneSheet(Structure2D):
         # Get the initial positions of atoms
         positions = {node: self.graph.nodes[node]["position"] for node in self.graph.nodes}
         # Flatten the positions into a 1D array for optimization
-        x0 = np.array([coord for node in self.graph.nodes for coord in [positions[node].x, positions[node].y]])
+        x0 = np.array([coord for node in self.graph.nodes for coord in [positions[node][0], positions[node][1]]])
         # Define the box size for minimum image distance calculation
         box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
 

@@ -170,8 +170,7 @@ def minimum_image_distance(
     pos2 : Position
         Position of the second atom.
     box_size : Union[Tuple[float, float], Tuple[float, float, float]]
-        Size of the box in the x, y, and optionally z dimensions (box_width, box_height, box_depth).
-        If only 2 values are provided, z is assumed to be 0.
+        Size of the box in the x, y and optionally z dimensions (box_width, box_height, box_depth).
 
     Returns
     -------
@@ -180,9 +179,12 @@ def minimum_image_distance(
         - The minimum distance between the two positions as a float.
         - The displacement vector accounting for periodic boundary conditions as a named tuple (dx, dy, dz).
     """
-    # Ensure the box size is 3D by adding a z dimension if not provided
-    if len(box_size) == 2:
-        box_size = (*box_size, 0.0)
+    # Check if the dimensions of pos1/pos2 and box_size match
+    pos_dim = len(pos1)
+    box_dim = len(box_size)
+
+    if pos_dim != box_dim:
+        raise ValueError(f"Dimension mismatch: positions are {pos_dim}D, but box_size is {box_dim}D.")
 
     # Convert named tuples to numpy arrays for vector operations
     pos1 = np.array(pos1)
@@ -216,7 +218,6 @@ def minimum_image_distance_vectorized(
         Array of positions of the second set of atoms (N x 3).
     box_size : Union[Tuple[float, float], Tuple[float, float, float]]
         Size of the box in the x, y and optionally z dimensions (box_width, box_height, box_depth).
-        If only 2 values are provided, z is assumed to be 0.
 
     Returns
     -------
@@ -225,9 +226,12 @@ def minimum_image_distance_vectorized(
         - The minimum distances between the sets of positions as a numpy array.
         - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 3).
     """
-    # Ensure the box size is 3D by adding a z dimension if not provided
-    if len(box_size) == 2:
-        box_size = (*box_size, 0.0)
+    # Check if the dimensions of pos1/pos2 and box_size match
+    pos_dim = pos1.shape[1]
+    box_dim = len(box_size)
+
+    if pos_dim != box_dim:
+        raise ValueError(f"Dimension mismatch: positions are {pos_dim}D, but box_size is {box_dim}D.")
 
     # Calculate the vector difference between the two positions
     delta = pos2 - pos1
