@@ -2031,7 +2031,7 @@ class StackedGraphene(Structure3D):
 
         # Update the positions in the copied sheet
         for node, pos in sheet.graph.nodes(data="position"):
-            shifted_pos = Position(pos.x + x_shift, pos.y, pos.z + z_shift)
+            shifted_pos = Position(pos.x + x_shift, pos.y, z_shift)
             sheet.graph.nodes[node]["position"] = shifted_pos
 
     def build_structure(self):
@@ -2849,21 +2849,21 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND DOPE IT
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET AND DOPE IT
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
     # sheet_size = (20, 20)
     #
     # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Label atoms before writing to XYZ file
@@ -2874,6 +2874,7 @@ def main():
 
     ####################################################################################################################
     # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
+    # import time
     # sheet_size = (20, 20)
     #
     # # Create a graphene sheet
@@ -2919,31 +2920,33 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    # sheet_size = (20, 20)
-    #
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
-    #
-    # # Add individual nitrogen doping only to the first and last layer
-    # start_time = time.time()  # Time the nitrogen doping process
-    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
-    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
-    # end_time = time.time()
-    #
-    # # Calculate the elapsed time
-    # elapsed_time = end_time - start_time
-    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
-    #
+    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    import time
+
+    sheet_size = (20, 20)
+
+    # Create a graphene sheet
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+
+    # Stack the graphene sheet
+    stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
+
+    # Add individual nitrogen doping only to the first and last layer
+    start_time = time.time()  # Time the nitrogen doping process
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the structure to a .xyz file
+    write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
+
     ####################################################################################################################
     # # CREATE A CNT STRUCTURE
     #
