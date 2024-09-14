@@ -20,17 +20,15 @@ from scipy.optimize import minimize
 from scipy.spatial import KDTree
 from tqdm import tqdm
 
-from conan.playground.graph_utils import (
+from conan.playground.graph_utils import (  # Position2D,; Position3D,; toggle_dimension,
     NitrogenSpecies,
     NitrogenSpeciesProperties,
-    Position2D,
-    Position3D,
+    Position,
     create_position,
     get_color,
     get_neighbors_via_edges,
     minimum_image_distance,
     minimum_image_distance_vectorized,
-    toggle_dimension,
     write_xyz,
 )
 
@@ -1106,12 +1104,23 @@ class MaterialStructure(ABC):
         """
         pass
 
-    @abstractmethod
-    def translate(self, *args):
+    def translate(self, x_shift: float = 0.0, y_shift: float = 0.0, z_shift: float = 0.0):
         """
-        Abstract method to translate a structure in one or more desired directions.
+        Translate the structure by shifting all atom positions in the x, y, and z directions.
+
+        Parameters
+        ----------
+        x_shift : float, optional
+            The amount to shift in the x direction. Default is 0.0.
+        y_shift : float, optional
+            The amount to shift in the y direction. Default is 0.0.
+        z_shift : float, optional
+            The amount to shift in the z direction. Default is 0.0.
         """
-        pass
+        for node, data in self.graph.nodes(data=True):
+            position = data["position"]
+            new_position = Position(position.x + x_shift, position.y + y_shift, position.z + z_shift)
+            self.graph.nodes[node]["position"] = new_position
 
 
 # Abstract base class for 2D structures
@@ -1201,22 +1210,6 @@ class Structure2D(MaterialStructure):
 
         # Show the plot
         plt.show()
-
-    def translate(self, x_shift: float = 0.0, y_shift: float = 0.0):
-        """
-        Translate the 2D structure by shifting all atom positions in the x and y directions.
-
-        Parameters
-        ----------
-        x_shift : float, optional
-            The amount to shift in the x direction. Default is 0.0.
-        y_shift : float, optional
-            The amount to shift in the y direction. Default is 0.0.
-        """
-        for node, data in self.graph.nodes(data=True):
-            position = data["position"]
-            new_position = Position2D(position.x + x_shift, position.y + y_shift)
-            self.graph.nodes[node]["position"] = new_position
 
 
 # Abstract base class for 3D structures
@@ -1325,24 +1318,6 @@ class Structure3D(MaterialStructure):
 
         # Show the plot
         plt.show()
-
-    def translate(self, x_shift: float = 0.0, y_shift: float = 0.0, z_shift: float = 0.0):
-        """
-        Translate the 3D structure by shifting all atom positions in the x, y, and z directions.
-
-        Parameters
-        ----------
-        x_shift : float, optional
-            The amount to shift in the x direction. Default is 0.0.
-        y_shift : float, optional
-            The amount to shift in the y direction. Default is 0.0.
-        z_shift : float, optional
-            The amount to shift in the z direction. Default is 0.0.
-        """
-        for node, data in self.graph.nodes(data=True):
-            position = data["position"]
-            new_position = Position3D(position.x + x_shift, position.y + y_shift, position.z + z_shift)
-            self.graph.nodes[node]["position"] = new_position
 
 
 class GrapheneSheet(Structure2D):
@@ -1875,11 +1850,11 @@ class GrapheneSheet(Structure2D):
                             pos_i = create_position(x_i, y_i)
                             pos_j = create_position(x_j, y_j)
                             if (
-                                not isinstance(pos_node, Position2D)
-                                or not isinstance(pos_i, Position2D)
-                                or not isinstance(pos_j, Position2D)
+                                not isinstance(pos_node, Position)
+                                or not isinstance(pos_i, Position)
+                                or not isinstance(pos_j, Position)
                             ):
-                                raise TypeError("Expected Position2D, but got a different type")
+                                raise TypeError("Expected Position, but got a different type")
                             _, v1 = minimum_image_distance(pos_i, pos_node, box_size)
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -2018,7 +1993,7 @@ class StackedGraphene(Structure3D):
         """The number of layers to stack."""
 
         # Add the original graphene sheet as the first layer
-        toggle_dimension(graphene_sheet.graph)
+        # toggle_dimension(graphene_sheet.graph)
         self.graphene_sheets.append(graphene_sheet)
 
         # Add additional layers by copying the original graphene sheet
@@ -2055,7 +2030,7 @@ class StackedGraphene(Structure3D):
 
         # Update the positions in the copied sheet
         for node, pos in sheet.graph.nodes(data="position"):
-            shifted_pos = Position3D(pos.x + x_shift, pos.y, pos.z + z_shift)
+            shifted_pos = Position(pos.x + x_shift, pos.y, pos.z + z_shift)
             sheet.graph.nodes[node]["position"] = shifted_pos
 
     def build_structure(self):
@@ -2135,7 +2110,7 @@ class StackedGraphene(Structure3D):
         """
         if 0 <= layer_index < len(self.graphene_sheets):
             # Convert to 2D before doping
-            toggle_dimension(self.graphene_sheets[layer_index].graph)
+            # toggle_dimension(self.graphene_sheets[layer_index].graph)
 
             # Perform the doping
             self.graphene_sheets[layer_index].add_nitrogen_doping(
@@ -2143,7 +2118,7 @@ class StackedGraphene(Structure3D):
             )
 
             # Convert back to 3D after doping
-            toggle_dimension(self.graphene_sheets[layer_index].graph)
+            # toggle_dimension(self.graphene_sheets[layer_index].graph)
 
             # Shift the sheet to its correct position in the stack
             self._shift_sheet(self.graphene_sheets[layer_index], layer_index)
@@ -2492,7 +2467,7 @@ class CNT(Structure3D):
         nodes = {
             idx: {
                 "element": "C",  # Set the element type to carbon ("C")
-                "position": Position3D(*pos),  # Convert position tuple to Position3D object
+                "position": Position(*pos),  # Convert position tuple to Position object
                 "possible_doping_site": True,  # Mark the node as a possible doping site
             }
             for idx, pos in zip(node_indices, positions)  # Iterate over node indices and positions
@@ -2873,14 +2848,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET AND DOPE IT
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET AND DOPE IT
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -2979,31 +2954,31 @@ def main():
     # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A PORE STRUCTURE
-    # Define parameters for the graphene sheets and CNT
-    bond_length = 1.42  # Bond length for carbon atoms
-    sheet_size = (20, 20)  # Size of the graphene sheets
-    tube_length = 10.0  # Length of the CNT
-    tube_size = 8  # Number of hexagonal units around the CNT circumference
-    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-
-    # Create a Pore structure
-    pore = Pore(
-        bond_length=bond_length,
-        sheet_size=sheet_size,
-        tube_length=tube_length,
-        tube_size=tube_size,
-        conformation=conformation,
-    )
-
-    # Add optional nitrogen doping (if needed)
-    # pore.add_nitrogen_doping(total_percentage=10)
-
-    # Visualize the structure with labels (without showing periodic bonds)
-    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the Pore structure to a file
-    write_xyz(pore.graph, "Pore_structure.xyz")
+    # # CREATE A PORE STRUCTURE
+    # # Define parameters for the graphene sheets and CNT
+    # bond_length = 1.42  # Bond length for carbon atoms
+    # sheet_size = (20, 20)  # Size of the graphene sheets
+    # tube_length = 10.0  # Length of the CNT
+    # tube_size = 8  # Number of hexagonal units around the CNT circumference
+    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    #
+    # # Create a Pore structure
+    # pore = Pore(
+    #     bond_length=bond_length,
+    #     sheet_size=sheet_size,
+    #     tube_length=tube_length,
+    #     tube_size=tube_size,
+    #     conformation=conformation,
+    # )
+    #
+    # # Add optional nitrogen doping (if needed)
+    # # pore.add_nitrogen_doping(total_percentage=10)
+    #
+    # # Visualize the structure with labels (without showing periodic bonds)
+    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the Pore structure to a file
+    # write_xyz(pore.graph, "Pore_structure.xyz")
 
 
 if __name__ == "__main__":
