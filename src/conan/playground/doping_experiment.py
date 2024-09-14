@@ -1106,6 +1106,13 @@ class MaterialStructure(ABC):
         """
         pass
 
+    @abstractmethod
+    def translate(self, *args):
+        """
+        Abstract method to translate a structure in one or more desired directions.
+        """
+        pass
+
 
 # Abstract base class for 2D structures
 class Structure2D(MaterialStructure):
@@ -1194,6 +1201,22 @@ class Structure2D(MaterialStructure):
 
         # Show the plot
         plt.show()
+
+    def translate(self, x_shift: float = 0.0, y_shift: float = 0.0):
+        """
+        Translate the 2D structure by shifting all atom positions in the x and y directions.
+
+        Parameters
+        ----------
+        x_shift : float, optional
+            The amount to shift in the x direction. Default is 0.0.
+        y_shift : float, optional
+            The amount to shift in the y direction. Default is 0.0.
+        """
+        for node, data in self.graph.nodes(data=True):
+            position = data["position"]
+            new_position = Position2D(position.x + x_shift, position.y + y_shift)
+            self.graph.nodes[node]["position"] = new_position
 
 
 # Abstract base class for 3D structures
@@ -1302,6 +1325,24 @@ class Structure3D(MaterialStructure):
 
         # Show the plot
         plt.show()
+
+    def translate(self, x_shift: float = 0.0, y_shift: float = 0.0, z_shift: float = 0.0):
+        """
+        Translate the 3D structure by shifting all atom positions in the x, y, and z directions.
+
+        Parameters
+        ----------
+        x_shift : float, optional
+            The amount to shift in the x direction. Default is 0.0.
+        y_shift : float, optional
+            The amount to shift in the y direction. Default is 0.0.
+        z_shift : float, optional
+            The amount to shift in the z direction. Default is 0.0.
+        """
+        for node, data in self.graph.nodes(data=True):
+            position = data["position"]
+            new_position = Position3D(position.x + x_shift, position.y + y_shift, position.z + z_shift)
+            self.graph.nodes[node]["position"] = new_position
 
 
 class GrapheneSheet(Structure2D):
