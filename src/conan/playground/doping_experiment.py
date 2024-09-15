@@ -1902,7 +1902,7 @@ class GrapheneSheet(Structure2D):
 
         # Update the positions of atoms in the graph with the optimized positions using NetworkX set_node_attributes
         position_dict = {
-            node: create_position(optimized_positions[idx][0], optimized_positions[idx][1])
+            node: create_position(optimized_positions[idx][0], optimized_positions[idx][1], positions[node][2])
             for idx, node in enumerate(self.graph.nodes)
         }
         nx.set_node_attributes(self.graph, position_dict, "position")
@@ -2122,7 +2122,7 @@ class StackedGraphene(Structure3D):
             # toggle_dimension(self.graphene_sheets[layer_index].graph)
 
             # Shift the sheet to its correct position in the stack
-            self._shift_sheet(self.graphene_sheets[layer_index], layer_index)
+            # self._shift_sheet(self.graphene_sheets[layer_index], layer_index)
 
             # Rebuild the main graph in order to update the structure after doping
             self.build_structure()
@@ -2933,8 +2933,8 @@ def main():
 
     # Add individual nitrogen doping only to the first and last layer
     start_time = time.time()  # Time the nitrogen doping process
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15)
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15)
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=True)
+    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15, adjust_positions=True)
     end_time = time.time()
 
     # Calculate the elapsed time
