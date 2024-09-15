@@ -2698,8 +2698,8 @@ class Pore(Structure3D):
         self.cnt.translate(z_shift=z_shift)
 
         # Create holes in the graphene sheets at the connection points
-        self._create_holes_in_graphene(self.graphene1)
-        self._create_holes_in_graphene(self.graphene2)
+        # self._create_holes_in_graphene(self.graphene1)
+        # self._create_holes_in_graphene(self.graphene2)
 
         # Shift the second graphene sheet to the other end of the CNT
         self.graphene2.translate(z_shift=self.tube_length + z_shift)
@@ -2745,8 +2745,9 @@ class Pore(Structure3D):
         """
         Merge the two graphene sheets and the CNT into a single structure.
         """
-        self.graph = nx.compose_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
-        self._connect_graphene_to_cnt()
+        # self.graph = nx.compose_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
+        self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
+        # self._connect_graphene_to_cnt()
 
     def _connect_graphene_to_cnt(self):
         """
@@ -2920,32 +2921,32 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    import time
-
-    sheet_size = (20, 20)
-
-    # Create a graphene sheet
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-
-    # Stack the graphene sheet
-    stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
-
-    # Add individual nitrogen doping only to the first and last layer
-    start_time = time.time()  # Time the nitrogen doping process
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=True)
-    stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15, adjust_positions=True)
-    end_time = time.time()
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the structure to a .xyz file
-    write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
+    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    # import time
+    #
+    # sheet_size = (20, 20)
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
+    #
+    # # Add individual nitrogen doping only to the first and last layer
+    # start_time = time.time()  # Time the nitrogen doping process
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=True)
+    # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=4, total_percentage=15, adjust_positions=True)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
     # # CREATE A CNT STRUCTURE
@@ -2958,31 +2959,31 @@ def main():
     # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
-    # # CREATE A PORE STRUCTURE
-    # # Define parameters for the graphene sheets and CNT
-    # bond_length = 1.42  # Bond length for carbon atoms
-    # sheet_size = (20, 20)  # Size of the graphene sheets
-    # tube_length = 10.0  # Length of the CNT
-    # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-    #
-    # # Create a Pore structure
-    # pore = Pore(
-    #     bond_length=bond_length,
-    #     sheet_size=sheet_size,
-    #     tube_length=tube_length,
-    #     tube_size=tube_size,
-    #     conformation=conformation,
-    # )
-    #
-    # # Add optional nitrogen doping (if needed)
-    # # pore.add_nitrogen_doping(total_percentage=10)
-    #
-    # # Visualize the structure with labels (without showing periodic bonds)
-    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the Pore structure to a file
-    # write_xyz(pore.graph, "Pore_structure.xyz")
+    # CREATE A PORE STRUCTURE
+    # Define parameters for the graphene sheets and CNT
+    bond_length = 1.42  # Bond length for carbon atoms
+    sheet_size = (20, 20)  # Size of the graphene sheets
+    tube_length = 10.0  # Length of the CNT
+    tube_size = 8  # Number of hexagonal units around the CNT circumference
+    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+
+    # Create a Pore structure
+    pore = Pore(
+        bond_length=bond_length,
+        sheet_size=sheet_size,
+        tube_length=tube_length,
+        tube_size=tube_size,
+        conformation=conformation,
+    )
+
+    # Add optional nitrogen doping (if needed)
+    # pore.add_nitrogen_doping(total_percentage=10)
+
+    # Visualize the structure with labels (without showing periodic bonds)
+    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the Pore structure to a file
+    write_xyz(pore.graph, "Pore_structure.xyz")
 
 
 if __name__ == "__main__":
