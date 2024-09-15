@@ -2723,10 +2723,8 @@ class Pore(Structure3D):
         Build the Pore structure by connecting the two graphene sheets with the CNT.
         """
         # Calculate the x and y shift to center the CNT in the middle of the first graphene sheet
-        # x_shift = self.graphene1.sheet_size[0] / 2
-        # y_shift = self.graphene1.sheet_size[1] / 2
-        x_shift = (self.graphene1.actual_sheet_width - self.cnt.tube_diameter) / 2
-        y_shift = (self.graphene1.actual_sheet_height - self.cnt.tube_diameter) / 2
+        x_shift = self.graphene1.actual_sheet_width / 2
+        y_shift = self.graphene1.actual_sheet_height / 2
 
         # Position the CNT exactly in the center of the first graphene sheet in the x and y directions
         self.cnt.translate(x_shift=x_shift, y_shift=y_shift)
