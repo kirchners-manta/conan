@@ -2180,6 +2180,19 @@ class CNT(Structure3D):
         # Calculate the difference between the maximum and minimum z-values
         return max(z_coordinates) - min(z_coordinates)
 
+    @property
+    def tube_diameter(self):
+        """
+        Calculate the diameter of the CNT based on the tube size and bond length.
+        The formula differs for zigzag and armchair conformations and are taken from the following sources:
+            - https://www.sciencedirect.com/science/article/pii/S0020768306000412
+            - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+        """
+        if self.conformation == "armchair":
+            return (np.sqrt(3) * np.sqrt(3) * self.bond_length * self.tube_size) / np.pi
+        elif self.conformation == "zigzag":
+            return (np.sqrt(3) * self.bond_length * self.tube_size) / np.pi
+
     def build_structure(self):
         """
         Build the CNT structure based on the given parameters.
@@ -2710,8 +2723,10 @@ class Pore(Structure3D):
         Build the Pore structure by connecting the two graphene sheets with the CNT.
         """
         # Calculate the x and y shift to center the CNT in the middle of the first graphene sheet
-        x_shift = self.graphene1.sheet_size[0] / 2
-        y_shift = self.graphene1.sheet_size[1] / 2
+        # x_shift = self.graphene1.sheet_size[0] / 2
+        # y_shift = self.graphene1.sheet_size[1] / 2
+        x_shift = (self.graphene1.actual_sheet_width - self.cnt.tube_diameter) / 2
+        y_shift = (self.graphene1.actual_sheet_height - self.cnt.tube_diameter) / 2
 
         # Position the CNT exactly in the center of the first graphene sheet in the x and y directions
         self.cnt.translate(x_shift=x_shift, y_shift=y_shift)
