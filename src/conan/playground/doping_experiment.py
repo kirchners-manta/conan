@@ -2164,6 +2164,22 @@ class CNT(Structure3D):
         # Build the CNT structure using graph theory
         self.build_structure()
 
+    @property
+    def actual_length(self) -> float:
+        """
+        Calculate the actual length of the CNT by finding the difference between the maximum and minimum z-coordinates.
+
+        Returns
+        -------
+        float
+            The actual length of the CNT in the z direction.
+        """
+        # Get the z-coordinates of all nodes in the CNT
+        z_coordinates = [pos.z for node, pos in nx.get_node_attributes(self.graph, "position").items()]
+
+        # Calculate the difference between the maximum and minimum z-values
+        return max(z_coordinates) - min(z_coordinates)
+
     def build_structure(self):
         """
         Build the CNT structure based on the given parameters.
@@ -2693,16 +2709,15 @@ class Pore(Structure3D):
         """
         Build the Pore structure by connecting the two graphene sheets with the CNT.
         """
-        # Position the CNT between the graphene sheets
-        z_shift = self.sheet_size[0] / 2 + self.tube_length / 2
-        self.cnt.translate(z_shift=z_shift)
+        # Calculate the x and y shift to center the CNT in the middle of the first graphene sheet
+        x_shift = self.graphene1.sheet_size[0] / 2
+        y_shift = self.graphene1.sheet_size[1] / 2
 
-        # Create holes in the graphene sheets at the connection points
-        # self._create_holes_in_graphene(self.graphene1)
-        # self._create_holes_in_graphene(self.graphene2)
+        # Position the CNT exactly in the center of the first graphene sheet in the x and y directions
+        self.cnt.translate(x_shift=x_shift, y_shift=y_shift)
 
-        # Shift the second graphene sheet to the other end of the CNT
-        self.graphene2.translate(z_shift=self.tube_length + z_shift)
+        # Shift the second graphene sheet along the z-axis by the length of the CNT
+        self.graphene2.translate(z_shift=self.cnt.actual_length)
 
         # Merge the three structures (graphene1, CNT, graphene2)
         self._merge_structures()
