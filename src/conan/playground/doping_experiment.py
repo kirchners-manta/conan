@@ -1908,7 +1908,7 @@ class GrapheneSheet(Structure2D):
         nx.set_node_attributes(self.graph, position_dict, "position")
 
     def stack(
-        self, interlayer_spacing: float = 3.34, number_of_layers: int = 3, stacking_type: str = "ABA"
+        self, interlayer_spacing: float = 3.35, number_of_layers: int = 3, stacking_type: str = "ABA"
     ) -> "StackedGraphene":
         """
         Stack graphene sheets using ABA or ABC stacking.
@@ -1916,7 +1916,7 @@ class GrapheneSheet(Structure2D):
         Parameters
         ----------
         interlayer_spacing : float, optional
-            The shift in the z-direction for each layer. Default is 3.34 Å.
+            The shift in the z-direction for each layer. Default is 3.35 Å.
         number_of_layers : int, optional
             The number of layers to stack. Default is 3.
         stacking_type : str, optional
@@ -1942,7 +1942,11 @@ class StackedGraphene(Structure3D):
     """
 
     def __init__(
-        self, graphene_sheet: GrapheneSheet, interlayer_spacing: float, number_of_layers: int, stacking_type: str
+        self,
+        graphene_sheet: GrapheneSheet,
+        interlayer_spacing: float = 3.35,
+        number_of_layers: int = 3,
+        stacking_type: str = "ABA",
     ):
         """
         Initialize the StackedGraphene with a base graphene sheet, interlayer spacing, number of layers, and stacking
@@ -1952,12 +1956,12 @@ class StackedGraphene(Structure3D):
         ----------
         graphene_sheet : GrapheneSheet
             The base graphene sheet to be stacked.
-        interlayer_spacing : float
-            The spacing between layers in the z-direction.
-        number_of_layers : int
-            The number of layers to stack.
-        stacking_type : str
-            The type of stacking to use ('ABA' or 'ABC').
+        interlayer_spacing : float, optional
+            The spacing between layers in the z-direction. Default is 3.35 Å.
+        number_of_layers : int, optional
+            The number of layers to stack. Default is 3.
+        stacking_type : str, optional
+            The type of stacking to use ('ABA' or 'ABC'). Default is 'ABA'.
 
         Raises
         ------
@@ -2188,10 +2192,12 @@ class CNT(Structure3D):
             - https://www.sciencedirect.com/science/article/pii/S0020768306000412
             - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
         """
+        len_unit_vec = np.sqrt(3) * self.bond_length
         if self.conformation == "armchair":
-            return (np.sqrt(3) * np.sqrt(3) * self.bond_length * self.tube_size) / np.pi
+            len_unit_vec = np.sqrt(3) * self.bond_length
+            return (np.sqrt(3) * len_unit_vec * self.tube_size) / np.pi
         elif self.conformation == "zigzag":
-            return (np.sqrt(3) * self.bond_length * self.tube_size) / np.pi
+            return (len_unit_vec * self.tube_size) / np.pi
 
     def build_structure(self):
         """
@@ -2732,42 +2738,12 @@ class Pore(Structure3D):
         # Shift the second graphene sheet along the z-axis by the length of the CNT
         self.graphene2.translate(z_shift=self.cnt.actual_length)
 
+        # Create holes in both graphene sheets
+        # self._create_holes_in_graphene(self.graphene1, self.cnt)
+        # self._create_holes_in_graphene(self.graphene2, self.cnt)
+
         # Merge the three structures (graphene1, CNT, graphene2)
         self._merge_structures()
-
-    def _create_holes_in_graphene(self, graphene: GrapheneSheet):
-        """
-        Create holes in a graphene sheet where the CNT connects.
-
-        Parameters
-        ----------
-        graphene : GrapheneSheet
-            The graphene sheet in which to create the holes.
-        """
-        # Use KDTree to remove atoms in the pore region
-        atoms_to_remove = self._find_atoms_in_pore(graphene)
-        graphene.remove_atoms(atoms_to_remove)
-
-    def _find_atoms_in_pore(self, graphene: GrapheneSheet):
-        """
-        Find the atoms in the graphene sheet that lie within the pore radius.
-
-        Parameters
-        ----------
-        graphene : GrapheneSheet
-            The graphene sheet from which to remove atoms.
-
-        Returns
-        -------
-        List[int]
-            A list of atom indices to remove.
-        """
-        pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-        positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
-
-        kdtree = KDTree(positions)
-        indices = kdtree.query_ball_point(pore_center, r=self.bond_length * 1.5)  # Adjust as needed
-        return indices
 
     def _merge_structures(self):
         """
@@ -2777,64 +2753,112 @@ class Pore(Structure3D):
         self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
         # self._connect_graphene_to_cnt()
 
-    def _connect_graphene_to_cnt(self):
+    def _create_holes_in_graphene(self, graphene_sheet: GrapheneSheet, cnt: CNT):
         """
-        Connect the atoms of the graphene sheets to the CNT.
-        """
-        edge_atoms1 = self._find_graphene_edge_atoms(self.graphene1)
-        edge_atoms2 = self._find_graphene_edge_atoms(self.graphene2)
-        cnt_edge_atoms = self._find_cnt_edge_atoms()
-
-        self._connect_edges(edge_atoms1, cnt_edge_atoms)
-        self._connect_edges(edge_atoms2, cnt_edge_atoms)
-
-    def _find_graphene_edge_atoms(self, graphene: GrapheneSheet):
-        """
-        Find the edge atoms of the graphene sheet near the pore.
+        Create holes in the graphene sheet at the connection points with the CNT.
 
         Parameters
         ----------
-        graphene : GrapheneSheet
-            The graphene sheet to analyze.
-
-        Returns
-        -------
-        List[int]
-            A list of edge atom indices.
+        graphene_sheet : GrapheneSheet
+            The graphene sheet where the hole will be created.
+        cnt : CNT
+            The carbon nanotube connected to the graphene sheet.
         """
-        pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-        positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
-        kdtree = KDTree(positions)
-        edge_atoms = kdtree.query_ball_point(pore_center, r=self.bond_length * 2)
-        return edge_atoms
+        # Get the center and radius of the CNT
+        cnt_center_x = cnt.center[0]
+        cnt_center_y = cnt.center[1]
+        cnt_radius = cnt.tube_diameter / 2
 
-    def _find_cnt_edge_atoms(self):
-        """
-        Find the edge atoms of the CNT for connecting with the graphene sheets.
+        # Find atoms in the graphene sheet that are within the CNT radius
+        atoms_to_remove = []
+        for node, attributes in graphene_sheet.graph.nodes(data=True):
+            pos = attributes["position"]
+            distance_to_center = np.sqrt((pos[0] - cnt_center_x) ** 2 + (pos[1] - cnt_center_y) ** 2)
+            if distance_to_center <= cnt_radius:
+                atoms_to_remove.append(node)
 
-        Returns
-        -------
-        List[int]
-            A list of CNT edge atom indices.
-        """
-        positions = np.array([node["position"].to_tuple() for node in self.cnt.graph.nodes.values()])
-        z_min, z_max = positions[:, 2].min(), positions[:, 2].max()
-        edge_atoms = np.where((positions[:, 2] < z_min + 0.5) | (positions[:, 2] > z_max - 0.5))[0]
-        return edge_atoms
+        # Remove the atoms and their associated edges (bonds)
+        graphene_sheet.graph.remove_nodes_from(atoms_to_remove)
 
-    def _connect_edges(self, graphene_edge_atoms, cnt_edge_atoms):
-        """
-        Connect edge atoms of the graphene sheets to the CNT.
+    # def _find_atoms_in_pore(self, graphene: GrapheneSheet):
+    #     """
+    #     Find the atoms in the graphene sheet that lie within the pore radius.
+    #
+    #     Parameters
+    #     ----------
+    #     graphene : GrapheneSheet
+    #         The graphene sheet from which to remove atoms.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         A list of atom indices to remove.
+    #     """
+    #     pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
+    #     positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
+    #
+    #     kdtree = KDTree(positions)
+    #     indices = kdtree.query_ball_point(pore_center, r=self.bond_length * 1.5)  # Adjust as needed
+    #     return indices
 
-        Parameters
-        ----------
-        graphene_edge_atoms : List[int]
-            Indices of the graphene edge atoms.
-        cnt_edge_atoms : List[int]
-            Indices of the CNT edge atoms.
-        """
-        for g_idx, c_idx in zip(graphene_edge_atoms, cnt_edge_atoms):
-            self.graph.add_edge(g_idx, c_idx, bond_length=self.bond_length)
+    # def _connect_graphene_to_cnt(self):
+    #     """
+    #     Connect the atoms of the graphene sheets to the CNT.
+    #     """
+    #     edge_atoms1 = self._find_graphene_edge_atoms(self.graphene1)
+    #     edge_atoms2 = self._find_graphene_edge_atoms(self.graphene2)
+    #     cnt_edge_atoms = self._find_cnt_edge_atoms()
+    #
+    #     self._connect_edges(edge_atoms1, cnt_edge_atoms)
+    #     self._connect_edges(edge_atoms2, cnt_edge_atoms)
+    #
+    # def _find_graphene_edge_atoms(self, graphene: GrapheneSheet):
+    #     """
+    #     Find the edge atoms of the graphene sheet near the pore.
+    #
+    #     Parameters
+    #     ----------
+    #     graphene : GrapheneSheet
+    #         The graphene sheet to analyze.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         A list of edge atom indices.
+    #     """
+    #     pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
+    #     positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
+    #     kdtree = KDTree(positions)
+    #     edge_atoms = kdtree.query_ball_point(pore_center, r=self.bond_length * 2)
+    #     return edge_atoms
+    #
+    # def _find_cnt_edge_atoms(self):
+    #     """
+    #     Find the edge atoms of the CNT for connecting with the graphene sheets.
+    #
+    #     Returns
+    #     -------
+    #     List[int]
+    #         A list of CNT edge atom indices.
+    #     """
+    #     positions = np.array([node["position"].to_tuple() for node in self.cnt.graph.nodes.values()])
+    #     z_min, z_max = positions[:, 2].min(), positions[:, 2].max()
+    #     edge_atoms = np.where((positions[:, 2] < z_min + 0.5) | (positions[:, 2] > z_max - 0.5))[0]
+    #     return edge_atoms
+    #
+    # def _connect_edges(self, graphene_edge_atoms, cnt_edge_atoms):
+    #     """
+    #     Connect edge atoms of the graphene sheets to the CNT.
+    #
+    #     Parameters
+    #     ----------
+    #     graphene_edge_atoms : List[int]
+    #         Indices of the graphene edge atoms.
+    #     cnt_edge_atoms : List[int]
+    #         Indices of the CNT edge atoms.
+    #     """
+    #     for g_idx, c_idx in zip(graphene_edge_atoms, cnt_edge_atoms):
+    #         self.graph.add_edge(g_idx, c_idx, bond_length=self.bond_length)
 
     def add_nitrogen_doping(self, total_percentage: float = 10):
         """
@@ -2993,7 +3017,7 @@ def main():
     sheet_size = (20, 20)  # Size of the graphene sheets
     tube_length = 10.0  # Length of the CNT
     tube_size = 8  # Number of hexagonal units around the CNT circumference
-    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    conformation = "armchair"  # Conformation of the CNT (can be "zigzag" or "armchair")
 
     # Create a Pore structure
     pore = Pore(
