@@ -364,14 +364,12 @@ class Molecule:
         atom_positions = np.array([[atom["x"], atom["y"], atom["z"]] for atom in atoms]) % traj_file.box_size
         atom_elements = [atom["Element"] for atom in atoms]
 
-        # Create a graph with atoms as nodes and bonds as edges
         simbox_G = nx.Graph()
-
-        # Create k-d tree for efficient search
         tree = cKDTree(atom_positions, boxsize=traj_file.box_size)
 
         # Find pairs within max bond_distance
-        pairs = tree.query_pairs(max(bond_distances.values()))
+        max_bond_distance = max(bond_distances.values())
+        pairs = tree.query_pairs(max_bond_distance)
 
         for i, j in pairs:
             bond_distance = bond_distances.get((atom_elements[i], atom_elements[j]), float("inf"))
