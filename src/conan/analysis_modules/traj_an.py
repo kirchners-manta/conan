@@ -10,9 +10,14 @@ import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
 
+class Analysis:
+    def __init__(self, traj_file, molecules, maindict) -> None:
 
-def analysis_opt(traj_file, molecules, maindict) -> None:
+        self.choice = self.analysis_opt(traj_file, molecules, maindict)
+        
+        
 
+<<<<<<< Updated upstream
     # General analysis options (Is the whole trajectory necessary or just the first frame?).
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
@@ -25,11 +30,39 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(molecules.structure_data["CNT_centers"]) >= 0:
             traj_analysis(traj_file, molecules, maindict)
+=======
+            
+    def analysis_opt(traj_file, molecules, maindict) -> None:
+
+        # General analysis options (Is the whole trajectory necessary or just the first frame?).
+        ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
+        ddict.printLog("(2) Analyze the trajectory.")
+        choice = int(ddict.get_input("Picture or analysis mode?: ", traj_file.args, "int"))
+        ddict.printLog("")
+        if choice == 1:
+            ddict.printLog("PICTURE mode.\n", color="red")
+            generating_pictures(traj_file, molecules)
+        elif choice == 2:
+            ddict.printLog("ANALYSIS mode.\n", color="red")
+            if len(molecules.structure_data["CNT_centers"]) >= 0:
+                traj_analysis(traj_file, molecules, maindict)
+            else:
+                ddict.printLog("-> No CNTs detected.", color="red")
+>>>>>>> Stashed changes
         else:
-            ddict.printLog("-> No CNTs detected.", color="red")
-    else:
-        ddict.printLog("-> The choice is not known.")
-    ddict.printLog("")
+            ddict.printLog("-> The choice is not known.")
+        ddict.printLog("")
+
+        return choice
+
+
+
+    def frame_question(traj_file) -> int:
+
+        start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
+        frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
+
+        return start_frame, frame_interval
 
 
 def region_question(maindict, traj_file) -> dict:
@@ -51,13 +84,6 @@ def region_question(maindict, traj_file) -> dict:
 
     return regional_q, regions
 
-
-def frame_question(traj_file) -> int:
-
-    start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
-    frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
-
-    return start_frame, frame_interval
 
 
 def analysis_choice(traj_file) -> None:
