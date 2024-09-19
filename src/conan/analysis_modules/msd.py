@@ -7,13 +7,13 @@ from conan.analysis_modules import utils as ut
 
 
 # with this module the rmsd of the molecules in the system is computed (for all liquid species)
-def msd_prep(inputdict):
+def msd_prep(inputdict, traj_file, molecules):
 
-    number_of_frames = inputdict["number_of_frames"]
-    first_frame = inputdict["id_frame"]
+    number_of_frames = traj_file.number_of_frames
+    first_frame = traj_file.frame0
+    box_size = traj_file.box_size
     # rename the x, y and z column to X, Y and Z
     first_frame = first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"})
-    box_size = inputdict["box_size"]
 
     # add a new column to the first_frame by adding the masses of each atom. Stored in dict_mass in ddict.
     first_frame["Mass"] = first_frame["Element"].map(ddict.dict_mass())
@@ -67,17 +67,15 @@ def msd_prep(inputdict):
     return inputdict
 
 
-def msd_analysis(inputdict):
+def msd_analysis(inputdict, traj_file, molecules):
 
-    box_size = inputdict["box_size"]
+    box_size = traj_file.box_size
     current_frame = inputdict["split_frame"]
     COM_frame_reference = inputdict["COM_frame_reference"]
     current_frame["X"] = current_frame["X"].astype(float)
     current_frame["Y"] = current_frame["Y"].astype(float)
     current_frame["Z"] = current_frame["Z"].astype(float)
     current_frame["Mass"] = current_frame["Mass"].astype(float)
-
-    box_size = inputdict["box_size"]
 
     # Calculate the COM of all liquid molecules in the current frame and store them in a dataframe.
     COM_frame_current = pd.DataFrame(columns=["Species", "Molecule", "X", "Y", "Z"])

@@ -152,12 +152,12 @@ def Coord_number_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def Coord_number_analysis(inputdict, traj_file, molecules, analysis):
+def Coord_number_analysis(inputdict, traj_file, molecules):
     if (inputdict["do_xyz_analysis"]) == "y":
-        outputdict = Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis)
+        outputdict = Coord_number_xyz_analysis(inputdict, traj_file, molecules)
         return outputdict
     elif (inputdict["referencepoint"] == "y") & (inputdict["poresonly"] == "y"):
-        outputdict = Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis)
+        outputdict = Coord_number_pore_analysis(inputdict, traj_file, molecules)
         return outputdict
 
     # Get values from inputdict
@@ -165,7 +165,7 @@ def Coord_number_analysis(inputdict, traj_file, molecules, analysis):
     max_z_pore = inputdict["max_z_pore"]
     z_referencepoint = inputdict["z_referencepoint"]
     counter = inputdict["counter"]
-    regional = inputdict["regional"]
+    regional = inputdict["regional_q"]
     regions = inputdict["regions"]
     referencepoint = inputdict["referencepoint"]
     poresonly = inputdict["poresonly"]
@@ -663,7 +663,7 @@ def Coord_post_processing(inputdict):
     plt.close("all")
 
 
-def Coord_number_xyz_analysis(inputdict, traj_file, molecules, analysis):
+def Coord_number_xyz_analysis(inputdict, traj_file, molecules):
     # Get values from inputdict
     regional = inputdict["regional_q"]
     regions = inputdict["regions"]
@@ -990,7 +990,7 @@ def Coord_xyz_post_processing(inputdict):
     plt.close("all")
 
 
-def Coord_number_pore_analysis(inputdict, traj_file, molecules, analysis):
+def Coord_number_pore_analysis(inputdict, traj_file, molecules):
     # Get values from inputdict
     min_z_pore = inputdict["min_z_pore"]
     max_z_pore = inputdict["max_z_pore"]

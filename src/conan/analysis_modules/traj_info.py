@@ -156,8 +156,12 @@ class TrajectoryFile:
 
             elif self.file_type == "lmp":
                 with open(self.file, "r") as f:
-                    for i in range(8 + frame_number * self.lines_per_frame):
-                        next(f)
+                    try:
+                        for i in range(8 + frame_number * self.lines_per_frame):
+                            next(f)
+                    except StopIteration:
+                        raise ValueError(f"Frame {frame_number} does not exist in the file.")
+
                     header = f.readline().strip().split()
                     atom_id_pos = header.index("id") - 2
                     atom_type_pos = header.index("element") - 2
@@ -188,14 +192,14 @@ class TrajectoryFile:
                         "Charge": atom_charge_pos,
                     }
 
-                # now read the frame
-                df_frame = pd.read_csv(
-                    self.file,
-                    sep=r"\s+",
-                    nrows=self.num_atoms,
-                    header=None,
-                    skiprows=9 + frame_number * self.lines_per_frame,
-                )
+                    # now read the frame
+                    df_frame = pd.read_csv(
+                        self.file,
+                        sep=r"\s+",
+                        nrows=self.num_atoms,
+                        header=None,
+                        skiprows=9 + frame_number * self.lines_per_frame,
+                    )
 
                 # Rename the columns according to the positions
                 for key, pos in positions.items():
@@ -404,7 +408,7 @@ class Molecule:
                 molecules[i][j] = atoms[molecules[i][j]]["Index"]
 
         # Translate the atom numbers in the molecules and molecule_bonds list of lists
-        # to the element symbols (and save in a new filie).
+        # to the element symbols (and save in a new file).
         molecules_sym = []
         for molecule in molecules:
             molecule_symloop = []
@@ -454,12 +458,15 @@ class Molecule:
         # Finally revert the sorting of the dataframe to the original order.
         traj_file.frame0 = traj_file.frame0.sort_values(by="original_index").drop(columns="original_index")
 
+        molecule_counter = traj_file.frame0["Molecule"].max()
+
         return molecules, molecule_bonds, molecules_sym, molecule_bonds_sym, molecule_counter
 
     def get_unique_molecule_frame(self, frame0) -> pd.DataFrame:
 
         molecule_frame = pd.DataFrame(columns=["Molecule", "Atoms", "Bonds", "Atoms_sym", "Bonds_sym"])
-        molecule_frame["Molecule"] = range(1, self.molecule_counter + 1)
+
+        molecule_frame["Molecule"] = range(1, int(self.molecule_counter) + 1)
         molecule_frame["Atoms"] = self.molecules
         molecule_frame["Bonds"] = self.molecule_bonds
         molecule_frame["Atoms_sym"] = self.molecules_sym

@@ -42,7 +42,7 @@ def accessible_volume_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def accessible_volume_analysis(inputdict, traj_file, molecules, analysis):
+def accessible_volume_analysis(inputdict, traj_file, molecules):
 
     split_frame = inputdict["split_frame"]
     CNT_centers = molecules.CNT_centers
@@ -168,7 +168,7 @@ def distance_search_prep(inputdict, traj_file, molecules):
     return inputdict
 
 
-def distance_search_analysis(inputdict, traj_file, molecules, analysis):
+def distance_search_analysis(inputdict, traj_file, molecules):
 
     split_frame = inputdict["split_frame"]
     # get the structure atoms from the inputdict
@@ -259,9 +259,10 @@ def axial_density_prep(inputdict, traj_file, molecules):
     CNT_centers[0][1] = CNT_centers[0][1] % traj_file.box_size[1]
 
     # do the same for the CNT_atoms
-    CNT_atoms["x"] = CNT_atoms["x"] % traj_file.box_size[0]
-    CNT_atoms["y"] = CNT_atoms["y"] % traj_file.box_size[1]
-    CNT_atoms["z"] = CNT_atoms["z"] % traj_file.box_size[2]
+    CNT_atoms = CNT_atoms.copy()
+    CNT_atoms.loc[:, "x"] = CNT_atoms["x"] % traj_file.box_size[0]
+    CNT_atoms.loc[:, "y"] = CNT_atoms["y"] % traj_file.box_size[1]
+    CNT_atoms.loc[:, "z"] = CNT_atoms["z"] % traj_file.box_size[2]
 
     # Initialize arrays
     z_incr_CNT = [0] * len(CNT_centers)
@@ -333,7 +334,7 @@ def axial_density_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def axial_density_analysis(inputdict, traj_file, molecules, analysis):
+def axial_density_analysis(inputdict, traj_file, molecules):
 
     num_increments = inputdict["num_increments"]
     zdens_df = inputdict["zdens_df"]
@@ -642,7 +643,7 @@ def chunk_processing(inputdict):
     return inputdict
 
 
-def density_analysis_analysis(inputdict, traj_file, molecules, analysis):
+def density_analysis_analysis(inputdict, traj_file, molecules):
     split_frame = inputdict["split_frame"]
     box_size = traj_file.box_size
 

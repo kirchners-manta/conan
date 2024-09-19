@@ -8,10 +8,20 @@ import conan.analysis_modules.utils as ut
 import conan.defdict as ddict
 
 
-def COM_calculation(frame):
+# Unwrap coordinates
+def unwrap_coordinates(group, box_size):
+    coords = group[["X", "Y", "Z"]].values
+    unwrapped_coords = coords.copy()
+    for i in range(1, len(coords)):
+        delta = coords[i] - coords[i - 1]
+        delta -= box_size * np.round(delta / box_size)
+        unwrapped_coords[i] = unwrapped_coords[i - 1] + delta
+    group[["X", "Y", "Z"]] = unwrapped_coords
+    return group
 
-    # We now calculate the center of mass (COM) for each molecule
-    # Convert all values to float (this is needed so that the agg-function works)
+
+def COM_calculation(frame, box_size):
+    # Ensure all values are float
     frame["X"] = frame["X"].astype(float)
     frame["Y"] = frame["Y"].astype(float)
     frame["Z"] = frame["Z"].astype(float)
@@ -19,6 +29,8 @@ def COM_calculation(frame):
 
     # Precompute total mass for each molecule
     total_mass_per_molecule = frame.groupby("Molecule")["Mass"].transform("sum")
+
+    frame = frame.groupby("Molecule").apply(unwrap_coordinates, box_size=box_size)
 
     # Calculate mass weighted coordinates
     frame["X_COM"] = (frame["X"] * frame["Mass"]) / total_mass_per_molecule
@@ -32,18 +44,23 @@ def COM_calculation(frame):
         .reset_index()
     )
 
+    # Wrap COM back into the primary simulation box
+    mol_com["X_COM"] = mol_com["X_COM"] % box_size[0]
+    mol_com["Y_COM"] = mol_com["Y_COM"] % box_size[1]
+    mol_com["Z_COM"] = mol_com["Z_COM"] % box_size[2]
+
     return mol_com
 
 
 def velocity_prep(inputdict, traj_file, molecules):
 
-    args = inputdict["args"]
-    box_size = inputdict["box_size"]
+    args = traj_file.args
+    box_size = traj_file.box_size
     # first ask the user how large the time step is in the trajectory
     inputdict["dt"] = ddict.get_input("What is the time step in the trajectory? [fs]  ", args, "float")
 
     # set up the grid by using the prep function of the axial_dens module
-    inputdict = axdens.density_analysis_prep(inputdict)
+    inputdict = axdens.density_analysis_prep(inputdict, traj_file, molecules)
 
     # get first frame
     first_frame = inputdict["id_frame"].copy()
@@ -60,9 +77,10 @@ def velocity_prep(inputdict, traj_file, molecules):
     if velocity_choice == "1":
         inputdict["velocity_choice"] = "molecule"
         ddict.printLog(
-            "Warning: This analysis will yield erroneous results, if the trajectory is wrapped atomwise!\n", color="red"
+            "Warning: This analysis could yield erroneous results, if the trajectory is wrapped atomwise!\n",
+            color="red",
         )
-        COM_frame = COM_calculation(first_frame)
+        COM_frame = COM_calculation(first_frame, traj_file.box_size)
         inputdict["old_frame"] = COM_frame
     elif velocity_choice == "2":
         inputdict["velocity_choice"] = "atom"
@@ -78,15 +96,13 @@ def velocity_prep(inputdict, traj_file, molecules):
     return inputdict
 
 
-def velocity_calc_molecule(inputdict):
-
-    box_size = inputdict["box_size"]
+def velocity_calc_molecule(inputdict, box_size):
 
     old_frame = inputdict["old_frame"]
     split_frame = inputdict["split_frame"]
 
     # calculate the COM for the new frame
-    new_frame = COM_calculation(split_frame)
+    new_frame = COM_calculation(split_frame, box_size)
 
     # rename the columns of both frames from X_COM to X, Y_COM to Y and Z_COM to Z
     old_frame.rename(columns={"X_COM": "X", "Y_COM": "Y", "Z_COM": "Z"}, inplace=True)
@@ -160,12 +176,12 @@ def velocity_analysis_chunk_processing(inputdict):
     return inputdict
 
 
-def velocity_analysis(inputdict):
+def velocity_analysis(inputdict, traj_file, molecules):
 
     analysis_methods = {"molecule": velocity_calc_molecule, "atom": rad_vel.velocity_calc_atom}
     analysis_choice = inputdict["velocity_choice"]
     analysis_function = analysis_methods[analysis_choice]
-    inputdict = analysis_function(inputdict)
+    inputdict = analysis_function(inputdict, traj_file.box_size)
 
     cube_array = inputdict["cube_array"]
     grid_points_tree = inputdict["grid_points_tree"]

@@ -81,7 +81,7 @@ def raddens_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def radial_analysis(inputdict, traj_file, molecules, analysis, property_name):
+def radial_analysis(inputdict, traj_file, molecules, property_name):
 
     raddens_df = inputdict["raddens_df"]
     raddens_bin_edges = inputdict["raddens_bin_edges"]
@@ -148,12 +148,12 @@ def radial_analysis(inputdict, traj_file, molecules, analysis, property_name):
     return outputdict
 
 
-def radial_density_analysis(inputdict, traj_file, molecules, analysis):
-    return radial_analysis(inputdict, traj_file, molecules, analysis, "Mass")
+def radial_density_analysis(inputdict, traj_file, molecules):
+    return radial_analysis(inputdict, traj_file, molecules, "Mass")
 
 
-def radial_charge_density_analysis(inputdict, traj_file, molecules, analysis):
-    return radial_analysis(inputdict, traj_file, molecules, analysis, "Charge")
+def radial_charge_density_analysis(inputdict, traj_file, molecules):
+    return radial_analysis(inputdict, traj_file, molecules, "Charge")
 
 
 def raddens_post_processing(inputdict):

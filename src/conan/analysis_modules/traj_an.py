@@ -8,6 +8,7 @@ import pandas as pd
 
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
+from conan.analysis_modules import xyz_output as xyz
 
 
 def analysis_opt(traj_file, molecules, maindict) -> None:
@@ -19,7 +20,7 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
     ddict.printLog("")
     if choice == 1:
         ddict.printLog("PICTURE mode.\n", color="red")
-        generating_pictures(traj_file, molecules)
+        xyz.xyz_generator(traj_file, molecules)
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(molecules.structure_data["CNT_centers"]) >= 0:
@@ -28,166 +29,6 @@ def analysis_opt(traj_file, molecules, maindict) -> None:
             ddict.printLog("-> No CNTs detected.", color="red")
     else:
         ddict.printLog("-> The choice is not known.")
-    ddict.printLog("")
-
-
-def generating_pictures(traj_file, molecules) -> None:
-
-    ddict.printLog("(1) Produce xyz file of the whole simulation box.")
-    ddict.printLog("(2) Produce xyz file of empty pore structure.")
-    ddict.printLog("(3) Produce xyz file of the pore structures' tube.")
-    analysis1_choice = int(ddict.get_input("What do you want to do?: ", traj_file.args, "int"))
-
-    if analysis1_choice == 1:
-        ddict.printLog("\n-> xyz file of simulation box.")
-        # Write the xyz file. The first line has the number of atoms (column in the first_frame).
-        sort_species = ddict.get_input(
-            "Do you want to sort the rows in a certain species order? [y/n]: ", traj_file.args, "string"
-        )
-        if sort_species == "y":
-            species_order = ddict.get_input(
-                "Enter the species in the order you want them to be sorted: ", traj_file.args, "string"
-            )
-            # They will be given as 3,2,1,4,5,6 for example
-            species_order = species_order.split(",")
-            # The entries in the species_order list are strings, so they need to be converted to integers
-            species_order = [int(i) for i in species_order]
-            # Convert the 'Species' column to a categorical type with the specified order
-            traj_file.frame0["Species"] = pd.Categorical(
-                traj_file.frame0["Species"], categories=species_order, ordered=True
-            )
-            # Sort the frame0 dataframe by species and molecule and then by the row index.
-            # store the original index
-            traj_file.frame0["index"] = traj_file.frame0.index
-            traj_file.frame0 = traj_file.frame0.sort_values(by=["Species", "Molecule", "index"])
-        else:
-            species_order = None
-            # Sort the frame0 dataframe by species and molecule
-            traj_file.frame0 = traj_file.frame0.sort_values(by=["Species", "Molecule"])
-
-        traj_file.frame0 = traj_file.frame0.drop("index", axis=1)
-        print(traj_file.frame0)
-        frame_print = open("simbox_frame.xyz", "w")
-        frame_print.write("%d\n#Made with CONAN\n" % len(traj_file.frame0))
-        for index, row in traj_file.frame0.iterrows():
-            frame_print.write("%s\t%0.3f\t%0.3f\t%0.3f\n" % (row["Element"], row["x"], row["y"], row["z"]))
-        frame_print.close()
-        ddict.printLog("-> Saved simulation box as simbox_frame.xyz.")
-
-    elif analysis1_choice == 2:
-        ddict.printLog("\n-> Pics of pore structure(s).")
-        # Loop over the number of entries in the tuberadius numpy array.
-        for i in range(len(molecules.structure_data["CNT_centers"])):
-            # Create a dataframe with the just atoms of the respective pore structure. Extract the atoms from the
-            # traj_file.frame0. They are labeled Pore1, Pore2... in the Struc column.
-            CNT_atoms_pic = traj_file.frame0.loc[traj_file.frame0["Struc"] == "Pore%d" % (i + 1)]
-            # Remove all columns except the Element, x, y, and z columns.
-            ddict.printLog(CNT_atoms_pic)
-            CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule", "Label", "Species"], axis=1)
-            add_centerpoint = ddict.get_input(
-                "Add the center point of the CNT to the file? [y/n] ", traj_file.args, "string"
-            )
-            if add_centerpoint == "y":
-                # Add the center point of the CNT to the dataframe, labeled as X in a new row.
-                CNT_atoms_pic.loc[len(CNT_atoms_pic.index)] = [
-                    "X",
-                    molecules.structure_data["CNT_centers"][0][0],
-                    molecules.structure_data["CNT_centers"][0][1],
-                    molecules.structure_data["CNT_centers"][0][2],
-                ]
-            CNT_atoms_print = open(f"pore{i + 1}.xyz", "w")
-            CNT_atoms_print.write("%d\n#Made with CONAN\n" % len(CNT_atoms_pic))
-            # Print the CNT_atoms dataframe to a xyz file. Just the atoms, x, y, and z column.
-            for index, row in CNT_atoms_pic.iterrows():
-                CNT_atoms_print.write("%s\t%0.3f\t%0.3f\t%0.3f\n" % (row["Element"], row["x"], row["y"], row["z"]))
-            CNT_atoms_print.close()
-            ddict.printLog(f"-> saved as pore{i + 1}.xyz")
-
-    elif analysis1_choice == 3:
-        ddict.printLog("\n-> Tube pictures.")
-
-        for i in range(len(molecules.structure_data["CNT_centers"])):
-            # Dataframe with the atoms of the pore structure from traj_file.frame0.
-            CNT_atoms_pic = pd.DataFrame(traj_file.frame0.loc[traj_file.frame0["CNT"] == i + 1])
-            # Remove all unneeded columns except the Element, x, y, and z.
-            CNT_atoms_pic = CNT_atoms_pic.drop(["Charge", "Struc", "CNT", "Molecule"], axis=1)
-            add_liquid = ddict.get_input(f"Add liquid which is inside the CNT{i + 1}? [y/n] ", traj_file.args, "string")
-
-            if add_liquid == "y":
-                add_liquid2 = ddict.get_input(
-                    "Add all confined atoms (1), or entire molecules (2) ? [1/2] ", traj_file.args, "int"
-                )
-
-                # if add_liquid2 == 1:
-                # Scan the traj_file.frame0 and add all atoms which are inside the tube to the tube_atoms dataframe.
-                CNT_atoms_pic["Molecule"] = np.nan
-                for index, row in traj_file.frame0.iterrows():
-                    if (
-                        row["Struc"] == "Liquid"
-                        and row["z"] <= CNT_atoms_pic["z"].max()
-                        and row["z"] >= CNT_atoms_pic["z"].min()
-                    ):
-                        # Add the row to the tube_atoms dataframe.
-                        CNT_atoms_pic.loc[index] = [
-                            row["Element"],
-                            row["x"],
-                            row["y"],
-                            row["z"],
-                            row["Label"],
-                            row["Species"],
-                            row["Molecule"],
-                        ]
-
-                if add_liquid2 == 2:
-                    # traj_file.frame0 = traj_file.frame0.drop(["Charge", "CNT"], axis=1)
-
-                    # List the molecules which are inside the tube.
-                    mol_list = []
-                    mol_list.append(CNT_atoms_pic["Molecule"].unique())
-                    tube_atoms_mol = pd.DataFrame(columns=["Element", "x", "y", "z", "Label", "Species", "Molecule"])
-                    mol_list = mol_list[0]
-                    # Scan the traj_file.frame0 and add all atoms to the tube_atoms_mol dataframe.
-                    for index, row in traj_file.frame0.iterrows():
-                        if row["Molecule"] in mol_list:
-                            # Add the row to the tube_atoms dataframe.
-                            tube_atoms_mol.loc[index] = [
-                                row["Element"],
-                                row["x"],
-                                row["y"],
-                                row["z"],
-                                row["Label"],
-                                row["Species"],
-                                row["Molecule"],
-                            ]
-                    # Append the tube_atoms_mol dataframe to the tube_atoms_pic dataframe.
-                    CNT_atoms_pic = pd.concat([CNT_atoms_pic, tube_atoms_mol], ignore_index=True)
-
-                    # Finally remove all duplicates from the tube_atoms_pic dataframe.
-                    CNT_atoms_pic = CNT_atoms_pic.drop_duplicates(
-                        subset=["Element", "x", "y", "z", "Label", "Species", "Molecule"], keep="first"
-                    )
-
-            else:
-                add_centerpoint = ddict.get_input(
-                    f"Add the center point of the CNT{i + 1} to the file? [y/n] ", traj_file.args, "string"
-                )
-                if add_centerpoint == "y":
-                    CNT_atoms_pic.loc[len(CNT_atoms_pic.index)] = [
-                        "X",
-                        molecules.structure_data["CNT_centers"][0][0],
-                        molecules.structure_data["CNT_centers"][0][1],
-                        molecules.structure_data["CNT_centers"][0][2],
-                    ]
-
-            tube_atoms_print = open(f"CNT{i + 1}.xyz", "w")
-            tube_atoms_print.write("%d\n#Made with CONAN\n" % len(CNT_atoms_pic))
-
-            for index, row in CNT_atoms_pic.iterrows():
-                tube_atoms_print.write("%s\t%0.3f\t%0.3f\t%0.3f\n" % (row["Element"], row["x"], row["y"], row["z"]))
-            tube_atoms_print.close()
-            ddict.printLog(f"-> Saved as CNT{i + 1}.xyz")
-    else:
-        ddict.printLog("\nThe analysis you entered is not known.")
     ddict.printLog("")
 
 
@@ -310,6 +151,9 @@ def get_analysis_and_processing(choice2, maindict) -> callable:
     elif choice2 == 8:
         from conan.analysis_modules.axial_dens import density_analysis_analysis as analysis
         from conan.analysis_modules.axial_dens import density_analysis_processing as post_processing
+    elif choice2 == 9:
+        from conan.analysis_modules.velocity import velocity_analysis as analysis
+        from conan.analysis_modules.velocity import velocity_processing as post_processing
     else:
         raise ValueError("Invalid choice")
 
@@ -393,10 +237,10 @@ def traj_analysis(traj_file, molecules, maindict) -> None:
             split_frame.reset_index(drop=True, inplace=True)
 
             # Add the necessary columns to the dataframe.
-            split_frame["Struc"] = traj_file.frame0["Struc"].values
-            split_frame["Molecule"] = traj_file.frame0["Molecule"].values
-            split_frame["Species"] = traj_file.frame0["Species"].values
-            split_frame["Label"] = traj_file.frame0["Label"].values
+            split_frame["Struc"] = traj_file.frame0["Struc"]
+            split_frame["Molecule"] = traj_file.frame0["Molecule"]
+            split_frame["Species"] = traj_file.frame0["Species"]
+            split_frame["Label"] = traj_file.frame0["Label"]
 
             # Drop all CNT and carbon_wall atoms, just the Liquid atoms are needed for the analysis.
             split_frame = split_frame[split_frame["Struc"] == "Liquid"]
@@ -424,7 +268,7 @@ def traj_analysis(traj_file, molecules, maindict) -> None:
             maindict["regions"] = regions
             maindict["regional_q"] = regional_q
 
-            maindict = analysis(maindict, traj_file, molecules, analysis_opt)
+            maindict = analysis(maindict, traj_file, molecules)
 
             counter += 1
             print(

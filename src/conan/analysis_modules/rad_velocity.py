@@ -13,9 +13,7 @@ The atom is velocity is then assigned to a radial increment of the CNT.
 """
 
 
-def velocity_calc_atom(inputdict):
-
-    box_size = inputdict["box_size"]
+def velocity_calc_atom(inputdict, box_size):
 
     old_frame = inputdict["old_frame"]
     new_frame = inputdict["split_frame"]
@@ -99,7 +97,7 @@ def rad_velocity_prep(inputdict, traj_file, molecules):
     return outputdict
 
 
-def rad_velocity_analysis(inputdict, traj_file, molecules, analysis):
+def rad_velocity_analysis(inputdict, traj_file, molecules):
 
     CNT_centers = molecules.CNT_centers
     max_z_pore = molecules.max_z_pore
@@ -137,7 +135,7 @@ def rad_velocity_analysis(inputdict, traj_file, molecules, analysis):
     inputdict["min_z_pore"] = min_z_pore
 
     # Calculate velocity using velocity_calc_atom function
-    inputdict = velocity_calc_atom(inputdict)
+    inputdict = velocity_calc_atom(inputdict, traj_file.box_size)
 
     # Extract the frame with velocity information
     velocity_frame = inputdict["old_frame"]
