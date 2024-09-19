@@ -2753,32 +2753,53 @@ class Pore(Structure3D):
         self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
         # self._connect_graphene_to_cnt()
 
-    def _create_holes_in_graphene(self, graphene_sheet: GrapheneSheet, cnt: CNT):
+    def create_hole(self, center: Tuple[float, float], radius: float):
         """
-        Create holes in the graphene sheet at the connection points with the CNT.
+        Removes atoms within a certain radius around a given center using vectorized operations.
+
+        Note: Filtering with a bounding box minimizes the number of distance calculations. Therefore, the method scales
+        well with large structures, making it suitable for large graphene sheets.
 
         Parameters
         ----------
-        graphene_sheet : GrapheneSheet
-            The graphene sheet where the hole will be created.
-        cnt : CNT
-            The carbon nanotube connected to the graphene sheet.
+        center : Tuple[float, float]
+            The (x, y) coordinates of the center of the hole.
+        radius : float
+            The radius of the hole.
         """
-        # Get the center and radius of the CNT
-        cnt_center_x = cnt.center[0]
-        cnt_center_y = cnt.center[1]
-        cnt_radius = cnt.tube_diameter / 2
+        # Extract node positions and IDs
+        node_positions = nx.get_node_attributes(self.graph, "position")
+        node_ids = np.array(list(node_positions.keys()))
+        positions = np.array([(pos.x, pos.y) for pos in node_positions.values()])
 
-        # Find atoms in the graphene sheet that are within the CNT radius
-        atoms_to_remove = []
-        for node, attributes in graphene_sheet.graph.nodes(data=True):
-            pos = attributes["position"]
-            distance_to_center = np.sqrt((pos[0] - cnt_center_x) ** 2 + (pos[1] - cnt_center_y) ** 2)
-            if distance_to_center <= cnt_radius:
-                atoms_to_remove.append(node)
+        # Define the bounding box around the hole
+        x0, y0 = center
+        r = radius
+        within_box = (
+            (positions[:, 0] >= x0 - r)
+            & (positions[:, 0] <= x0 + r)
+            & (positions[:, 1] >= y0 - r)
+            & (positions[:, 1] <= y0 + r)
+        )
 
-        # Remove the atoms and their associated edges (bonds)
-        graphene_sheet.graph.remove_nodes_from(atoms_to_remove)
+        # Filter positions and node IDs within the bounding box
+        positions_in_box = positions[within_box]
+        node_ids_in_box = node_ids[within_box]
+
+        # Compute squared distances to the center
+        dx = positions_in_box[:, 0] - x0
+        dy = positions_in_box[:, 1] - y0
+        distances_squared = dx**2 + dy**2
+
+        # Identify nodes within the circle (hole)
+        within_circle = distances_squared <= r**2
+        nodes_to_remove = node_ids_in_box[within_circle]
+
+        # Remove nodes from the graph
+        self.graph.remove_nodes_from(nodes_to_remove.tolist())
+
+        # Update possible doping positions
+        self.doping_handler.mark_possible_carbon_atoms_for_update()
 
     # def _find_atoms_in_pore(self, graphene: GrapheneSheet):
     #     """
