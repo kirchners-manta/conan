@@ -17,7 +17,6 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from networkx.utils import pairwise
 from scipy.optimize import minimize
-from scipy.spatial import KDTree
 from tqdm import tqdm
 
 from conan.playground.graph_utils import (  # Position2D,; Position3D,; toggle_dimension,
@@ -1370,27 +1369,7 @@ class GrapheneSheet(Structure2D):
         # Build the initial graphene sheet structure
         self.build_structure()
 
-        # Initialize positions and KDTree for efficient neighbor search
-        self._positions = np.array([self.graph.nodes[node]["position"] for node in self.graph.nodes])
-        # self._positions = np.array([self.graph.nodes[node]['position'].to_tuple() for node in self.graph.nodes])
-        """The positions of atoms in the graphene sheet."""
-        self.kdtree = KDTree(self._positions)  # ToDo: Solve problem with periodic boundary conditions
-        """The KDTree data structure for efficient nearest neighbor search. A KDTree is particularly efficient for
-        spatial queries, such as searching for neighbors within a certain Euclidean distance. Such queries are often
-        computationally intensive when performed over a graph, especially when dealing with direct distance rather than
-        path lengths in the graph."""
-
         self.include_outer_angles = False  # ToDo: Delete later; just for testing purposes
-
-    @property
-    def positions(self):
-        return self._positions
-
-    @positions.setter
-    def positions(self, new_positions):
-        """Update the positions of atoms and rebuild the KDTree for efficient spatial queries."""
-        self._positions = new_positions
-        self.kdtree = KDTree(new_positions)
 
     @property
     def cc_x_distance(self):
@@ -3040,7 +3019,7 @@ def main():
     sheet_size = (20, 20)  # Size of the graphene sheets
     tube_length = 10.0  # Length of the CNT
     tube_size = 8  # Number of hexagonal units around the CNT circumference
-    conformation = "armchair"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
 
     # Create a Pore structure
     pore = Pore(
