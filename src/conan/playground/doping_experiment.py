@@ -500,8 +500,23 @@ class DopingHandler:
     def _initialize_species_properties() -> Dict[NitrogenSpecies, NitrogenSpeciesProperties]:
         # Initialize properties for PYRIDINIC_4 nitrogen species with target bond lengths and angles
         pyridinic_4_properties = NitrogenSpeciesProperties(
-            target_bond_lengths=[1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45, 1.45, 1.34, 1.32, 1.47, 1.32, 1.34, 1.45],
-            target_angles=[
+            target_bond_lengths_cycle=[
+                1.45,
+                1.34,
+                1.32,
+                1.47,
+                1.32,
+                1.34,
+                1.45,
+                1.45,
+                1.34,
+                1.32,
+                1.47,
+                1.32,
+                1.34,
+                1.45,
+            ],
+            target_angles_cycle=[
                 120.26,
                 121.02,
                 119.3,
@@ -520,8 +535,8 @@ class DopingHandler:
         )
         # Initialize properties for PYRIDINIC_3 nitrogen species with target bond lengths and angles
         pyridinic_3_properties = NitrogenSpeciesProperties(
-            target_bond_lengths=[1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45],
-            target_angles=[
+            target_bond_lengths_cycle=[1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45, 1.45, 1.33, 1.33, 1.45],
+            target_angles_cycle=[
                 120.00,
                 122.17,
                 120.00,
@@ -538,8 +553,8 @@ class DopingHandler:
         )
         # Initialize properties for PYRIDINIC_2 nitrogen species with target bond lengths and angles
         pyridinic_2_properties = NitrogenSpeciesProperties(
-            target_bond_lengths=[1.39, 1.42, 1.42, 1.33, 1.35, 1.44, 1.44, 1.35, 1.33, 1.42, 1.42, 1.39],
-            target_angles=[
+            target_bond_lengths_cycle=[1.39, 1.42, 1.42, 1.33, 1.35, 1.44, 1.44, 1.35, 1.33, 1.42, 1.42, 1.39],
+            target_angles_cycle=[
                 125.51,
                 118.04,
                 117.61,
@@ -556,8 +571,8 @@ class DopingHandler:
         )
         # Initialize properties for PYRIDINIC_1 nitrogen species with target bond lengths and angles
         pyridinic_1_properties = NitrogenSpeciesProperties(
-            target_bond_lengths=[1.31, 1.42, 1.45, 1.51, 1.42, 1.40, 1.40, 1.42, 1.51, 1.45, 1.42, 1.31, 1.70],
-            target_angles=[
+            target_bond_lengths_cycle=[1.31, 1.42, 1.45, 1.51, 1.42, 1.40, 1.40, 1.42, 1.51, 1.45, 1.42, 1.31, 1.70],
+            target_angles_cycle=[
                 115.48,
                 118.24,
                 128.28,
@@ -1637,7 +1652,7 @@ class GrapheneSheet(Structure2D):
             for structure in all_structures:
                 # Get the target bond lengths for the specific nitrogen species
                 properties = self.doping_handler.species_properties[structure.species]
-                target_bond_lengths = properties.target_bond_lengths
+                target_bond_lengths = properties.target_bond_lengths_cycle
                 # Extract the ordered cycle of the doping structure to get the current bond lengths in order
                 ordered_cycle = structure.cycle
 
@@ -1751,7 +1766,7 @@ class GrapheneSheet(Structure2D):
             # Iterate over all doping structures to gather triplets and target angles
             for structure in all_structures:
                 properties = self.doping_handler.species_properties[structure.species]
-                target_angles = properties.target_angles
+                target_angles = properties.target_angles_cycle
                 ordered_cycle = structure.cycle
 
                 # Extend the cycle to account for the closed loop by adding the first two nodes at the end

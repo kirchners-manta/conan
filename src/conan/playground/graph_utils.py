@@ -136,14 +136,20 @@ class NitrogenSpeciesProperties:
 
     Attributes
     ----------
-    target_bond_lengths : List[float]
-        A list of bond lengths of the doping structure.
-    target_angles : List[float]
-        A list of bond angles of the doping structure.
+    target_bond_lengths_cycle : List[float]
+        A list of bond lengths inside the doping structure (cycle).
+    target_bond_lengths_neighbors : List[float]
+        A list of bond lengths between doping structure and neighbors outside the cycle.
+    target_angles_cycle : List[float]
+        A list of bond angles inside the doping structure (cycle).
+    target_angles_neighbors : List[float]
+        A list of bond angles between doping structure and neighbors outside the cycle.
     """
 
-    target_bond_lengths: List[float]
-    target_angles: List[float]
+    target_bond_lengths_cycle: List[float]
+    target_bond_lengths_neighbors: List[float]
+    target_angles_cycle: List[float]
+    target_angles_neighbors: List[float]
 
 
 class NitrogenSpecies(Enum):

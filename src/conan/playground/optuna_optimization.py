@@ -90,7 +90,7 @@ def calculate_minimal_total_energy(
         for structure in all_structures:
             # Get the target bond lengths for the specific nitrogen species
             properties = graphene.species_properties[structure.species]
-            target_bond_lengths = properties.target_bond_lengths
+            target_bond_lengths = properties.target_bond_lengths_cycle
             # Extract the ordered cycle of the doping structure to get the current bond lengths in order
             ordered_cycle = structure.cycle
 
@@ -203,7 +203,7 @@ def calculate_minimal_total_energy(
         # Iterate over all doping structures to gather triplets and target angles
         for structure in all_structures:
             properties = graphene.species_properties[structure.species]
-            target_angles = properties.target_angles
+            target_angles = properties.target_angles_cycle
             ordered_cycle = structure.cycle
 
             # Extend the cycle to account for the closed loop by adding the first two nodes at the end
@@ -339,8 +339,8 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
     for idx, ordered_cycle in enumerate(all_cycles):
         species = species_for_cycles[idx]
         properties = graphene.species_properties[species]
-        target_bond_lengths = properties.target_bond_lengths
-        target_angles = properties.target_angles
+        target_bond_lengths = properties.target_bond_lengths_cycle
+        target_angles = properties.target_angles_cycle
         # subgraph = graphene.graph.subgraph(ordered_cycle).copy()
 
         for i in range(len(ordered_cycle)):
