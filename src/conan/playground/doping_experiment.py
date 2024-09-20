@@ -135,7 +135,8 @@ class DopingStructure:
         Create a doping structure within the graphene sheet.
 
         This method creates a doping structure by detecting the cycle in the graph that includes the
-        structure-building neighbors, ordering the cycle, and adding any necessary edges.
+        structure-building neighbors, ordering the cycle, adding any necessary edges, and identifying
+        neighboring atoms of the cycle.
 
         Parameters
         ----------
@@ -172,8 +173,19 @@ class DopingStructure:
         # Identify nitrogen atoms in the ordered cycle
         nitrogen_atoms = [node for node in ordered_cycle if graph.nodes[node]["element"] == "N"]
 
+        # Identify and order neighboring atoms
+        neighboring_atoms = cls._get_ordered_neighboring_atoms(graph, ordered_cycle)
+
         # Create and return the DopingStructure instance
-        return cls(species, structural_components, nitrogen_atoms, ordered_cycle, subgraph, additional_edge)
+        return cls(
+            species=species,
+            structural_components=structural_components,
+            nitrogen_atoms=nitrogen_atoms,
+            cycle=ordered_cycle,
+            neighboring_atoms=neighboring_atoms,
+            subgraph=subgraph,
+            additional_edge=additional_edge,
+        )
 
     @staticmethod
     def _detect_cycle_and_subgraph(graph: nx.Graph, neighbors: List[int]) -> Tuple[List[int], nx.Graph]:
@@ -409,6 +421,32 @@ class DopingStructure:
         if start_node is None:
             raise ValueError("No suitable starting node found in the subgraph.")
         return start_node
+
+    @staticmethod
+    def _get_ordered_neighboring_atoms(graph: nx.Graph, ordered_cycle: List[int]) -> List[int]:
+        """
+        Identify and order neighboring atoms connected to the cycle but not part of it.
+
+        Parameters
+        ----------
+        graph : nx.Graph
+            The main graph containing the structure.
+        ordered_cycle : List[int]
+            The list of atom IDs forming the ordered cycle.
+
+        Returns
+        -------
+        List[int]
+            The list of neighboring atom IDs ordered based on their connection to the ordered cycle.
+        """
+        neighboring_atoms = []
+        for node in ordered_cycle:
+            # Get neighbors of the node that are not in the cycle
+            neighbors = [neighbor for neighbor in graph.neighbors(node) if neighbor not in ordered_cycle]
+            # # Optionally sort the neighbors for consistency
+            # neighbors.sort()
+            neighboring_atoms.extend(neighbors)
+        return neighboring_atoms
 
 
 @dataclass
