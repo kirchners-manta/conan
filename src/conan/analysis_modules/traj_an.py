@@ -10,15 +10,8 @@ import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
 
-class Analysis:
-    def __init__(self, traj_file, molecules, maindict) -> None:
 
-        self.choice = self.analysis_opt(traj_file, molecules, maindict)
-        
-        
-
-<<<<<<< Updated upstream
-    # General analysis options (Is the whole trajectory necessary or just the first frame?).
+def analysis_opt(traj_file, molecules, maindict):
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
     choice = int(ddict.get_input("Picture or analysis mode?: ", traj_file.args, "int"))
@@ -29,100 +22,92 @@ class Analysis:
     elif choice == 2:
         ddict.printLog("ANALYSIS mode.\n", color="red")
         if len(molecules.structure_data["CNT_centers"]) >= 0:
-            traj_analysis(traj_file, molecules, maindict)
-=======
-            
-    def analysis_opt(traj_file, molecules, maindict) -> None:
-
-        # General analysis options (Is the whole trajectory necessary or just the first frame?).
-        ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
-        ddict.printLog("(2) Analyze the trajectory.")
-        choice = int(ddict.get_input("Picture or analysis mode?: ", traj_file.args, "int"))
-        ddict.printLog("")
-        if choice == 1:
-            ddict.printLog("PICTURE mode.\n", color="red")
-            generating_pictures(traj_file, molecules)
-        elif choice == 2:
-            ddict.printLog("ANALYSIS mode.\n", color="red")
-            if len(molecules.structure_data["CNT_centers"]) >= 0:
-                traj_analysis(traj_file, molecules, maindict)
-            else:
-                ddict.printLog("-> No CNTs detected.", color="red")
->>>>>>> Stashed changes
+            run_analysis(traj_file, molecules, maindict)
         else:
             ddict.printLog("-> The choice is not known.")
         ddict.printLog("")
 
-        return choice
+
+def run_analysis(traj_file, molecules, maindict):
+    an = Analysis(traj_file, molecules, maindict)
+    traj_analysis(traj_file, molecules, maindict, an)
 
 
+class Analysis:
+    def __init__(self, traj_file, molecules, maindict) -> None:
 
-    def frame_question(traj_file) -> int:
+        self.choice2 = self.analysis_choice(traj_file)
+        self.reg_q, self.regions, self.maindict = self.region_question(maindict, traj_file)
+        self.run = self.get_traj_module(traj_file)
+        self.start_frame, self.frame_interval = self.frame_question(traj_file)
 
+    def frame_question(self, traj_file) -> tuple:
         start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
         frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
-
         return start_frame, frame_interval
 
+    def region_question(self, maindict, traj_file) -> tuple:
+        maindict["box_dimension"] = np.array(traj_file.box_size)
+        regional_q = ddict.get_input(
+            "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
+        )
+        regions = [0] * 6
+        if regional_q == "y":
+            regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
+            regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
+            regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
+            regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
+            regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
+            regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
+        return regional_q, regions, maindict
 
-def region_question(maindict, traj_file) -> dict:
+    def analysis_choice(self, traj_file) -> int:
+        # Analysis choice.
+        ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
+        ddict.printLog("(1) Calculate the radial density inside the CNT")
+        ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
+        ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
+        ddict.printLog("(4) Calculate the accessible volume of the CNT")
+        ddict.printLog(
+            "(5) Calculate the axial density along the z axis of the simulation box,",
+            " with the accessible volume of the CNT considered.",
+        )
+        ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
+        ddict.printLog("\nThese functions are generally applicable.", color="red")
+        ddict.printLog("(7) Calculate the coordination number")
+        ddict.printLog("(8) Calculate the density along the axes.")
+        ddict.printLog("(9) Calculate the velocity of the liquid in the CNT.")
 
-    maindict["box_dimension"] = np.array(traj_file.box_size)
+        analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        if analysis_choice2 not in analysis_choice2_options:
+            ddict.printLog("-> The analysis you entered is not known.")
+            sys.exit(1)
+        ddict.printLog("")
 
-    # Ask if the analysis should be performed in a specific region
-    regional_q = ddict.get_input(
-        "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
-    )
-    regions = [0] * 6
-    if regional_q == "y":
-        regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
-        regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
-        regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
-        regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
-        regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
-        regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
+        return analysis_choice2
 
-    return regional_q, regions
-
-
-
-def analysis_choice(traj_file) -> None:
-    # Analysis choice.
-    ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
-    ddict.printLog("(1) Calculate the radial density inside the CNT")
-    ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
-    ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
-    ddict.printLog("(4) Calculate the accessibe volume of the CNT")
-    ddict.printLog(
-        "(5) Calculate the axial density along the z axis of the simulation box,",
-        " with the accessible volume of the CNT considered.",
-    )
-    ddict.printLog("(6) Calculate the maximal/minimal distance between the liquid and pore atoms")
-    ddict.printLog("\nThese functions are generally applicable.", color="red")
-    ddict.printLog("(7) Calculate the coordination number")
-    ddict.printLog("(8) Calculate the density along the axes.")
-    ddict.printLog("(9) Calculate the velocity of the liquid in the CNT.")
-
-    analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-    analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    if analysis_choice2 not in analysis_choice2_options:
-        ddict.printLog("-> The analysis you entered is not known.")
-        sys.exit(1)
-    ddict.printLog("")
-
-    return analysis_choice2
+    def get_traj_module(self, traj_file) -> callable:
+        if traj_file.args["trajectoryfile"].endswith(".xyz"):
+            from conan.analysis_modules.traj_info import xyz as run
+        elif traj_file.args["trajectoryfile"].endswith(".pdb"):
+            from conan.analysis_modules.traj_info import pdb as run
+        elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(
+            ".lammpstrj"
+        ):
+            from conan.analysis_modules.traj_info import lammpstrj as run
+        else:
+            raise ValueError("Unsupported trajectory file format")
+        return run
 
 
-def prepare_analysis_dict(maindict, traj_file, molecules, choice2) -> dict:
-
+def prepare_analysis_dict(maindict, traj_file, molecules, choice2, an) -> dict:
     maindict["maxdisp_atom_row"] = None
     maindict["maxdisp_atom_dist"] = 0
-
-    maindict["analysis_choice2"] = choice2
+    maindict["analysis_choice2"] = an.choice2
     maindict["unique_molecule_frame"] = molecules.unique_molecule_frame
     maindict["CNT_atoms"] = traj_file.frame0[traj_file.frame0["CNT"].notnull()]
     maindict["number_of_frames"] = traj_file.number_of_frames
-
     return maindict
 
 
@@ -148,7 +133,7 @@ def get_preperation(choice2) -> callable:
     return main_loop_preparation
 
 
-def get_analysis_and_processing(choice2, maindict) -> callable:
+def get_analysis_and_processing(choice2, maindict) -> tuple:
     if choice2 in [1, 2]:
         if choice2 == 1:
             from conan.analysis_modules.rad_dens import radial_density_analysis as analysis
@@ -182,12 +167,10 @@ def get_analysis_and_processing(choice2, maindict) -> callable:
         from conan.analysis_modules.velocity import velocity_processing as post_processing
     else:
         raise ValueError("Invalid choice")
-
     return analysis, post_processing
 
 
 def get_chunk_processing(maindict) -> callable:
-
     if maindict["do_xyz_analysis"] == "y":
         from conan.analysis_modules.coordination_number import Coord_xyz_chunk_processing as chunk_processing
     else:
@@ -195,26 +178,13 @@ def get_chunk_processing(maindict) -> callable:
     return chunk_processing
 
 
-def get_traj_module(traj_file) -> callable:
-    if traj_file.args["trajectoryfile"].endswith(".xyz"):
-        from conan.analysis_modules.traj_info import xyz as run
-    elif traj_file.args["trajectoryfile"].endswith(".pdb"):
-        from conan.analysis_modules.traj_info import pdb as run
-    elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(".lammpstrj"):
-        from conan.analysis_modules.traj_info import lammpstrj as run
-    else:
-        raise ValueError("Unsupported trajectory file format")
-    return run
-
-
-def traj_analysis(traj_file, molecules, maindict) -> None:
-
-    choice2 = analysis_choice(traj_file)
-    maindict = prepare_analysis_dict(maindict, traj_file, molecules, choice2)
+def traj_analysis(traj_file, molecules, maindict, an) -> None:
+    choice2 = an.choice2
+    # choice2 = analysis_choice(traj_file)
+    maindict = prepare_analysis_dict(maindict, traj_file, molecules, choice2, an)
 
     # Get the preparation function
     main_loop_preparation = get_preperation(choice2)
-
     maindict = main_loop_preparation(maindict, traj_file, molecules)
 
     # Get the analysis and post-processing functions
@@ -226,13 +196,13 @@ def traj_analysis(traj_file, molecules, maindict) -> None:
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
 
     Main_time = time.time()
-
     counter = 0
 
-    regional_q, regions = region_question(maindict, traj_file)
-    start_frame, frame_interval = frame_question(traj_file)
+    regions = an.regions
+    regional_q = an.reg_q
+    start_frame = an.start_frame
+    frame_interval = an.frame_interval
 
-    run = get_traj_module(traj_file)
     element_masses = ddict.dict_mass()
     trajectory = pd.read_csv(traj_file.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
     chunk_number = 0
@@ -259,7 +229,7 @@ def traj_analysis(traj_file, molecules, maindict) -> None:
                 continue
 
             # First load the frame into the function run() to get a dataframe. Then reset the index.
-            split_frame = run(frame, element_masses, traj_file.frame0)
+            split_frame = an.run(frame, element_masses, traj_file.frame0)
             split_frame.reset_index(drop=True, inplace=True)
 
             # Add the necessary columns to the dataframe.
