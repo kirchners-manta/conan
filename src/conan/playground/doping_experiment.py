@@ -107,6 +107,8 @@ class DopingStructure:
         List of atoms that are replaced by nitrogen atoms to form the doping structure.
     cycle : Optional[List[int]]
         List of atom IDs forming the cycle of the doping structure (this is only relevant for pyridinic doping).
+    neighboring_atoms : Optional[List[int]]
+        List of atom IDs neighboring the cycle of the doping structure (this is only relevant for pyridinic doping).
     subgraph : Optional[nx.Graph]
         The subgraph containing the doping structure.
     additional_edge : Optional[Tuple[int, int]]
@@ -117,6 +119,7 @@ class DopingStructure:
     structural_components: StructuralComponents[List[int], List[int]]
     nitrogen_atoms: List[int]
     cycle: Optional[List[int]] = field(default=None)
+    neighboring_atoms: Optional[List[int]] = field(default=None)
     subgraph: Optional[nx.Graph] = field(default=None)
     additional_edge: Optional[Tuple[int, int]] = field(default=None)
 
