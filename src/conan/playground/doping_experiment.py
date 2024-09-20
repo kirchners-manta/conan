@@ -1356,15 +1356,14 @@ class GrapheneSheet(Structure2D):
         self.sheet_size = sheet_size
         """The size of the graphene sheet in the x and y directions."""
 
-        # Initialize k-values for bond and angle energies
-        self.k_inner_bond = 10
-        """The spring constant for bonds within the doping structure."""
-        self.k_outer_bond = 0.1
-        """The spring constant for bonds outside the doping structure."""
-        self.k_inner_angle = 10
-        """The spring constant for angles within the doping structure."""
-        self.k_outer_angle = 0.1
-        """The spring constant for angles outside the doping structure."""
+        # Initialize k-values for bond and angle strain
+        self.k_inner_bond = 90
+        """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
+        atoms to their neighbors in the graphene sheet."""
+        self.k_outer_bond = 75
+        """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
+        self.k_angle = 200
+        """The spring constant for all angles in the graphene sheet."""
 
         # Build the initial graphene sheet structure
         self.build_structure()
