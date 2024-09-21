@@ -2965,86 +2965,6 @@ class Pore(Structure3D):
         self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
         # self._connect_graphene_to_cnt()
 
-    # def _find_atoms_in_pore(self, graphene: GrapheneSheet):
-    #     """
-    #     Find the atoms in the graphene sheet that lie within the pore radius.
-    #
-    #     Parameters
-    #     ----------
-    #     graphene : GrapheneSheet
-    #         The graphene sheet from which to remove atoms.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of atom indices to remove.
-    #     """
-    #     pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-    #     positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
-    #
-    #     kdtree = KDTree(positions)
-    #     indices = kdtree.query_ball_point(pore_center, r=self.bond_length * 1.5)  # Adjust as needed
-    #     return indices
-
-    # def _connect_graphene_to_cnt(self):
-    #     """
-    #     Connect the atoms of the graphene sheets to the CNT.
-    #     """
-    #     edge_atoms1 = self._find_graphene_edge_atoms(self.graphene1)
-    #     edge_atoms2 = self._find_graphene_edge_atoms(self.graphene2)
-    #     cnt_edge_atoms = self._find_cnt_edge_atoms()
-    #
-    #     self._connect_edges(edge_atoms1, cnt_edge_atoms)
-    #     self._connect_edges(edge_atoms2, cnt_edge_atoms)
-    #
-    # def _find_graphene_edge_atoms(self, graphene: GrapheneSheet):
-    #     """
-    #     Find the edge atoms of the graphene sheet near the pore.
-    #
-    #     Parameters
-    #     ----------
-    #     graphene : GrapheneSheet
-    #         The graphene sheet to analyze.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of edge atom indices.
-    #     """
-    #     pore_center = (self.sheet_size[0] / 2, self.sheet_size[1] / 2)
-    #     positions = np.array([node["position"] for node in graphene.graph.nodes.values()])
-    #     kdtree = KDTree(positions)
-    #     edge_atoms = kdtree.query_ball_point(pore_center, r=self.bond_length * 2)
-    #     return edge_atoms
-    #
-    # def _find_cnt_edge_atoms(self):
-    #     """
-    #     Find the edge atoms of the CNT for connecting with the graphene sheets.
-    #
-    #     Returns
-    #     -------
-    #     List[int]
-    #         A list of CNT edge atom indices.
-    #     """
-    #     positions = np.array([node["position"].to_tuple() for node in self.cnt.graph.nodes.values()])
-    #     z_min, z_max = positions[:, 2].min(), positions[:, 2].max()
-    #     edge_atoms = np.where((positions[:, 2] < z_min + 0.5) | (positions[:, 2] > z_max - 0.5))[0]
-    #     return edge_atoms
-    #
-    # def _connect_edges(self, graphene_edge_atoms, cnt_edge_atoms):
-    #     """
-    #     Connect edge atoms of the graphene sheets to the CNT.
-    #
-    #     Parameters
-    #     ----------
-    #     graphene_edge_atoms : List[int]
-    #         Indices of the graphene edge atoms.
-    #     cnt_edge_atoms : List[int]
-    #         Indices of the CNT edge atoms.
-    #     """
-    #     for g_idx, c_idx in zip(graphene_edge_atoms, cnt_edge_atoms):
-    #         self.graph.add_edge(g_idx, c_idx, bond_length=self.bond_length)
-
     def add_nitrogen_doping(self, total_percentage: float = 10):
         """
         Add nitrogen doping to the Pore structure.
@@ -3087,14 +3007,14 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     # ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET AND DOPE IT
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET AND DOPE IT
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10)
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -3196,31 +3116,31 @@ def main():
     # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A PORE STRUCTURE
-    # Define parameters for the graphene sheets and CNT
-    bond_length = 1.42  # Bond length for carbon atoms
-    sheet_size = (20, 20)  # Size of the graphene sheets
-    tube_length = 10.0  # Length of the CNT
-    tube_size = 8  # Number of hexagonal units around the CNT circumference
-    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-
-    # Create a Pore structure
-    pore = Pore(
-        bond_length=bond_length,
-        sheet_size=sheet_size,
-        tube_length=tube_length,
-        tube_size=tube_size,
-        conformation=conformation,
-    )
-
-    # Add optional nitrogen doping (if needed)
-    # pore.add_nitrogen_doping(total_percentage=10)
-
-    # Visualize the structure with labels (without showing periodic bonds)
-    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the Pore structure to a file
-    write_xyz(pore.graph, "Pore_structure.xyz")
+    # # CREATE A PORE STRUCTURE
+    # # Define parameters for the graphene sheets and CNT
+    # bond_length = 1.42  # Bond length for carbon atoms
+    # sheet_size = (20, 20)  # Size of the graphene sheets
+    # tube_length = 10.0  # Length of the CNT
+    # tube_size = 8  # Number of hexagonal units around the CNT circumference
+    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    #
+    # # Create a Pore structure
+    # pore = Pore(
+    #     bond_length=bond_length,
+    #     sheet_size=sheet_size,
+    #     tube_length=tube_length,
+    #     tube_size=tube_size,
+    #     conformation=conformation,
+    # )
+    #
+    # # Add optional nitrogen doping (if needed)
+    # # pore.add_nitrogen_doping(total_percentage=10)
+    #
+    # # Visualize the structure with labels (without showing periodic bonds)
+    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the Pore structure to a file
+    # write_xyz(pore.graph, "Pore_structure.xyz")
 
 
 if __name__ == "__main__":
