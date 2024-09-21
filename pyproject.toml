@@ -127,7 +127,8 @@ dependencies = [
     "plotly",
     "scikit-learn",
     "kaleido",
-    "tqdm"
+    "tqdm",
+    "ase",
 ]
 
 # List additional groups of dependencies here (e.g. development
