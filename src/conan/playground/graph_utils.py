@@ -193,14 +193,18 @@ def minimum_image_distance(
         raise ValueError(f"Dimension mismatch: positions are {pos_dim}D, but box_size is {box_dim}D.")
 
     # Convert named tuples to numpy arrays for vector operations
-    pos1 = np.array(pos1)
-    pos2 = np.array(pos2)
+    pos1 = np.array(pos1, dtype=np.float64)
+    pos2 = np.array(pos2, dtype=np.float64)
+    box_size = np.array(box_size, dtype=np.float64)
+
+    # Check for division by zero in the box size and replace with a large value if necessary
+    box_size_safe = np.where(box_size == 0, np.inf, box_size)
 
     # Calculate the vector difference between the two positions
     d_pos = pos1 - pos2
 
     # Adjust the difference vector for periodic boundary conditions
-    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
+    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size_safe))
 
     # Calculate the Euclidean distance using the adjusted difference vector
     distance = np.linalg.norm(d_pos)

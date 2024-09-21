@@ -441,11 +441,9 @@ class DopingStructure:
         """
         neighboring_atoms = []
         for node in ordered_cycle:
-            # Get neighbors of the node that are not in the cycle
-            neighbors = [neighbor for neighbor in graph.neighbors(node) if neighbor not in ordered_cycle]
-            # # Optionally sort the neighbors for consistency
-            # neighbors.sort()
-            neighboring_atoms.extend(neighbors)
+            # Get the neighbor of the node that is not in the cycle
+            neighbor_without_cycle = [neighbor for neighbor in graph.neighbors(node) if neighbor not in ordered_cycle]
+            neighboring_atoms.extend(neighbor_without_cycle)
         return neighboring_atoms
 
 
