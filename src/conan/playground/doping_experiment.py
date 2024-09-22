@@ -1771,6 +1771,319 @@ class GrapheneSheet(Structure2D):
         Notes
         -----
         This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
+        configuration. It uses a combination of bond and angle energies to minimize the total energy of the system,
+        following the specified definitions for bond and angle spring constants.
+
+        It handles cases where bonds are included in multiple doping structures by averaging the target
+        lengths assigned to them. Each bond has a single force constant `k`, determined by whether it is an inner
+        or outer bond. Angles are assigned target values based on their involvement in doping structures or are set
+        to the default bond angle (120 degrees) otherwise.
+        """
+
+        # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
+        all_structures = [
+            structure
+            for structure in self.doping_handler.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
+
+        # Return if no doping structures are present
+        if not all_structures:
+            return
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(self.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Get the initial positions of atoms, ordered consistently
+        positions = {node: self.graph.nodes[node]["position"] for node in all_nodes}
+
+        # Flatten the positions into a 1D array for optimization
+        num_nodes = len(all_nodes)
+        x0 = np.zeros(num_nodes * 2)
+        x0[:num_nodes] = [positions[node][0] for node in all_nodes]  # x-coordinates
+        x0[num_nodes:] = [positions[node][1] for node in all_nodes]  # y-coordinates
+
+        # Define the box size for minimum image distance calculation
+        box_size = (
+            self.actual_sheet_width + self.c_c_bond_distance,
+            self.actual_sheet_height + self.cc_y_distance,
+        )
+
+        # Dictionaries to store bond and angle properties
+        bond_target_lengths = {}  # key: (node_i, node_j), value: list of target lengths
+        bond_k_values = {}  # key: (node_i, node_j), value: k value
+        angle_target_angles = {}  # key: (node_i, node_j, node_k), value: target angle in degrees
+
+        # Sets to keep track of inner bonds and angles
+        inner_bond_set = set()
+        inner_angle_set = set()
+
+        # Collect inner bonds and angles from doping structures
+        for structure in all_structures:
+            properties = self.doping_handler.species_properties[structure.species]
+
+            cycle_atoms = structure.cycle
+            neighbor_atoms = structure.neighboring_atoms
+
+            # Map node IDs to indices in the cycle and neighbors
+            # cycle_atom_indices = {node: idx for idx, node in enumerate(cycle_atoms)}
+            neighbor_atom_indices = {node: idx for idx, node in enumerate(neighbor_atoms)}
+
+            # Bonds within the cycle
+            cycle_edges = list(pairwise(cycle_atoms + [cycle_atoms[0]]))
+            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
+                cycle_edges.append(structure.additional_edge)
+
+            for idx, (node_i, node_j) in enumerate(cycle_edges):
+                bond = (min(node_i, node_j), max(node_i, node_j))
+                inner_bond_set.add(bond)
+
+                # Append target length
+                bond_target_lengths.setdefault(bond, []).append(properties.target_bond_lengths_cycle[idx])
+                # Assign k value (k_inner_bond)
+                bond_k_values[bond] = self.k_inner_bond
+
+            # Bonds between cycle atoms and their neighbors
+            for idx, node_i in enumerate(cycle_atoms):
+                neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
+                for neighbor in neighbors:
+                    bond = (min(node_i, neighbor), max(node_i, neighbor))
+                    inner_bond_set.add(bond)
+                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(
+                        properties.target_bond_lengths_neighbors
+                    ):
+                        target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
+                    else:
+                        target_length = self.c_c_bond_distance
+                    bond_target_lengths.setdefault(bond, []).append(target_length)
+                    # Assign k value (k_inner_bond)
+                    bond_k_values[bond] = self.k_inner_bond
+
+            # Angles within the cycle
+            extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
+            for idx in range(len(cycle_atoms)):
+                node_i = extended_cycle[idx]
+                node_j = extended_cycle[idx + 1]
+                node_k = extended_cycle[idx + 2]
+                angle = (node_i, node_j, node_k)
+                inner_angle_set.add(angle)
+                angle_target_angles[angle] = properties.target_angles_cycle[idx]
+                # k_angle is the same for all angles
+
+            # Angles involving neighboring atoms
+            for idx_j, node_j in enumerate(cycle_atoms):
+                neighbors = [n for n in self.graph.neighbors(node_j) if n not in cycle_atoms]
+                node_i_prev = extended_cycle[idx_j]
+                node_k_next = extended_cycle[idx_j + 2]
+
+                for neighbor in neighbors:
+                    # Angle: neighbor - node_j - next node in cycle
+                    angle1 = (neighbor, node_j, node_k_next)
+                    inner_angle_set.add(angle1)
+                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                        target_angle = properties.target_angles_neighbors[idx_in_neighbors]
+                    else:
+                        target_angle = self.c_c_bond_angle  # Default to 120 degrees
+                    angle_target_angles[angle1] = target_angle
+
+                    # Angle: previous node in cycle - node_j - neighbor
+                    angle2 = (node_i_prev, node_j, neighbor)
+                    inner_angle_set.add(angle2)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                        target_angle = properties.target_angles_neighbors[idx_in_neighbors]
+                    else:
+                        target_angle = self.c_c_bond_angle  # Default to 120 degrees
+                    angle_target_angles[angle2] = target_angle
+
+        # Collect all bonds in the graph
+        all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in self.graph.edges()]
+
+        # Outer bonds are those not in inner_bond_set
+        outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
+
+        # Assign target lengths and k values for outer bonds
+        for bond in outer_bonds:
+            bond_target_lengths.setdefault(bond, []).append(self.c_c_bond_distance)
+            bond_k_values[bond] = self.k_outer_bond
+
+        # Collect all angles in the graph
+        all_angle_set = set()
+        for node_j in self.graph.nodes():
+            neighbors = list(self.graph.neighbors(node_j))
+            for idx_i in range(len(neighbors)):
+                for idx_k in range(idx_i + 1, len(neighbors)):
+                    node_i = neighbors[idx_i]
+                    node_k = neighbors[idx_k]
+                    angle = (node_i, node_j, node_k)
+                    all_angle_set.add(angle)
+
+        # Outer angles are those not in inner_angle_set
+        outer_angle_set = all_angle_set - inner_angle_set
+
+        # Assign target angles for outer angles
+        for angle in outer_angle_set:
+            angle_target_angles[angle] = self.c_c_bond_angle  # 120 degrees
+
+        # Prepare data for bond strain calculation
+        bond_list = []
+        for bond in bond_target_lengths:
+            node_i, node_j = bond
+            idx_i = node_index_map[node_i]
+            idx_j = node_index_map[node_j]
+            # Average target lengths
+            avg_target_length = np.mean(bond_target_lengths[bond])
+            k_value = bond_k_values[bond]
+            bond_list.append((idx_i, idx_j, avg_target_length, k_value))
+
+        bond_array = np.array(bond_list, dtype=[("idx_i", int), ("idx_j", int), ("target_length", float), ("k", float)])
+
+        # Prepare data for angle strain calculation
+        angle_list = []
+        for angle in angle_target_angles:
+            node_i, node_j, node_k = angle
+            idx_i = node_index_map[node_i]
+            idx_j = node_index_map[node_j]
+            idx_k = node_index_map[node_k]
+            target_angle = angle_target_angles[angle]
+            angle_list.append((idx_i, idx_j, idx_k, target_angle))
+
+        angle_array = np.array(
+            angle_list,
+            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float)],
+        )
+
+        def bond_strain(x):
+            """
+            Calculate the bond strain for the given atom positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms.
+
+            Returns
+            -------
+            total_strain : float
+                The total bond strain in the structure.
+            """
+            # Extract positions
+            idx_i = bond_array["idx_i"]
+            idx_j = bond_array["idx_j"]
+            positions_i = np.column_stack((x[idx_i], x[idx_i + num_nodes]))
+            positions_j = np.column_stack((x[idx_j], x[idx_j + num_nodes]))
+
+            # Calculate bond lengths
+            current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+
+            # Calculate bond strain
+            target_lengths = bond_array["target_length"]
+            k_values = bond_array["k"]
+            total_strain = 0.5 * np.sum(k_values * (current_lengths - target_lengths) ** 2)
+
+            return total_strain
+
+        def angle_strain(x):
+            """
+            Calculate the angle strain for the given atom positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms.
+
+            Returns
+            -------
+            total_strain : float
+                The total angular strain in the structure.
+            """
+            # Extract positions
+            idx_i = angle_array["idx_i"]
+            idx_j = angle_array["idx_j"]
+            idx_k = angle_array["idx_k"]
+            positions_i = np.column_stack((x[idx_i], x[idx_i + num_nodes]))
+            positions_j = np.column_stack((x[idx_j], x[idx_j + num_nodes]))
+            positions_k = np.column_stack((x[idx_k], x[idx_k + num_nodes]))
+
+            # Calculate vectors
+            _, v1 = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+            _, v2 = minimum_image_distance_vectorized(positions_k, positions_j, box_size)
+
+            # Calculate norms
+            norm_v1 = np.linalg.norm(v1, axis=1)
+            norm_v2 = np.linalg.norm(v2, axis=1)
+
+            # Prevent division by zero
+            norm_v1 = np.where(norm_v1 == 0, 1e-8, norm_v1)
+            norm_v2 = np.where(norm_v2 == 0, 1e-8, norm_v2)
+
+            # Calculate cos_theta safely
+            cos_theta = np.einsum("ij,ij->i", v1, v2) / (norm_v1 * norm_v2)
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)
+
+            # Calculate angles
+            theta = np.arccos(cos_theta)
+
+            # Calculate angle strain
+            target_angles = np.radians(angle_array["target_angle"])
+            delta_theta = theta - target_angles
+
+            total_strain = 0.5 * self.k_angle * np.sum(delta_theta**2)
+
+            return total_strain
+
+        def total_strain(x):
+            """
+            Calculate the total structural strain (bond + angular) for the given positions.
+
+            Parameters
+            ----------
+            x : ndarray
+                Flattened array of positions of all atoms.
+
+            Returns
+            -------
+            total_strain : float
+                The total structural strain in the system.
+            """
+            return bond_strain(x) + angle_strain(x)
+
+        # Initialize the progress bar
+        progress_bar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
+
+        def optimization_callback(xk):
+            # Update the progress bar by one step
+            progress_bar.update(1)
+
+        # Start the optimization process with the callback to update progress
+        result = minimize(total_strain, x0, method="L-BFGS-B", callback=optimization_callback, options={"disp": True})
+
+        # Close the progress bar
+        progress_bar.close()
+
+        # Print the number of iterations and final energy
+        print(f"\nNumber of iterations: {result.nit}\nFinal structural strain: {result.fun}")
+
+        # Reshape the optimized positions back to the 2D array format
+        optimized_positions = np.column_stack((result.x[:num_nodes], result.x[num_nodes:]))
+
+        # Update the positions of atoms in the graph with the optimized positions
+        position_dict = {
+            node: Position(optimized_positions[idx][0], optimized_positions[idx][1], positions[node][2])
+            for idx, node in enumerate(all_nodes)
+        }
+        nx.set_node_attributes(self.graph, position_dict, "position")
+
+    def _adjust_atom_positions_old(self):
+        """
+        Adjust the positions of atoms in the graphene sheet to optimize the structure including doping (minimize
+        structural strain).
+
+        Notes
+        -----
+        This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
         configuration. It uses a combination of bond and angle energies to minimize the total energy of the system.
         """
 
@@ -3009,7 +3322,7 @@ def main():
     sheet_size = (20, 20)
 
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
