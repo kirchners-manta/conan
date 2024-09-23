@@ -1864,7 +1864,7 @@ class GrapheneSheet(Structure2D):
                 node_i = extended_cycle[idx]
                 node_j = extended_cycle[idx + 1]
                 node_k = extended_cycle[idx + 2]
-                angle = (node_i, node_j, node_k)
+                angle = (min(node_i, node_k), node_j, max(node_i, node_k))
                 inner_angle_set.add(angle)
                 angle_target_angles[angle] = properties.target_angles_cycle[idx]
                 # k_angle is the same for all angles
@@ -1877,7 +1877,8 @@ class GrapheneSheet(Structure2D):
 
                 for neighbor in neighbors:
                     # Angle: previous node in cycle - node_j - neighbor
-                    angle1 = (node_i_prev, node_j, neighbor)
+                    # angle1 = (node_i_prev, node_j, neighbor)
+                    angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
                     inner_angle_set.add(angle1)
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
@@ -1887,7 +1888,8 @@ class GrapheneSheet(Structure2D):
                     angle_target_angles[angle1] = target_angle
 
                     # Angle: neighbor - node_j - next node in cycle
-                    angle2 = (neighbor, node_j, node_k_next)
+                    # angle2 = (neighbor, node_j, node_k_next)
+                    angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
                     inner_angle_set.add(angle2)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
                         target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
@@ -1914,7 +1916,8 @@ class GrapheneSheet(Structure2D):
                 for idx_k in range(idx_i + 1, len(neighbors)):
                     node_i = neighbors[idx_i]
                     node_k = neighbors[idx_k]
-                    angle = (node_i, node_j, node_k)
+                    # angle = (node_i, node_j, node_k)
+                    angle = (min(node_i, node_k), node_j, max(node_i, node_k))
                     all_angle_set.add(angle)
 
         # Outer angles are those not in inner_angle_set
