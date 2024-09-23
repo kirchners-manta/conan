@@ -585,15 +585,6 @@ class DopingHandler:
             ],
             target_angles_neighbors=[
                 118.54,
-                118.86,
-                120.88,
-                122.56,
-                118.14,
-                118.14,
-                122.56,
-                120.88,
-                118.86,
-                118.54,
                 118.54,
                 118.86,
                 120.88,
@@ -604,6 +595,15 @@ class DopingHandler:
                 120.88,
                 118.86,
                 118.54,
+                118.54,
+                118.86,
+                120.88,
+                122.56,
+                118.14,
+                118.14,
+                122.56,
+                120.88,
+                118.86,
             ],
         )
         # Initialize properties for PYRIDINIC_3 nitrogen species with target bond lengths and angles
@@ -636,11 +636,6 @@ class DopingHandler:
             ],
             target_angles_neighbors=[
                 118.88,
-                118.92,
-                121.10,
-                121.10,
-                118.92,
-                118.88,
                 118.88,
                 118.92,
                 121.10,
@@ -653,6 +648,11 @@ class DopingHandler:
                 121.10,
                 118.92,
                 118.88,
+                118.88,
+                118.92,
+                121.10,
+                121.10,
+                118.92,
             ],
         )
         # Initialize properties for PYRIDINIC_2 nitrogen species with target bond lengths and angles
@@ -685,6 +685,7 @@ class DopingHandler:
             ],
             target_angles_neighbors=[
                 116.54,
+                116.54,
                 117.85,
                 121.83,
                 120.09,
@@ -702,7 +703,6 @@ class DopingHandler:
                 120.09,
                 121.83,
                 117.85,
-                116.54,
             ],
         )
         # Initialize properties for PYRIDINIC_1 nitrogen species with target bond lengths and angles
@@ -735,23 +735,23 @@ class DopingHandler:
             ],
             target_angles_neighbors=[
                 121.99,
-                122.51,
-                115.67,
-                126.09,
-                111.08,
-                120.63,
-                131.00,
-                116.21,
-                124.82,
-                124.82,
-                116.21,
-                131.00,
-                120.63,
-                111.08,
-                126.09,
-                115.67,
-                122.51,
                 121.99,
+                122.51,
+                115.67,
+                126.09,
+                111.08,
+                120.63,
+                131.00,
+                116.21,
+                124.82,
+                124.82,
+                116.21,
+                131.00,
+                120.63,
+                111.08,
+                126.09,
+                115.67,
+                122.51,
             ],
         )
         # graphitic_properties = NitrogenSpeciesProperties(
@@ -1798,11 +1798,8 @@ class GrapheneSheet(Structure2D):
         # Get the initial positions of atoms, ordered consistently
         positions = {node: self.graph.nodes[node]["position"] for node in all_nodes}
 
-        # Flatten the positions into a 1D array for optimization
-        num_nodes = len(all_nodes)
-        x0 = np.zeros(num_nodes * 2)
-        x0[:num_nodes] = [positions[node][0] for node in all_nodes]  # x-coordinates
-        x0[num_nodes:] = [positions[node][1] for node in all_nodes]  # y-coordinates
+        # Flatten the positions into a 1D array for optimization (alternating x and y)
+        x0 = np.array([coord for node in all_nodes for coord in (positions[node][0], positions[node][1])])
 
         # Define the box size for minimum image distance calculation
         box_size = (
@@ -1826,8 +1823,7 @@ class GrapheneSheet(Structure2D):
             cycle_atoms = structure.cycle
             neighbor_atoms = structure.neighboring_atoms
 
-            # Map node IDs to indices in the cycle and neighbors
-            # cycle_atom_indices = {node: idx for idx, node in enumerate(cycle_atoms)}
+            # Map node IDs to indices in the neighbors list
             neighbor_atom_indices = {node: idx for idx, node in enumerate(neighbor_atoms)}
 
             # Bonds within the cycle
@@ -1844,7 +1840,8 @@ class GrapheneSheet(Structure2D):
                 # Assign k value (k_inner_bond)
                 bond_k_values[bond] = self.k_inner_bond
 
-            # Bonds between cycle atoms and their neighbors
+            # Bonds between cycle atoms and their neighbors  # ToDo: Funktioniert, geht aber effizienter
+            #  (man hat ja Cycleatome und Nachbaratome bereits)
             for idx, node_i in enumerate(cycle_atoms):
                 neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
                 for neighbor in neighbors:
@@ -1855,7 +1852,8 @@ class GrapheneSheet(Structure2D):
                         properties.target_bond_lengths_neighbors
                     ):
                         target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
-                    else:
+                    else:  # ToDo: Dieser Fall sollte glaub nicht auftreten dürfen und ansonsten eine Exception
+                        # geworfen werden
                         target_length = self.c_c_bond_distance
                     bond_target_lengths.setdefault(bond, []).append(target_length)
                     # Assign k value (k_inner_bond)
@@ -1875,25 +1873,25 @@ class GrapheneSheet(Structure2D):
             # Angles involving neighboring atoms
             for idx_j, node_j in enumerate(cycle_atoms):
                 neighbors = [n for n in self.graph.neighbors(node_j) if n not in cycle_atoms]
-                node_i_prev = extended_cycle[idx_j]
-                node_k_next = extended_cycle[idx_j + 2]
+                node_i_prev = cycle_atoms[idx_j - 1]  # Wrap-around to get the previous node
+                node_k_next = cycle_atoms[(idx_j + 1) % len(cycle_atoms)]  # Wrap-around for the next node
 
                 for neighbor in neighbors:
-                    # Angle: neighbor - node_j - next node in cycle
-                    angle1 = (neighbor, node_j, node_k_next)
+                    # Angle: previous node in cycle - node_j - neighbor
+                    angle1 = (node_i_prev, node_j, neighbor)
                     inner_angle_set.add(angle1)
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
-                        target_angle = properties.target_angles_neighbors[idx_in_neighbors]
+                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
                     else:
                         target_angle = self.c_c_bond_angle  # Default to 120 degrees
                     angle_target_angles[angle1] = target_angle
 
-                    # Angle: previous node in cycle - node_j - neighbor
-                    angle2 = (node_i_prev, node_j, neighbor)
+                    # Angle: neighbor - node_j - next node in cycle
+                    angle2 = (neighbor, node_j, node_k_next)
                     inner_angle_set.add(angle2)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
-                        target_angle = properties.target_angles_neighbors[idx_in_neighbors]
+                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
                     else:
                         target_angle = self.c_c_bond_angle  # Default to 120 degrees
                     angle_target_angles[angle2] = target_angle
@@ -1972,8 +1970,10 @@ class GrapheneSheet(Structure2D):
             # Extract positions
             idx_i = bond_array["idx_i"]
             idx_j = bond_array["idx_j"]
-            positions_i = np.column_stack((x[idx_i], x[idx_i + num_nodes]))
-            positions_j = np.column_stack((x[idx_j], x[idx_j + num_nodes]))
+            positions_i = x[np.ravel(np.column_stack((idx_i * 2, idx_i * 2 + 1)))]
+            positions_j = x[np.ravel(np.column_stack((idx_j * 2, idx_j * 2 + 1)))]
+            positions_i = positions_i.reshape(-1, 2)
+            positions_j = positions_j.reshape(-1, 2)
 
             # Calculate bond lengths
             current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
@@ -2003,9 +2003,12 @@ class GrapheneSheet(Structure2D):
             idx_i = angle_array["idx_i"]
             idx_j = angle_array["idx_j"]
             idx_k = angle_array["idx_k"]
-            positions_i = np.column_stack((x[idx_i], x[idx_i + num_nodes]))
-            positions_j = np.column_stack((x[idx_j], x[idx_j + num_nodes]))
-            positions_k = np.column_stack((x[idx_k], x[idx_k + num_nodes]))
+            positions_i = x[np.ravel(np.column_stack((idx_i * 2, idx_i * 2 + 1)))]
+            positions_j = x[np.ravel(np.column_stack((idx_j * 2, idx_j * 2 + 1)))]
+            positions_k = x[np.ravel(np.column_stack((idx_k * 2, idx_k * 2 + 1)))]
+            positions_i = positions_i.reshape(-1, 2)
+            positions_j = positions_j.reshape(-1, 2)
+            positions_k = positions_k.reshape(-1, 2)
 
             # Calculate vectors
             _, v1 = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
@@ -2067,7 +2070,7 @@ class GrapheneSheet(Structure2D):
         print(f"\nNumber of iterations: {result.nit}\nFinal structural strain: {result.fun}")
 
         # Reshape the optimized positions back to the 2D array format
-        optimized_positions = np.column_stack((result.x[:num_nodes], result.x[num_nodes:]))
+        optimized_positions = result.x.reshape(-1, 2)
 
         # Update the positions of atoms in the graph with the optimized positions
         position_dict = {
