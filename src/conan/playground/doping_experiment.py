@@ -685,7 +685,6 @@ class DopingHandler:
             ],
             target_angles_neighbors=[
                 116.54,
-                116.54,
                 117.85,
                 121.83,
                 120.09,
@@ -703,6 +702,7 @@ class DopingHandler:
                 120.09,
                 121.83,
                 117.85,
+                116.54,
             ],
         )
         # Initialize properties for PYRIDINIC_1 nitrogen species with target bond lengths and angles
