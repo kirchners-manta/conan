@@ -1549,8 +1549,13 @@ class GrapheneSheet(Structure2D):
         atoms to their neighbors in the graphene sheet."""
         self.k_outer_bond = 75
         """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
-        self.k_angle = 10.5
-        """The spring constant for all angles in the graphene sheet."""
+        # self.k_angle = 10.5
+        # """The spring constant for all angles in the graphene sheet."""
+        self.k_inner_angle = 10.5
+        """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
+        atoms and their neighbors in the graphene sheet."""
+        self.k_outer_angle = 10.5
+        """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
         # Build the initial graphene sheet structure
         self.build_structure()
@@ -1816,6 +1821,7 @@ class GrapheneSheet(Structure2D):
         bond_target_lengths = {}  # key: (node_i, node_j), value: list of target lengths
         bond_k_values = {}  # key: (node_i, node_j), value: k value
         angle_target_angles = {}  # key: (node_i, node_j, node_k), value: target angle in degrees
+        angle_k_values = {}  # key: (node_i, node_j, node_k), value: k value
 
         # Sets to keep track of inner bonds and angles
         inner_bond_set = set()
@@ -1873,7 +1879,8 @@ class GrapheneSheet(Structure2D):
                 angle = (min(node_i, node_k), node_j, max(node_i, node_k))
                 inner_angle_set.add(angle)
                 angle_target_angles[angle] = properties.target_angles_cycle[idx]
-                # k_angle is the same for all angles
+                # Assign k value (k_inner_angle)
+                angle_k_values[angle] = self.k_inner_angle
 
             # Handle additional angles for PYRIDINIC_1
             if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
@@ -1907,6 +1914,7 @@ class GrapheneSheet(Structure2D):
                 for idx, angle in enumerate(additional_angles):
                     inner_angle_set.add(angle)
                     angle_target_angles[angle] = properties.target_angles_additional_angles[idx]
+                    angle_k_values[angle] = self.k_inner_angle
 
             # Angles involving neighboring atoms
             for idx_j, node_j in enumerate(cycle_atoms):
@@ -1925,6 +1933,7 @@ class GrapheneSheet(Structure2D):
                     else:
                         target_angle = self.c_c_bond_angle  # Default to 120 degrees
                     angle_target_angles[angle1] = target_angle
+                    angle_k_values[angle1] = self.k_inner_angle
 
                     # Angle: neighbor - node_j - next node in cycle
                     # angle2 = (neighbor, node_j, node_k_next)
@@ -1935,6 +1944,7 @@ class GrapheneSheet(Structure2D):
                     else:
                         target_angle = self.c_c_bond_angle  # Default to 120 degrees
                     angle_target_angles[angle2] = target_angle
+                    angle_k_values[angle2] = self.k_inner_angle
 
         # Collect all bonds in the graph
         all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in self.graph.edges()]
@@ -1965,6 +1975,7 @@ class GrapheneSheet(Structure2D):
         # Assign target angles for outer angles
         for angle in outer_angle_set:
             angle_target_angles[angle] = self.c_c_bond_angle  # 120 degrees
+            angle_k_values[angle] = self.k_outer_angle
 
         # Prepare data for bond strain calculation
         bond_list = []
@@ -1987,11 +1998,12 @@ class GrapheneSheet(Structure2D):
             idx_j = node_index_map[node_j]
             idx_k = node_index_map[node_k]
             target_angle = angle_target_angles[angle]
-            angle_list.append((idx_i, idx_j, idx_k, target_angle))
+            k_value = angle_k_values[angle]
+            angle_list.append((idx_i, idx_j, idx_k, target_angle, k_value))
 
         angle_array = np.array(
             angle_list,
-            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float)],
+            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float), ("k", float)],
         )
 
         def bond_strain(x):
@@ -2009,10 +2021,10 @@ class GrapheneSheet(Structure2D):
                 The total bond strain in the structure.
             """
             # Extract positions
-            idx_i = bond_array["idx_i"]
-            idx_j = bond_array["idx_j"]
-            positions_i = x[np.ravel(np.column_stack((idx_i * 2, idx_i * 2 + 1)))]
-            positions_j = x[np.ravel(np.column_stack((idx_j * 2, idx_j * 2 + 1)))]
+            idx_i_array = bond_array["idx_i"]
+            idx_j_array = bond_array["idx_j"]
+            positions_i = x[np.ravel(np.column_stack((idx_i_array * 2, idx_i_array * 2 + 1)))]
+            positions_j = x[np.ravel(np.column_stack((idx_j_array * 2, idx_j_array * 2 + 1)))]
             positions_i = positions_i.reshape(-1, 2)
             positions_j = positions_j.reshape(-1, 2)
 
@@ -2022,9 +2034,9 @@ class GrapheneSheet(Structure2D):
             # Calculate bond strain
             target_lengths = bond_array["target_length"]
             k_values = bond_array["k"]
-            total_strain = 0.5 * np.sum(k_values * (current_lengths - target_lengths) ** 2)
+            total_bond_strain = 0.5 * np.sum(k_values * (current_lengths - target_lengths) ** 2)
 
-            return total_strain
+            return total_bond_strain
 
         def angle_strain(x):
             """
@@ -2041,12 +2053,12 @@ class GrapheneSheet(Structure2D):
                 The total angular strain in the structure.
             """
             # Extract positions
-            idx_i = angle_array["idx_i"]
-            idx_j = angle_array["idx_j"]
-            idx_k = angle_array["idx_k"]
-            positions_i = x[np.ravel(np.column_stack((idx_i * 2, idx_i * 2 + 1)))]
-            positions_j = x[np.ravel(np.column_stack((idx_j * 2, idx_j * 2 + 1)))]
-            positions_k = x[np.ravel(np.column_stack((idx_k * 2, idx_k * 2 + 1)))]
+            idx_i_array = angle_array["idx_i"]
+            idx_j_array = angle_array["idx_j"]
+            idx_k_array = angle_array["idx_k"]
+            positions_i = x[np.ravel(np.column_stack((idx_i_array * 2, idx_i_array * 2 + 1)))]
+            positions_j = x[np.ravel(np.column_stack((idx_j_array * 2, idx_j_array * 2 + 1)))]
+            positions_k = x[np.ravel(np.column_stack((idx_k_array * 2, idx_k_array * 2 + 1)))]
             positions_i = positions_i.reshape(-1, 2)
             positions_j = positions_j.reshape(-1, 2)
             positions_k = positions_k.reshape(-1, 2)
@@ -2073,10 +2085,10 @@ class GrapheneSheet(Structure2D):
             # Calculate angle strain
             target_angles = np.radians(angle_array["target_angle"])
             delta_theta = theta - target_angles
+            k_values = angle_array["k"]
+            total_bond_strain = 0.5 * np.sum(k_values * delta_theta**2)
 
-            total_strain = 0.5 * self.k_angle * np.sum(delta_theta**2)
-
-            return total_strain
+            return total_bond_strain
 
         def total_strain(x):
             """
