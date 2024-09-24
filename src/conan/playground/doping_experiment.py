@@ -1544,17 +1544,21 @@ class GrapheneSheet(Structure2D):
         """The size of the graphene sheet in the x and y directions."""
 
         # Initialize k-values for bond and angle strain
-        self.k_inner_bond = 90
+        # self.k_inner_bond = 90
+        self.k_inner_bond = 10
         """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
         atoms to their neighbors in the graphene sheet."""
-        self.k_outer_bond = 75
+        # self.k_outer_bond = 75
+        self.k_outer_bond = 0.1
         """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
         # self.k_angle = 10.5
         # """The spring constant for all angles in the graphene sheet."""
-        self.k_inner_angle = 10.5
+        # self.k_inner_angle = 10.5
+        self.k_inner_angle = 10
         """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
         atoms and their neighbors in the graphene sheet."""
-        self.k_outer_angle = 10.5
+        # self.k_outer_angle = 10.5
+        self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
         # Build the initial graphene sheet structure
@@ -3378,8 +3382,8 @@ def main():
     sheet_size = (20, 20)
 
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
