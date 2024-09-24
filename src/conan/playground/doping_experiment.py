@@ -1549,7 +1549,7 @@ class GrapheneSheet(Structure2D):
         atoms to their neighbors in the graphene sheet."""
         self.k_outer_bond = 75
         """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
-        self.k_angle = 200
+        self.k_angle = 10.5
         """The spring constant for all angles in the graphene sheet."""
 
         # Build the initial graphene sheet structure
