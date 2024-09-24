@@ -752,6 +752,12 @@ class DopingHandler:
                 122.51,
                 121.99,
             ],
+            target_angles_additional_angles=[
+                148.42,
+                102.06,
+                102.06,
+                148.42,
+            ],
         )
         # graphitic_properties = NitrogenSpeciesProperties(
         #     target_bond_lengths=[1.42],
@@ -1868,6 +1874,39 @@ class GrapheneSheet(Structure2D):
                 inner_angle_set.add(angle)
                 angle_target_angles[angle] = properties.target_angles_cycle[idx]
                 # k_angle is the same for all angles
+
+            # Handle additional angles for PYRIDINIC_1
+            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
+                node_a, node_b = structure.additional_edge
+                idx_a = cycle_atoms.index(node_a)
+                idx_b = cycle_atoms.index(node_b)
+
+                # Ensure node_a is before node_b in the cycle
+                if idx_a > idx_b:
+                    node_a, node_b = node_b, node_a
+                    idx_a, idx_b = idx_b, idx_a
+
+                # Find the additional angles
+                additional_angles = []
+
+                # Angles involving node a
+                prev_node_a = cycle_atoms[(idx_a - 1) % len(cycle_atoms)]
+                next_node_a = cycle_atoms[(idx_a + 1) % len(cycle_atoms)]
+                prev_angle = (min(prev_node_a, node_b), node_a, max(prev_node_a, node_b))
+                next_angle = (min(node_b, next_node_a), node_a, max(node_b, next_node_a))
+                additional_angles.extend([prev_angle, next_angle])
+
+                # Angles involving node b
+                prev_node_b = cycle_atoms[(idx_b - 1) % len(cycle_atoms)]
+                next_node_b = cycle_atoms[(idx_b + 1) % len(cycle_atoms)]
+                prev_angle = (min(prev_node_b, node_a), node_b, max(prev_node_b, node_a))
+                next_angle = (min(node_a, next_node_b), node_b, max(node_a, next_node_b))
+                additional_angles.extend([prev_angle, next_angle])
+
+                # Assign target angles from properties.target_angles_additional_angles
+                for idx, angle in enumerate(additional_angles):
+                    inner_angle_set.add(angle)
+                    angle_target_angles[angle] = properties.target_angles_additional_angles[idx]
 
             # Angles involving neighboring atoms
             for idx_j, node_j in enumerate(cycle_atoms):
