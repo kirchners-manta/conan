@@ -156,7 +156,7 @@ def dict_covalent() -> dict:
         "Au": 1.36,
         "D": 0.00,
         "X": 0.00,
-    }  # 'Na = 1.66'
+    } 
     return elem_covalent
 
 
