@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, NamedTuple, Tuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -144,12 +144,15 @@ class NitrogenSpeciesProperties:
         A list of bond angles inside the doping structure (cycle).
     target_angles_neighbors : List[float]
         A list of bond angles between doping structure and neighbors outside the cycle.
+    target_angles_additional_angles : Optional[List[float]]
+        A list of angles that are added by adding the additional_edge in the PYRIDINIC_1 case
     """
 
     target_bond_lengths_cycle: List[float]
     target_bond_lengths_neighbors: List[float]
     target_angles_cycle: List[float]
     target_angles_neighbors: List[float]
+    target_angles_additional_angles: Optional[List[float]] = field(default=None)
 
 
 class NitrogenSpecies(Enum):
