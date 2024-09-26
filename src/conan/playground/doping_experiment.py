@@ -2200,7 +2200,7 @@ class GrapheneSheet(Structure2D):
                 The total bond strain in the structure.
             """
 
-            total_strain = 0.0
+            total_bond_strain = 0.0
 
             # Initialize a set to track edges within cycles
             cycle_edges = set()
@@ -2246,7 +2246,7 @@ class GrapheneSheet(Structure2D):
 
             # Calculate bond lengths and energy
             current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
-            total_strain += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
+            total_bond_strain += 0.5 * self.k_inner_bond * np.sum((current_lengths - target_lengths) ** 2)
 
             # Update bond lengths in the graph
             edge_updates = {
@@ -2287,7 +2287,7 @@ class GrapheneSheet(Structure2D):
                 target_lengths = np.full(len(current_lengths), 1.42)
 
                 # Calculate the energy contribution from non-cycle bonds
-                total_strain += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
+                total_bond_strain += 0.5 * self.k_outer_bond * np.sum((current_lengths - target_lengths) ** 2)
 
                 # Prepare bond length updates for non-cycle edges
                 edge_updates = {
@@ -2297,7 +2297,7 @@ class GrapheneSheet(Structure2D):
                 # Update the bond lengths in the graph for non-cycle edges
                 nx.set_edge_attributes(self.graph, edge_updates)
 
-            return total_strain
+            return total_bond_strain
 
         def angle_strain(x):
             """
@@ -2314,7 +2314,7 @@ class GrapheneSheet(Structure2D):
                 The total angular strain in the structure.
             """
 
-            total_strain = 0.0
+            total_angle_strain = 0.0
 
             # Initialize lists to collect all triplets of nodes and their target angles
             all_triplets = []
@@ -2371,7 +2371,7 @@ class GrapheneSheet(Structure2D):
             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
 
             # Calculate the energy contribution from angle deviations and add it to the total energy
-            total_strain += 0.5 * self.k_inner_angle * np.sum((theta - target_angles) ** 2)
+            total_angle_strain += 0.5 * self.k_inner_angle * np.sum((theta - target_angles) ** 2)
 
             if self.include_outer_angles:
                 # Calculate angle energy for angles outside the cycles
@@ -2413,9 +2413,11 @@ class GrapheneSheet(Structure2D):
                             _, v2 = minimum_image_distance(pos_j, pos_node, box_size)
                             cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
                             theta = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-                            total_strain += 0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+                            total_angle_strain += (
+                                0.5 * self.k_outer_angle * ((theta - np.radians(self.c_c_bond_angle)) ** 2)
+                            )
 
-            return total_strain
+            return total_angle_strain
 
         def total_strain(x):
             """
