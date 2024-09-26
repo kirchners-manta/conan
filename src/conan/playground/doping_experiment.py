@@ -1855,8 +1855,7 @@ class GrapheneSheet(Structure2D):
                 # Assign k value (k_inner_bond)
                 bond_k_values[bond] = self.k_inner_bond
 
-            # Bonds between cycle atoms and their neighbors  # ToDo: Funktioniert, geht aber effizienter
-            #  (man hat ja Cycleatome und Nachbaratome bereits)
+            # Bonds between cycle atoms and their neighbors
             for idx, node_i in enumerate(cycle_atoms):
                 neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
                 for neighbor in neighbors:
@@ -1867,14 +1866,18 @@ class GrapheneSheet(Structure2D):
                         properties.target_bond_lengths_neighbors
                     ):
                         target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
-                    else:  # ToDo: Dieser Fall sollte glaub nicht auftreten dürfen und ansonsten eine Exception
-                        # geworfen werden
-                        target_length = self.c_c_bond_distance
+                    else:
+                        raise ValueError(
+                            f"Error when assigning the target bond length: Neighbor atom {neighbor} "
+                            f"(index {idx_in_neighbors}) has no corresponding target length in "
+                            f"target_bond_lengths_neighbors."
+                        )
                     bond_target_lengths.setdefault(bond, []).append(target_length)
                     # Assign k value (k_inner_bond)
                     bond_k_values[bond] = self.k_inner_bond
 
             # Angles within the cycle
+            # Extend the cycle to account for the closed loop by adding the first two nodes at the end
             extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
             for idx in range(len(cycle_atoms)):
                 node_i = extended_cycle[idx]
@@ -1928,25 +1931,29 @@ class GrapheneSheet(Structure2D):
 
                 for neighbor in neighbors:
                     # Angle: previous node in cycle - node_j - neighbor
-                    # angle1 = (node_i_prev, node_j, neighbor)
                     angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
                     inner_angle_set.add(angle1)
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
                         target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
                     else:
-                        target_angle = self.c_c_bond_angle  # Default to 120 degrees
+                        raise ValueError(
+                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                        )
                     angle_target_angles[angle1] = target_angle
                     angle_k_values[angle1] = self.k_inner_angle
 
                     # Angle: neighbor - node_j - next node in cycle
-                    # angle2 = (neighbor, node_j, node_k_next)
                     angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
                     inner_angle_set.add(angle2)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
                         target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
                     else:
-                        target_angle = self.c_c_bond_angle  # Default to 120 degrees
+                        raise ValueError(
+                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                        )
                     angle_target_angles[angle2] = target_angle
                     angle_k_values[angle2] = self.k_inner_angle
 
