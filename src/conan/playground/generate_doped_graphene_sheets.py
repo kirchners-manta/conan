@@ -63,19 +63,18 @@ def create_graphene_sheets(
         # Generate percentages for each species in the combination
         species_percentages = generate_species_percentages(species_combination, total_percentage)
 
-        # Prepare the percentages dict for add_nitrogen_doping
-        percentages = {species: pct for species, pct in species_percentages.items()}
-
         # Add nitrogen doping
-        graphene.add_nitrogen_doping(total_percentage=total_percentage, percentages=percentages, adjust_positions=False)
+        graphene.add_nitrogen_doping(
+            total_percentage=total_percentage, percentages=species_percentages, adjust_positions=False
+        )
 
         # Generate an informative filename
         size_str = f"{size[0]}x{size[1]}"
-        total_pct_str = f"{total_percentage:.1f}percent"
+        total_pct_str = f"{total_percentage:.1f}_percent"
         species_percentage_str = "_".join(
             [
-                f"{species.value.replace(' ', '').replace('-', '')}{percentage_per_species:.1f}percent"
-                for species, percentage_per_species in percentages.items()
+                f"{species.value.replace(' ', '').replace('-', '')}_{percentage_per_species:.1f}_percent"
+                for species, percentage_per_species in species_percentages.items()
             ]
         )
         filename = os.path.join(
@@ -107,12 +106,27 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
     Dict[NitrogenSpecies, float]
         Dictionary mapping each species to its assigned percentage.
     """
+    # Define a tolerance for floating-point comparison
+    TOLERANCE = 1e-6
+
+    # Generate random factors for each species
     random_factors = [random.uniform(0.1, 1.0) for _ in species_combination]
     total_factors = sum(random_factors)
+
+    # Calculate species percentages
     species_percentages = {
         species: (factor / total_factors) * total_percentage
         for species, factor in zip(species_combination, random_factors)
     }
+
+    # Validate the sum of percentages against the total percentage with a tolerance
+    if abs(sum(species_percentages.values()) - total_percentage) > TOLERANCE:
+        raise ValueError(
+            f"The total specific percentages {sum(species_percentages.values())}% are higher than "
+            f"the total_percentage {total_percentage}%. Please adjust your input so that the "
+            f"sum of the 'percentages' is less than or equal to 'total_percentage'."
+        )
+
     return species_percentages
 
 

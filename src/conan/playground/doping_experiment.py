@@ -1553,11 +1553,11 @@ class GrapheneSheet(Structure2D):
         """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
         # self.k_angle = 10.5
         # """The spring constant for all angles in the graphene sheet."""
-        self.k_inner_angle = 10.5
+        self.k_inner_angle = 11.6
         # self.k_inner_angle = 10
         """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
         atoms and their neighbors in the graphene sheet."""
-        self.k_outer_angle = 10.5
+        self.k_outer_angle = 11.6
         # self.k_outer_angle = 0.1
         """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
