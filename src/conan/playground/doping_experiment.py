@@ -840,6 +840,9 @@ class DopingHandler:
         if total_percentage is not None and not isinstance(total_percentage, (int, float)):
             raise ValueError("total_percentage must be an int or float.")
 
+        # Copy the percentages dictionary to avoid modifying the input
+        percentages = percentages.copy() if percentages else {}
+
         # Validate specific percentages and calculate the remaining percentage
         if percentages:
             if total_percentage is None:
@@ -860,25 +863,38 @@ class DopingHandler:
                     )
         else:
             # Set a default total percentage if not provided
-            if total_percentage is None:
-                total_percentage = 10  # Default total percentage
-            # Initialize an empty dictionary if no specific percentages are provided
-            percentages = {}
+            total_percentage = total_percentage if total_percentage is not None else 10.0
+
+            # # Set a default total percentage if not provided
+            # if total_percentage is None:
+            #     total_percentage = 10  # Default total percentage
+            # # Initialize an empty dictionary if no specific percentages are provided
+            # percentages = {}
 
         # Calculate the remaining percentage for other species
         remaining_percentage = total_percentage - sum(percentages.values())
 
-        if remaining_percentage > 0:
+        # Define a tolerance for floating-point comparison
+        tolerance = 1e-6
+
+        if remaining_percentage > tolerance:
             # Determine available species not included in the specified percentages
             available_species = [species for species in NitrogenSpecies if species not in percentages]
             # Distribute the remaining percentage equally among available species
             default_distribution = {
                 species: remaining_percentage / len(available_species) for species in available_species
             }
-            # Add the default distribution to the specified percentages
-            for species, pct in default_distribution.items():
-                if species not in percentages:
-                    percentages[species] = pct
+
+            # # Add the default distribution to the specified percentages
+            # for species, pct in default_distribution.items():
+            #     if species not in percentages:
+            #         percentages[species] = pct
+            # Add the default distribution to the local percentages dictionary
+
+            percentages.update(default_distribution)
+        else:
+            # If the remaining percentage is negligible, we ignore it
+            pass
 
         # Calculate the number of nitrogen atoms to add based on the given percentage
         num_atoms = self.graph.number_of_nodes()
@@ -893,13 +909,14 @@ class DopingHandler:
             return  # Exit the method early if no doping can be done
 
         # Define the order of nitrogen doping insertion based on the species
-        for species in [
+        species_order = [
             NitrogenSpecies.PYRIDINIC_4,
             NitrogenSpecies.PYRIDINIC_3,
             NitrogenSpecies.PYRIDINIC_2,
             NitrogenSpecies.PYRIDINIC_1,
             NitrogenSpecies.GRAPHITIC,
-        ]:
+        ]
+        for species in species_order:
             if species in specific_num_nitrogen:
                 num_nitrogen_atoms = specific_num_nitrogen[species]
                 # Insert the doping structures for the current species

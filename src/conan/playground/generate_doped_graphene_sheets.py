@@ -31,7 +31,7 @@ def create_graphene_sheets(
     if sheet_sizes is None:
         sheet_sizes = [(20, 20), (30, 30), (40, 40)]
 
-    # Available nitrogen species  # ToDo: Verbessern, sind einfach alle Spezies!
+    # Available nitrogen species
     available_species = [
         # NitrogenSpecies.GRAPHITIC,
         NitrogenSpecies.PYRIDINIC_1,
@@ -132,4 +132,4 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
 
 if __name__ == "__main__":
     # Create 1000 graphene sheets with varying nitrogen doping
-    create_graphene_sheets(num_sheets=5)
+    create_graphene_sheets(num_sheets=1000)
