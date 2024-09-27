@@ -107,7 +107,7 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
         Dictionary mapping each species to its assigned percentage.
     """
     # Define a tolerance for floating-point comparison
-    TOLERANCE = 1e-6
+    tolerance = 1e-6
 
     # Generate random factors for each species
     random_factors = [random.uniform(0.1, 1.0) for _ in species_combination]
@@ -120,7 +120,7 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
     }
 
     # Validate the sum of percentages against the total percentage with a tolerance
-    if abs(sum(species_percentages.values()) - total_percentage) > TOLERANCE:
+    if abs(sum(species_percentages.values()) - total_percentage) > tolerance:
         raise ValueError(
             f"The total specific percentages {sum(species_percentages.values())}% are higher than "
             f"the total_percentage {total_percentage}%. Please adjust your input so that the "

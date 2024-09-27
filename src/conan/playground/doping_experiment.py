@@ -812,6 +812,11 @@ class DopingHandler:
             The total percentage of carbon atoms to replace with nitrogen atoms.
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species.
+
+        Raises
+        ------
+        ValueError
+            If the specific percentages exceed the total percentage beyond a small tolerance.
         """
         # Validate the input for percentages
         if percentages is not None:
@@ -843,8 +848,11 @@ class DopingHandler:
             else:
                 # Sum of provided specific percentages
                 specific_total_percentage = sum(percentages.values())
-                if specific_total_percentage > total_percentage:
-                    # Raise an error if the sum of specific percentages exceeds the total percentage
+                # Define a small tolerance to account for floating-point errors
+                tolerance = 1e-6
+                if abs(specific_total_percentage - total_percentage) > tolerance:
+                    # Raise an error if the sum of specific percentages exceeds the total percentage beyond the
+                    # tolerance
                     raise ValueError(
                         f"The total specific percentages {specific_total_percentage}% are higher than the "
                         f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
