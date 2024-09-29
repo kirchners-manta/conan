@@ -1,4 +1,5 @@
 import copy
+from itertools import pairwise
 
 import numpy as np
 import optuna
@@ -25,36 +26,26 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     float
         The combined total error.
     """
-    # Retrieve the optimizer's data structures
-    # optimizer = StructureOptimizer(graphene_sheet)
-
-    # Prepare the data as in the optimizer
-    all_nodes = sorted(graphene_sheet.graph.nodes())
-    # node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
-
-    positions = {node: graphene_sheet.graph.nodes[node]["position"] for node in all_nodes}
-    # x = np.array([coord for node in all_nodes for coord in (positions[node][0], positions[node][1])])
+    # Get all nodes and their positions
+    positions = {node: graphene_sheet.graph.nodes[node]["position"] for node in graphene_sheet.graph.nodes()}
 
     box_size = (
         graphene_sheet.actual_sheet_width + graphene_sheet.c_c_bond_distance,
         graphene_sheet.actual_sheet_height + graphene_sheet.cc_y_distance,
     )
 
-    # Collect data for bonds and angles
-    # This replicates the logic from the optimizer
-    # Collect the necessary data structures for bonds and angles
+    # Dictionaries to store bond and angle properties
     bond_target_lengths = {}
     angle_target_angles = {}
     inner_bond_set = set()
     inner_angle_set = set()
 
+    # Collect inner bonds and angles from doping structures
     all_structures = [
         structure
         for structure in graphene_sheet.doping_handler.doping_structures.structures
         if structure.species != NitrogenSpecies.GRAPHITIC
     ]
-
-    from itertools import pairwise
 
     for structure in all_structures:
         properties = graphene_sheet.doping_handler.species_properties[structure.species]
@@ -72,7 +63,6 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         for idx, (node_i, node_j) in enumerate(cycle_edges):
             bond = (min(node_i, node_j), max(node_i, node_j))
             inner_bond_set.add(bond)
-            # Append target length
             bond_target_lengths[bond] = properties.target_bond_lengths_cycle[idx]
 
         # Bonds between cycle atoms and their neighbors
@@ -90,7 +80,6 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 bond_target_lengths[bond] = target_length
 
         # Angles within the cycle
-        # Extend the cycle to account for the closed loop by adding the first two nodes at the end
         extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
         for idx in range(len(cycle_atoms)):
             node_i = extended_cycle[idx]
@@ -224,6 +213,9 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         )
         norm_v1 = np.linalg.norm(v1)
         norm_v2 = np.linalg.norm(v2)
+        if norm_v1 == 0 or norm_v2 == 0:
+            # Avoid division by zero
+            continue
         cos_theta = np.dot(v1, v2.T) / (norm_v1 * norm_v2)
         cos_theta = np.clip(cos_theta, -1.0, 1.0)
         theta = np.degrees(np.arccos(cos_theta[0][0]))
