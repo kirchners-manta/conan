@@ -27,6 +27,11 @@ def create_graphene_sheets(
         List of sheet sizes (width, height) to choose from. If None, default sizes are used.
     write_to_file : bool, optional
         Whether to write the generated sheets to XYZ files. Default is True.
+
+    Returns
+    -------
+    List[GrapheneSheet]
+        List of generated graphene sheets.
     """
     # Create the output folder if it does not exist
     if not os.path.exists(output_folder):
@@ -56,6 +61,8 @@ def create_graphene_sheets(
     #     combo for combo in species_combinations if not (len(combo) == 1 and NitrogenSpecies.GRAPHITIC in combo)
     # ]
 
+    generated_sheets = []
+
     for i in range(num_sheets):
         # Randomly select parameters
         size = random.choice(sheet_sizes)
@@ -72,6 +79,9 @@ def create_graphene_sheets(
         graphene.add_nitrogen_doping(
             total_percentage=total_percentage, percentages=species_percentages, adjust_positions=False
         )
+
+        # Append the generated sheet to the list
+        generated_sheets.append(graphene)
 
         if write_to_file:
             # Generate an informative filename
@@ -97,6 +107,8 @@ def create_graphene_sheets(
 
     if write_to_file:
         print(f"XYZ files have been saved in the '{output_folder}' directory.")
+
+    return generated_sheets
 
 
 def generate_species_percentages(species_combination, total_percentage) -> Dict[NitrogenSpecies, float]:
@@ -141,4 +153,5 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
 
 if __name__ == "__main__":
     # Create 1000 graphene sheets with varying nitrogen doping
-    create_graphene_sheets(num_sheets=1000)
+    sheet_list = create_graphene_sheets(num_sheets=10)
+    print(sheet_list)
