@@ -8,7 +8,10 @@ from conan.playground.graph_utils import NitrogenSpecies, write_xyz
 
 
 def create_graphene_sheets(
-    num_sheets: int = 100, output_folder: str = "graphene_sheets", sheet_sizes: List[Tuple[int, int]] = None
+    num_sheets: int = 100,
+    output_folder: str = "graphene_sheets",
+    sheet_sizes: List[Tuple[int, int]] = None,
+    write_to_file: bool = True,
 ):
     """
     Create a specified number of doped graphene sheets with varying sizes, total doping percentages, relative doping
@@ -22,6 +25,8 @@ def create_graphene_sheets(
         Directory where the generated sheets will be saved. Default is 'graphene_sheets'.
     sheet_sizes : List[Tuple[int, int]], optional
         List of sheet sizes (width, height) to choose from. If None, default sizes are used.
+    write_to_file : bool, optional
+        Whether to write the generated sheets to XYZ files. Default is True.
     """
     # Create the output folder if it does not exist
     if not os.path.exists(output_folder):
@@ -68,26 +73,30 @@ def create_graphene_sheets(
             total_percentage=total_percentage, percentages=species_percentages, adjust_positions=False
         )
 
-        # Generate an informative filename
-        size_str = f"{size[0]}x{size[1]}"
-        total_pct_str = f"{total_percentage:.1f}_percent"
-        species_percentage_str = "_".join(
-            [
-                f"{species.value.replace(' ', '').replace('-', '')}_{percentage_per_species:.1f}_percent"
-                for species, percentage_per_species in species_percentages.items()
-            ]
-        )
-        filename = os.path.join(
-            output_folder, f"graphene_{i + 1}_{size_str}_{total_pct_str}_{species_percentage_str}.xyz"
-        )
+        if write_to_file:
+            # Generate an informative filename
+            size_str = f"{size[0]}x{size[1]}"
+            total_pct_str = f"{total_percentage:.1f}_percent"
+            species_percentage_str = "_".join(
+                [
+                    f"{species.value.replace(' ', '').replace('-', '')}_{percentage_per_species:.1f}_percent"
+                    for species, percentage_per_species in species_percentages.items()
+                ]
+            )
+            filename = os.path.join(
+                output_folder, f"graphene_{i + 1}_{size_str}_{total_pct_str}_{species_percentage_str}.xyz"
+            )
 
-        # Save the graphene sheet as an XYZ file
-        write_xyz(graphene.graph, filename)
+            # Save the graphene sheet as an XYZ file
+            write_xyz(graphene.graph, filename)
 
     print(
         f"\n{num_sheets} graphene sheets with varying sizes, nitrogen doping percentages, "
-        f"and species combinations have been created and saved in '{output_folder}'."
+        f"and species combinations have been created."
     )
+
+    if write_to_file:
+        print(f"XYZ files have been saved in the '{output_folder}' directory.")
 
 
 def generate_species_percentages(species_combination, total_percentage) -> Dict[NitrogenSpecies, float]:
