@@ -3089,8 +3089,8 @@ def main():
     #
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
-    # ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND DOPE IT
+    ####################################################################################################################
+    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
     sheet_size = (20, 20)
 
     graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
@@ -3099,6 +3099,30 @@ def main():
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+
+    ####################################################################################################################
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
+    # sheet_size = (20, 20)
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Add nitrogen doping without adjusting positions
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    #
+    # # Adjust positions separately
+    # graphene.adjust_atom_positions()
+    # # Positions are now adjusted
+    #
+    # # Attempt to adjust positions again
+    # graphene.adjust_atom_positions()
+    # # Warning: Positions have already been adjusted
+    #
+    # # Plot structure
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
@@ -3144,7 +3168,7 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET
+    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
     #
     # # Create a graphene sheet
     # graphene_sheet = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
@@ -3160,6 +3184,27 @@ def main():
     # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+
+    ####################################################################################################################
+    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS
+    #
+    # # Create a base graphene sheet
+    # base_graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    #
+    # # Create a stacked graphene structure
+    # stacked_graphene = StackedGraphene(base_graphene, number_of_layers=3)
+    #
+    # # Add nitrogen doping to layers 0 and 1 without adjusting positions
+    # stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False, layers=[0, 1])
+    # # No positions adjusted
+    #
+    # # Adjust positions for layers 0 and 1
+    # stacked_graphene.adjust_atom_positions(layers=[0, 1])
+    # # Positions are now adjusted for layers 0 and 1
+    #
+    # # Attempt to adjust positions again
+    # stacked_graphene.adjust_atom_positions(layers=[0, 1])
+    # # Warnings: Positions have already been adjusted in layers 0 and 1
 
     ####################################################################################################################
     # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
