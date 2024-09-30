@@ -776,29 +776,52 @@ class DopingHandler:
         return species_properties
 
     @staticmethod
-    def get_next_possible_carbon_atom(atom_list):
+    def get_next_possible_carbon_atom(possible_carbon_atoms, tested_atoms):
         """
-        Get a randomly selected carbon atom from the list of possible carbon atoms.
-
-        This method randomly selects a carbon atom from the provided list and removes it from the list.
-        This ensures that the same atom is not selected more than once.
+        Get a randomly selected carbon atom from the list of possible carbon atoms that hasn't been tested yet.
 
         Parameters
         ----------
-        atom_list : list
+        possible_carbon_atoms : list
             The list of possible carbon atoms to select from.
+        tested_atoms : set
+            A set of atom IDs that have already been tested.
 
         Returns
         -------
         int or None
-            The ID of the selected carbon atom, or None if the list is empty.
+            The ID of the selected carbon atom, or None if all atoms have been tested.
         """
-
-        if not atom_list:
-            return None  # Return None if the list is empty
-        atom_id = random.choice(atom_list)  # Randomly select an atom ID from the list
-        atom_list.remove(atom_id)  # Remove the selected atom ID from the list
+        untested_atoms = list(set(possible_carbon_atoms) - tested_atoms)
+        if not untested_atoms:
+            return None  # Return None if all atoms have been tested
+        atom_id = random.choice(untested_atoms)  # Randomly select an untested atom ID
         return atom_id  # Return the selected atom ID
+
+    # @staticmethod
+    # def get_next_possible_carbon_atom(atom_list):
+    #     """
+    #     Get a randomly selected carbon atom from the list of possible carbon atoms.
+    #
+    #     This method randomly selects a carbon atom from the provided list and removes it from the list.
+    #     This ensures that the same atom is not selected more than once.
+    #
+    #     Parameters
+    #     ----------
+    #     atom_list : list
+    #         The list of possible carbon atoms to select from.
+    #
+    #     Returns
+    #     -------
+    #     int or None
+    #         The ID of the selected carbon atom, or None if the list is empty.
+    #     """
+    #
+    #     if not atom_list:
+    #         return None  # Return None if the list is empty
+    #     atom_id = random.choice(atom_list)  # Randomly select an atom ID from the list
+    #     atom_list.remove(atom_id)  # Remove the selected atom ID from the list
+    #     return atom_id  # Return the selected atom ID
 
     def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
         """
@@ -964,18 +987,26 @@ class DopingHandler:
         other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
         the structure is inserted, all atoms of this structure are excluded from further doping positions.
         """
+        # Create a set to keep track of tested atoms
+        tested_atoms = set()
 
-        # Create a copy of the possible carbon atoms to test for doping
-        possible_carbon_atoms_to_test = self.possible_carbon_atoms.copy()
+        # # Create a copy of the possible carbon atoms to test for doping
+        # possible_carbon_atoms_to_test = self.possible_carbon_atoms.copy()
 
         # Loop until the required number of nitrogen atoms is added or there are no more possible carbon atoms to test
-        while (
-            len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and possible_carbon_atoms_to_test
+        while len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and len(tested_atoms) < len(
+            self.possible_carbon_atoms
         ):
-            # Get a valid doping placement for the current nitrogen species and return the structural components
-            is_valid, structural_components = self._find_valid_doping_position(
-                nitrogen_species, possible_carbon_atoms_to_test
-            )
+            # Get the next possible carbon atom to test for doping
+            atom_id = self.get_next_possible_carbon_atom(self.possible_carbon_atoms, tested_atoms)
+            if atom_id is None:
+                break  # No more atoms to test
+
+            # Add the atom to tested_atoms
+            tested_atoms.add(atom_id)
+
+            # Check if the atom_id is a valid doping position and return the structural components
+            is_valid, structural_components = self._is_valid_doping_site(nitrogen_species, atom_id)
             if not is_valid:
                 # No valid doping position found, proceed to the next possible carbon atom
                 continue
@@ -987,6 +1018,11 @@ class DopingHandler:
             else:
                 # Handle pyridinic doping
                 self._handle_pyridinic_doping(structural_components, nitrogen_species)
+
+            # After doping, mark possible_carbon_atoms as needing an update
+            self.mark_possible_carbon_atoms_for_update()
+            # Reset tested_atoms since possible_carbon_atoms has changed
+            tested_atoms = set()
 
         # Warn if not all requested nitrogen atoms could be placed due to proximity constraints
         if len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen:
@@ -1138,22 +1174,22 @@ class DopingHandler:
 
         return start_node  # Return the determined start node or None if not applicable
 
-    def _find_valid_doping_position(
-        self, nitrogen_species: NitrogenSpecies, possible_carbon_atoms_to_test: List[int]
+    def _is_valid_doping_site(
+        self, nitrogen_species: NitrogenSpecies, atom_id: int
     ) -> Tuple[bool, StructuralComponents]:
         """
-        Determine if a given position is valid for nitrogen doping based on the nitrogen species and atom position.
+        Check if a given atom is a valid site for nitrogen doping based on the nitrogen species.
 
-        This method tests possible carbon atoms for doping by checking their proximity constraints
-        based on the type of nitrogen species. If a valid position is found, it returns True along with
-        the structural components needed for doping. Otherwise, it returns False.
+        This method verifies whether the specified carbon atom can be used for doping by checking proximity constraints
+        based on the nitrogen species. If the atom is valid for doping, it returns True along with the structural
+        components needed for doping. Otherwise, it returns False.
 
         Parameters
         ----------
         nitrogen_species : NitrogenSpecies
             The type of nitrogen doping to validate.
-        possible_carbon_atoms_to_test : List[int]
-            The list of possible carbon atoms to test.
+        atom_id: int
+            The atom ID of the carbon atom to test for doping.
 
         Returns
         -------
@@ -1169,7 +1205,7 @@ class DopingHandler:
         - It ensures that the selected atom and its neighbors are not part of any existing doping structures.
         """
 
-        def all_neighbors_possible_carbon_atoms(neighbors: List[int]):
+        def all_neighbors_possible_carbon_atoms(neighbors: List[int]) -> bool:
             """
             Check if all provided neighbors are possible carbon atoms for doping.
 
@@ -1190,8 +1226,19 @@ class DopingHandler:
 
             return all(neighbor in self.possible_carbon_atoms for neighbor in neighbors)
 
-        # Get the next possible carbon atom to test for doping and its neighbors
-        atom_id = self.get_next_possible_carbon_atom(possible_carbon_atoms_to_test)
+        # # Get the next possible carbon atom to test for doping and its neighbors
+        # atom_id = self.get_next_possible_carbon_atom(possible_carbon_atoms_to_test)
+        # neighbors = get_neighbors_via_edges(self.graph, atom_id)
+
+        # Check if the atom is still in the graph
+        if not self.graph.has_node(atom_id):
+            return False, (None, None)
+
+        # Check if the atom is still a possible doping site
+        if not self.graph.nodes[atom_id].get("possible_doping_site", True):
+            return False, (None, None)
+
+        # Get the neighbors of the atom
         neighbors = get_neighbors_via_edges(self.graph, atom_id)
 
         # Check whether the structure is periodic

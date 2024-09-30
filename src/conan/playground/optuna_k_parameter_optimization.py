@@ -1,4 +1,5 @@
 import copy
+import random
 from itertools import pairwise
 
 import numpy as np
@@ -233,48 +234,67 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     return total_score
 
 
+def objective(trial, graphene_sheets):
+    """
+    Objective function for Optuna optimization.
+
+    Parameters
+    ----------
+    trial : optuna.Trial
+        An Optuna trial object to suggest parameter values.
+    graphene_sheets : List[GrapheneSheet]
+        A list of graphene sheet objects.
+
+    Returns
+    -------
+    float
+        The average total error across all graphene sheets for the given parameter values.
+    """
+    # Suggest k-parameters
+    k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
+    k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
+
+    total_scores = []
+
+    # Use tqdm to show progress
+    for graphene_sheet in tqdm(graphene_sheets, desc="Processing Sheets"):
+        # Create a deep copy to avoid modifying the original sheet
+        graphene = copy.deepcopy(graphene_sheet)
+
+        # Set the k-parameters
+        graphene.k_inner_bond = k_inner_bond
+        graphene.k_outer_bond = k_outer_bond
+        graphene.k_inner_angle = k_inner_angle
+        graphene.k_outer_angle = k_outer_angle
+
+        # Adjust atom positions
+        graphene.adjust_atom_positions()
+
+        # Calculate the total error
+        score = calculate_total_error(graphene)
+        total_scores.append(score)
+
+    # Compute the average total score across all sheets
+    average_total_score = np.mean(total_scores)
+
+    return average_total_score
+
+
 def main():
+    random.seed(0)
+
     # Generate graphene sheets once
     num_sheets = 5
     print("Generating graphene sheets...")
-    graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=False)
-    print(f"{len(graphene_sheets)} graphene sheets generated.")
+    graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=True)
 
-    def objective(trial):
-        # Suggest k-parameters
-        k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
-        k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
-        k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
-        k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
-
-        total_scores = []
-
-        # Use tqdm to show progress
-        for graphene_sheet in tqdm(graphene_sheets, desc="Processing Sheets"):
-            # Create a deep copy to avoid modifying the original sheet
-            graphene = copy.deepcopy(graphene_sheet)
-
-            # Set the k-parameters
-            graphene.k_inner_bond = k_inner_bond
-            graphene.k_outer_bond = k_outer_bond
-            graphene.k_inner_angle = k_inner_angle
-            graphene.k_outer_angle = k_outer_angle
-
-            # Adjust atom positions
-            graphene.adjust_atom_positions()
-
-            # Calculate the total error
-            score = calculate_total_error(graphene)
-            total_scores.append(score)
-
-        # Compute the average total score across all sheets
-        average_total_score = np.mean(total_scores)
-
-        return average_total_score
-
-    # Run the Optuna study
+    # Define the Optuna study
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=3)
+
+    # Optimize using the objective function, passing graphene_sheets as an additional argument
+    study.optimize(lambda trial: objective(trial, graphene_sheets), n_trials=3)
 
     # Print the best parameters
     print("Best parameters:")
