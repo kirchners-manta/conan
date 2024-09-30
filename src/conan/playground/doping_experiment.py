@@ -31,7 +31,7 @@ from conan.playground.graph_utils import (
     minimum_image_distance_vectorized,
     write_xyz,
 )
-from conan.playground.structure_optimizer import StructureOptimizer
+from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 
 # Define a namedtuple for structural components
 # This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors
@@ -1827,7 +1827,11 @@ class GrapheneSheet(Structure2D):
         )
 
     def add_nitrogen_doping(
-        self, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = False
+        self,
+        total_percentage: float = None,
+        percentages: dict = None,
+        adjust_positions: bool = False,
+        optimization_config: Optional[OptimizationConfig] = None,
     ):
         """
         Add nitrogen doping to the graphene sheet.
@@ -1845,6 +1849,9 @@ class GrapheneSheet(Structure2D):
             values and values should be the percentages for the corresponding species.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
+        optimization_config : OptimizationConfig, optional
+            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
+            True. If None, default values are used.
 
         Raises
         ------
@@ -1870,8 +1877,10 @@ class GrapheneSheet(Structure2D):
             if self.positions_adjusted:
                 warnings.warn("Positions have already been adjusted.", UserWarning)
             else:
+                if optimization_config is None:
+                    optimization_config = OptimizationConfig()
                 print("\nThe positions of the atoms are now being adjusted. This may take a moment...\n")
-                self.adjust_atom_positions()
+                self.adjust_atom_positions(config=optimization_config)
                 print("\nThe positions of the atoms have been adjusted.")
         else:
             print(
@@ -1880,10 +1889,15 @@ class GrapheneSheet(Structure2D):
                 "set to True in the 'add_nitrogen_doping' method or call 'adjust_atom_positions()' separately."
             )
 
-    def adjust_atom_positions(self):
+    def adjust_atom_positions(self, config: Optional[OptimizationConfig] = None):
         """
         Adjust the positions of atoms in the graphene sheet to optimize the structure including doping while minimizing
         the structural strain.
+
+        Parameters
+        ----------
+        config : OptimizationConfig, optional
+            Configuration containing optimization constants (the spring constants). If None, default values are used.
 
         Notes
         -----
@@ -1898,8 +1912,11 @@ class GrapheneSheet(Structure2D):
             warnings.warn("Positions have already been adjusted.", UserWarning)
             return
 
+        if config is None:
+            config = OptimizationConfig()
+
         # Existing code for position adjustment
-        optimizer = StructureOptimizer(self)
+        optimizer = StructureOptimizer(self, config)
         optimizer.optimize_positions()
 
         # Set the flag to indicate positions have been adjusted
@@ -2407,6 +2424,7 @@ class StackedGraphene(Structure3D):
         percentages: dict = None,
         adjust_positions: bool = False,
         layers: Union[List[int], str] = "all",
+        optimization_config: Optional[OptimizationConfig] = None,
     ):
         """
         Add nitrogen doping to one or multiple layers in the stacked graphene structure.
@@ -2423,6 +2441,9 @@ class StackedGraphene(Structure3D):
         layers : Union[List[int], str], optional
             The layers to apply doping to. Can be a list of layer indices or "all" to apply to all layers. Default is
             "all".
+        optimization_config : OptimizationConfig, optional
+            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
+            True. If None, default values are used.
 
         Raises
         ------
@@ -2443,6 +2464,9 @@ class StackedGraphene(Structure3D):
         else:
             raise ValueError("Invalid 'layers' parameter. Must be a list of integers or 'all'.")
 
+        if optimization_config is None:
+            optimization_config = OptimizationConfig()
+
         # Apply doping to each specified layer
         for layer_index in layers:
             self.add_nitrogen_doping_to_layer(
@@ -2450,10 +2474,16 @@ class StackedGraphene(Structure3D):
                 total_percentage=total_percentage,
                 percentages=percentages,
                 adjust_positions=adjust_positions,
+                optimization_config=optimization_config,
             )
 
     def add_nitrogen_doping_to_layer(
-        self, layer_index: int, total_percentage: float = None, percentages: dict = None, adjust_positions: bool = False
+        self,
+        layer_index: int,
+        total_percentage: float = None,
+        percentages: dict = None,
+        adjust_positions: bool = False,
+        optimization_config: Optional[OptimizationConfig] = None,
     ):
         """
         Add nitrogen doping to a specific layer in the stacked graphene structure.
@@ -2469,12 +2499,21 @@ class StackedGraphene(Structure3D):
             values and values should be the percentages for the corresponding species.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
+        optimization_config : OptimizationConfig, optional
+            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
+            True.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
+            if optimization_config is None:
+                optimization_config = OptimizationConfig()
+
             # Perform the doping
             self.graphene_sheets[layer_index].add_nitrogen_doping(
-                total_percentage=total_percentage, percentages=percentages, adjust_positions=adjust_positions
+                total_percentage=total_percentage,
+                percentages=percentages,
+                adjust_positions=adjust_positions,
+                optimization_config=optimization_config,
             )
 
             # Rebuild the main graph in order to update the structure after doping
@@ -2482,7 +2521,9 @@ class StackedGraphene(Structure3D):
         else:
             raise IndexError("Layer index out of range.")
 
-    def adjust_atom_positions(self, layers: Union[List[int], str] = "all"):
+    def adjust_atom_positions(
+        self, layers: Union[List[int], str] = "all", optimization_config: Optional[OptimizationConfig] = None
+    ):
         """
         Adjust the positions of atoms in specified layers of the stacked graphene structure to optimize the structure.
 
@@ -2490,6 +2531,8 @@ class StackedGraphene(Structure3D):
         ----------
         layers : Union[List[int], str], optional
             The layers to adjust positions for. Can be a list of layer indices or "all".
+        optimization_config : OptimizationConfig, optional
+            Configuration containing optimization constants for position adjustments. If None, default values are used.
 
         Notes
         -----
@@ -2508,9 +2551,12 @@ class StackedGraphene(Structure3D):
         else:
             raise ValueError("Invalid 'layers' parameter. Must be a list of integers or 'all'.")
 
+        if optimization_config is None:
+            optimization_config = OptimizationConfig()
+
         for layer_index in layers:
             sheet = self.graphene_sheets[layer_index]
-            sheet.adjust_atom_positions()
+            sheet.adjust_atom_positions(config=optimization_config)
 
         # Rebuild the main graph to reflect updated positions
         self.build_structure()
