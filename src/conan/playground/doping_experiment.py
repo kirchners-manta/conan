@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from math import cos, pi, sin
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import networkx as nx
@@ -1342,7 +1343,9 @@ class MaterialStructure(ABC):
         pass
 
     @abstractmethod
-    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    def plot_structure(
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+    ):
         """
         Abstract method for plotting the structure.
 
@@ -1352,6 +1355,8 @@ class MaterialStructure(ABC):
             Whether to display labels on the nodes (default is False).
         visualize_periodic_bonds : bool, optional
             Whether to visualize periodic boundary condition edges (default is True).
+        save_path : str or pathlib.Path, optional
+            The file path to save the plot image. If None, the plot will be displayed interactively.
         """
         pass
 
@@ -1392,7 +1397,9 @@ class Structure2D(MaterialStructure):
     def build_structure(self):
         pass
 
-    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    def plot_structure(
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+    ):
         """
         Plot the structure using networkx and matplotlib in 2D.
 
@@ -1402,6 +1409,9 @@ class Structure2D(MaterialStructure):
             Whether to display labels on the nodes (default is False).
         visualize_periodic_bonds : bool, optional
             Whether to visualize periodic boundary condition edges (default is True).
+        save_path : str or pathlib.Path, optional
+            The file path to save the plot image. If None, the plot will be displayed interactively.
+
 
         Notes
         -----
@@ -1468,8 +1478,22 @@ class Structure2D(MaterialStructure):
         # Adjust layout to make sure everything fits
         plt.tight_layout()
 
-        # Show the plot
-        plt.show()
+        if save_path:
+            # Ensure save_path is a Path object
+            if isinstance(save_path, str):
+                save_path = Path(save_path)
+            elif not isinstance(save_path, Path):
+                raise TypeError("save_path must be a str or pathlib.Path")
+
+            # Create parent directories if they don't exist
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Save the plot to the specified path
+            plt.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)
+        else:
+            # Show the plot
+            plt.show()
 
 
 # Abstract base class for 3D structures
@@ -1481,7 +1505,9 @@ class Structure3D(MaterialStructure):
     def build_structure(self):
         pass
 
-    def plot_structure(self, with_labels: bool = False, visualize_periodic_bonds: bool = True):
+    def plot_structure(
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+    ):
         """
         Plot the structure in 3D using networkx and matplotlib.
 
@@ -1491,6 +1517,8 @@ class Structure3D(MaterialStructure):
             Whether to display labels on the nodes (default is False).
         visualize_periodic_bonds : bool, optional
             Whether to visualize periodic boundary condition edges (default is True).
+        save_path : str or pathlib.Path, optional
+            The file path to save the plot image. If None, the plot will be displayed interactively.
 
         Notes
         -----
@@ -1576,8 +1604,22 @@ class Structure3D(MaterialStructure):
             # Only add the legend if there are nitrogen species present
             ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
 
-        # Show the plot
-        plt.show()
+        if save_path:
+            # Ensure save_path is a Path object
+            if isinstance(save_path, str):
+                save_path = Path(save_path)
+            elif not isinstance(save_path, Path):
+                raise TypeError("save_path must be a str or pathlib.Path")
+
+            # Create parent directories if they don't exist
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Save the plot to the specified path
+            plt.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)
+        else:
+            # Show the plot
+            plt.show()
 
 
 class GrapheneSheet(Structure2D):
