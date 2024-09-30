@@ -1344,7 +1344,7 @@ class MaterialStructure(ABC):
 
     @abstractmethod
     def plot_structure(
-        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Union[str, Path, None] = None
     ):
         """
         Abstract method for plotting the structure.
@@ -1398,7 +1398,7 @@ class Structure2D(MaterialStructure):
         pass
 
     def plot_structure(
-        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Union[str, Path, None] = None
     ):
         """
         Plot the structure using networkx and matplotlib in 2D.
@@ -1506,7 +1506,7 @@ class Structure3D(MaterialStructure):
         pass
 
     def plot_structure(
-        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Optional[str, Path] = None
+        self, with_labels: bool = False, visualize_periodic_bonds: bool = True, save_path: Union[str, Path, None] = None
     ):
         """
         Plot the structure in 3D using networkx and matplotlib.
