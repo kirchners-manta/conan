@@ -12,6 +12,7 @@ def create_graphene_sheets(
     output_folder: str = "graphene_sheets",
     sheet_sizes: List[Tuple[int, int]] = None,
     write_to_file: bool = True,
+    create_plots: bool = False,
 ):
     """
     Create a specified number of doped graphene sheets with varying sizes, total doping percentages, relative doping
@@ -27,6 +28,8 @@ def create_graphene_sheets(
         List of sheet sizes (width, height) to choose from. If None, default sizes are used.
     write_to_file : bool, optional
         Whether to write the generated sheets to XYZ files. Default is True.
+    create_plots : bool, optional
+        Whether to create plots of the generated sheets and save them to the output folder. Default is False.
 
     Returns
     -------
@@ -83,7 +86,8 @@ def create_graphene_sheets(
         # Append the generated sheet to the list
         generated_sheets.append(graphene)
 
-        if write_to_file:
+        if write_to_file or create_plots:
+
             # Generate an informative filename
             size_str = f"{size[0]}x{size[1]}"
             total_pct_str = f"{total_percentage:.1f}_percent"
@@ -93,12 +97,18 @@ def create_graphene_sheets(
                     for species, percentage_per_species in species_percentages.items()
                 ]
             )
-            filename = os.path.join(
-                output_folder, f"graphene_{i + 1}_{size_str}_{total_pct_str}_{species_percentage_str}.xyz"
-            )
+            base_filename = f"graphene_{i + 1}_{size_str}_{total_pct_str}_{species_percentage_str}"
 
-            # Save the graphene sheet as an XYZ file
-            write_xyz(graphene.graph, filename)
+            if write_to_file:
+                # Save the graphene sheet as an XYZ file
+                file_name = os.path.join(output_folder, f"{base_filename}.xyz")
+                write_xyz(graphene.graph, file_name)
+
+            if create_plots:
+                # Generate the plot filename
+                plot_file_name = os.path.join(output_folder, f"{base_filename}.png")
+                # Plot the structure and save the plot
+                graphene.plot_structure(True, False, plot_file_name)
 
     print(
         f"\n{num_sheets} graphene sheets with varying sizes, nitrogen doping percentages, "
@@ -152,6 +162,7 @@ def generate_species_percentages(species_combination, total_percentage) -> Dict[
 
 
 if __name__ == "__main__":
+    random.seed(0)
     # Create 1000 graphene sheets with varying nitrogen doping
-    sheet_list = create_graphene_sheets(num_sheets=10)
+    sheet_list = create_graphene_sheets(num_sheets=100, create_plots=True)
     print(sheet_list)
