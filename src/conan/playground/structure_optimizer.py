@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from itertools import pairwise
 
 import networkx as nx
@@ -5,18 +6,43 @@ import numpy as np
 from scipy.optimize import minimize
 from tqdm import tqdm
 
+from conan.playground.doping_experiment import MaterialStructure
 from conan.playground.graph_utils import NitrogenSpecies, Position, minimum_image_distance_vectorized
 
 
+@dataclass
+class OptimizationConfig:
+    """
+    Configuration of spring constants for the structure optimization process.
+    """
+
+    k_inner_bond: float = 90.0
+    # self.k_inner_bond = 10
+    """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
+    atoms to their neighbors in the graphene sheet."""
+    k_outer_bond: float = 75.0
+    # self.k_outer_bond = 0.1
+    """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
+    k_inner_angle: float = 11.6
+    # self.k_inner_angle = 10
+    """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
+    atoms and their neighbors in the graphene sheet."""
+    k_outer_angle: float = 11.6
+    # self.k_outer_angle = 0.1
+    """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
+
+
 class StructureOptimizer:
-    def __init__(self, structure):
+    def __init__(self, structure: MaterialStructure, config: OptimizationConfig):
         """
-        Initialize the StructureOptimizer with the given carbon structure.
+        Initialize the StructureOptimizer with the given carbon structure and optimization configuration.
 
         Parameters
         ----------
         structure : MaterialStructure
             The structure to optimize.
+        config : OptimizationConfig
+            Configuration containing optimization constants.
         """
         self.structure = structure
         """The material structure to optimize."""
@@ -25,23 +51,11 @@ class StructureOptimizer:
         self.doping_handler = structure.doping_handler
         """The doping handler for the material structure."""
 
-        # Initialize k-values for bond and angle strain
-        self.k_inner_bond = 90
-        # self.k_inner_bond = 10
-        """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
-        atoms to their neighbors in the graphene sheet."""
-        self.k_outer_bond = 75
-        # self.k_outer_bond = 0.1
-        """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
-        # self.k_angle = 10.5
-        # """The spring constant for all angles in the graphene sheet."""
-        self.k_inner_angle = 11.6
-        # self.k_inner_angle = 10
-        """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
-        atoms and their neighbors in the graphene sheet."""
-        self.k_outer_angle = 11.6
-        # self.k_outer_angle = 0.1
-        """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
+        # Assign constants from config
+        self.k_inner_bond = config.k_inner_bond
+        self.k_outer_bond = config.k_outer_bond
+        self.k_inner_angle = config.k_inner_angle
+        self.k_outer_angle = config.k_outer_angle
 
     def optimize_positions(self):
         """
