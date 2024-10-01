@@ -9,6 +9,7 @@ from tqdm import tqdm
 from conan.playground.doping_experiment import GrapheneSheet
 from conan.playground.generate_doped_graphene_sheets import create_graphene_sheets
 from conan.playground.graph_utils import NitrogenSpecies, minimum_image_distance_vectorized
+from conan.playground.structure_optimizer import OptimizationConfig
 
 
 # Function to calculate total error
@@ -256,6 +257,14 @@ def objective(trial, graphene_sheets):
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
+    # Create an instance of OptimizationConfig with the suggested k-values
+    optimization_config = OptimizationConfig(
+        k_inner_bond=k_inner_bond,
+        k_outer_bond=k_outer_bond,
+        k_inner_angle=k_inner_angle,
+        k_outer_angle=k_outer_angle,
+    )
+
     total_scores = []
 
     # Use tqdm to show progress
@@ -263,14 +272,8 @@ def objective(trial, graphene_sheets):
         # Create a deep copy to avoid modifying the original sheet
         graphene = copy.deepcopy(graphene_sheet)
 
-        # Set the k-parameters
-        graphene.k_inner_bond = k_inner_bond
-        graphene.k_outer_bond = k_outer_bond
-        graphene.k_inner_angle = k_inner_angle
-        graphene.k_outer_angle = k_outer_angle
-
-        # Adjust atom positions
-        graphene.adjust_atom_positions()
+        # Adjust atom positions using the k-parameters from the optimization_config
+        graphene.adjust_atom_positions(optimization_config=optimization_config)
 
         # Calculate the total error
         score = calculate_total_error(graphene)
