@@ -1024,8 +1024,6 @@ class DopingHandler:
                 # Handle pyridinic doping
                 self._handle_pyridinic_doping(structural_components, nitrogen_species)
 
-            # After doping, mark possible_carbon_atoms as needing an update
-            self.mark_possible_carbon_atoms_for_update()
             # Reset tested_atoms since possible_carbon_atoms has changed
             tested_atoms = set()
 
