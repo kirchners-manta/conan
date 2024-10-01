@@ -995,9 +995,6 @@ class DopingHandler:
         # Create a set to keep track of tested atoms
         tested_atoms = set()
 
-        # # Create a copy of the possible carbon atoms to test for doping
-        # possible_carbon_atoms_to_test = self.possible_carbon_atoms.copy()
-
         # Loop until the required number of nitrogen atoms is added or there are no more possible carbon atoms to test
         while len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and len(tested_atoms) < len(
             self.possible_carbon_atoms
@@ -1852,8 +1849,9 @@ class GrapheneSheet(Structure2D):
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
-            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
-            True. If None, default values are used.
+            Configuration containing optimization constants for adjusting atom positions. If None, default values are
+            used.
+            **Note**: This parameter only takes effect if `adjust_positions=True`.
 
         Raises
         ------
@@ -1867,6 +1865,7 @@ class GrapheneSheet(Structure2D):
         - Remaining percentages are distributed equally among the available nitrogen species.
         - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
           GRAPHITIC.
+        - `optimization_config` is only considered if `adjust_positions` is set to True.
         """
         # Delegate the doping process to the doping handler
         self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
@@ -1899,7 +1898,8 @@ class GrapheneSheet(Structure2D):
         Parameters
         ----------
         optimization_config : OptimizationConfig, optional
-            Configuration containing optimization constants (the spring constants). If None, default values are used.
+            Configuration containing optimization constants (the spring constants) for position adjustment. If None,
+            default values are used.
 
         Notes
         -----
@@ -2444,8 +2444,9 @@ class StackedGraphene(Structure3D):
             The layers to apply doping to. Can be a list of layer indices or "all" to apply to all layers. Default is
             "all".
         optimization_config : OptimizationConfig, optional
-            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
-            True. If None, default values are used.
+            Configuration containing optimization constants for adjusting atom positions. If None, default values are
+            used.
+            **Note**: This parameter only takes effect if `adjust_positions=True`.
 
         Raises
         ------
@@ -2502,8 +2503,9 @@ class StackedGraphene(Structure3D):
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
-            Configuration containing optimization constants. Passed to adjust_atom_positions if adjust_positions is
-            True.
+            Configuration containing optimization constants for adjusting atom positions. If None, default values are
+            used.
+            **Note**: This parameter only takes effect if `adjust_positions=True`.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
@@ -3227,15 +3229,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3372,14 +3374,14 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # # CREATE A CNT STRUCTURE
-    #
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
-    # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    # CREATE A CNT STRUCTURE
+
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    cnt.add_nitrogen_doping(total_percentage=10)
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A PORE STRUCTURE
