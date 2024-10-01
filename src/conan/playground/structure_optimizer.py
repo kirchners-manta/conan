@@ -1,3 +1,9 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from conan.playground.doping_experiment import MaterialStructure
+
+from dataclasses import dataclass
 from itertools import pairwise
 
 import networkx as nx
@@ -5,17 +11,33 @@ import numpy as np
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from conan.playground.doping_experiment import MaterialStructure
-from conan.playground.graph_utils import (
-    NitrogenSpecies,
-    OptimizationConfig,
-    Position,
-    minimum_image_distance_vectorized,
-)
+from conan.playground.graph_utils import NitrogenSpecies, Position, minimum_image_distance_vectorized
+
+
+@dataclass
+class OptimizationConfig:
+    """
+    Configuration of spring constants for the structure optimization process.
+    """
+
+    k_inner_bond: float = 90.0
+    # self.k_inner_bond = 10
+    """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
+    atoms to their neighbors in the graphene sheet."""
+    k_outer_bond: float = 75.0
+    # self.k_outer_bond = 0.1
+    """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
+    k_inner_angle: float = 11.6
+    # self.k_inner_angle = 10
+    """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
+    atoms and their neighbors in the graphene sheet."""
+    k_outer_angle: float = 11.6
+    # self.k_outer_angle = 0.1
+    """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
 
 class StructureOptimizer:
-    def __init__(self, structure: MaterialStructure, config: OptimizationConfig):
+    def __init__(self, structure: "MaterialStructure", config: OptimizationConfig):
         """
         Initialize the StructureOptimizer with the given carbon structure and optimization configuration.
 
