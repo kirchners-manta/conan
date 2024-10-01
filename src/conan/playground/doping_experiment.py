@@ -1857,6 +1857,8 @@ class GrapheneSheet(Structure2D):
         ------
         ValueError
             If the specific percentages exceed the total percentage.
+        UserWarning
+            If `adjust_positions` is `False` but `optimization_config` is provided.
 
         Notes
         -----
@@ -1872,6 +1874,15 @@ class GrapheneSheet(Structure2D):
 
         # Reset the positions_adjusted flag since the structure has changed
         self.positions_adjusted = False
+
+        # Check if optimization_config is provided but adjust_positions is False
+        if not adjust_positions and optimization_config is not None:
+            warnings.warn(
+                "An 'optimization_config' was provided, but 'adjust_positions' is False. "
+                "The 'optimization_config' will have no effect. "
+                "Set 'adjust_positions=True' to adjust atom positions or call 'adjust_atom_positions()' separately.",
+                UserWarning,
+            )
 
         # Adjust atom positions if specified
         if adjust_positions:
@@ -2452,6 +2463,8 @@ class StackedGraphene(Structure3D):
         ------
         IndexError
             If any of the specified layers are out of range.
+        UserWarning
+            If `adjust_positions` is `False` but `optimization_config` is provided.
 
         Notes
         -----
@@ -2467,8 +2480,18 @@ class StackedGraphene(Structure3D):
         else:
             raise ValueError("Invalid 'layers' parameter. Must be a list of integers or 'all'.")
 
-        if optimization_config is None:
+        if optimization_config is None and adjust_positions:
             optimization_config: "OptimizationConfig" = OptimizationConfig()
+
+            # Check if optimization_config is provided but adjust_positions is False
+            if not adjust_positions and optimization_config is not None:
+                warnings.warn(
+                    "An 'optimization_config' was provided, but 'adjust_positions' is False. "
+                    "The 'optimization_config' will have no effect. "
+                    "Set 'adjust_positions=True' to adjust atom positions or call 'adjust_atom_positions()' "
+                    "separately.",
+                    UserWarning,
+                )
 
         # Apply doping to each specified layer
         for layer_index in layers:
@@ -2506,6 +2529,11 @@ class StackedGraphene(Structure3D):
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+
+        Raises
+        ------
+        UserWarning
+            If `adjust_positions` is `False` but `optimization_config` is provided.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
@@ -3229,15 +3257,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    sheet_size = (20, 20)
+
+    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3374,14 +3402,14 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # CREATE A CNT STRUCTURE
-
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
-    cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    # # CREATE A CNT STRUCTURE
+    #
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the CNT structure to a file
+    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A PORE STRUCTURE
