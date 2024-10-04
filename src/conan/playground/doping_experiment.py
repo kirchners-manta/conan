@@ -2483,15 +2483,15 @@ class StackedGraphene(Structure3D):
         if optimization_config is None and adjust_positions:
             optimization_config: "OptimizationConfig" = OptimizationConfig()
 
-            # Check if optimization_config is provided but adjust_positions is False
-            if not adjust_positions and optimization_config is not None:
-                warnings.warn(
-                    "An 'optimization_config' was provided, but 'adjust_positions' is False. "
-                    "The 'optimization_config' will have no effect. "
-                    "Set 'adjust_positions=True' to adjust atom positions or call 'adjust_atom_positions()' "
-                    "separately.",
-                    UserWarning,
-                )
+        # Check if optimization_config is provided but adjust_positions is False
+        if not adjust_positions and optimization_config is not None:
+            warnings.warn(
+                "An 'optimization_config' was provided, but 'adjust_positions' is False. "
+                "The 'optimization_config' will have no effect. "
+                "Set 'adjust_positions=True' to adjust atom positions or call 'adjust_atom_positions()' "
+                "separately.",
+                UserWarning,
+            )
 
         # Apply doping to each specified layer
         for layer_index in layers:
@@ -2537,7 +2537,7 @@ class StackedGraphene(Structure3D):
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
-            if optimization_config is None:
+            if optimization_config is None and adjust_positions:
                 optimization_config: "OptimizationConfig" = OptimizationConfig()
 
             # Perform the doping
