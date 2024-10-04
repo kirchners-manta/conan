@@ -1,6 +1,7 @@
 import copy
 import random
 from itertools import pairwise
+from typing import List
 
 import numpy as np
 import optuna
@@ -15,8 +16,8 @@ from conan.playground.structure_optimizer import OptimizationConfig
 # Function to calculate total error
 def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     """
-    Calculate the total error for the graphene sheet, considering both bond lengths and angles,
-    and taking into account the target values for inner and outer bonds and angles.
+    Calculate the total error for the graphene sheet, considering both bond lengths and angles, and taking into account
+    the target values for inner and outer bonds and angles.
 
     Parameters
     ----------
@@ -42,13 +43,13 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     inner_bond_set = set()
     inner_angle_set = set()
 
-    # Collect inner bonds and angles from doping structures
     all_structures = [
         structure
         for structure in graphene_sheet.doping_handler.doping_structures.structures
         if structure.species != NitrogenSpecies.GRAPHITIC
     ]
 
+    # Collect inner bonds and angles from doping structures
     for structure in all_structures:
         properties = graphene_sheet.doping_handler.species_properties[structure.species]
 
@@ -77,8 +78,11 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_bond_lengths_neighbors):
                     target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
                 else:
-                    # Default to standard bond length
-                    target_length = graphene_sheet.c_c_bond_distance
+                    raise ValueError(
+                        f"Error when assigning the target bond length: Neighbor atom {neighbor} "
+                        f"(index {idx_in_neighbors}) has no corresponding target length in "
+                        f"target_bond_lengths_neighbors."
+                    )
                 bond_target_lengths[bond] = target_length
 
         # Angles within the cycle
@@ -138,8 +142,10 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
                     target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
                 else:
-                    # Default to standard bond angle
-                    target_angle = graphene_sheet.c_c_bond_angle
+                    raise ValueError(
+                        f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                        f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                    )
                 angle_target_angles[angle1] = target_angle
 
                 # Angle: neighbor - node_j - next node in cycle
@@ -148,8 +154,10 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
                     target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
                 else:
-                    # Default to standard bond angle
-                    target_angle = graphene_sheet.c_c_bond_angle
+                    raise ValueError(
+                        f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                        f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                    )
                 angle_target_angles[angle2] = target_angle
 
     # Collect all bonds in the graph
@@ -186,6 +194,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         node_i, node_j = bond
         position_i = positions[node_i]
         position_j = positions[node_j]
+
         # Calculate bond length
         calculated_length, _ = minimum_image_distance_vectorized(
             np.array([[position_i.x, position_i.y]]),
@@ -202,6 +211,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         position_i = positions[node_i]
         position_j = positions[node_j]
         position_k = positions[node_k]
+
         # Calculate angle
         _, v1 = minimum_image_distance_vectorized(
             np.array([[position_i.x, position_i.y]]),
@@ -213,11 +223,13 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
             np.array([[position_j.x, position_j.y]]),
             box_size,
         )
-        norm_v1 = np.linalg.norm(v1)
-        norm_v2 = np.linalg.norm(v2)
-        if norm_v1 == 0 or norm_v2 == 0:
-            # Avoid division by zero
-            continue
+        norm_v1 = np.linalg.norm(v1, axis=1)
+        norm_v2 = np.linalg.norm(v2, axis=1)
+
+        # Prevent division by zero
+        norm_v1 = np.where(norm_v1 == 0, 1e-8, norm_v1)
+        norm_v2 = np.where(norm_v2 == 0, 1e-8, norm_v2)
+
         cos_theta = np.dot(v1, v2.T) / (norm_v1 * norm_v2)
         cos_theta = np.clip(cos_theta, -1.0, 1.0)
         theta = np.degrees(np.arccos(cos_theta[0][0]))
@@ -235,7 +247,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     return total_score
 
 
-def objective(trial, graphene_sheets):
+def objective(trial: optuna.Trial, graphene_sheets: List[GrapheneSheet]) -> float:
     """
     Objective function for Optuna optimization.
 
@@ -293,8 +305,11 @@ def main():
     print("Generating graphene sheets...")
     graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=True)
 
+    # Set a seed for Optuna's sampler
+    sampler = optuna.samplers.TPESampler(seed=0)  # Specify a seed for Optuna
+
     # Define the Optuna study
-    study = optuna.create_study(direction="minimize")
+    study = optuna.create_study(direction="minimize", sampler=sampler)
 
     # Optimize using the objective function, passing graphene_sheets as an additional argument
     study.optimize(lambda trial: objective(trial, graphene_sheets), n_trials=3)
