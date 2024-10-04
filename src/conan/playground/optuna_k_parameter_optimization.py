@@ -1,10 +1,21 @@
 import copy
+import json
+import os
 import random
 from itertools import pairwise
 from typing import List
 
 import numpy as np
 import optuna
+import pandas as pd
+from optuna.visualization import (
+    plot_contour,
+    plot_edf,
+    plot_optimization_history,
+    plot_parallel_coordinate,
+    plot_param_importances,
+    plot_slice,
+)
 from tqdm import tqdm
 
 from conan.playground.doping_experiment import GrapheneSheet
@@ -297,13 +308,52 @@ def objective(trial: optuna.Trial, graphene_sheets: List[GrapheneSheet]) -> floa
     return average_total_score
 
 
+def save_study_results(study, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    df = study.trials_dataframe()
+    df = df.map(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x)
+    with open(filename, "w") as f:
+        json.dump(df.to_dict(), f, indent=4)
+
+
+def save_best_trial(study, filepath):
+    best_trial = study.best_trial
+    best_params = best_trial.params
+    best_value = best_trial.value
+    best_trial_number = best_trial.number
+
+    best_trial_data = {"params": best_params, "value": best_value, "trial_number": best_trial_number}
+
+    with open(filepath, "w") as f:
+        json.dump(best_trial_data, f, indent=4)
+
+
+def save_study_visualizations(study, results_dir):
+    visualizations_dir = f"{results_dir}/visualizations"
+    os.makedirs(visualizations_dir, exist_ok=True)
+
+    optimization_history = plot_optimization_history(study)
+    param_importances = plot_param_importances(study)
+    parallel_coordinate = plot_parallel_coordinate(study)
+    slice_plot = plot_slice(study)
+    contour_plot = plot_contour(study)
+    edf_plot = plot_edf(study)
+
+    optimization_history.write_image(f"{visualizations_dir}/optimization_history.png")
+    param_importances.write_image(f"{visualizations_dir}/param_importances.png")
+    parallel_coordinate.write_image(f"{visualizations_dir}/parallel_coordinate.png")
+    slice_plot.write_image(f"{visualizations_dir}/slice_plot.png")
+    contour_plot.write_image(f"{visualizations_dir}/contour_plot.png")
+    edf_plot.write_image(f"{visualizations_dir}/edf_plot.png")
+
+
 def main():
     random.seed(0)
 
     # Generate graphene sheets once
-    num_sheets = 5
+    num_sheets = 1000
     print("Generating graphene sheets...")
-    graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=True)
+    graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=True, create_plots=True)
 
     # Set a seed for Optuna's sampler
     sampler = optuna.samplers.TPESampler(seed=0)  # Specify a seed for Optuna
@@ -312,15 +362,25 @@ def main():
     study = optuna.create_study(direction="minimize", sampler=sampler)
 
     # Optimize using the objective function, passing graphene_sheets as an additional argument
-    study.optimize(lambda trial: objective(trial, graphene_sheets), n_trials=3)
+    study.optimize(lambda trial: objective(trial, graphene_sheets), n_trials=100)
 
     # Print the best parameters
-    print("Best parameters:")
+    print("\nBest parameters:")
     for key, value in study.best_params.items():
         print(f"{key}: {value}")
 
     # Print the best value
-    print(f"Best average total error: {study.best_value}")
+    print(f"\nBest average total error: {study.best_value}")
+
+    # Save the study results:
+    study_name = "k_parameter_determination"
+    os.makedirs("optuna_results", exist_ok=True)
+    results_dir = f"optuna_results/{study_name}"
+    os.makedirs(results_dir, exist_ok=True)
+
+    save_study_results(study, f"{results_dir}/results.json")
+    save_best_trial(study, f"{results_dir}/best_trial.json")
+    save_study_visualizations(study, results_dir)
 
 
 if __name__ == "__main__":
