@@ -2725,8 +2725,8 @@ class CNT(Structure3D):
         """
         # Calculate the angle between carbon bonds in the armchair configuration
         angle_carbon_bond = 360 / (self.tube_size * 3)
-        # Calculate the radius of the CNT based on the bond angle
-        radius = distance / (2 * math.sin(math.radians(angle_carbon_bond) / 2))
+        # Calculate the radius of the CNT
+        radius = self.tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(angle_carbon_bond / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -2784,8 +2784,8 @@ class CNT(Structure3D):
         z_max : float
             The maximum z-coordinate reached by the structure.
         """
-        # Calculate the radius of the CNT based on the hexagon distance and symmetry angle
-        radius = hex_d / (2 * math.sin(math.radians(symmetry_angle / 2)))
+        # Calculate the radius of the CNT
+        radius = self.tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(symmetry_angle / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -3257,15 +3257,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3402,14 +3402,14 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # # CREATE A CNT STRUCTURE
-    #
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    # CREATE A CNT STRUCTURE
+
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
     # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A PORE STRUCTURE
