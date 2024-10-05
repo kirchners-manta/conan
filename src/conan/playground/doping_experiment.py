@@ -51,11 +51,18 @@ class AtomLabeler:
 
     def label_atoms(self):
         """
-        Label the atoms in the graphene structure based on their species.
+        Label the atoms in the graphene structure based on their doping species and local environment.
 
-        This method assigns labels to atoms based on the doping structures they belong to.
+        This method assigns labels to atoms based on the doping structures they belong to and their immediate
+        environment.
         Atoms that are part of a doping structure get labeled according to their specific nitrogen or carbon species.
+        In each doping cycle, the neighboring atoms of a C atom that are also within a cycle are also specified (_CC or
+        _CN), as well as a graphitic-N neighbor outside the cycle, if present (_G).
         All other carbon atoms are labeled as "CG" for standard graphene carbon.
+
+        In other words:
+        Atoms in the same symmetrically equivalent environment get the same label, while those in different
+        environments are labeled differently.
         """
         if not self.doping_structures:
             # Label all atoms as "CG" if there are no doping structures
@@ -76,7 +83,7 @@ class AtomLabeler:
             else:
                 # For pyridinic species, use NP1, NP2, NP3, NP4 for nitrogen, and CP1, CP2, CP3, CP4 for carbon
                 nitrogen_label = f"NP{species.value[-1]}"
-                carbon_label = f"CP{species.value[-1]}"
+                carbon_label_base = f"CP{species.value[-1]}"
 
                 # Label nitrogen atoms within the doping structure
                 for atom in structure.nitrogen_atoms:
@@ -85,7 +92,20 @@ class AtomLabeler:
                 # Label carbon atoms in the cycle of the doping structure
                 for atom in structure.cycle:
                     if atom not in structure.nitrogen_atoms:
-                        self.graph.nodes[atom]["label"] = carbon_label
+                        # Efficient one-liner to assign the label based on neighbors
+                        cycle_neighbors = structure.subgraph.neighbors(atom)
+                        self.graph.nodes[atom]["label"] = (
+                            f"{carbon_label_base}_CC"
+                            if all(self.graph.nodes[n]["element"] == "C" for n in cycle_neighbors)
+                            else f"{carbon_label_base}_CN"
+                        )
+
+                        # Check for additional cases where a neighboring atom is Graphitic-N
+                        neighbors = self.graph.neighbors(atom)
+                        if any(
+                            self.graph.nodes[n].get("nitrogen_species") == NitrogenSpecies.GRAPHITIC for n in neighbors
+                        ):
+                            self.graph.nodes[atom]["label"] += "_G"
 
         # Label remaining carbon atoms as "CG"
         for node in self.graph.nodes:
@@ -3233,7 +3253,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(0)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -3292,6 +3312,7 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
+
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
     # sheet_size = (20, 20)
     #
@@ -3303,6 +3324,18 @@ def main():
     # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
     # labeler.label_atoms()
     #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    # sheet_size = (20, 20)
+
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
+    # labeler.label_atoms()
+
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
@@ -3402,6 +3435,7 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
+
     # # CREATE A CNT STRUCTURE
     #
     # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
@@ -3437,6 +3471,31 @@ def main():
     #
     # # Save the Pore structure to a file
     # write_xyz(pore.graph, "Pore_structure.xyz")
+    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
+    # sheet_size = (20, 20)
+    #
+    # # Create a graphene sheet
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    #
+    # # Stack the graphene sheet
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
+    #
+    # # Add individual nitrogen doping only to the first and last layer
+    # start_time = time.time()  # Time the nitrogen doping process
+    # # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=False)
+    # # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=2, total_percentage=15, adjust_positions=False)
+    # end_time = time.time()
+    #
+    # # Calculate the elapsed time
+    # elapsed_time = end_time - start_time
+    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the structure to a .xyz file
+    # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
+
 
 
 if __name__ == "__main__":
