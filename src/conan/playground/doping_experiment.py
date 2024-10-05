@@ -2656,6 +2656,14 @@ class CNT(Structure3D):
         if self.conformation not in ["armchair", "zigzag"]:
             raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
 
+        # # Use 'tube_size' as internal parameter
+        # if tube_size is not None:
+        #     self.tube_size = tube_size
+        #     # `tube_diameter` will be calculated based on `tube_size`
+        # else:
+        #     # Calculate `tube_size` based on `tube_diameter`
+        #     self.tube_size =
+
         # Build the CNT structure using graph theory
         self.build_structure()
 
@@ -2675,20 +2683,63 @@ class CNT(Structure3D):
         # Calculate the difference between the maximum and minimum z-values
         return max(z_coordinates) - min(z_coordinates)
 
-    @property
-    def tube_diameter(self):
+    def _calculate_tube_diameter_from_size(self, tube_size: int) -> float:
         """
-        Calculate the diameter of the CNT based on the tube size and bond length.
+        Calculate the diameter of the CNT based on the given `tube_size` and bond length.
+
         The formula differs for zigzag and armchair conformations and are taken from the following sources:
             - https://www.sciencedirect.com/science/article/pii/S0020768306000412
             - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Parameters
+        ----------
+        tube_size : int
+            The size of the CNT, i.e., the number of hexagonal units around the circumference.
+
+        Returns
+        -------
+            The calculated `tube_diameter` based on the given `tube_size`
         """
         len_unit_vec = np.sqrt(3) * self.bond_length
         if self.conformation == "armchair":
-            len_unit_vec = np.sqrt(3) * self.bond_length
-            return (np.sqrt(3) * len_unit_vec * self.tube_size) / np.pi
+            return (np.sqrt(3) * len_unit_vec * tube_size) / np.pi
         elif self.conformation == "zigzag":
-            return (len_unit_vec * self.tube_size) / np.pi
+            return (len_unit_vec * tube_size) / np.pi
+
+    def _calculate_tube_size_from_diameter(self, tube_diameter: float) -> int:
+        """
+        Calculates 'tube_size' based on the given 'tube_diameter' and bond length.
+
+        The formula differs for zigzag and armchair conformations and are taken from the following sources:
+            - https://www.sciencedirect.com/science/article/pii/S0020768306000412
+            - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Parameters
+        ----------
+        tube_diameter : float
+            The desired diameter of the CNT.
+
+        Returns
+        -------
+        int
+            The calculated 'tube_size' based on the given 'tube_diameter'.
+
+        Raises
+        ------
+        ValueError
+            If the calculated 'tube_size' is not a positive integer.
+        """
+        len_unit_vec = np.sqrt(3) * self.bond_length
+        if self.conformation == "armchair":
+            tube_size = (tube_diameter * np.pi) / (len_unit_vec * np.sqrt(3))
+        else:
+            tube_size = (tube_diameter * np.pi) / len_unit_vec
+
+        tube_size = int(round(tube_size))
+        if tube_size < 1:
+            raise ValueError("The calculated `tube_size` needs to be a positive integer.")
+
+        return tube_size
 
     def build_structure(self):
         """
