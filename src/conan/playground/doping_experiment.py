@@ -2600,7 +2600,13 @@ class CNT(Structure3D):
     """
 
     def __init__(
-        self, bond_length: float, tube_length: float, tube_size: int, conformation: str, periodic: bool = False
+        self,
+        bond_length: float,
+        tube_length: float,
+        tube_size: Optional[int] = None,
+        tube_diameter: Optional[float] = None,
+        conformation: str = "zigzag",
+        periodic: bool = False,
     ):
         """
         Initialize the CarbonNanotube with given parameters.
@@ -2611,19 +2617,44 @@ class CNT(Structure3D):
             The bond length between carbon atoms in the CNT.
         tube_length : float
             The length of the CNT.
-        tube_size : int
+        tube_size : int, optional
             The size of the CNT, i.e., the number of hexagonal units around the circumference.
-        conformation : str
-            The conformation of the CNT ('armchair' or 'zigzag').
+        tube_diameter: float, optional
+            The diameter of the CNT.
+        conformation : str, optional
+            The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         periodic : bool, optional
             Whether to apply periodic boundary conditions along the tube axis (default is False).
+
+        Raises
+        ------
+        ValueError
+            If neither tube_size nor tube_diameter is specified.
+            If both tube_size and tube_diameter are specified.
+            If the conformation is invalid.
+
+        Notes
+        -----
+        - You must specify either `tube_size` or `tube_diameter`, but not both.
+          These parameters are internally converted using standard formulas.
         """
         super().__init__()
+
+        # Input validation and parameter handling
+        if tube_size is None and tube_diameter is None:
+            raise ValueError("You must specify either 'tube_size' or 'tube_diameter'.")
+
+        if tube_size is not None and tube_diameter is not None:
+            raise ValueError("Specify only one of 'tube_size' or 'tube_diameter', not both.")
+
         self.bond_length = bond_length
         self.tube_length = tube_length
-        self.tube_size = tube_size
         self.conformation = conformation.lower()
         self.periodic = periodic
+
+        # Validate conformation
+        if self.conformation not in ["armchair", "zigzag"]:
+            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
 
         # Build the CNT structure using graph theory
         self.build_structure()
