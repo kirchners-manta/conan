@@ -8,7 +8,7 @@ def graphene_sheet():
     """
     Fixture to create a GrapheneSheet instance with predefined parameters.
     """
-    return GrapheneSheet(bond_distance=1.42, sheet_size=(10, 10))
+    return GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
 
 
 @pytest.fixture
