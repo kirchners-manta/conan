@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, NamedTuple, Tuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -9,47 +9,10 @@ from numba import jit
 from numpy import typing as npt
 from scipy.spatial import KDTree
 
-# from conan.playground.doping_experiment import GrapheneGraph
 
-
-# class Position(NamedTuple):
-#     """
-#     Position: Named tuple to represent the coordinates of atoms.
-#
-#     Attributes
-#     ----------
-#     x : float
-#         The x-coordinate of the atom.
-#     y : float
-#         The y-coordinate of the atom.
-#     z : Optional[float]
-#         The z-coordinate of the atom (default is None).
-#     """
-#
-#     x: float
-#     y: float
-#     z: Optional[float] = None  # Optional z-coordinate
-
-
-class Position2D(NamedTuple):
+class Position(NamedTuple):
     """
-    Position2D: Named tuple to represent 2D coordinates of atoms.
-
-    Attributes
-    ----------
-    x : float
-        The x-coordinate of the atom.
-    y : float
-        The y-coordinate of the atom.
-    """
-
-    x: float
-    y: float
-
-
-class Position3D(NamedTuple):
-    """
-    Position3D: Named tuple to represent 3D coordinates of atoms.
+    Position: Named tuple to represent 3D coordinates of atoms.
 
     Attributes
     ----------
@@ -66,6 +29,41 @@ class Position3D(NamedTuple):
     z: float
 
 
+# class Position2D(NamedTuple):
+#     """
+#     Position2D: Named tuple to represent 2D coordinates of atoms.
+#
+#     Attributes
+#     ----------
+#     x : float
+#         The x-coordinate of the atom.
+#     y : float
+#         The y-coordinate of the atom.
+#     """
+#
+#     x: float
+#     y: float
+#
+#
+# class Position3D(NamedTuple):
+#     """
+#     Position3D: Named tuple to represent 3D coordinates of atoms.
+#
+#     Attributes
+#     ----------
+#     x : float
+#         The x-coordinate of the atom.
+#     y : float
+#         The y-coordinate of the atom.
+#     z : float
+#         The z-coordinate of the atom.
+#     """
+#
+#     x: float
+#     y: float
+#     z: float
+
+
 class Vector(NamedTuple):
     """
     Vector: Named tuple to represent the displacement between atoms.
@@ -76,36 +74,39 @@ class Vector(NamedTuple):
         The x-component of the displacement.
     dy : float
         The y-component of the displacement.
+    dz : float
+        The z-component of the displacement.
     """
 
     dx: float
     dy: float
+    dz: float
 
 
 def create_position(*args: Union[float, Tuple[float, float], Tuple[float, float, float]]):
     """
-    Create a Position instance based on the number of input arguments.
+    Create a Position3D instance with an optional default z-coordinate (0.0 if not provided).
 
     Parameters
     ----------
     args
         Variable length argument list.
-        - If two floats are provided, they are treated as x and y coordinates.
+        - If two floats are provided, they are treated as x and y coordinates, with z=0.0 by default.
         - If three floats are provided, they are treated as x, y, and z coordinates.
         - If a single tuple of two or three floats is provided, it is unpacked to x, y, and z coordinates.
 
     Returns
     -------
-    Union[Position2D, Position3D]
-        A Position2D or Position3D object based on the input.
+    Position
+        A Position object based on the input.
     """
     if len(args) == 1 and isinstance(args[0], tuple):
         args = args[0]  # Unpack tuple if a single tuple argument is passed
 
     if len(args) == 2:
-        return Position2D(args[0], args[1])  # Create 2D position
+        return Position(args[0], args[1], 0.0)  # Create 3D position with z=0.0 by default
     elif len(args) == 3:
-        return Position3D(args[0], args[1], args[2])  # Create 3D position
+        return Position(args[0], args[1], args[2])  # Create 3D position with provided z-coordinate
     else:
         raise ValueError("Invalid number of arguments for creating a Position. Expected 2 or 3 values.")
 
@@ -117,16 +118,23 @@ class NitrogenSpeciesProperties:
 
     Attributes
     ----------
-    target_bond_lengths : List[float]
-        A list of bond lengths of the doping structure.
-    target_angles : List[float]
-        A list of bond angles of the doping structure.
+    target_bond_lengths_cycle : List[float]
+        A list of bond lengths inside the doping structure (cycle).
+    target_bond_lengths_neighbors : List[float]
+        A list of bond lengths between doping structure and neighbors outside the cycle.
+    target_angles_cycle : List[float]
+        A list of bond angles inside the doping structure (cycle).
+    target_angles_neighbors : List[float]
+        A list of bond angles between doping structure and neighbors outside the cycle.
+    target_angles_additional_angles : Optional[List[float]]
+        A list of angles that are added by adding the additional_edge in the PYRIDINIC_1 case
     """
 
-    target_bond_lengths: List[float]
-    target_angles: List[float]
-    # k_inner: float
-    # k_outer: float
+    target_bond_lengths_cycle: List[float]
+    target_bond_lengths_neighbors: List[float]
+    target_angles_cycle: List[float]
+    target_angles_neighbors: List[float]
+    target_angles_additional_angles: Optional[List[float]] = field(default=None)
 
 
 class NitrogenSpecies(Enum):
@@ -140,45 +148,60 @@ class NitrogenSpecies(Enum):
     # PYRAZOLE = "pyrazole"
 
 
-def minimum_image_distance(pos1: Position2D, pos2: Position2D, box_size: Tuple[float, float]) -> Tuple[float, Vector]:
+def minimum_image_distance(
+    pos1: Position, pos2: Position, box_size: Union[Tuple[float, float], Tuple[float, float, float]]
+) -> Tuple[float, Vector]:
     """
     Calculate the minimum distance between two positions considering periodic boundary conditions.
 
     Parameters
     ----------
-    pos1 : Position2D
+    pos1 : Position
         Position of the first atom.
-    pos2 : Position2D
+    pos2 : Position
         Position of the second atom.
-    box_size : Tuple[float, float, float]
-        Size of the box in the x and y dimensions (box_width, box_height).
+    box_size : Union[Tuple[float, float], Tuple[float, float, float]]
+        Size of the box in the x, y and optionally z dimensions (box_width, box_height, box_depth).
 
     Returns
     -------
     Tuple[float, Vector]
         A tuple containing:
         - The minimum distance between the two positions as a float.
-        - The displacement vector accounting for periodic boundary conditions as a named tuple (dx, dy).
+        - The displacement vector accounting for periodic boundary conditions as a named tuple (dx, dy, dz).
     """
-    # Convert namedtuples to numpy arrays for vector operations
-    pos1 = np.array(pos1)
-    pos2 = np.array(pos2)
+    # Check if the dimensions of pos1/pos2 and box_size match
+    pos_dim = len(pos1)
+    box_dim = len(box_size)
+
+    if pos_dim != box_dim:
+        raise ValueError(f"Dimension mismatch: positions are {pos_dim}D, but box_size is {box_dim}D.")
+
+    # Convert named tuples to numpy arrays for vector operations
+    pos1 = np.array(pos1, dtype=np.float64)
+    pos2 = np.array(pos2, dtype=np.float64)
+    box_size = np.array(box_size, dtype=np.float64)
+
+    # Check for division by zero in the box size and replace with a large value if necessary
+    box_size_safe = np.where(box_size == 0, np.inf, box_size)
 
     # Calculate the vector difference between the two positions
     d_pos = pos1 - pos2
 
     # Adjust the difference vector for periodic boundary conditions
-    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size))
+    d_pos = d_pos - np.array(box_size) * np.round(d_pos / np.array(box_size_safe))
 
     # Calculate the Euclidean distance using the adjusted difference vector
-    distance = float(np.linalg.norm(d_pos))
-    displacement = Vector(float(d_pos[0]), float(d_pos[1]))
+    distance = np.linalg.norm(d_pos)
+    displacement = Vector(float(d_pos[0]), float(d_pos[1]), float(d_pos[2]))
 
     return distance, displacement
 
 
 @jit(nopython=True)
-def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]):
+def minimum_image_distance_vectorized(
+    pos1: npt.NDArray, pos2: npt.NDArray, box_size: Union[Tuple[float, float], Tuple[float, float, float]]
+) -> (npt.NDArray, npt.NDArray):
     """
     Calculate the minimum distance between two sets of positions considering periodic boundary conditions.
 
@@ -188,16 +211,23 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
         Array of positions of the first set of atoms (N x 3).
     pos2 : npt.NDArray
         Array of positions of the second set of atoms (N x 3).
-    box_size : Tuple[float, float]
-        Size of the box in the x and y dimensions (box_width, box_height).
+    box_size : Union[Tuple[float, float], Tuple[float, float, float]]
+        Size of the box in the x, y and optionally z dimensions (box_width, box_height, box_depth).
 
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray]
+    Tuple[npt.NDArray, npt.NDArray]
         A tuple containing:
         - The minimum distances between the sets of positions as a numpy array.
         - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 3).
     """
+    # Check if the dimensions of pos1/pos2 and box_size match
+    pos_dim = pos1.shape[1]
+    box_dim = len(box_size)
+
+    if pos_dim != box_dim:
+        raise ValueError(f"Dimension mismatch: positions are {pos_dim}D, but box_size is {box_dim}D.")
+
     # Calculate the vector difference between the two positions
     delta = pos2 - pos1
 
@@ -216,58 +246,25 @@ def minimum_image_distance_vectorized(pos1: npt.NDArray, pos2: npt.NDArray, box_
     return dist, delta
 
 
-# def minimum_image_distance_vectorized(
-#     pos1: npt.NDArray, pos2: npt.NDArray, box_size: Tuple[float, float]
-# ) -> (Tuple)[npt.NDArray, npt.NDArray]:
+# def toggle_dimension(sheet_graph: nx.Graph):
 #     """
-#     Calculate the minimum distance between two sets of positions considering periodic boundary conditions.
+#     Toggle the graph positions between 2D and 3D.
+#
+#     If the positions are in 2D (Position2D), they will be converted to 3D (Position3D) by adding a z-coordinate of 0.
+#     If the positions are in 3D (Position3D), they will be converted to 2D (Position2D) by removing the z-coordinate.
 #
 #     Parameters
 #     ----------
-#     pos1 : npt.NDArray
-#         Array of positions of the first set of atoms (N x 2).
-#     pos2 : npt.NDArray
-#         Array of positions of the second set of atoms (N x 2).
-#     box_size : Tuple[float, float]
-#         Size of the box in the x and y dimensions (box_width, box_height).
-#
-#     Returns
-#     -------
-#     Tuple[np.ndarray, np.ndarray]
-#         A tuple containing:
-#         - The minimum distances between the sets of positions as a numpy array.
-#         - The displacement vectors accounting for periodic boundary conditions as a numpy array (N x 2).
+#     sheet_graph : nx.Graph
+#         The graph containing the sheet structure to convert.
 #     """
-#     # Calculate the vector difference between the two positions
-#     displacement = pos1 - pos2
-#
-#     # Adjust the difference vector for periodic boundary conditions
-#     displacement = displacement - np.array(box_size) * np.round(displacement / np.array(box_size))
-#
-#     # Calculate the Euclidean distance using the adjusted difference vector
-#     distances = np.linalg.norm(displacement, axis=1)
-#     return distances, displacement
-
-
-def toggle_dimension(sheet_graph: nx.Graph):
-    """
-    Toggle the graph positions between 2D and 3D.
-
-    If the positions are in 2D (Position2D), they will be converted to 3D (Position3D) by adding a z-coordinate of 0.
-    If the positions are in 3D (Position3D), they will be converted to 2D (Position2D) by removing the z-coordinate.
-
-    Parameters
-    ----------
-    sheet_graph : nx.Graph
-        The graph containing the sheet structure to convert.
-    """
-    for node, pos in sheet_graph.nodes(data="position"):
-        if isinstance(pos, Position2D):
-            # Convert from 2D to 3D
-            sheet_graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
-        elif isinstance(pos, Position3D):
-            # Convert from 3D to 2D
-            sheet_graph.nodes[node]["position"] = Position2D(pos.x, pos.y)
+#     for node, pos in sheet_graph.nodes(data="position"):
+#         if isinstance(pos, Position2D):
+#             # Convert from 2D to 3D
+#             sheet_graph.nodes[node]["position"] = Position3D(pos.x, pos.y, 0.0)
+#         elif isinstance(pos, Position3D):
+#             # Convert from 3D to 2D
+#             sheet_graph.nodes[node]["position"] = Position2D(pos.x, pos.y)
 
 
 def write_xyz(graph: nx.Graph, filename: str):
@@ -290,10 +287,7 @@ def write_xyz(graph: nx.Graph, filename: str):
         for node in graph.nodes(data=True):
             label = node[1].get("label", node[1].get("element", "X"))  # Fallback to 'X' if no element or label is set
             pos = node[1]["position"]
-
-            z = 0.0 if isinstance(pos, Position2D) else pos.z
-
-            file.write(f"{label} {pos.x:.3f} {pos.y:.3f} {z:.3f}\n")
+            file.write(f"{label} {pos.x:.3f} {pos.y:.3f} {pos.z:.3f}\n")
 
 
 def print_warning(message: str):
