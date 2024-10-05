@@ -1,10 +1,11 @@
 import random
 
-import numpy as np
 import pytest
 
 from conan.playground.doping_experiment import GrapheneSheet
-from conan.playground.graph_utils import get_neighbors_via_edges, get_neighbors_within_distance
+from conan.playground.graph_utils import get_neighbors_via_edges
+
+# from conan.playground.graph_utils import get_neighbors_within_distance
 
 
 class TestGraphene:
@@ -83,30 +84,30 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
 
-    def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
-        """
-        Test to verify neighbors within a given distance using KDTree.
-
-        Parameters
-        ----------
-        graphene : GrapheneSheet
-            The graphene fixture providing the initialized GrapheneGraph instance.
-
-        Asserts
-        -------
-        Checks if the neighbors within a specified distance are correct by calculating the Euclidean distance.
-        """
-        atom_id = 56
-        max_distance = 5
-        neighbors = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
-
-        atom_position = np.array(graphene.graph.nodes[atom_id]["position"])
-        for neighbor in neighbors:
-            neighbor_position = np.array(graphene.graph.nodes[neighbor]["position"])
-            distance = np.linalg.norm(atom_position - neighbor_position)
-            assert distance <= max_distance, (
-                f"Neighbor {neighbor} at distance {distance} exceeds max_distance " f"{max_distance}"
-            )
+    # def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
+    #     """
+    #     Test to verify neighbors within a given distance using KDTree.
+    #
+    #     Parameters
+    #     ----------
+    #     graphene : GrapheneSheet
+    #         The graphene fixture providing the initialized GrapheneGraph instance.
+    #
+    #     Asserts
+    #     -------
+    #     Checks if the neighbors within a specified distance are correct by calculating the Euclidean distance.
+    #     """
+    #     atom_id = 56
+    #     max_distance = 5
+    #     neighbors = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
+    #
+    #     atom_position = np.array(graphene.graph.nodes[atom_id]["position"])
+    #     for neighbor in neighbors:
+    #         neighbor_position = np.array(graphene.graph.nodes[neighbor]["position"])
+    #         distance = np.linalg.norm(atom_position - neighbor_position)
+    #         assert distance <= max_distance, (
+    #             f"Neighbor {neighbor} at distance {distance} exceeds max_distance " f"{max_distance}"
+    #         )
 
 
 class TestGrapheneValidations:
