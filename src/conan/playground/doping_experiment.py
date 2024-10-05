@@ -2619,6 +2619,8 @@ class CNT(Structure3D):
     Represents a carbon nanotube structure.
     """
 
+    _warning_shown = False  # Class-level attribute to prevent repeated warnings
+
     def __init__(
         self,
         bond_length: float,
@@ -2684,13 +2686,7 @@ class CNT(Structure3D):
             # Calculate `tube_size` based on `tube_diameter`
             self.tube_size = self._calculate_tube_size_from_diameter(tube_diameter)
             # `tube_diameter` will be calculated based on `tube_size`
-            # Inform the user if the actual diameter differs
-            if not np.isclose(tube_diameter, self.actual_tube_diameter, atol=1e-3):
-                print(
-                    f"Note: The provided 'tube_diameter' ({tube_diameter:.3f} Å) does not correspond to an integer "
-                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
-                    f"{self.actual_tube_diameter:.3f} Å."
-                )
+        self._validate_diameter_from_size(tube_diameter)
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -2784,6 +2780,25 @@ class CNT(Structure3D):
             raise ValueError("The calculated `tube_size` needs to be a positive integer.")
 
         return tube_size
+
+    def _validate_diameter_from_size(self, provided_diameter: Optional[float] = None):
+        """
+        Validates and compares the calculated diameter with the provided one and handles warnings.
+
+        Parameters
+        ----------
+        provided_diameter : float, optional
+            The provided 'tube_diameter' to compare with the calculated one.
+        """
+        actual_diameter = self.actual_tube_diameter
+        if provided_diameter is not None and not np.isclose(provided_diameter, actual_diameter, atol=1e-3):
+            if not CNT._warning_shown:
+                print(
+                    f"Note: The provided 'tube_diameter' ({provided_diameter:.3f} Å) does not correspond to an integer "
+                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
+                    f"{actual_diameter:.3f} Å."
+                )
+                CNT._warning_shown = True  # Ensure the message is shown only once
 
     def build_structure(self):
         """
@@ -3333,13 +3348,6 @@ class Pore(Structure3D):
                 conformation=self.conformation,
             )
             self.tube_size = temp_cnt.tube_size
-            # Inform the user if the actual diameter differs
-            if not np.isclose(tube_diameter, temp_cnt.actual_tube_diameter, atol=1e-3):
-                print(
-                    f"Note: The provided 'tube_diameter' ({tube_diameter:.3f} Å) does not correspond to an integer "
-                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
-                    f"{temp_cnt.actual_tube_diameter:.3f} Å."
-                )
 
         # Create the graphene sheets and CNT
         self.graphene1 = GrapheneSheet(bond_length, sheet_size)
