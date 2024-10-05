@@ -2684,6 +2684,13 @@ class CNT(Structure3D):
             # Calculate `tube_size` based on `tube_diameter`
             self.tube_size = self._calculate_tube_size_from_diameter(tube_diameter)
             # `tube_diameter` will be calculated based on `tube_size`
+            # Inform the user if the actual diameter differs
+            if not np.isclose(tube_diameter, self.actual_tube_diameter, atol=1e-3):
+                print(
+                    f"Note: The provided 'tube_diameter' ({tube_diameter:.3f} Å) does not correspond to an integer "
+                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
+                    f"{self.actual_tube_diameter:.3f} Å."
+                )
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -3268,37 +3275,82 @@ class Pore(Structure3D):
     """
 
     def __init__(
-        self, bond_length: float, sheet_size: Tuple[int, int], tube_length: float, tube_size: int, conformation: str
+        self,
+        bond_length: Union[float, int],
+        sheet_size: Union[Tuple[float, float], Tuple[int, int]],
+        tube_length: float,
+        tube_size: Optional[int] = None,
+        tube_diameter: Optional[float] = None,
+        conformation: str = "zigzag",
     ):
         """
         Initialize the Pore with two graphene sheets and a CNT in between.
 
         Parameters
         ----------
-        bond_length : float
+        bond_length : Union[float, int]
             The bond length between carbon atoms.
-        sheet_size : Tuple[int, int]
+        sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheets (x, y dimensions).
         tube_length : float
             The length of the CNT.
-        tube_size : int
+        tube_size : int, optional
             The size of the CNT (number of hexagonal units around the circumference).
-        conformation : str
-            The conformation of the CNT ('armchair' or 'zigzag').
+        tube_diameter : float, optional
+            The diameter of the CNT.
+        conformation : str, optional
+            The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         """
         super().__init__()
 
-        # Initialize parameters
+        # Input validation and parameter handling
+        if tube_size is None and tube_diameter is None:
+            raise ValueError("You must specify either 'tube_size' or 'tube_diameter' for the CNT within the pore.")
+
+        if tube_size is not None and tube_diameter is not None:
+            raise ValueError(
+                "Specify only one of 'tube_size' or 'tube_diameter' for the CNT within the pore, not " "both."
+            )
+
         self.bond_length = bond_length
         self.sheet_size = sheet_size
         self.tube_length = tube_length
-        self.tube_size = tube_size
         self.conformation = conformation.lower()
+
+        # Validate conformation
+        if self.conformation not in ["armchair", "zigzag"]:
+            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+
+        # Use 'tube_size' as internal parameter
+        if tube_size is not None:
+            self.tube_size = tube_size
+        elif tube_diameter is not None:
+            # Create a temporary CNT to calculate 'tube_size' from 'tube_diameter'
+            temp_cnt = CNT(
+                bond_length=self.bond_length,
+                tube_length=self.tube_length,
+                tube_diameter=tube_diameter,
+                conformation=self.conformation,
+            )
+            self.tube_size = temp_cnt.tube_size
+            # Inform the user if the actual diameter differs
+            if not np.isclose(tube_diameter, temp_cnt.actual_tube_diameter, atol=1e-3):
+                print(
+                    f"Note: The provided 'tube_diameter' ({tube_diameter:.3f} Å) does not correspond to an integer "
+                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
+                    f"{temp_cnt.actual_tube_diameter:.3f} Å."
+                )
 
         # Create the graphene sheets and CNT
         self.graphene1 = GrapheneSheet(bond_length, sheet_size)
         self.graphene2 = GrapheneSheet(bond_length, sheet_size)
-        self.cnt = CNT(bond_length, tube_length, tube_size, conformation)
+        self.cnt = CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_size=tube_size,
+            tube_diameter=tube_diameter,
+            conformation=conformation,
+        )
 
         # Build the structure
         self.build_structure()
@@ -3521,42 +3573,44 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # CREATE A CNT STRUCTURE
-
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
-    # cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
+    # # CREATE A CNT STRUCTURE
+    #
+    # # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
+    # # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the CNT structure to a file
+    # write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
 
     ####################################################################################################################
-    # # CREATE A PORE STRUCTURE
-    # # Define parameters for the graphene sheets and CNT
-    # bond_length = 1.42  # Bond length for carbon atoms
-    # sheet_size = (20, 20)  # Size of the graphene sheets
-    # tube_length = 10.0  # Length of the CNT
+    # CREATE A PORE STRUCTURE
+    # Define parameters for the graphene sheets and CNT
+    bond_length = 1.42  # Bond length for carbon atoms
+    sheet_size = (20, 20)  # Size of the graphene sheets
+    tube_length = 10.0  # Length of the CNT
     # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-    #
-    # # Create a Pore structure
-    # pore = Pore(
-    #     bond_length=bond_length,
-    #     sheet_size=sheet_size,
-    #     tube_length=tube_length,
-    #     tube_size=tube_size,
-    #     conformation=conformation,
-    # )
-    #
-    # # Add optional nitrogen doping (if needed)
-    # # pore.add_nitrogen_doping(total_percentage=10)
-    #
-    # # Visualize the structure with labels (without showing periodic bonds)
-    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the Pore structure to a file
-    # write_xyz(pore.graph, "Pore_structure.xyz")
+    tube_diameter = 6  # Diameter of the CNT
+    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+
+    # Create a Pore structure
+    pore = Pore(
+        bond_length=bond_length,
+        sheet_size=sheet_size,
+        tube_length=tube_length,
+        # tube_size=tube_size,
+        tube_diameter=tube_diameter,
+        conformation=conformation,
+    )
+
+    # Add optional nitrogen doping (if needed)
+    # pore.add_nitrogen_doping(total_percentage=10)
+
+    # Visualize the structure with labels (without showing periodic bonds)
+    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the Pore structure to a file
+    write_xyz(pore.graph, "pore_structure.xyz")
 
 
 if __name__ == "__main__":
