@@ -2656,13 +2656,14 @@ class CNT(Structure3D):
         if self.conformation not in ["armchair", "zigzag"]:
             raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
 
-        # # Use 'tube_size' as internal parameter
-        # if tube_size is not None:
-        #     self.tube_size = tube_size
-        #     # `tube_diameter` will be calculated based on `tube_size`
-        # else:
-        #     # Calculate `tube_size` based on `tube_diameter`
-        #     self.tube_size =
+        # Use 'tube_size' as internal parameter
+        if tube_size is not None:
+            self.tube_size = tube_size
+            # `tube_diameter` will be calculated based on `tube_size`
+        elif tube_diameter is not None:
+            # Calculate `tube_size` based on `tube_diameter`
+            self.tube_size = self._calculate_tube_size_from_diameter(tube_diameter)
+            # `tube_diameter` will be calculated based on `tube_size`
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -2682,6 +2683,22 @@ class CNT(Structure3D):
 
         # Calculate the difference between the maximum and minimum z-values
         return max(z_coordinates) - min(z_coordinates)
+
+    @property
+    def actual_tube_diameter(self) -> float:
+        """
+        Calculate the diameter of the CNT based on the tube size and bond length.
+
+        The formula differs for zigzag and armchair conformations and is taken from the following sources:
+            - https://www.sciencedirect.com/science/article/pii/S0020768306000412
+            - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Returns
+        -------
+        float
+            The calculated `tube_diameter` based on `tube_size`.
+        """
+        return self._calculate_tube_diameter_from_size(self.tube_size)
 
     def _calculate_tube_diameter_from_size(self, tube_size: int) -> float:
         """
@@ -2808,7 +2825,7 @@ class CNT(Structure3D):
         # Calculate the angle between carbon bonds in the armchair configuration
         angle_carbon_bond = 360 / (self.tube_size * 3)
         # Calculate the radius of the CNT
-        radius = self.tube_diameter / 2
+        radius = self.actual_tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(angle_carbon_bond / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -2867,7 +2884,7 @@ class CNT(Structure3D):
             The maximum z-coordinate reached by the structure.
         """
         # Calculate the radius of the CNT
-        radius = self.tube_diameter / 2
+        radius = self.actual_tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(symmetry_angle / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -3282,7 +3299,7 @@ class Pore(Structure3D):
 
         # Create holes in the graphene sheets
         center = (x_shift, y_shift)
-        radius = self.cnt.tube_diameter / 2 + self.bond_length
+        radius = self.cnt.actual_tube_diameter / 2 + self.bond_length
         self.graphene1.create_hole(center, radius)
         self.graphene2.create_hole(center, radius)
 
@@ -3486,7 +3503,8 @@ def main():
     ####################################################################################################################
     # CREATE A CNT STRUCTURE
 
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
     # cnt.add_nitrogen_doping(total_percentage=10)
     cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
