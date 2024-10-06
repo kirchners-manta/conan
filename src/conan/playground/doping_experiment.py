@@ -3598,8 +3598,8 @@ def main():
     sheet_size = (20, 20)  # Size of the graphene sheets
     tube_length = 10.0  # Length of the CNT
     # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    tube_diameter = 6  # Diameter of the CNT
-    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    tube_diameter = 11  # Diameter of the CNT
+    conformation = "armchair"  # Conformation of the CNT (can be "zigzag" or "armchair")
 
     # Create a Pore structure
     pore = Pore(
