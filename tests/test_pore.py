@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from your_module import Pore  # Replace 'your_module' with the actual module name where Pore is defined
+
+from conan.playground.doping_experiment import Pore
 
 
 @pytest.fixture
@@ -12,7 +13,7 @@ def bond_length():
 @pytest.fixture
 def sheet_size():
     """Fixture for sheet size."""
-    return (20.0, 20.0)
+    return 20.0, 20.0
 
 
 @pytest.fixture
