@@ -6,6 +6,8 @@ import time
 import numpy as np
 import pandas as pd
 
+import conan.analysis_modules.rad_dens2 as raddens2
+import conan.analysis_modules.rad_velocity2 as radvel2
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
@@ -30,43 +32,28 @@ def analysis_opt(traj_file, molecules, maindict):
 
 def run_analysis(traj_file, molecules, maindict):
     an = Analysis(traj_file, molecules, maindict)
-    traj_analysis(traj_file, molecules, maindict, an)
+
+    # now run the analysis
+    if an.choice2 == 1 or an.choice2 == 2:
+        raddens2.radial_density_analysis(traj_file, molecules, an)
+    elif an.choice2 == 3:
+        radvel2.radial_velocity_analysis(traj_file, molecules, an)
+
+    # traj_analysis(traj_file, molecules, maindict, an)
 
 
 class Analysis:
     def __init__(self, traj_file, molecules, maindict) -> None:
 
         self.choice2 = self.analysis_choice(traj_file)
-        self.reg_q, self.regions, self.maindict = self.region_question(maindict, traj_file)
         self.run = self.get_traj_module(traj_file)
-        self.start_frame, self.frame_interval = self.frame_question(traj_file)
-
-    def frame_question(self, traj_file) -> tuple:
-        start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
-        frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
-        return start_frame, frame_interval
-
-    def region_question(self, maindict, traj_file) -> tuple:
-        maindict["box_dimension"] = np.array(traj_file.box_size)
-        regional_q = ddict.get_input(
-            "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
-        )
-        regions = [0] * 6
-        if regional_q == "y":
-            regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
-            regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
-            regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
-            regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
-            regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
-            regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
-        return regional_q, regions, maindict
 
     def analysis_choice(self, traj_file) -> int:
         # Analysis choice.
         ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
         ddict.printLog("(1) Calculate the radial density inside the CNT")
         ddict.printLog("(2) Calculate the radial charge density inside the CNT (if charges are provided)")
-        ddict.printLog("(3) Calculate the radial velocity of the liquid in the CNT.")
+        ddict.printLog("(3) Calculate the radial atomic velocity of the liquid in the CNT.")
         ddict.printLog("(4) Calculate the accessible volume of the CNT")
         ddict.printLog(
             "(5) Calculate the axial density along the z axis of the simulation box,",
@@ -101,6 +88,131 @@ class Analysis:
         return run
 
 
+def region_question(traj_file) -> tuple:
+    regional_q = ddict.get_input(
+        "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
+    )
+    regions = [0] * 6
+    if regional_q == "y":
+        regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
+        regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
+        regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
+        regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
+        regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
+        regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
+    return regional_q, regions
+
+
+def frame_question(traj_file) -> tuple:
+    start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
+    frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
+    return start_frame, frame_interval
+
+
+def process_trajectory(traj_file, molecules, an, analysis_option):
+
+    element_masses = ddict.dict_mass()  # Erstellen eines Massen-Dictionarys
+    trajectory = pd.read_csv(traj_file.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
+
+    chunk_number = 0
+    frame_counter = 0
+    proc_frames = 0
+
+    spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
+    regional_q, regions = region_question(traj_file)
+    start_frame, frame_interval = frame_question(traj_file)
+
+    Main_time = time.time()
+    for chunk in trajectory:
+        chunk_number += 1
+        ddict.printLog(f"\nChunk {chunk_number} of {traj_file.num_chunks}")
+
+        if chunk.shape[0] == traj_file.lines_last_chunk:
+            frames = np.split(chunk, traj_file.last_chunk_size)
+        else:
+            frames = np.split(chunk, traj_file.chunk_size)
+
+        for frame in frames:
+            frame_counter += 1
+
+            # Skip frames based on start_frame and frame_interval
+            if frame_counter < start_frame or (frame_counter - start_frame) % frame_interval != 0:
+                continue
+
+            split_frame = prepare_frame(
+                an,
+                frame,
+                element_masses,
+                traj_file,
+                regional_q,
+                regions,
+                spec_molecule,
+                spec_atom,
+                analysis_spec_molecule,
+            )
+            if split_frame is None:
+                continue
+            analysis_option.analyze_frame(split_frame, frame_counter)
+            proc_frames += 1
+            print(
+                "Processed frame %d (frame %d of %d)" % (frame_counter, frame_counter, traj_file.number_of_frames),
+                end="\r",
+            )
+
+    analysis_option.proc_frames = proc_frames
+    ddict.printLog(f"\nFinished processing the trajectory in {time.time() - Main_time:.2f} seconds.")
+
+
+def prepare_frame(
+    an, frame, element_masses, traj_file, regional_q, regions, spec_molecule, spec_atom, analysis_spec_molecule
+):
+    """Vorbereiten des Frames für die Analyse."""
+    split_frame = run_trajectory_module(an, frame, element_masses, traj_file)
+    if split_frame is None:
+        return None
+
+    split_frame.reset_index(drop=True, inplace=True)
+    split_frame["Struc"] = traj_file.frame0["Struc"]
+    split_frame["Molecule"] = traj_file.frame0["Molecule"]
+    split_frame["Species"] = traj_file.frame0["Species"]
+    split_frame["Label"] = traj_file.frame0["Label"]
+
+    split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+
+    if regional_q == "y":
+        split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]
+        split_frame = split_frame[split_frame["X"].astype(float) <= regions[1]]
+        split_frame = split_frame[split_frame["Y"].astype(float) >= regions[2]]
+        split_frame = split_frame[split_frame["Y"].astype(float) <= regions[3]]
+        split_frame = split_frame[split_frame["Z"].astype(float) >= regions[4]]
+        split_frame = split_frame[split_frame["Z"].astype(float) <= regions[5]]
+
+    if analysis_spec_molecule == "y":
+        split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
+        # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
+        if spec_atom[0] != "all":
+            # If specific atoms are requested, only these atoms are kept.
+            split_frame = split_frame[split_frame["Label"].isin(spec_atom)]
+
+    return split_frame
+
+
+def run_trajectory_module(an, frame, element_masses, traj_file):
+    """Rufe das spezifische Modul auf, um das Frame in die richtige Struktur zu bringen."""
+    try:
+        split_frame = an.run(frame, element_masses, traj_file.frame0)
+    except Exception as e:
+        ddict.printLog(f"Error processing frame: {e}")
+        return None
+    return split_frame
+
+
+if __name__ == "__main__":
+    # ARGUMENTS
+    args = ddict.read_commandline()
+
+
+"""
 def prepare_analysis_dict(maindict, traj_file, molecules, choice2, an) -> dict:
     maindict["maxdisp_atom_row"] = None
     maindict["maxdisp_atom_dist"] = 0
@@ -280,12 +392,10 @@ def traj_analysis(traj_file, molecules, maindict, an) -> None:
     ddict.printLog("Finished processing the trajectory. %d frames were processed." % (counter))
     ddict.printLog("")
 
+
     # DATA PROCESSING
     post_processing(maindict)
 
     ddict.printLog("\nThe main loop took %0.3f seconds to run." % (time.time() - Main_time))
 
-
-if __name__ == "__main__":
-    # ARGUMENTS
-    args = ddict.read_commandline()
+"""
