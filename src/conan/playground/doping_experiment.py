@@ -2620,7 +2620,13 @@ class CNT(Structure3D):
     """
 
     def __init__(
-        self, bond_length: float, tube_length: float, tube_size: int, conformation: str, periodic: bool = False
+        self,
+        bond_length: float,
+        tube_length: float,
+        tube_size: Optional[int] = None,
+        tube_diameter: Optional[float] = None,
+        conformation: str = "zigzag",
+        periodic: bool = False,
     ):
         """
         Initialize the CarbonNanotube with given parameters.
@@ -2631,19 +2637,53 @@ class CNT(Structure3D):
             The bond length between carbon atoms in the CNT.
         tube_length : float
             The length of the CNT.
-        tube_size : int
+        tube_size : int, optional
             The size of the CNT, i.e., the number of hexagonal units around the circumference.
-        conformation : str
-            The conformation of the CNT ('armchair' or 'zigzag').
+        tube_diameter: float, optional
+            The diameter of the CNT.
+        conformation : str, optional
+            The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         periodic : bool, optional
             Whether to apply periodic boundary conditions along the tube axis (default is False).
+
+        Raises
+        ------
+        ValueError
+            If neither tube_size nor tube_diameter is specified.
+            If both tube_size and tube_diameter are specified.
+            If the conformation is invalid.
+
+        Notes
+        -----
+        - You must specify either `tube_size` or `tube_diameter`, but not both.
+          These parameters are internally converted using standard formulas.
         """
         super().__init__()
+
+        # Input validation and parameter handling
+        if tube_size is None and tube_diameter is None:
+            raise ValueError("You must specify either 'tube_size' or 'tube_diameter'.")
+
+        if tube_size is not None and tube_diameter is not None:
+            raise ValueError("Specify only one of 'tube_size' or 'tube_diameter', not both.")
+
         self.bond_length = bond_length
         self.tube_length = tube_length
-        self.tube_size = tube_size
         self.conformation = conformation.lower()
         self.periodic = periodic
+
+        # Validate conformation
+        if self.conformation not in ["armchair", "zigzag"]:
+            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+
+        # Use 'tube_size' as internal parameter
+        if tube_size is not None:
+            self.tube_size = tube_size
+            # `tube_diameter` will be calculated based on `tube_size`
+        elif tube_diameter is not None:
+            # Calculate `tube_size` based on `tube_diameter`
+            self.tube_size = self._calculate_tube_size_from_diameter(tube_diameter)
+            # `tube_diameter` will be calculated based on `tube_size`
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -2665,19 +2705,78 @@ class CNT(Structure3D):
         return max(z_coordinates) - min(z_coordinates)
 
     @property
-    def tube_diameter(self):
+    def actual_tube_diameter(self) -> float:
         """
         Calculate the diameter of the CNT based on the tube size and bond length.
+
+        The formula differs for zigzag and armchair conformations and is taken from the following sources:
+            - https://www.sciencedirect.com/science/article/pii/S0020768306000412
+            - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Returns
+        -------
+        float
+            The calculated `tube_diameter` based on `tube_size`.
+        """
+        return self._calculate_tube_diameter_from_size(self.tube_size)
+
+    def _calculate_tube_diameter_from_size(self, tube_size: int) -> float:
+        """
+        Calculate the diameter of the CNT based on the given `tube_size` and bond length.
+
         The formula differs for zigzag and armchair conformations and are taken from the following sources:
             - https://www.sciencedirect.com/science/article/pii/S0020768306000412
             - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Parameters
+        ----------
+        tube_size : int
+            The size of the CNT, i.e., the number of hexagonal units around the circumference.
+
+        Returns
+        -------
+            The calculated `tube_diameter` based on the given `tube_size`
         """
         len_unit_vec = np.sqrt(3) * self.bond_length
         if self.conformation == "armchair":
-            len_unit_vec = np.sqrt(3) * self.bond_length
-            return (np.sqrt(3) * len_unit_vec * self.tube_size) / np.pi
+            return (np.sqrt(3) * len_unit_vec * tube_size) / np.pi
         elif self.conformation == "zigzag":
-            return (len_unit_vec * self.tube_size) / np.pi
+            return (len_unit_vec * tube_size) / np.pi
+
+    def _calculate_tube_size_from_diameter(self, tube_diameter: float) -> int:
+        """
+        Calculates 'tube_size' based on the given 'tube_diameter' and bond length.
+
+        The formula differs for zigzag and armchair conformations and are taken from the following sources:
+            - https://www.sciencedirect.com/science/article/pii/S0020768306000412
+            - https://indico.ictp.it/event/7605/session/12/contribution/72/material/1/0.pdf
+
+        Parameters
+        ----------
+        tube_diameter : float
+            The desired diameter of the CNT.
+
+        Returns
+        -------
+        int
+            The calculated 'tube_size' based on the given 'tube_diameter'.
+
+        Raises
+        ------
+        ValueError
+            If the calculated 'tube_size' is not a positive integer.
+        """
+        len_unit_vec = np.sqrt(3) * self.bond_length
+        if self.conformation == "armchair":
+            tube_size = (tube_diameter * np.pi) / (len_unit_vec * np.sqrt(3))
+        else:
+            tube_size = (tube_diameter * np.pi) / len_unit_vec
+
+        tube_size = int(round(tube_size))
+        if tube_size < 1:
+            raise ValueError("The calculated `tube_size` needs to be a positive integer.")
+
+        return tube_size
 
     def build_structure(self):
         """
@@ -2745,8 +2844,8 @@ class CNT(Structure3D):
         """
         # Calculate the angle between carbon bonds in the armchair configuration
         angle_carbon_bond = 360 / (self.tube_size * 3)
-        # Calculate the radius of the CNT based on the bond angle
-        radius = distance / (2 * math.sin(math.radians(angle_carbon_bond) / 2))
+        # Calculate the radius of the CNT
+        radius = self.actual_tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(angle_carbon_bond / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -2804,8 +2903,8 @@ class CNT(Structure3D):
         z_max : float
             The maximum z-coordinate reached by the structure.
         """
-        # Calculate the radius of the CNT based on the hexagon distance and symmetry angle
-        radius = hex_d / (2 * math.sin(math.radians(symmetry_angle / 2)))
+        # Calculate the radius of the CNT
+        radius = self.actual_tube_diameter / 2
         # Calculate the horizontal distance between atoms along the x-axis within a unit cell
         distx = radius - radius * math.cos(math.radians(symmetry_angle / 2))
         # Calculate the vertical distance between atoms along the y-axis within a unit cell
@@ -3220,7 +3319,7 @@ class Pore(Structure3D):
 
         # Create holes in the graphene sheets
         center = (x_shift, y_shift)
-        radius = self.cnt.tube_diameter / 2 + self.bond_length
+        radius = self.cnt.actual_tube_diameter / 2 + self.bond_length
         self.graphene1.create_hole(center, radius)
         self.graphene2.create_hole(center, radius)
 
@@ -3253,7 +3352,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(1)
+    random.seed(0)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -3277,15 +3376,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3312,7 +3411,6 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
     # sheet_size = (20, 20)
     #
@@ -3324,18 +3422,6 @@ def main():
     # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
     # labeler.label_atoms()
     #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
-    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
-    # sheet_size = (20, 20)
-
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    # labeler = AtomLabeler(graphene.graph, graphene.doping_structures)
-    # labeler.label_atoms()
-
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
@@ -3435,15 +3521,15 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
+    # CREATE A CNT STRUCTURE
 
-    # # CREATE A CNT STRUCTURE
-    #
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="armchair", periodic=False)
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
     # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_armchair_doped.xyz")
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A PORE STRUCTURE
@@ -3471,31 +3557,6 @@ def main():
     #
     # # Save the Pore structure to a file
     # write_xyz(pore.graph, "Pore_structure.xyz")
-    # # Example: Only dope the first and last layer (both will have the same doping percentage but different ordering)
-    # sheet_size = (20, 20)
-    #
-    # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
-    #
-    # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
-    #
-    # # Add individual nitrogen doping only to the first and last layer
-    # start_time = time.time()  # Time the nitrogen doping process
-    # # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=0, total_percentage=15, adjust_positions=False)
-    # # stacked_graphene.add_nitrogen_doping_to_layer(layer_index=2, total_percentage=15, adjust_positions=False)
-    # end_time = time.time()
-    #
-    # # Calculate the elapsed time
-    # elapsed_time = end_time - start_time
-    # print(f"Time taken for nitrogen doping for a sheet of size {sheet_size}: {elapsed_time:.2f} seconds")
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the structure to a .xyz file
-    # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
-
 
 
 if __name__ == "__main__":
