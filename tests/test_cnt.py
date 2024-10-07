@@ -82,17 +82,6 @@ def test_cnt_with_neither_tube_size_nor_diameter(bond_length, tube_length):
         )
 
 
-def test_cnt_invalid_conformation(bond_length, tube_length):
-    """Test CNT initialization with invalid conformation."""
-    with pytest.raises(ValueError):
-        CNT(
-            bond_length=bond_length,
-            tube_length=tube_length,
-            tube_size=8,
-            conformation="invalid_conformation",
-        )
-
-
 @pytest.mark.parametrize(
     "tube_diameter, conformation",
     [
@@ -129,3 +118,123 @@ def test_tube_diameter_calculation_accuracy(bond_length, tube_length, tube_size,
     )
     expected_diameter = cnt._calculate_tube_diameter_from_size(tube_size)
     assert cnt.actual_tube_diameter == pytest.approx(expected_diameter, abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    "invalid_bond_length, expected_exception",
+    [
+        ("1.42", TypeError),  # Not a float or int
+        (-1.0, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_bond_length(invalid_bond_length, expected_exception, tube_length):
+    """Test invalid bond_length inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=invalid_bond_length,
+            tube_length=tube_length,
+            tube_size=8,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_length, expected_exception",
+    [
+        ("10.0", TypeError),  # Not a float or int
+        (-5.0, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_tube_length(bond_length, invalid_tube_length, expected_exception):
+    """Test invalid tube_length inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=bond_length,
+            tube_length=invalid_tube_length,
+            tube_size=8,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_size, expected_exception",
+    [
+        ("8", TypeError),  # Not an int
+        (-1, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (5.5, TypeError),  # Float instead of int
+        (None, ValueError),  # NoneType
+    ],
+)
+def test_invalid_tube_size(bond_length, tube_length, invalid_tube_size, expected_exception):
+    """Test invalid tube_size inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_size=invalid_tube_size,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_diameter, expected_exception",
+    [
+        ("6.3", TypeError),  # Not a float or int
+        (-6.3, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, ValueError),  # NoneType
+    ],
+)
+def test_invalid_tube_diameter(bond_length, tube_length, invalid_tube_diameter, expected_exception):
+    """Test invalid tube_diameter inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_diameter=invalid_tube_diameter,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_conformation, expected_exception",
+    [
+        (123, TypeError),  # Not a string
+        (None, TypeError),  # NoneType
+        ("invalid_conformation", ValueError),  # Invalid value
+    ],
+)
+def test_invalid_conformation(bond_length, tube_length, invalid_conformation, expected_exception):
+    """Test invalid conformation inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_size=8,
+            conformation=invalid_conformation,
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_periodic, expected_exception",
+    [
+        ("False", TypeError),  # Not a boolean
+        (1, TypeError),  # Not a boolean
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_periodic(bond_length, tube_length, invalid_periodic, expected_exception):
+    """Test invalid periodic inputs for CNT."""
+    with pytest.raises(expected_exception):
+        CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_size=8,
+            conformation="zigzag",
+            periodic=invalid_periodic,
+        )

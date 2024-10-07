@@ -92,13 +92,129 @@ def test_pore_with_neither_tube_size_nor_diameter(bond_length, sheet_size, tube_
         )
 
 
-def test_pore_invalid_conformation(bond_length, sheet_size, tube_length):
-    """Test Pore initialization with invalid conformation."""
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize(
+    "invalid_bond_length, expected_exception",
+    [
+        ("1.42", TypeError),  # Not a float or int
+        (-1.0, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_bond_length(invalid_bond_length, sheet_size, tube_length, expected_exception):
+    """Test invalid bond_length inputs for Pore."""
+    with pytest.raises(expected_exception):
+        Pore(
+            bond_length=invalid_bond_length,
+            sheet_size=sheet_size,
+            tube_length=tube_length,
+            tube_size=8,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_sheet_size, expected_exception",
+    [
+        ("(20.0, 20.0)", TypeError),  # Not a tuple
+        ((20.0,), TypeError),  # Tuple of length 1
+        ((20.0, -20.0), ValueError),  # Negative value
+        ((20.0, 0), ValueError),  # Zero value
+        ((20.0, "20.0"), TypeError),  # Non-numeric value
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_sheet_size(bond_length, invalid_sheet_size, tube_length, expected_exception):
+    """Test invalid sheet_size inputs for Pore."""
+    with pytest.raises(expected_exception):
+        Pore(
+            bond_length=bond_length,
+            sheet_size=invalid_sheet_size,
+            tube_length=tube_length,
+            tube_size=8,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_length, expected_exception",
+    [
+        ("10.0", TypeError),  # Not a float or int
+        (-5.0, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, TypeError),  # NoneType
+    ],
+)
+def test_invalid_tube_length(bond_length, sheet_size, invalid_tube_length, expected_exception):
+    """Test invalid tube_length inputs for Pore."""
+    with pytest.raises(expected_exception):
+        Pore(
+            bond_length=bond_length,
+            sheet_size=sheet_size,
+            tube_length=invalid_tube_length,
+            tube_size=8,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_size, expected_exception",
+    [
+        ("8", TypeError),  # Not an int
+        (-1, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (5.5, TypeError),  # Float instead of int
+        (None, ValueError),  # NoneType
+    ],
+)
+def test_invalid_tube_size(bond_length, sheet_size, tube_length, invalid_tube_size, expected_exception):
+    """Test invalid tube_size inputs for Pore."""
+    with pytest.raises(expected_exception):
+        Pore(
+            bond_length=bond_length,
+            sheet_size=sheet_size,
+            tube_length=tube_length,
+            tube_size=invalid_tube_size,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_tube_diameter, expected_exception",
+    [
+        ("6.3", TypeError),  # Not a float or int
+        (-6.3, ValueError),  # Non-positive value
+        (0, ValueError),  # Zero value
+        (None, ValueError),  # NoneType
+    ],
+)
+def test_invalid_tube_diameter(bond_length, sheet_size, tube_length, invalid_tube_diameter, expected_exception):
+    """Test invalid tube_diameter inputs for Pore."""
+    with pytest.raises(expected_exception):
+        Pore(
+            bond_length=bond_length,
+            sheet_size=sheet_size,
+            tube_length=tube_length,
+            tube_diameter=invalid_tube_diameter,
+            conformation="zigzag",
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_conformation, expected_exception",
+    [
+        (123, TypeError),  # Not a string
+        (None, TypeError),  # NoneType
+        ("invalid_conformation", ValueError),  # Invalid value
+    ],
+)
+def test_invalid_conformation(bond_length, sheet_size, tube_length, invalid_conformation, expected_exception):
+    """Test invalid conformation inputs for Pore."""
+    with pytest.raises(expected_exception):
         Pore(
             bond_length=bond_length,
             sheet_size=sheet_size,
             tube_length=tube_length,
             tube_size=8,
-            conformation="invalid_conformation",
+            conformation=invalid_conformation,
         )

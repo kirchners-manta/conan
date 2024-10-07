@@ -73,7 +73,7 @@ def create_graphene_sheets(
         species_combination = random.choice(species_combinations)
 
         # Create a graphene sheet with the selected size
-        graphene = GrapheneSheet(bond_distance=1.42, sheet_size=size)
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=size)
 
         # Generate percentages for each species in the combination
         species_percentages = generate_species_percentages(species_combination, total_percentage)
