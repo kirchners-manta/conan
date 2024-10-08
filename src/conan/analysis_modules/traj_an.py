@@ -6,6 +6,7 @@ import time
 import numpy as np
 import pandas as pd
 
+import conan.analysis_modules.axial_dens2 as axdens2
 import conan.analysis_modules.rad_dens2 as raddens2
 import conan.analysis_modules.rad_velocity2 as radvel2
 import conan.defdict as ddict
@@ -38,6 +39,8 @@ def run_analysis(traj_file, molecules, maindict):
         raddens2.radial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 3:
         radvel2.radial_velocity_analysis(traj_file, molecules, an)
+    elif an.choice2 == 4:
+        axdens2.accessible_volume_analysis(traj_file, molecules, an)
 
     # traj_analysis(traj_file, molecules, maindict, an)
 
