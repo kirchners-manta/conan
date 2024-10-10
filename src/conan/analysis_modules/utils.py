@@ -99,17 +99,17 @@ def grid_generator(inputdict):
     return outputdict
 
 
-def write_cube_file(inputdict, filename):
+def write_cube_file(analysis, filename):
 
-    box_size = inputdict["box_size"]
+    box_size = analysis.traj_file.box_size
 
     # Extract necessary data from outputdict
-    xbin_edges = box_size[0] / inputdict["x_incr"] * np.arange(inputdict["x_incr"])
-    ybin_edges = box_size[1] / inputdict["y_incr"] * np.arange(inputdict["y_incr"])
-    zbin_edges = box_size[2] / inputdict["z_incr"] * np.arange(inputdict["z_incr"])
+    xbin_edges = box_size[0] / analysis.x_incr * np.arange(analysis.x_incr)
+    ybin_edges = box_size[1] / analysis.y_incr * np.arange(analysis.y_incr)
+    zbin_edges = box_size[2] / analysis.z_incr * np.arange(analysis.z_incr)
 
-    grid_point_densities = inputdict["grid_point_densities"]
-    id_frame = inputdict["id_frame"]
+    grid_point_densities = analysis.grid_point_densities
+    id_frame = analysis.traj_file.frame0
 
     # drop all lines in the id_frame which are labeled 'Liquid' in the 'Struc' column
     id_frame = id_frame[id_frame["Struc"] != "Liquid"]

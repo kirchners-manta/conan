@@ -108,13 +108,14 @@ class RadialDensityAnalysis:
         CNT_centers[0][1] = CNT_centers[0][1] % self.traj_file.box_size[1]
 
         # Handle splitting over the boundary
+        # Handle cases where the pore is split over the periodic boundary
         if min_z_pore[0] > max_z_pore[0]:
-            part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
-            part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
+            part1 = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]].copy()
+            part2 = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]].copy()
             split_frame = pd.concat([part1, part2])
         else:
-            split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]]
-            split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]]
+            split_frame = split_frame[split_frame["Z"].astype(float) <= max_z_pore[0]].copy()
+            split_frame = split_frame[split_frame["Z"].astype(float) >= min_z_pore[0]].copy()
 
         # Calculate distance from CNT center
         split_frame["X_adjust"] = split_frame["X"].astype(float) - CNT_centers[0][0]

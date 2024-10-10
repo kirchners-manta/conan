@@ -1,5 +1,3 @@
-# The program is written by Leonard Dick, 2023
-
 import math
 import os
 import re
@@ -671,11 +669,9 @@ class Molecule:
         tuberadii = []
         CNT_atoms = []
         which_pores = []
-        rigid_bodies = 1
 
         # If the structure_frame is empty, then there are no structures in the simulation box.
         if structure_frame.empty or traj_file.args["manual"]:
-            rigid_bodies = 0
             if structure_frame.empty:
                 ddict.printLog(
                     "No structures were found in the simulation box. \n",
@@ -777,7 +773,7 @@ class Molecule:
         ddict.printLog(f"Number of walls: {len(Walls)}")
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
 
-        if rigid_bodies == 1:
+        if len(CNTs) > 0:
             CNT_pore_question = ddict.get_input(
                 "Does one of the pores contain rigid CNTs? [y/n]: ", traj_file.args, "str"
             )
@@ -858,7 +854,7 @@ class Molecule:
             ].round(2)
 
             # Save the information about the CNT in the structure dataframe, by adding a new column 'CNT' with the CNT
-            # number, if the xy_distance is smaller/equal the tuberadius. 0.05 is a tolerance.
+            # number, if the xy_distance is smaller/equal the tuberadius. 0.05 is the tolerance.
             traj_file.frame0.loc[traj_file.frame0["Struc"] == f"Pore{i}", "CNT"] = 0
             traj_file.frame0.loc[
                 (traj_file.frame0["Struc"] == f"Pore{i}") & (traj_file.frame0["xy_distance"] <= tuberadius + 0.05),
@@ -871,6 +867,10 @@ class Molecule:
         # check if there is a 'CNT' column in the dataframe (if there are CNTs present). If not, add an empty column.
         if "CNT" not in traj_file.frame0.columns:
             traj_file.frame0["CNT"] = None
+
+        # creat a CNT_atoms dataframe with just the CNT atoms (value in the 'CNT' column is larger than 0.)
+
+        CNT_atoms = traj_file.frame0[traj_file.frame0["CNT"] > 0].copy()
 
         output["id_frame"] = traj_file.frame0
         output["min_z_pore"] = min_z_pore

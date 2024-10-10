@@ -30,6 +30,7 @@ def COM_calculation(frame, box_size):
     # Precompute total mass for each molecule
     total_mass_per_molecule = frame.groupby("Molecule")["Mass"].transform("sum")
 
+    # Make sure the coordinates are unwrapped
     frame = frame.groupby("Molecule").apply(unwrap_coordinates, box_size=box_size)
 
     # Calculate mass weighted coordinates
@@ -77,7 +78,7 @@ def velocity_prep(inputdict, traj_file, molecules):
     if velocity_choice == "1":
         inputdict["velocity_choice"] = "molecule"
         ddict.printLog(
-            "Warning: This analysis could yield erroneous results, if the trajectory is wrapped atomwise!\n",
+            "Warning: This analysis potentially yields erroneous results, if the trajectory is wrapped atomwise!\n",
             color="red",
         )
         COM_frame = COM_calculation(first_frame, traj_file.box_size)
