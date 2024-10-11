@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
-import conan.analysis_modules.msd2av as msd
+import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
 import conan.analysis_modules.velocity as vel
