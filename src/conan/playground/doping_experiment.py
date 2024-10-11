@@ -276,7 +276,7 @@ class DopingStructure:
         if isinstance(structure, GrapheneSheet):
             # Calculate the box size for periodic boundary conditions
             box_size = (
-                structure.actual_sheet_width + structure.c_c_bond_distance,
+                structure.actual_sheet_width + structure.c_c_bond_length,
                 structure.actual_sheet_height + structure.cc_y_distance,
                 0.0,
             )
@@ -1354,6 +1354,16 @@ class MaterialStructure(ABC):
         self.doping_handler = DopingHandler(self)
         """The doping handler for the structure."""
 
+    @staticmethod
+    def _validate_bond_length(bond_length):
+        if not isinstance(bond_length, (float, int)):
+            raise TypeError(f"bond_length must be a float or int, but got {type(bond_length).__name__}.")
+        if bond_length <= 0:
+            raise ValueError(f"bond_length must be positive, but got {bond_length}.")
+
+        # Return the validated bond_length as a float
+        return float(bond_length)
+
     @abstractmethod
     def build_structure(self):
         """
@@ -1646,13 +1656,13 @@ class GrapheneSheet(Structure2D):
     Represents a graphene sheet structure.
     """
 
-    def __init__(self, bond_distance: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
+    def __init__(self, bond_length: Union[float, int], sheet_size: Union[Tuple[float, float], Tuple[int, int]]):
         """
         Initialize the GrapheneGraph with given bond distance, sheet size, and whether to adjust positions after doping.
 
         Parameters
         ----------
-        bond_distance : Union[float, int]
+        bond_length : Union[float, int]
             The bond distance between carbon atoms in the graphene sheet.
         sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheet in the x and y directions.
@@ -1666,15 +1676,15 @@ class GrapheneSheet(Structure2D):
         """
         super().__init__()
 
-        # Perform validations
-        self._validate_bond_distance(bond_distance)
-        self._validate_sheet_size(sheet_size)
+        # # Perform validations
+        # self._validate_bond_distance(bond_distance)
+        # self._validate_sheet_size(sheet_size)
 
-        self.c_c_bond_distance = bond_distance
+        self.c_c_bond_length = self._validate_bond_length(bond_length)
         """The bond distance between carbon atoms in the graphene sheet."""
         self.c_c_bond_angle = 120
         """The bond angle between carbon atoms in the graphene sheet."""
-        self.sheet_size = sheet_size
+        self.sheet_size = self.validate_sheet_size(sheet_size)
         """The size of the graphene sheet in the x and y directions."""
         self.positions_adjusted = False
         """Flag to track if positions have been adjusted."""
@@ -1685,17 +1695,17 @@ class GrapheneSheet(Structure2D):
     @property
     def cc_x_distance(self):
         """Calculate the distance between atoms in the x direction."""
-        return self.c_c_bond_distance * sin(pi / 6)
+        return self.c_c_bond_length * sin(pi / 6)
 
     @property
     def cc_y_distance(self):
         """Calculate the distance between atoms in the y direction."""
-        return self.c_c_bond_distance * cos(pi / 6)
+        return self.c_c_bond_length * cos(pi / 6)
 
     @property
     def num_cells_x(self):
         """Calculate the number of unit cells in the x direction based on sheet size and bond distance."""
-        return int(self.sheet_size[0] // (2 * self.c_c_bond_distance + 2 * self.cc_x_distance))
+        return int(self.sheet_size[0] // (2 * self.c_c_bond_length + 2 * self.cc_x_distance))
 
     @property
     def num_cells_y(self):
@@ -1705,7 +1715,7 @@ class GrapheneSheet(Structure2D):
     @property
     def actual_sheet_width(self):
         """Calculate the actual width of the graphene sheet based on the number of unit cells and bond distance."""
-        return self.num_cells_x * (2 * self.c_c_bond_distance + 2 * self.cc_x_distance) - self.c_c_bond_distance
+        return self.num_cells_x * (2 * self.c_c_bond_length + 2 * self.cc_x_distance) - self.c_c_bond_length
 
     @property
     def actual_sheet_height(self):
@@ -1713,16 +1723,27 @@ class GrapheneSheet(Structure2D):
         return self.num_cells_y * (2 * self.cc_y_distance) - self.cc_y_distance
 
     @staticmethod
-    def _validate_bond_distance(bond_distance: float):
-        """Validate the bond distance."""
-        if not isinstance(bond_distance, (int, float)):
-            raise TypeError(f"bond_distance must be a float or int, but got {type(bond_distance).__name__}.")
-        if bond_distance <= 0:
-            raise ValueError(f"bond_distance must be positive, but got {bond_distance}.")
+    def validate_sheet_size(sheet_size: Tuple[float, float]) -> tuple[float, ...]:
+        """
+        Validate the sheet_size parameter.
 
-    @staticmethod
-    def _validate_sheet_size(sheet_size: Tuple[float, float]):
-        """Validate the sheet size."""
+        Parameters
+        ----------
+        sheet_size : Tuple[float, float]
+            The size of the sheet in the x and y dimensions.
+
+        Returns
+        -------
+        Tuple[float, float]
+            The validated sheet_size with elements converted to floats.
+
+        Raises
+        ------
+        TypeError
+            If sheet_size is not a tuple of two numbers.
+        ValueError
+            If any element of sheet_size is non-positive.
+        """
         if not isinstance(sheet_size, tuple):
             raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
         if len(sheet_size) != 2:
@@ -1731,6 +1752,9 @@ class GrapheneSheet(Structure2D):
             raise TypeError("sheet_size must be a tuple of exactly two positive floats or ints.")
         if any(s <= 0 for s in sheet_size):
             raise ValueError(f"All elements of sheet_size must be positive, but got {sheet_size}.")
+
+        # Return the validated sheet_size, converting elements to float
+        return tuple(float(dim) for dim in sheet_size)
 
     def _validate_structure(self):
         """Validate the structure to ensure it can fit within the given sheet size."""
@@ -1757,7 +1781,7 @@ class GrapheneSheet(Structure2D):
         index = 0
         for y in range(self.num_cells_y):
             for x in range(self.num_cells_x):
-                x_offset = x * (2 * self.c_c_bond_distance + 2 * self.cc_x_distance)
+                x_offset = x * (2 * self.c_c_bond_length + 2 * self.cc_x_distance)
                 y_offset = y * (2 * self.cc_y_distance)
 
                 # Add nodes and edges for the unit cell
@@ -1765,12 +1789,12 @@ class GrapheneSheet(Structure2D):
 
                 # Add horizontal bonds between adjacent unit cells
                 if x > 0:
-                    self.graph.add_edge(index - 1, index, bond_length=self.c_c_bond_distance)
+                    self.graph.add_edge(index - 1, index, bond_length=self.c_c_bond_length)
 
                 # Add vertical bonds between unit cells in adjacent rows
                 if y > 0:
-                    self.graph.add_edge(index - 4 * self.num_cells_x + 1, index, bond_length=self.c_c_bond_distance)
-                    self.graph.add_edge(index - 4 * self.num_cells_x + 2, index + 3, bond_length=self.c_c_bond_distance)
+                    self.graph.add_edge(index - 4 * self.num_cells_x + 1, index, bond_length=self.c_c_bond_length)
+                    self.graph.add_edge(index - 4 * self.num_cells_x + 2, index + 3, bond_length=self.c_c_bond_length)
 
                 index += 4
 
@@ -1795,8 +1819,8 @@ class GrapheneSheet(Structure2D):
         unit_cell_positions = [
             create_position(x_offset, y_offset),
             create_position(x_offset + self.cc_x_distance, y_offset + self.cc_y_distance),
-            create_position(x_offset + self.cc_x_distance + self.c_c_bond_distance, y_offset + self.cc_y_distance),
-            create_position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_distance, y_offset),
+            create_position(x_offset + self.cc_x_distance + self.c_c_bond_length, y_offset + self.cc_y_distance),
+            create_position(x_offset + 2 * self.cc_x_distance + self.c_c_bond_length, y_offset),
         ]
 
         # Add nodes with positions, element type (carbon) and possible doping site flag
@@ -1808,7 +1832,7 @@ class GrapheneSheet(Structure2D):
 
         # Add internal bonds within the unit cell
         edges = [
-            (index + i, index + i + 1, {"bond_length": self.c_c_bond_distance})
+            (index + i, index + i + 1, {"bond_length": self.c_c_bond_length})
             for i in range(len(unit_cell_positions) - 1)
         ]
         self.graph.add_edges_from(edges)
@@ -1829,7 +1853,7 @@ class GrapheneSheet(Structure2D):
 
         # Add horizontal periodic boundary conditions
         self.graph.add_edges_from(
-            zip(right_edge_indices, left_edge_indices), bond_length=self.c_c_bond_distance, periodic=True
+            zip(right_edge_indices, left_edge_indices), bond_length=self.c_c_bond_length, periodic=True
         )
 
         # Generate base indices for vertical boundaries
@@ -1839,10 +1863,10 @@ class GrapheneSheet(Structure2D):
 
         # Add vertical periodic boundary conditions
         self.graph.add_edges_from(
-            zip(bottom_left_indices, top_left_indices), bond_length=self.c_c_bond_distance, periodic=True
+            zip(bottom_left_indices, top_left_indices), bond_length=self.c_c_bond_length, periodic=True
         )
         self.graph.add_edges_from(
-            zip(bottom_right_indices, top_left_indices + 3), bond_length=self.c_c_bond_distance, periodic=True
+            zip(bottom_right_indices, top_left_indices + 3), bond_length=self.c_c_bond_length, periodic=True
         )
 
     def add_nitrogen_doping(
@@ -1982,7 +2006,7 @@ class GrapheneSheet(Structure2D):
         # Flatten the positions into a 1D array for optimization
         x0 = np.array([coord for node in self.graph.nodes for coord in [positions[node][0], positions[node][1]]])
         # Define the box size for minimum image distance calculation
-        box_size = (self.actual_sheet_width + self.c_c_bond_distance, self.actual_sheet_height + self.cc_y_distance)
+        box_size = (self.actual_sheet_width + self.c_c_bond_length, self.actual_sheet_height + self.cc_y_distance)
 
         def bond_strain(x):
             """
@@ -2424,7 +2448,7 @@ class StackedGraphene(Structure3D):
         layer : int
             The layer number to determine the shifts.
         """
-        interlayer_shift = self.graphene_sheets[0].c_c_bond_distance  # Fixed x_shift for ABA stacking
+        interlayer_shift = self.graphene_sheets[0].c_c_bond_length  # Fixed x_shift for ABA stacking
 
         if self.stacking_type == "ABA":
             x_shift = (layer % 2) * interlayer_shift
@@ -2619,6 +2643,8 @@ class CNT(Structure3D):
     Represents a carbon nanotube structure.
     """
 
+    _warning_shown = False  # Class-level attribute to prevent repeated warnings
+
     def __init__(
         self,
         bond_length: float,
@@ -2667,23 +2693,20 @@ class CNT(Structure3D):
         if tube_size is not None and tube_diameter is not None:
             raise ValueError("Specify only one of 'tube_size' or 'tube_diameter', not both.")
 
-        self.bond_length = bond_length
-        self.tube_length = tube_length
-        self.conformation = conformation.lower()
-        self.periodic = periodic
-
-        # Validate conformation
-        if self.conformation not in ["armchair", "zigzag"]:
-            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+        self.bond_length = self._validate_bond_length(bond_length)
+        self.tube_length = self.validate_tube_length(tube_length)
+        self.conformation = self.validate_conformation(conformation)
+        self.periodic = self._validate_periodic(periodic)
 
         # Use 'tube_size' as internal parameter
         if tube_size is not None:
-            self.tube_size = tube_size
+            self.tube_size = self.validate_tube_size(tube_size)
             # `tube_diameter` will be calculated based on `tube_size`
         elif tube_diameter is not None:
             # Calculate `tube_size` based on `tube_diameter`
             self.tube_size = self._calculate_tube_size_from_diameter(tube_diameter)
             # `tube_diameter` will be calculated based on `tube_size`
+        self._validate_diameter_from_size(tube_diameter)
 
         # Build the CNT structure using graph theory
         self.build_structure()
@@ -2777,6 +2800,56 @@ class CNT(Structure3D):
             raise ValueError("The calculated `tube_size` needs to be a positive integer.")
 
         return tube_size
+
+    def _validate_diameter_from_size(self, provided_diameter: Optional[float] = None):
+        """
+        Validates and compares the calculated diameter with the provided one and handles warnings.
+
+        Parameters
+        ----------
+        provided_diameter : float, optional
+            The provided 'tube_diameter' to compare with the calculated one.
+        """
+        actual_diameter = self.actual_tube_diameter
+        if provided_diameter is not None and not np.isclose(provided_diameter, actual_diameter, atol=1e-3):
+            if not CNT._warning_shown:
+                print(
+                    f"Note: The provided 'tube_diameter' ({provided_diameter:.3f} Å) does not correspond to an integer "
+                    f"'tube_size'. Using 'tube_size' = {self.tube_size}, which results in a 'tube_diameter' of "
+                    f"{actual_diameter:.3f} Å."
+                )
+                CNT._warning_shown = True  # Ensure the message is shown only once
+
+    @staticmethod
+    def validate_tube_length(tube_length):
+        if not isinstance(tube_length, (float, int)):
+            raise TypeError("tube_length must be a float or integer.")
+        if tube_length <= 0:
+            raise ValueError("tube_length must be positive.")
+        return float(tube_length)
+
+    @staticmethod
+    def validate_tube_size(tube_size):
+        if not isinstance(tube_size, int):
+            raise TypeError("tube_size must be an integer.")
+        if tube_size <= 0:
+            raise ValueError("tube_size must be a positive integer.")
+        return tube_size
+
+    @staticmethod
+    def validate_conformation(conformation):
+        if not isinstance(conformation, str):
+            raise TypeError("conformation must be a string.")
+        conformation = conformation.lower()
+        if conformation not in ["armchair", "zigzag"]:
+            raise ValueError("Invalid conformation. Choose either 'armchair' or 'zigzag'.")
+        return conformation
+
+    @staticmethod
+    def _validate_periodic(periodic):
+        if not isinstance(periodic, bool):
+            raise TypeError("periodic must be a boolean.")
+        return periodic
 
     def build_structure(self):
         """
@@ -3268,37 +3341,71 @@ class Pore(Structure3D):
     """
 
     def __init__(
-        self, bond_length: float, sheet_size: Tuple[int, int], tube_length: float, tube_size: int, conformation: str
+        self,
+        bond_length: Union[float, int],
+        sheet_size: Union[Tuple[float, float], Tuple[int, int]],
+        tube_length: float,
+        tube_size: Optional[int] = None,
+        tube_diameter: Optional[float] = None,
+        conformation: str = "zigzag",
     ):
         """
         Initialize the Pore with two graphene sheets and a CNT in between.
 
         Parameters
         ----------
-        bond_length : float
+        bond_length : Union[float, int]
             The bond length between carbon atoms.
-        sheet_size : Tuple[int, int]
+        sheet_size : Optional[Tuple[float, float], Tuple[int, int]]
             The size of the graphene sheets (x, y dimensions).
         tube_length : float
             The length of the CNT.
-        tube_size : int
+        tube_size : int, optional
             The size of the CNT (number of hexagonal units around the circumference).
-        conformation : str
-            The conformation of the CNT ('armchair' or 'zigzag').
+        tube_diameter : float, optional
+            The diameter of the CNT.
+        conformation : str, optional
+            The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         """
         super().__init__()
 
-        # Initialize parameters
-        self.bond_length = bond_length
-        self.sheet_size = sheet_size
-        self.tube_length = tube_length
-        self.tube_size = tube_size
-        self.conformation = conformation.lower()
+        # Input validation and parameter handling
+        if tube_size is None and tube_diameter is None:
+            raise ValueError("You must specify either 'tube_size' or 'tube_diameter' for the CNT within the pore.")
+
+        if tube_size is not None and tube_diameter is not None:
+            raise ValueError(
+                "Specify only one of 'tube_size' or 'tube_diameter' for the CNT within the pore, not " "both."
+            )
+
+        self.bond_length = self._validate_bond_length(bond_length)
+        self.sheet_size = GrapheneSheet.validate_sheet_size(sheet_size)
+        self.tube_length = CNT.validate_tube_length(tube_length)
+        self.conformation = CNT.validate_conformation(conformation)
+
+        # Use 'tube_size' as internal parameter
+        if tube_size is not None:
+            self.tube_size = CNT.validate_tube_size(tube_size)
+        elif tube_diameter is not None:
+            # Create a temporary CNT to calculate 'tube_size' from 'tube_diameter'
+            temp_cnt = CNT(
+                bond_length=self.bond_length,
+                tube_length=self.tube_length,
+                tube_diameter=tube_diameter,
+                conformation=self.conformation,
+            )
+            self.tube_size = temp_cnt.tube_size
 
         # Create the graphene sheets and CNT
         self.graphene1 = GrapheneSheet(bond_length, sheet_size)
         self.graphene2 = GrapheneSheet(bond_length, sheet_size)
-        self.cnt = CNT(bond_length, tube_length, tube_size, conformation)
+        self.cnt = CNT(
+            bond_length=bond_length,
+            tube_length=tube_length,
+            tube_size=tube_size,
+            tube_diameter=tube_diameter,
+            conformation=conformation,
+        )
 
         # Build the structure
         self.build_structure()
@@ -3521,42 +3628,44 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # CREATE A CNT STRUCTURE
-
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
-    # cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
+    # # CREATE A CNT STRUCTURE
+    #
+    # # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
+    # # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the CNT structure to a file
+    # write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
 
     ####################################################################################################################
-    # # CREATE A PORE STRUCTURE
-    # # Define parameters for the graphene sheets and CNT
-    # bond_length = 1.42  # Bond length for carbon atoms
-    # sheet_size = (20, 20)  # Size of the graphene sheets
-    # tube_length = 10.0  # Length of the CNT
+    # CREATE A PORE STRUCTURE
+    # Define parameters for the graphene sheets and CNT
+    bond_length = 1.42  # Bond length for carbon atoms
+    sheet_size = (20, 20)  # Size of the graphene sheets
+    tube_length = 10.0  # Length of the CNT
     # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-    #
-    # # Create a Pore structure
-    # pore = Pore(
-    #     bond_length=bond_length,
-    #     sheet_size=sheet_size,
-    #     tube_length=tube_length,
-    #     tube_size=tube_size,
-    #     conformation=conformation,
-    # )
-    #
-    # # Add optional nitrogen doping (if needed)
-    # # pore.add_nitrogen_doping(total_percentage=10)
-    #
-    # # Visualize the structure with labels (without showing periodic bonds)
-    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the Pore structure to a file
-    # write_xyz(pore.graph, "Pore_structure.xyz")
+    tube_diameter = 11  # Diameter of the CNT
+    conformation = "armchair"  # Conformation of the CNT (can be "zigzag" or "armchair")
+
+    # Create a Pore structure
+    pore = Pore(
+        bond_length=bond_length,
+        sheet_size=sheet_size,
+        tube_length=tube_length,
+        # tube_size=tube_size,
+        tube_diameter=tube_diameter,
+        conformation=conformation,
+    )
+
+    # Add optional nitrogen doping (if needed)
+    # pore.add_nitrogen_doping(total_percentage=10)
+
+    # Visualize the structure with labels (without showing periodic bonds)
+    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the Pore structure to a file
+    write_xyz(pore.graph, "pore_structure.xyz")
 
 
 if __name__ == "__main__":

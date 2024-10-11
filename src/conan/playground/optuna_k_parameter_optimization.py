@@ -44,7 +44,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     positions = {node: graphene_sheet.graph.nodes[node]["position"] for node in graphene_sheet.graph.nodes()}
 
     box_size = (
-        graphene_sheet.actual_sheet_width + graphene_sheet.c_c_bond_distance,
+        graphene_sheet.actual_sheet_width + graphene_sheet.c_c_bond_length,
         graphene_sheet.actual_sheet_height + graphene_sheet.cc_y_distance,
     )
 
@@ -179,7 +179,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
 
     # Assign target lengths for outer bonds
     for bond in outer_bonds:
-        bond_target_lengths[bond] = graphene_sheet.c_c_bond_distance
+        bond_target_lengths[bond] = graphene_sheet.c_c_bond_length
 
     # Collect all angles in the graph
     all_angle_set = set()
