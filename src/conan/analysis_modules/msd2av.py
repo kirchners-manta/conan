@@ -31,14 +31,13 @@ class MSDAnalysis:
         self.species_mol_numbers = {}
         self.counter = 0
         self.args = traj_file.args
-        self.dt = None  # Time step between frames
-        self.analyzed_frame_indices = []  # List to keep track of analyzed frames
+        self.dt = None
+        self.analyzed_frame_indices = []
 
     def msd_prep(self):
         # Rename columns for consistency
         self.first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"}, inplace=True)
 
-        # Map masses to atoms
         self.first_frame["Mass"] = self.first_frame["Element"].map(ddict.dict_mass())
 
         self.dt = ddict.get_input("What is the time step in the trajectory? [fs]  ", self.args, "float")
@@ -56,7 +55,7 @@ class MSDAnalysis:
             self.num_liq_species_dict[species] = num_molecules
             self.species_mol_numbers[species] = molecule_numbers
 
-            # Map molecule indices for efficient lookup
+            # Map molecule indices
             self.molecule_indices[species] = {molecule: i for i, molecule in enumerate(molecule_numbers)}
 
             # Initialize displacement arrays
@@ -83,9 +82,6 @@ class MSDAnalysis:
                 self.initial_positions[species][idx, :] = com_initial
                 self.unwrapped_positions_current[species][idx, :] = com_initial
                 self.previous_positions[species][idx, :] = com_initial
-
-            # Append initial unwrapped positions to the list
-            # self.unwrapped_positions[species].append(self.unwrapped_positions_current[species].copy())
 
     def analyze_frame(self, split_frame, frame_counter):
         self.counter = frame_counter
@@ -146,7 +142,7 @@ class MSDAnalysis:
                     ddict.printLog(f"Warning: Molecule {molecule} of species {species} not found in current COM frame.")
 
     def msd_processing(self):
-        # Ask user whether to calculate MSD or RMSD
+        # MSD or RMSD
         msd_or_rmsd = int(ddict.get_input("Do you want to calculate the [1] MSD or the [2] RMSD?  ", self.args, "int"))
 
         if msd_or_rmsd == 1:
@@ -177,7 +173,8 @@ class MSDAnalysis:
             msd_z_tau = []
             tau_times = []
 
-            for tau_idx in range(0, max_tau):  # Start from tau_idx = 1 to exclude tau = 0
+            # Start from tau_idx = 1 to exclude tau = 0
+            for tau_idx in range(0, max_tau):
                 tau = tau_idx * dt
                 tau_times.append(tau)
 
@@ -196,7 +193,7 @@ class MSDAnalysis:
                     sq_disp = np.square(disp)
 
                     # Accumulate squared displacements
-                    sq_disp_accum.append(np.sum(sq_disp, axis=1))  # Shape: (num_molecules,)
+                    sq_disp_accum.append(np.sum(sq_disp, axis=1))
                     sq_disp_x_accum.append(sq_disp[:, 0])
                     sq_disp_y_accum.append(sq_disp[:, 1])
                     sq_disp_z_accum.append(sq_disp[:, 2])

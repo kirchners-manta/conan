@@ -4,11 +4,11 @@ import time
 import numpy as np
 import pandas as pd
 
-import conan.analysis_modules.axial_dens2 as axdens2
-import conan.analysis_modules.msd2av as msd2
-import conan.analysis_modules.rad_dens2 as raddens2
-import conan.analysis_modules.rad_velocity2 as radvel2
-import conan.analysis_modules.velocity2 as vel2
+import conan.analysis_modules.axial_dens as axdens
+import conan.analysis_modules.msd2av as msd
+import conan.analysis_modules.rad_dens as raddens
+import conan.analysis_modules.rad_velocity as radvel
+import conan.analysis_modules.velocity as vel
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
@@ -34,23 +34,22 @@ def analysis_opt(traj_file, molecules, maindict):
 def run_analysis(traj_file, molecules, maindict):
     an = Analysis(traj_file, molecules, maindict)
 
-    # now run the analysis
     if an.choice2 == 1 or an.choice2 == 2:
-        raddens2.radial_density_analysis(traj_file, molecules, an)
+        raddens.radial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 3:
-        radvel2.radial_velocity_analysis(traj_file, molecules, an)
+        radvel.radial_velocity_analysis(traj_file, molecules, an)
     elif an.choice2 == 4:
-        axdens2.accessible_volume_analysis(traj_file, molecules, an)
+        axdens.accessible_volume_analysis(traj_file, molecules, an)
     elif an.choice2 == 5:
-        axdens2.axial_density_analysis(traj_file, molecules, an)
+        axdens.axial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 6:
-        axdens2.distance_search_analysis(traj_file, molecules, an)
+        axdens.distance_search_analysis(traj_file, molecules, an)
     elif an.choice2 == 8:
-        axdens2.density_analysis_3D(traj_file, molecules, an)
+        axdens.density_analysis_3D(traj_file, molecules, an)
     elif an.choice2 == 9:
-        vel2.mol_velocity_analysis(traj_file, molecules, an)
+        vel.mol_velocity_analysis(traj_file, molecules, an)
     elif an.choice2 == 10:
-        msd2.msd_analysis(traj_file, molecules, an)
+        msd.msd_analysis(traj_file, molecules, an)
 
 
 class Analysis:
@@ -75,7 +74,7 @@ class Analysis:
         ddict.printLog("(7) Calculate the coordination number")
         ddict.printLog("(8) Calculate the density along the axes.")
         ddict.printLog("(9) Calculate the velocity of the liquid in the CNT.")
-        ddict.printLog("(10) Calculate the (rrot) mean square displacement of the liquid in the CNT.")
+        ddict.printLog("(10) Calculate the (root) mean square displacement of the liquid in the CNT.")
 
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
         analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -137,7 +136,7 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     Main_time = time.time()
     for chunk in trajectory:
         chunk_number += 1
-        ddict.printLog(f"\nChunk {chunk_number} of {traj_file.num_chunks}")
+        print(f"\nChunk {chunk_number} of {traj_file.num_chunks}")
 
         if chunk.shape[0] == traj_file.lines_last_chunk:
             frames = np.split(chunk, traj_file.last_chunk_size)
@@ -170,6 +169,14 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
+
+        time_per_frame = (time.time() - Main_time) / proc_frames
+        remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
+        remaining_time = time_per_frame * remaining_frames
+        print(
+            f"\nTime per frame: {time_per_frame:.2f} s,",
+            f" Remaining time: {remaining_time:.2f} s ({remaining_time / 60:.2f} min)",
+        )
 
     analysis_option.proc_frames = proc_frames
     ddict.printLog(f"\n\nFinished processing the trajectory in {time.time() - Main_time:.2f} seconds.\n")

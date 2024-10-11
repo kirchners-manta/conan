@@ -60,17 +60,12 @@ def grid_generator(inputdict):
     z_incr_dist = box_size[2] / z_incr
 
     # now create a grid with the dimensions of the simulation box
-    x_grid = np.arange(0, box_size[0], x_incr_dist)
-    y_grid = np.arange(0, box_size[1], y_incr_dist)
-    z_grid = np.arange(0, box_size[2], z_incr_dist)
-
-    # dhift the grid by half the incrementation distance
-    x_grid = x_grid + (x_incr_dist / 2)
-    y_grid = y_grid + (y_incr_dist / 2)
-    z_grid = z_grid + (z_incr_dist / 2)
+    x_grid = np.linspace(0, box_size[0], x_incr, endpoint=False) + (x_incr_dist / 2)
+    y_grid = np.linspace(0, box_size[1], y_incr, endpoint=False) + (y_incr_dist / 2)
+    z_grid = np.linspace(0, box_size[2], z_incr, endpoint=False) + (z_incr_dist / 2)
 
     # create a meshgrid
-    x_mesh, y_mesh, z_mesh = np.meshgrid(x_grid, y_grid, z_grid)
+    x_mesh, y_mesh, z_mesh = np.meshgrid(x_grid, y_grid, z_grid, indexing="ij")
 
     # print the grid information
     ddict.printLog("Incrementation distance in x direction: %0.3f Ang" % (x_incr_dist))
