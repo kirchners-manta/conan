@@ -108,7 +108,7 @@ class StructureOptimizer:
 
         # Define the box size for minimum image distance calculation
         box_size = (
-            self.structure.actual_sheet_width + self.structure.c_c_bond_distance,
+            self.structure.actual_sheet_width + self.structure.c_c_bond_length,
             self.structure.actual_sheet_height + self.structure.cc_y_distance,
         )
 
@@ -256,7 +256,7 @@ class StructureOptimizer:
 
         # Assign target lengths and k values for outer bonds
         for bond in outer_bonds:
-            bond_target_lengths.setdefault(bond, []).append(self.structure.c_c_bond_distance)
+            bond_target_lengths.setdefault(bond, []).append(self.structure.c_c_bond_length)
             bond_k_values[bond] = self.k_outer_bond
 
         # Collect all angles in the graph
