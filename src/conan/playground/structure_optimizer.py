@@ -1,13 +1,15 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List
 
 if TYPE_CHECKING:
     from conan.playground.doping_experiment import MaterialStructure
+    from conan.playground.doping_experiment import DopingStructure
 
 from dataclasses import dataclass
 from itertools import pairwise
 
 import networkx as nx
 import numpy as np
+import numpy.typing as npt
 from scipy.optimize import minimize
 from tqdm import tqdm
 
@@ -116,201 +118,11 @@ class StructureOptimizer:
             self.structure.actual_sheet_height + self.structure.cc_y_distance,
         )
 
-        # Dictionaries to store bond and angle properties
-        bond_target_lengths = {}  # key: (node_i, node_j), value: list of target lengths
-        bond_k_values = {}  # key: (node_i, node_j), value: k value
-        angle_target_angles = {}  # key: (node_i, node_j, node_k), value: target angle in degrees
-        angle_k_values = {}  # key: (node_i, node_j, node_k), value: k value
+        # Assign target bond lengths
+        bond_array = self.assign_target_bond_lengths(node_index_map, all_structures)
 
-        # Sets to keep track of inner bonds and angles
-        inner_bond_set = set()
-        inner_angle_set = set()
-
-        # Collect inner bonds and angles from doping structures
-        for structure in all_structures:
-            properties = self.doping_handler.species_properties[structure.species]
-
-            cycle_atoms = structure.cycle
-            neighbor_atoms = structure.neighboring_atoms
-
-            # Map node IDs to indices in the neighbors list
-            neighbor_atom_indices = {node: idx for idx, node in enumerate(neighbor_atoms)}
-
-            # Bonds within the cycle
-            cycle_edges = list(pairwise(cycle_atoms + [cycle_atoms[0]]))
-            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
-                cycle_edges.append(structure.additional_edge)
-
-            for idx, (node_i, node_j) in enumerate(cycle_edges):
-                bond = (min(node_i, node_j), max(node_i, node_j))
-                inner_bond_set.add(bond)
-
-                # Append target length
-                bond_target_lengths.setdefault(bond, []).append(properties.target_bond_lengths_cycle[idx])
-                # Assign k value (k_inner_bond)
-                bond_k_values[bond] = self.k_inner_bond
-
-            # Bonds between cycle atoms and their neighbors
-            for idx, node_i in enumerate(cycle_atoms):
-                neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
-                for neighbor in neighbors:
-                    bond = (min(node_i, neighbor), max(node_i, neighbor))
-                    inner_bond_set.add(bond)
-                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
-                    if idx_in_neighbors is not None and idx_in_neighbors < len(
-                        properties.target_bond_lengths_neighbors
-                    ):
-                        target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
-                    else:
-                        raise ValueError(
-                            f"Error when assigning the target bond length: Neighbor atom {neighbor} "
-                            f"(index {idx_in_neighbors}) has no corresponding target length in "
-                            f"target_bond_lengths_neighbors."
-                        )
-                    bond_target_lengths.setdefault(bond, []).append(target_length)
-                    # Assign k value (k_inner_bond)
-                    bond_k_values[bond] = self.k_inner_bond
-
-            # Angles within the cycle
-            # Extend the cycle to account for the closed loop by adding the first two nodes at the end
-            extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
-            for idx in range(len(cycle_atoms)):
-                node_i = extended_cycle[idx]
-                node_j = extended_cycle[idx + 1]
-                node_k = extended_cycle[idx + 2]
-                angle = (min(node_i, node_k), node_j, max(node_i, node_k))
-                inner_angle_set.add(angle)
-                angle_target_angles[angle] = properties.target_angles_cycle[idx]
-                # Assign k value (k_inner_angle)
-                angle_k_values[angle] = self.k_inner_angle
-
-            # Handle additional angles for PYRIDINIC_1
-            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
-                node_a, node_b = structure.additional_edge
-                idx_a = cycle_atoms.index(node_a)
-                idx_b = cycle_atoms.index(node_b)
-
-                # Ensure node_a is before node_b in the cycle
-                if idx_a > idx_b:
-                    node_a, node_b = node_b, node_a
-                    idx_a, idx_b = idx_b, idx_a
-
-                # Find the additional angles
-                additional_angles = []
-
-                # Angles involving node a
-                prev_node_a = cycle_atoms[(idx_a - 1) % len(cycle_atoms)]
-                next_node_a = cycle_atoms[(idx_a + 1) % len(cycle_atoms)]
-                prev_angle = (min(prev_node_a, node_b), node_a, max(prev_node_a, node_b))
-                next_angle = (min(node_b, next_node_a), node_a, max(node_b, next_node_a))
-                additional_angles.extend([prev_angle, next_angle])
-
-                # Angles involving node b
-                prev_node_b = cycle_atoms[(idx_b - 1) % len(cycle_atoms)]
-                next_node_b = cycle_atoms[(idx_b + 1) % len(cycle_atoms)]
-                prev_angle = (min(prev_node_b, node_a), node_b, max(prev_node_b, node_a))
-                next_angle = (min(node_a, next_node_b), node_b, max(node_a, next_node_b))
-                additional_angles.extend([prev_angle, next_angle])
-
-                # Assign target angles from properties.target_angles_additional_angles
-                for idx, angle in enumerate(additional_angles):
-                    inner_angle_set.add(angle)
-                    angle_target_angles[angle] = properties.target_angles_additional_angles[idx]
-                    angle_k_values[angle] = self.k_inner_angle
-
-            # Angles involving neighboring atoms
-            for idx_j, node_j in enumerate(cycle_atoms):
-                neighbors = [n for n in self.graph.neighbors(node_j) if n not in cycle_atoms]
-                node_i_prev = cycle_atoms[idx_j - 1]  # Wrap-around to get the previous node
-                node_k_next = cycle_atoms[(idx_j + 1) % len(cycle_atoms)]  # Wrap-around for the next node
-
-                for neighbor in neighbors:
-                    # Angle: previous node in cycle - node_j - neighbor
-                    angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
-                    inner_angle_set.add(angle1)
-                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
-                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
-                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
-                    else:
-                        raise ValueError(
-                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
-                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
-                        )
-                    angle_target_angles[angle1] = target_angle
-                    angle_k_values[angle1] = self.k_inner_angle
-
-                    # Angle: neighbor - node_j - next node in cycle
-                    angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
-                    inner_angle_set.add(angle2)
-                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
-                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
-                    else:
-                        raise ValueError(
-                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
-                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
-                        )
-                    angle_target_angles[angle2] = target_angle
-                    angle_k_values[angle2] = self.k_inner_angle
-
-        # Collect all bonds in the graph
-        all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in self.graph.edges()]
-
-        # Outer bonds are those not in inner_bond_set
-        outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
-
-        # Assign target lengths and k values for outer bonds
-        for bond in outer_bonds:
-            bond_target_lengths.setdefault(bond, []).append(self.structure.c_c_bond_length)
-            bond_k_values[bond] = self.k_outer_bond
-
-        # Collect all angles in the graph
-        all_angle_set = set()
-        for node_j in self.graph.nodes():
-            neighbors = list(self.graph.neighbors(node_j))
-            for idx_i in range(len(neighbors)):
-                for idx_k in range(idx_i + 1, len(neighbors)):
-                    node_i = neighbors[idx_i]
-                    node_k = neighbors[idx_k]
-                    # angle = (node_i, node_j, node_k)
-                    angle = (min(node_i, node_k), node_j, max(node_i, node_k))
-                    all_angle_set.add(angle)
-
-        # Outer angles are those not in inner_angle_set
-        outer_angle_set = all_angle_set - inner_angle_set
-
-        # Assign target angles for outer angles
-        for angle in outer_angle_set:
-            angle_target_angles[angle] = self.structure.c_c_bond_angle  # 120 degrees
-            angle_k_values[angle] = self.k_outer_angle
-
-        # Prepare data for bond strain calculation
-        bond_list = []
-        for bond in bond_target_lengths:
-            node_i, node_j = bond
-            idx_i = node_index_map[node_i]
-            idx_j = node_index_map[node_j]
-            # Average target lengths
-            avg_target_length = np.mean(bond_target_lengths[bond])
-            k_value = bond_k_values[bond]
-            bond_list.append((idx_i, idx_j, avg_target_length, k_value))
-
-        bond_array = np.array(bond_list, dtype=[("idx_i", int), ("idx_j", int), ("target_length", float), ("k", float)])
-
-        # Prepare data for angle strain calculation
-        angle_list = []
-        for angle in angle_target_angles:
-            node_i, node_j, node_k = angle
-            idx_i = node_index_map[node_i]
-            idx_j = node_index_map[node_j]
-            idx_k = node_index_map[node_k]
-            target_angle = angle_target_angles[angle]
-            k_value = angle_k_values[angle]
-            angle_list.append((idx_i, idx_j, idx_k, target_angle, k_value))
-
-        angle_array = np.array(
-            angle_list,
-            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float), ("k", float)],
-        )
+        # Assign target angles
+        angle_array = self.assign_target_angles(node_index_map, all_structures)
 
         def bond_strain(x):
             """
@@ -457,3 +269,252 @@ class StructureOptimizer:
 
         # Update the bond lengths in the graph
         nx.set_edge_attributes(self.graph, edge_updates)
+
+    def assign_target_bond_lengths(
+        self, node_index_map: Dict[int, int], all_structures: List["DopingStructure"]
+    ) -> npt.NDArray:
+        """
+        Assign target bond lengths and force constants to bonds in the structure.
+
+        Parameters
+        ----------
+        node_index_map : Dict[int, int]
+            Mapping from node IDs to indices in the positions array.
+        all_structures : List[DopingStructure]
+            List of doping structures to consider.
+
+        Returns
+        -------
+        bond_array : np.ndarray
+            Array of bonds with indices, target lengths, and force constants.
+        """
+        # Dictionaries to store bond properties
+        bond_target_lengths = {}  # key: (node_i, node_j), value: list of target lengths
+        bond_k_values = {}  # key: (node_i, node_j), value: k value
+
+        # Set to keep track of inner bonds
+        inner_bond_set = set()
+
+        # Collect inner bonds from doping structures
+        for structure in all_structures:
+            properties = self.doping_handler.species_properties[structure.species]
+
+            cycle_atoms = structure.cycle
+            neighbor_atoms = structure.neighboring_atoms
+
+            # Map node IDs to indices in the neighbors list
+            neighbor_atom_indices = {node: idx for idx, node in enumerate(neighbor_atoms)}
+
+            # Bonds within the cycle
+            cycle_edges = list(pairwise(cycle_atoms + [cycle_atoms[0]]))
+            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
+                cycle_edges.append(structure.additional_edge)
+
+            for idx, (node_i, node_j) in enumerate(cycle_edges):
+                bond = (min(node_i, node_j), max(node_i, node_j))
+                inner_bond_set.add(bond)
+
+                # Append target length
+                bond_target_lengths.setdefault(bond, []).append(properties.target_bond_lengths_cycle[idx])
+                # Assign k value (k_inner_bond)
+                bond_k_values[bond] = self.k_inner_bond
+
+            # Bonds between cycle atoms and their neighbors
+            for idx, node_i in enumerate(cycle_atoms):
+                neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
+                for neighbor in neighbors:
+                    bond = (min(node_i, neighbor), max(node_i, neighbor))
+                    inner_bond_set.add(bond)
+                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(
+                        properties.target_bond_lengths_neighbors
+                    ):
+                        target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
+                    else:
+                        raise ValueError(
+                            f"Error when assigning the target bond length: Neighbor atom {neighbor} "
+                            f"(index {idx_in_neighbors}) has no corresponding target length in "
+                            f"target_bond_lengths_neighbors."
+                        )
+                    bond_target_lengths.setdefault(bond, []).append(target_length)
+                    # Assign k value (k_inner_bond)
+                    bond_k_values[bond] = self.k_inner_bond
+
+        # Collect all bonds in the graph
+        all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in self.graph.edges()]
+
+        # Outer bonds are those not in inner_bond_set
+        outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
+
+        # Assign target lengths and k values for outer bonds
+        for bond in outer_bonds:
+            bond_target_lengths.setdefault(bond, []).append(self.structure.c_c_bond_length)
+            bond_k_values[bond] = self.k_outer_bond
+
+        # Prepare data for bond strain calculation
+        bond_list = []
+        for bond in bond_target_lengths:
+            node_i, node_j = bond
+            idx_i = node_index_map[node_i]
+            idx_j = node_index_map[node_j]
+            # Average target lengths
+            avg_target_length = np.mean(bond_target_lengths[bond])
+            k_value = bond_k_values[bond]
+            bond_list.append((idx_i, idx_j, avg_target_length, k_value))
+
+        bond_array = np.array(bond_list, dtype=[("idx_i", int), ("idx_j", int), ("target_length", float), ("k", float)])
+
+        return bond_array
+
+    def assign_target_angles(
+        self, node_index_map: Dict[int, int], all_structures: List["DopingStructure"]
+    ) -> npt.NDArray:
+        """
+        Assign target angles and force constants to angles in the structure.
+
+        Parameters
+        ----------
+        node_index_map : Dict[int, int]
+            Mapping from node IDs to indices in the positions array.
+        all_structures : List[DopingStructure]
+            List of doping structures to consider.
+
+        Returns
+        -------
+        angle_array : np.ndarray
+            Array of angles with indices, target angles, and force constants.
+        """
+        # Dictionaries to store angle properties
+        angle_target_angles = {}  # key: (node_i, node_j, node_k), value: target angle in degrees
+        angle_k_values = {}  # key: (node_i, node_j, node_k), value: k value
+
+        # Set to keep track of inner angles
+        inner_angle_set = set()
+
+        # Collect inner angles from doping structures
+        for structure in all_structures:
+            properties = self.doping_handler.species_properties[structure.species]
+
+            cycle_atoms = structure.cycle
+            neighbor_atoms = structure.neighboring_atoms
+
+            # Map node IDs to indices in the neighbors list
+            neighbor_atom_indices = {node: idx for idx, node in enumerate(neighbor_atoms)}
+
+            # Angles within the cycle
+            # Extend the cycle to account for the closed loop by adding the first two nodes at the end
+            extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
+            for idx in range(len(cycle_atoms)):
+                node_i = extended_cycle[idx]
+                node_j = extended_cycle[idx + 1]
+                node_k = extended_cycle[idx + 2]
+                angle = (min(node_i, node_k), node_j, max(node_i, node_k))
+                inner_angle_set.add(angle)
+                angle_target_angles[angle] = properties.target_angles_cycle[idx]
+                # Assign k value (k_inner_angle)
+                angle_k_values[angle] = self.k_inner_angle
+
+            # Handle additional angles for PYRIDINIC_1
+            if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
+                node_a, node_b = structure.additional_edge
+                idx_a = cycle_atoms.index(node_a)
+                idx_b = cycle_atoms.index(node_b)
+
+                # Ensure node_a is before node_b in the cycle
+                if idx_a > idx_b:
+                    node_a, node_b = node_b, node_a
+                    idx_a, idx_b = idx_b, idx_a
+
+                # Find the additional angles
+                additional_angles = []
+
+                # Angles involving node a
+                prev_node_a = cycle_atoms[(idx_a - 1) % len(cycle_atoms)]
+                next_node_a = cycle_atoms[(idx_a + 1) % len(cycle_atoms)]
+                prev_angle = (min(prev_node_a, node_b), node_a, max(prev_node_a, node_b))
+                next_angle = (min(node_b, next_node_a), node_a, max(node_b, next_node_a))
+                additional_angles.extend([prev_angle, next_angle])
+
+                # Angles involving node b
+                prev_node_b = cycle_atoms[(idx_b - 1) % len(cycle_atoms)]
+                next_node_b = cycle_atoms[(idx_b + 1) % len(cycle_atoms)]
+                prev_angle = (min(prev_node_b, node_a), node_b, max(prev_node_b, node_a))
+                next_angle = (min(node_a, next_node_b), node_b, max(node_a, next_node_b))
+                additional_angles.extend([prev_angle, next_angle])
+
+                # Assign target angles from properties.target_angles_additional_angles
+                for idx, angle in enumerate(additional_angles):
+                    inner_angle_set.add(angle)
+                    angle_target_angles[angle] = properties.target_angles_additional_angles[idx]
+                    angle_k_values[angle] = self.k_inner_angle
+
+            # Angles involving neighboring atoms
+            for idx_j, node_j in enumerate(cycle_atoms):
+                neighbors = [n for n in self.graph.neighbors(node_j) if n not in cycle_atoms]
+                node_i_prev = cycle_atoms[idx_j - 1]  # Wrap-around to get the previous node
+                node_k_next = cycle_atoms[(idx_j + 1) % len(cycle_atoms)]  # Wrap-around for the next node
+
+                for neighbor in neighbors:
+                    # Angle: previous node in cycle - node_j - neighbor
+                    angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
+                    inner_angle_set.add(angle1)
+                    idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
+                    else:
+                        raise ValueError(
+                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                        )
+                    angle_target_angles[angle1] = target_angle
+                    angle_k_values[angle1] = self.k_inner_angle
+
+                    # Angle: neighbor - node_j - next node in cycle
+                    angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
+                    inner_angle_set.add(angle2)
+                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                        target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
+                    else:
+                        raise ValueError(
+                            f"Error when assigning the target angle: Neighbor atom {neighbor} (index "
+                            f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
+                        )
+                    angle_target_angles[angle2] = target_angle
+                    angle_k_values[angle2] = self.k_inner_angle
+
+        # Collect all angles in the graph
+        all_angle_set = set()
+        for node_j in self.graph.nodes():
+            neighbors = list(self.graph.neighbors(node_j))
+            for idx_i in range(len(neighbors)):
+                for idx_k in range(idx_i + 1, len(neighbors)):
+                    node_i = neighbors[idx_i]
+                    node_k = neighbors[idx_k]
+                    angle = (min(node_i, node_k), node_j, max(node_i, node_k))
+                    all_angle_set.add(angle)
+
+        # Outer angles are those not in inner_angle_set
+        outer_angle_set = all_angle_set - inner_angle_set
+
+        # Assign target angles for outer angles
+        for angle in outer_angle_set:
+            angle_target_angles[angle] = self.structure.c_c_bond_angle  # 120 degrees
+            angle_k_values[angle] = self.k_outer_angle
+
+        # Prepare data for angle strain calculation
+        angle_list = []
+        for angle in angle_target_angles:
+            node_i, node_j, node_k = angle
+            idx_i = node_index_map[node_i]
+            idx_j = node_index_map[node_j]
+            idx_k = node_index_map[node_k]
+            target_angle = angle_target_angles[angle]
+            k_value = angle_k_values[angle]
+            angle_list.append((idx_i, idx_j, idx_k, target_angle, k_value))
+
+        angle_array = np.array(
+            angle_list,
+            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float), ("k", float)],
+        )
+
+        return angle_array
