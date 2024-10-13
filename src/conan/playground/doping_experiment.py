@@ -3459,7 +3459,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(0)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -3483,15 +3483,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    # sheet_size = (20, 20)
-    #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    sheet_size = (15, 15)
+
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
