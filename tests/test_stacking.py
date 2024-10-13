@@ -8,7 +8,15 @@ def graphene_sheet():
     """
     Fixture to create a GrapheneSheet instance with predefined parameters.
     """
-    return GrapheneSheet(bond_distance=1.42, sheet_size=(10, 10))
+    return GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+
+
+@pytest.fixture
+def stacked_graphene(graphene_sheet):
+    """
+    Fixture to create a StackedGraphene instance with predefined parameters.
+    """
+    return StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=3, stacking_type="ABA")
 
 
 class TestStackedGrapheneValidations:
@@ -71,6 +79,52 @@ class TestStackedGrapheneValidations:
             assert stacked_graphene.stacking_type == "ABC"
         except ValueError:
             pytest.fail("StackedGraphene raised ValueError unexpectedly!")
+
+    @pytest.mark.parametrize("invalid_layers", ["invalid", -1, [0, 10], 1.5])
+    def test_invalid_layers(self, stacked_graphene, invalid_layers):
+        """
+        Test that a ValueError or IndexError is raised for invalid layers input in add_nitrogen_doping.
+        """
+        if isinstance(invalid_layers, list) and any(
+            layer >= stacked_graphene.number_of_layers for layer in invalid_layers
+        ):
+            with pytest.raises(IndexError, match="One or more specified layers are out of range."):
+                stacked_graphene.add_nitrogen_doping(layers=invalid_layers)
+        else:
+            with pytest.raises(ValueError, match="Invalid 'layers' parameter. Must be a list of integers or 'all'."):
+                stacked_graphene.add_nitrogen_doping(layers=invalid_layers)
+
+    # @pytest.mark.parametrize("invalid_total_percentage", ["invalid", -10, 150])
+    # def test_invalid_total_percentage(self, stacked_graphene, invalid_total_percentage):
+    #     """
+    #     Test that a ValueError is raised for invalid total_percentage input in add_nitrogen_doping.
+    #     """
+    #     with pytest.raises(ValueError, match="total_percentage must be a positive number less than or equal to 100."):
+    #         stacked_graphene.add_nitrogen_doping(total_percentage=invalid_total_percentage)
+    #
+    # @pytest.mark.parametrize("invalid_percentages", [
+    #     {"PYRIDINIC_1": "invalid"},  # Non-numeric value
+    #     {"PYRIDINIC_1": -5},  # Negative percentage
+    #     {"PYRIDINIC_1": 110},  # Percentage greater than 100
+    # ])
+    # def test_invalid_percentages(self, stacked_graphene, invalid_percentages):
+    #     """
+    #     Test that a ValueError is raised for invalid percentages input in add_nitrogen_doping.
+    #     """
+    #     with pytest.raises(ValueError,
+    #                        match="Each percentage in 'percentages' must be a positive number less than or equal to
+    #                        100."):
+    #         stacked_graphene.add_nitrogen_doping(percentages=invalid_percentages)
+
+    def test_valid_doping(self, stacked_graphene):
+        """
+        Test that valid nitrogen doping operation works without errors.
+        """
+        try:
+            stacked_graphene.add_nitrogen_doping(total_percentage=10)
+            # No assertions are made since we are only testing for the absence of exceptions
+        except (ValueError, IndexError):
+            pytest.fail("add_nitrogen_doping raised an error unexpectedly!")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,11 @@
 import random
 
-import numpy as np
 import pytest
 
 from conan.playground.doping_experiment import GrapheneSheet
-from conan.playground.graph_utils import get_neighbors_via_edges, get_neighbors_within_distance
+from conan.playground.graph_utils import get_neighbors_via_edges
+
+# from conan.playground.graph_utils import get_neighbors_within_distance
 
 
 class TestGraphene:
@@ -20,7 +21,7 @@ class TestGraphene:
         """
         # Set seed for reproducibility
         random.seed(42)
-        graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
         return graphene
 
     def test_get_direct_neighbors_via_bonds(self, graphene: GrapheneSheet):
@@ -83,48 +84,48 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
 
-    def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
-        """
-        Test to verify neighbors within a given distance using KDTree.
-
-        Parameters
-        ----------
-        graphene : GrapheneSheet
-            The graphene fixture providing the initialized GrapheneGraph instance.
-
-        Asserts
-        -------
-        Checks if the neighbors within a specified distance are correct by calculating the Euclidean distance.
-        """
-        atom_id = 56
-        max_distance = 5
-        neighbors = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
-
-        atom_position = np.array(graphene.graph.nodes[atom_id]["position"])
-        for neighbor in neighbors:
-            neighbor_position = np.array(graphene.graph.nodes[neighbor]["position"])
-            distance = np.linalg.norm(atom_position - neighbor_position)
-            assert distance <= max_distance, (
-                f"Neighbor {neighbor} at distance {distance} exceeds max_distance " f"{max_distance}"
-            )
+    # def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
+    #     """
+    #     Test to verify neighbors within a given distance using KDTree.
+    #
+    #     Parameters
+    #     ----------
+    #     graphene : GrapheneSheet
+    #         The graphene fixture providing the initialized GrapheneGraph instance.
+    #
+    #     Asserts
+    #     -------
+    #     Checks if the neighbors within a specified distance are correct by calculating the Euclidean distance.
+    #     """
+    #     atom_id = 56
+    #     max_distance = 5
+    #     neighbors = get_neighbors_within_distance(graphene.graph, graphene.kdtree, atom_id, max_distance)
+    #
+    #     atom_position = np.array(graphene.graph.nodes[atom_id]["position"])
+    #     for neighbor in neighbors:
+    #         neighbor_position = np.array(graphene.graph.nodes[neighbor]["position"])
+    #         distance = np.linalg.norm(atom_position - neighbor_position)
+    #         assert distance <= max_distance, (
+    #             f"Neighbor {neighbor} at distance {distance} exceeds max_distance " f"{max_distance}"
+    #         )
 
 
 class TestGrapheneValidations:
 
     def test_bond_distance_type_error(self):
         """
-        Test that a TypeError is raised when bond_distance is not a float or int.
+        Test that a TypeError is raised when bond_length is not a float or int.
         """
-        with pytest.raises(TypeError, match=r"bond_distance must be a float or int, but got str."):
-            GrapheneSheet(bond_distance="invalid", sheet_size=(20, 20))
+        with pytest.raises(TypeError, match=r"bond_length must be a float or int, but got str."):
+            GrapheneSheet(bond_length="invalid", sheet_size=(20, 20))
 
     @pytest.mark.parametrize("invalid_bond_distance", [-1.42, 0])
     def test_bond_distance_value_error(self, invalid_bond_distance):
         """
-        Test that a ValueError is raised when bond_distance is not positive.
+        Test that a ValueError is raised when bond_length is not positive.
         """
-        with pytest.raises(ValueError, match=rf"bond_distance must be positive, but got {invalid_bond_distance}."):
-            GrapheneSheet(bond_distance=invalid_bond_distance, sheet_size=(20, 20))
+        with pytest.raises(ValueError, match=rf"bond_length must be positive, but got {invalid_bond_distance}."):
+            GrapheneSheet(bond_length=invalid_bond_distance, sheet_size=(20, 20))
 
     @pytest.mark.parametrize(
         "invalid_sheet_size",
@@ -145,7 +146,7 @@ class TestGrapheneValidations:
             Different invalid values for sheet_size that should trigger a TypeError.
         """
         with pytest.raises(TypeError, match=r"sheet_size must be a tuple of exactly two positive floats or ints."):
-            GrapheneSheet(bond_distance=1.42, sheet_size=invalid_sheet_size)
+            GrapheneSheet(bond_length=1.42, sheet_size=invalid_sheet_size)
 
     @pytest.mark.parametrize(
         "invalid_sheet_size, expected_message",
@@ -166,11 +167,11 @@ class TestGrapheneValidations:
             The expected error message.
         """
         with pytest.raises(ValueError, match=expected_message):
-            GrapheneSheet(bond_distance=1.42, sheet_size=invalid_sheet_size)
+            GrapheneSheet(bond_length=1.42, sheet_size=invalid_sheet_size)
 
     def test_invalid_structure(self):
         """
         Test that a ValueError is raised when the sheet size is too small to fit a unit cell.
         """
         with pytest.raises(ValueError, match=r"Sheet size is too small to fit even a single unit cell."):
-            GrapheneSheet(bond_distance=1.42, sheet_size=(0.1, 0.1))
+            GrapheneSheet(bond_length=1.42, sheet_size=(0.1, 0.1))

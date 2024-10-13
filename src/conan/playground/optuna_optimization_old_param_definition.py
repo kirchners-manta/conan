@@ -60,7 +60,7 @@ def calculate_minimal_total_energy(
     x0 = np.array([coord for node in graphene.graph.nodes for coord in [positions[node].x, positions[node].y]])
     # Define the box size for minimum image distance calculation
     box_size = (
-        graphene.actual_sheet_width + graphene.c_c_bond_distance,
+        graphene.actual_sheet_width + graphene.c_c_bond_length,
         graphene.actual_sheet_height + graphene.cc_y_distance,
     )
 
@@ -90,7 +90,7 @@ def calculate_minimal_total_energy(
         for structure in all_structures:
             # Get the target bond lengths for the specific nitrogen species
             properties = graphene.species_properties[structure.species]
-            target_bond_lengths = properties.target_bond_lengths
+            target_bond_lengths = properties.target_bond_lengths_cycle
             # Extract the ordered cycle of the doping structure to get the current bond lengths in order
             ordered_cycle = structure.cycle
 
@@ -203,7 +203,7 @@ def calculate_minimal_total_energy(
         # Iterate over all doping structures to gather triplets and target angles
         for structure in all_structures:
             properties = graphene.species_properties[structure.species]
-            target_angles = properties.target_angles
+            target_angles = properties.target_angles_cycle
             ordered_cycle = structure.cycle
 
             # Extend the cycle to account for the closed loop by adding the first two nodes at the end
@@ -339,8 +339,8 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
     for idx, ordered_cycle in enumerate(all_cycles):
         species = species_for_cycles[idx]
         properties = graphene.species_properties[species]
-        target_bond_lengths = properties.target_bond_lengths
-        target_angles = properties.target_angles
+        target_bond_lengths = properties.target_bond_lengths_cycle
+        target_angles = properties.target_angles_cycle
         # subgraph = graphene.graph.subgraph(ordered_cycle).copy()
 
         for i in range(len(ordered_cycle)):
@@ -352,7 +352,7 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
                 pos_i,
                 pos_j,
                 (
-                    graphene.actual_sheet_width + graphene.c_c_bond_distance,
+                    graphene.actual_sheet_width + graphene.c_c_bond_length,
                     graphene.actual_sheet_height + graphene.cc_y_distance,
                 ),
             )
@@ -367,7 +367,7 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
                 pos_i,
                 pos_j,
                 (
-                    graphene.actual_sheet_width + graphene.c_c_bond_distance,
+                    graphene.actual_sheet_width + graphene.c_c_bond_length,
                     graphene.actual_sheet_height + graphene.cc_y_distance,
                 ),
             )
@@ -375,7 +375,7 @@ def calculate_bond_angle_accuracy(graphene: GrapheneSheet) -> Tuple[float, float
                 pos_k,
                 pos_j,
                 (
-                    graphene.actual_sheet_width + graphene.c_c_bond_distance,
+                    graphene.actual_sheet_width + graphene.c_c_bond_length,
                     graphene.actual_sheet_height + graphene.cc_y_distance,
                 ),
             )
@@ -393,7 +393,7 @@ def total_energy_correctness_check(trial):
     random.seed(0)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = 23.359776202184758
     graphene.k_outer_bond = 0.014112166829508662
     graphene.k_inner_angle = 79.55711394238168
@@ -426,7 +426,7 @@ def objective_total_energy_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 10.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -452,7 +452,7 @@ def objective_total_energy_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -478,7 +478,7 @@ def objective_combined_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -509,7 +509,7 @@ def objective_combined_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -540,7 +540,7 @@ def objective_bond_angle_accuracy_pyridinic_4(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -568,7 +568,7 @@ def objective_bond_angle_accuracy_all_structures(trial):
     # k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create Graphene instance and set k_inner_bond and k_outer_bond
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -594,7 +594,7 @@ def objective_total_energy_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -614,7 +614,7 @@ def objective_total_energy_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -634,7 +634,7 @@ def objective_combined_pyridinic_4_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
@@ -657,7 +657,7 @@ def objective_combined_all_structures_with_outer_angles(trial):
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
-    graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     graphene.k_inner_bond = k_inner_bond
     graphene.k_outer_bond = k_outer_bond
     graphene.k_inner_angle = k_inner_angle
