@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from conan.playground.doping_experiment import MaterialStructure
     from conan.playground.doping_experiment import DopingStructure
 
@@ -444,7 +444,9 @@ class StructureOptimizer:
                     angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
                     inner_angle_set.add(angle1)
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
-                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                    if idx_in_neighbors is not None and (2 * idx_in_neighbors) < len(
+                        properties.target_angles_neighbors
+                    ):
                         target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
                     else:
                         raise ValueError(
@@ -457,7 +459,9 @@ class StructureOptimizer:
                     # Angle: neighbor - node_j - next node in cycle
                     angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
                     inner_angle_set.add(angle2)
-                    if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                    if idx_in_neighbors is not None and (2 * idx_in_neighbors + 1) < len(
+                        properties.target_angles_neighbors
+                    ):
                         target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
                     else:
                         raise ValueError(

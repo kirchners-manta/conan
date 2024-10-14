@@ -749,3 +749,84 @@ class TestStructureOptimizer:
         optimizer.optimize_positions()
         final_positions = {node: data["position"] for node, data in optimizer.graph.nodes(data=True)}
         assert initial_positions == final_positions, "Positions should remain unchanged when no doping is present."
+
+    def test_assign_target_angles_missing_second_target_angle(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
+
+        # Get all doping structures
+        all_structures = [
+            structure
+            for structure in optimizer.doping_handler.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
+
+        # Modify the properties to have insufficient target angles for angle2
+        for structure in all_structures:
+            properties = optimizer.doping_handler.species_properties[structure.species]
+            # Ensure there is at least one neighbor
+            if properties.target_angles_neighbors:
+                # Keep only the first angle to make length insufficient for angle2
+                properties.target_angles_neighbors = properties.target_angles_neighbors[:1]
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(optimizer.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Expect a ValueError when calling _assign_target_angles
+        with pytest.raises(ValueError) as excinfo:
+            optimizer._assign_target_angles(node_index_map, all_structures)
+
+        assert "Error when assigning the target angle" in str(excinfo.value)
+
+    def test_assign_target_angles_pyridinic_1_with_additional_edge_reverse_order(self):
+        # Create a mock doping structure with PYRIDINIC_1 and an additional edge
+        from conan.playground.doping_experiment import (
+            DopingHandler,
+            DopingStructure,
+            GrapheneSheet,
+            StructuralComponents,
+        )
+
+        # Set up a small graphene sheet
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(10, 10))
+
+        # Create a doping handler with the species properties
+        doping_handler = DopingHandler(graphene)
+
+        # Define node IDs for the doping structure
+        cycle_atoms = [9, 8, 1, 2, 11, 12, 13, 20, 19, 18, 17, 16]
+        neighboring_atoms = [15, 0, 3, 5, 14, 21, 27, 24, 23]
+        # Set additional_edge with node_a index less than node_b index
+        additional_edge = (11, 19)
+        structural_components = StructuralComponents
+        structural_components.structure_building_atoms = [9, 11, 19]
+        structural_components.structure_building_neighbors = [8, 16, 2, 12, 18, 20]
+        nitrogen_atoms = [9]  # For example, node 1 is a nitrogen atom
+        graphene.graph.remove_node(10)  # Remove node to create pyridinic 1 structure
+
+        # Define a doping structure with PYRIDINIC_1 species
+        doping_structure = DopingStructure(
+            species=NitrogenSpecies.PYRIDINIC_1,
+            cycle=cycle_atoms,
+            neighboring_atoms=neighboring_atoms,
+            additional_edge=additional_edge,
+            structural_components=structural_components,
+            nitrogen_atoms=nitrogen_atoms,
+        )
+
+        # Add the doping structure to the handler
+        doping_handler.doping_structures.structures = [doping_structure]
+        optimizer = StructureOptimizer(graphene, OptimizationConfig())
+
+        # Assign the custom doping handler
+        optimizer.doping_handler = doping_handler
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(optimizer.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Call the method to ensure the code path is covered
+        angle_array = optimizer._assign_target_angles(node_index_map, [doping_structure])
+
+        # Check that angle_array is not empty
+        assert len(angle_array) > 0, "Angle array should not be empty."
