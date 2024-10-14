@@ -10,6 +10,7 @@ tries/
 trial/
 *doping_experiment_old.py
 src/conan/playground/*.xyz
+!/structures/optimized_structure.xyz
 src/conan/playground/*.png
 src/conan/playground/optuna_results
 
