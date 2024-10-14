@@ -150,7 +150,7 @@ class StructureOptimizer:
 
     def _perform_optimization(
         self, x0: npt.NDArray[float], bond_array: npt.NDArray, angle_array: npt.NDArray, box_size: Tuple[float, float]
-    ) -> npt.NDArray[np.float64]:
+    ) -> npt.NDArray[float]:
         """
         Perform the optimization using scipy's minimize function.
 

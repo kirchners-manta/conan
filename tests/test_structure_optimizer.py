@@ -416,3 +416,152 @@ class TestStructureOptimizer:
         # Check whether the lengths of the arrays are correct
         num_nodes = len(all_nodes)
         assert x0.shape[0] == num_nodes * 2, "x0 should have length 2 * number of nodes."
+
+    def test_bond_strain_small_system(self):
+        # Create a very small system
+        # Atoms: A (0, 0), B (1.0, 0), C (2.1, 0)
+        # Bonds: A-B, B-C
+        # Target bond lengths: 1.0 for both bonds
+        # Actual bond lengths: 1.0 for A-B, 1.1 for B-C (Delta = 0.1)
+
+        # Create positions dict
+        positions = {
+            0: (0.0, 0.0),  # Atom A
+            1: (1.0, 0.0),  # Atom B
+            2: (2.1, 0.0),  # Atom C (shifted to obtain a difference)
+        }
+
+        # Create list of nodes and map the nodes to indices
+        all_nodes = [0, 1, 2]
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Flattened positions array x0
+        x0 = np.array([coord for node in all_nodes for coord in positions[node]])
+
+        # Create target bond array
+        bond_list = [
+            (0, 1, 1.0, 10.0),  # Bond A-B
+            (1, 2, 1.0, 10.0),  # Bond B-C
+        ]
+        bond_array = np.array(
+            [(node_index_map[i], node_index_map[j], target_length, k) for i, j, target_length, k in bond_list],
+            dtype=[("idx_i", int), ("idx_j", int), ("target_length", float), ("k", float)],
+        )
+
+        # Box size for periodic boundary conditions (not relevant here)
+        box_size = (10.0, 10.0)
+
+        # Calculate the bond strain using the function under test
+        strain = StructureOptimizer._bond_strain(x0, bond_array, box_size)
+
+        # Calculate expected strain manually
+        # Bond A-B: Length = 1.0, Target = 1.0, Difference = 0.0, Strain = 0.0
+        # Bond B-C: Length = 1.1, Target = 1.0, Difference = 0.1, Strain = 0.5 * 10.0 * (0.1)^2 = 0.05
+        expected_strain = 0.05
+
+        # Check if the calculated strain matches the expected value
+        assert np.isclose(strain, expected_strain), f"Expected strain {expected_strain}, got {strain}."
+
+    def test_angle_strain_small_system_without_deviation(self):
+        # Create positions dict
+        positions = {
+            0: (0.0, 0.0),  # Atom A
+            1: (1.0, 0.0),  # Atom B
+            2: (1.0, 1.0),  # Atom C
+        }
+
+        # Create list of nodes and map the nodes to indices
+        all_nodes = [0, 1, 2]
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Flattened positions array x0
+        x0 = np.array([coord for node in all_nodes for coord in positions[node]])
+
+        # Create target angle array
+        angle_list = [
+            (0, 1, 2, 90.0, 10.0),  # Angle at atom B between A-B and C-B
+        ]
+        angle_array = np.array(
+            [
+                (node_index_map[i], node_index_map[j], node_index_map[k], target_angle, k_value)
+                for i, j, k, target_angle, k_value in angle_list
+            ],
+            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float), ("k", float)],
+        )
+
+        # Box size for periodic boundary conditions (not relevant here)
+        box_size = (10.0, 10.0)
+
+        # Calculate the angle strain using the function under test
+        strain = StructureOptimizer._angle_strain(x0, angle_array, box_size)
+
+        # Calculate expected strain manually
+        # Actual angle between vectors A-B and C-B is 90 degrees, hence difference = 0
+        # Strain = 0.5 * k * (Difference in radians)^2 = 0
+        expected_strain = 0.0
+
+        # Check if the calculated strain matches the expected value
+        assert np.isclose(strain, expected_strain), f"Expected strain {expected_strain}, got {strain}"
+
+    def test_angle_strain_small_system_with_deviation(self):
+        # Create positions dict with a slight deviation to introduce angle strain
+        positions = {
+            0: (0.0, 0.0),  # Atom A
+            1: (1.0, 0.0),  # Atom B
+            2: (2.0, 0.1),  # Atom C (slightly off the x-axis to create an angle)
+            3: (3.0, -0.1),  # Atom D (slightly below the x-axis)
+        }
+
+        # Create list of nodes and map the nodes to indices
+        all_nodes = [0, 1, 2, 3]
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Flattened positions array x0
+        x0 = np.array([coord for node in all_nodes for coord in positions[node]])
+
+        # Create target angle array
+        angle_list = [
+            (0, 1, 2, 180.0, 10.0),  # Target angle at atom B between A-B and C-B is 180 degrees
+            (1, 2, 3, 180.0, 10.0),  # Target angle at atom C between B-C and D-C is 180 degrees
+        ]
+        angle_array = np.array(
+            [
+                (node_index_map[i], node_index_map[j], node_index_map[k], target_angle, k_value)
+                for i, j, k, target_angle, k_value in angle_list
+            ],
+            dtype=[("idx_i", int), ("idx_j", int), ("idx_k", int), ("target_angle", float), ("k", float)],
+        )
+
+        # Box size for periodic boundary conditions (not relevant here)
+        box_size = (10.0, 10.0)
+
+        # Calculate the angle strain using the function under test
+        strain = StructureOptimizer._angle_strain(x0, angle_array, box_size)
+
+        # Calculate expected strain manually
+        # Calculate the actual angles
+        def calculate_angle(pos_i, pos_j, pos_k):
+            v1 = np.array(pos_i) - np.array(pos_j)
+            v2 = np.array(pos_k) - np.array(pos_j)
+            # Calculate angle in radians
+            cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)  # Avoid numerical errors
+            theta = np.arccos(cos_theta)
+            return np.degrees(theta)
+
+        angle_B = calculate_angle(positions[0], positions[1], positions[2])
+        angle_C = calculate_angle(positions[1], positions[2], positions[3])
+
+        # Expected strain calculation
+        # Difference between actual and target angles
+        delta_theta_B = np.radians(angle_B - 180.0)
+        delta_theta_C = np.radians(angle_C - 180.0)
+
+        # Strain = 0.5 * k * delta_theta^2
+        k = 10.0
+        expected_strain_B = 0.5 * k * delta_theta_B**2
+        expected_strain_C = 0.5 * k * delta_theta_C**2
+        expected_strain = expected_strain_B + expected_strain_C
+
+        # Check if the calculated strain matches the expected value
+        assert np.isclose(strain, expected_strain), f"Expected strain {expected_strain}, got {strain}."
