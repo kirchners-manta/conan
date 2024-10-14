@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from conan.playground.doping_experiment import MaterialStructure
@@ -101,7 +101,7 @@ class StructureOptimizer:
 
     def _prepare_optimization(
         self,
-    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray, Tuple[float, float], List[int], Dict[int, Position]]:
+    ) -> Optional[Tuple[npt.NDArray, npt.NDArray, npt.NDArray, Tuple[float, float], List[int], Dict[int, Position]]]:
         """
         Prepare data structures and variables needed for the optimization process.
 
