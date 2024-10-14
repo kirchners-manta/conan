@@ -387,3 +387,32 @@ class TestStructureOptimizer:
         assert np.allclose(
             angle_array_sorted["k"], expected_angle_array_sorted["k"]
         ), "Angle k values do not match expected values."
+
+    def test_prepare_optimization_no_doping(self, setup_structure_optimizer):
+        optimizer = setup_structure_optimizer
+
+        # Remove all doping structures
+        optimizer.doping_handler.doping_structures.structures = []
+
+        result = optimizer._prepare_optimization()
+        assert result is None, "Expected None when no doping structures are present."
+
+    def test_prepare_optimization_with_doping(self, setup_structure_optimizer):
+        optimizer = setup_structure_optimizer
+
+        result = optimizer._prepare_optimization()
+        assert result is not None, "Expected data when doping structures are present."
+
+        x0, bond_array, angle_array, box_size, all_nodes, positions = result
+
+        # Check the types of the returned values
+        assert isinstance(x0, np.ndarray), "x0 should be a numpy array."
+        assert isinstance(bond_array, np.ndarray), "bond_array should be a numpy array."
+        assert isinstance(angle_array, np.ndarray), "angle_array should be a numpy array."
+        assert isinstance(box_size, tuple), "box_size should be a tuple."
+        assert isinstance(all_nodes, list), "all_nodes should be a list."
+        assert isinstance(positions, dict), "positions should be a dict."
+
+        # Check whether the lengths of the arrays are correct
+        num_nodes = len(all_nodes)
+        assert x0.shape[0] == num_nodes * 2, "x0 should have length 2 * number of nodes."
