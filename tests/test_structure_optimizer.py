@@ -681,3 +681,71 @@ class TestStructureOptimizer:
 
         # Compare positions with tolerances
         npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
+
+    def test_assign_target_bond_lengths_missing_target_length(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
+
+        # Manipulate the doping structures to create a neighbor atom without a corresponding target bond length
+        all_structures = [
+            structure
+            for structure in optimizer.doping_handler.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
+
+        # Modify the properties to have insufficient target bond lengths
+        for structure in all_structures:
+            properties = optimizer.doping_handler.species_properties[structure.species]
+            # Remove the target bond lengths to simulate missing data
+            properties.target_bond_lengths_neighbors = []
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(optimizer.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Expect a ValueError when calling _assign_target_bond_lengths
+        with pytest.raises(ValueError) as excinfo:
+            optimizer._assign_target_bond_lengths(node_index_map, all_structures)
+
+        assert "Error when assigning the target bond length" in str(excinfo.value)
+
+    def test_assign_target_angles_missing_target_angle(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
+
+        # Manipulate the doping structures to create a neighbor atom without a corresponding target angle
+        all_structures = [
+            structure
+            for structure in optimizer.doping_handler.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
+
+        # Modify the properties to have insufficient target angles
+        for structure in all_structures:
+            properties = optimizer.doping_handler.species_properties[structure.species]
+            # Remove the target angles to simulate missing data
+            properties.target_angles_neighbors = []
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(optimizer.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Expect a ValueError when calling _assign_target_angles
+        with pytest.raises(ValueError) as excinfo:
+            optimizer._assign_target_angles(node_index_map, all_structures)
+
+        assert "Error when assigning the target angle" in str(excinfo.value)
+
+    def test_optimize_positions_no_doping(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
+
+        # Remove all doping structures
+        optimizer.doping_handler.doping_structures.structures = []
+
+        # Call optimize_positions and ensure it returns without error
+        optimizer.optimize_positions()
+
+        # Since there are no doping structures, positions should remain unchanged
+        # You can check that positions are the same as before
+        initial_positions = {node: data["position"] for node, data in optimizer.graph.nodes(data=True)}
+        optimizer.optimize_positions()
+        final_positions = {node: data["position"] for node, data in optimizer.graph.nodes(data=True)}
+        assert initial_positions == final_positions, "Positions should remain unchanged when no doping is present."
