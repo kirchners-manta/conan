@@ -27,7 +27,7 @@ class TestStructureOptimizer:
         optimizer = StructureOptimizer(graphene, config)
         return optimizer
 
-    def test_assign_target_bond_lengths(self, setup_structure_optimizer):
+    def test_assign_target_bond_lengths_and_k_values(self, setup_structure_optimizer):
         optimizer = setup_structure_optimizer
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
@@ -165,7 +165,7 @@ class TestStructureOptimizer:
             bond_array_sorted["k"], expected_bond_array_sorted["k"]
         ), "Bond k values do not match expected values."
 
-    def test_assign_target_angles(self, setup_structure_optimizer):
+    def test_assign_target_angles_and_k_values(self, setup_structure_optimizer):
         optimizer = setup_structure_optimizer
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
