@@ -1,16 +1,42 @@
+import os
 import random
+import tempfile
 
 import numpy as np
+import numpy.testing as npt
 import pytest
+from ase.io import read
 
 from conan.playground.doping_experiment import GrapheneSheet, OptimizationConfig, StructureOptimizer
-from conan.playground.graph_utils import NitrogenSpecies
+from conan.playground.graph_utils import NitrogenSpecies, write_xyz
+
+
+def read_optimized_structure(file_path):
+    """
+    Read the optimized structure from an .xyz file.
+
+    Parameters
+    ----------
+    file_path : str
+        The path to the .xyz file containing the optimized structure.
+
+    Returns
+    -------
+    optimized_positions : np.ndarray
+        An array of positions with shape (n_atoms, 3).
+    elements : List[str]
+        A list of element symbols corresponding to each atom.
+    """
+    atoms = read(file_path)
+    positions = atoms.get_positions()
+    elements = atoms.get_chemical_symbols()
+    return positions, elements
 
 
 class TestStructureOptimizer:
 
     @pytest.fixture
-    def setup_structure_optimizer(self):
+    def setup_structure_optimizer_small_system(self):
         # Set up the graphene sheet
         random.seed(1)
         sheet_size = (15, 15)
@@ -27,8 +53,50 @@ class TestStructureOptimizer:
         optimizer = StructureOptimizer(graphene, config)
         return optimizer
 
-    def test_assign_target_bond_lengths_and_k_values(self, setup_structure_optimizer):
-        optimizer = setup_structure_optimizer
+    @pytest.fixture
+    def setup_structure_optimizer(self):
+        # Set the random seed for reproducibility
+        random.seed(0)
+        np.random.seed(0)
+
+        # Set up the graphene sheet with the same parameters as the optimized reference structure
+        sheet_size = (20, 20)
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+
+        # Apply nitrogen doping with 10% total percentage
+        graphene.add_nitrogen_doping(total_percentage=10)
+
+        # Create the optimizer
+        config = OptimizationConfig(
+            k_inner_bond=10.0,
+            k_outer_bond=0.1,
+            k_inner_angle=10.0,
+            k_outer_angle=0.1,
+        )
+        optimizer = StructureOptimizer(graphene, config)
+        return optimizer
+
+    @pytest.fixture
+    def optimized_reference_structure(self):
+        """
+        Fixture to load the optimized reference structure from the .xyz file.
+
+        Returns
+        -------
+        optimized_positions : np.ndarray
+            The positions from the optimized structure.
+        elements : List[str]
+            The element symbols from the optimized structure.
+        """
+        # Get the directory where the current script is located
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # Construct the path to the reference file relative to the script's directory
+        file_path = os.path.join(base_dir, "..", "structures", "optimized_structure.xyz")
+        optimized_positions, elements = read_optimized_structure(file_path)
+        return optimized_positions, elements
+
+    def test_assign_target_bond_lengths_and_k_values(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
         all_structures = [
@@ -165,8 +233,8 @@ class TestStructureOptimizer:
             bond_array_sorted["k"], expected_bond_array_sorted["k"]
         ), "Bond k values do not match expected values."
 
-    def test_assign_target_angles_and_k_values(self, setup_structure_optimizer):
-        optimizer = setup_structure_optimizer
+    def test_assign_target_angles_and_k_values(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
         all_structures = [
@@ -388,8 +456,8 @@ class TestStructureOptimizer:
             angle_array_sorted["k"], expected_angle_array_sorted["k"]
         ), "Angle k values do not match expected values."
 
-    def test_prepare_optimization_no_doping(self, setup_structure_optimizer):
-        optimizer = setup_structure_optimizer
+    def test_prepare_optimization_no_doping(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
 
         # Remove all doping structures
         optimizer.doping_handler.doping_structures.structures = []
@@ -397,8 +465,8 @@ class TestStructureOptimizer:
         result = optimizer._prepare_optimization()
         assert result is None, "Expected None when no doping structures are present."
 
-    def test_prepare_optimization_with_doping(self, setup_structure_optimizer):
-        optimizer = setup_structure_optimizer
+    def test_prepare_optimization_with_doping(self, setup_structure_optimizer_small_system):
+        optimizer = setup_structure_optimizer_small_system
 
         result = optimizer._prepare_optimization()
         assert result is not None, "Expected data when doping structures are present."
@@ -565,3 +633,51 @@ class TestStructureOptimizer:
 
         # Check if the calculated strain matches the expected value
         assert np.isclose(strain, expected_strain), f"Expected strain {expected_strain}, got {strain}."
+
+    def test_optimize_positions(self, setup_structure_optimizer, optimized_reference_structure):
+        """
+        Test that the adjusted atom positions closely match the optimized reference structure.
+
+        Parameters
+        ----------
+        setup_structure_optimizer : StructureOptimizer
+            The optimizer instance set up for the test.
+        optimized_reference_structure : tuple
+            A tuple containing the optimized positions and element symbols obtained from force field optimization.
+
+        Raises
+        ------
+        AssertionError
+            If the positions or elements do not match within acceptable tolerances.
+        """
+        # Unpack the optimized reference structure
+        ref_positions, ref_elements = optimized_reference_structure
+
+        optimizer = setup_structure_optimizer
+
+        # Perform the position optimization
+        optimizer.optimize_positions()
+
+        # Write the optimized structure to a temporary XYZ file
+        graphene_sheet = optimizer.structure
+
+        with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as tmpfile:
+            tmp_filename = tmpfile.name
+            write_xyz(graphene_sheet.graph, tmp_filename)
+
+        # Read the optimized structure from the temporary XYZ file
+        optimized_atoms = read(tmp_filename)
+        optimized_positions = optimized_atoms.get_positions()
+        optimized_elements = optimized_atoms.get_chemical_symbols()
+
+        # Remove the temporary file
+        os.remove(tmp_filename)
+
+        # Ensure that the number of atoms matches
+        assert len(optimized_positions) == len(ref_positions), "Number of atoms does not match."
+
+        # Compare elements
+        assert optimized_elements == ref_elements, "Element symbols do not match."
+
+        # Compare positions with tolerances
+        npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
