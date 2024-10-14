@@ -46,7 +46,7 @@ class TestStructureOptimizer:
         node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
 
         # Get the target bond lengths for the graphene sheet edges
-        bond_array = optimizer.assign_target_bond_lengths(node_index_map, all_structures)
+        bond_array = optimizer._assign_target_bond_lengths(node_index_map, all_structures)
 
         # Now we can compare bond_array with the expected data
         expected_bond_list = [
@@ -184,7 +184,7 @@ class TestStructureOptimizer:
         node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
 
         # Get the target angles for the graphene sheet edges
-        angle_array = optimizer.assign_target_angles(node_index_map, all_structures)
+        angle_array = optimizer._assign_target_angles(node_index_map, all_structures)
 
         # Now we can compare angle_array with the expected data
         expected_angle_list = [

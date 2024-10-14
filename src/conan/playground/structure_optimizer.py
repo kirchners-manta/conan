@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 if TYPE_CHECKING:
     from conan.playground.doping_experiment import MaterialStructure
@@ -71,8 +71,34 @@ class StructureOptimizer:
         """
         Adjust the positions of atoms in the material structure to optimize the structure and minimize structural
         strain.
+
+        Notes
+        -----
+        This method adjusts the positions of atoms in a graphene sheet to optimize the structure based on the doping
+        configuration. It uses a combination of bond and angle strains to minimize the total strain of the system,
+        following the specified definitions for bond and angle spring constants.
+
+        It handles cases where bonds are included in multiple doping structures by averaging the target
+        lengths assigned to them. Each bond has a single force constant `k`, determined by whether it is an inner
+        or outer bond. Angles are assigned target values based on their involvement in doping structures or are set
+        to the default bond angle (120 degrees) otherwise.
         """
-        self._adjust_atom_positions()
+        # self._adjust_atom_positions()
+
+        # Prepare data for optimization
+        optimization_data = self._prepare_optimization()
+        if optimization_data is None:
+            # No optimization needed
+            return
+
+        # Unpack optimization data
+        x0, bond_array, angle_array, box_size, all_nodes, node_index_map, positions = optimization_data
+
+        # Perform optimization
+        optimized_positions = self._perform_optimization(x0, bond_array, angle_array, box_size)
+
+        # Update graph positions
+        self._update_graph_positions(optimized_positions, all_nodes, positions, bond_array, box_size)
 
     def _adjust_atom_positions(self):
         """
@@ -119,10 +145,10 @@ class StructureOptimizer:
         )
 
         # Assign target bond lengths
-        bond_array = self.assign_target_bond_lengths(node_index_map, all_structures)
+        bond_array = self._assign_target_bond_lengths(node_index_map, all_structures)
 
         # Assign target angles
-        angle_array = self.assign_target_angles(node_index_map, all_structures)
+        angle_array = self._assign_target_angles(node_index_map, all_structures)
 
         def bond_strain(x):
             """
@@ -270,7 +296,164 @@ class StructureOptimizer:
         # Update the bond lengths in the graph
         nx.set_edge_attributes(self.graph, edge_updates)
 
-    def assign_target_bond_lengths(
+    def _prepare_optimization(
+        self,
+    ) -> Tuple[
+        npt.NDArray, npt.NDArray, npt.NDArray, Tuple[float, float], List[int], Dict[int, int], Dict[int, Position]
+    ]:
+        """
+        Prepare data structures and variables needed for the optimization process.
+
+        Returns
+        -------
+        Tuple containing:
+            - x0: Initial positions array
+            - bond_array: Array of bonds with target lengths and force constants
+            - angle_array: Array of angles with target angles and force constants
+            - box_size: Tuple of box dimensions for periodic boundary conditions
+            - all_nodes: List of all node IDs in the graph
+            - node_index_map: Mapping from node IDs to indices in the positions array
+            - positions: Dictionary of node positions
+        """
+        # Get all doping structures except graphitic nitrogen
+        all_structures = [
+            structure
+            for structure in self.doping_handler.doping_structures.structures
+            if structure.species != NitrogenSpecies.GRAPHITIC
+        ]
+
+        # Return None if no doping structures are present
+        if not all_structures:
+            return None
+
+        # Ensure consistent ordering of nodes
+        all_nodes = sorted(self.graph.nodes())
+        node_index_map = {node: idx for idx, node in enumerate(all_nodes)}
+
+        # Get the initial positions of atoms, ordered consistently
+        positions = {node: self.graph.nodes[node]["position"] for node in all_nodes}
+
+        # Flatten the positions into a 1D array for optimization (alternating x and y)
+        x0 = np.array([coord for node in all_nodes for coord in (positions[node][0], positions[node][1])])
+
+        # Define the box size for minimum image distance calculation
+        box_size = (
+            self.structure.actual_sheet_width + self.structure.c_c_bond_length,
+            self.structure.actual_sheet_height + self.structure.cc_y_distance,
+        )
+
+        # Assign target bond lengths and angles
+        bond_array = self._assign_target_bond_lengths(node_index_map, all_structures)
+        angle_array = self._assign_target_angles(node_index_map, all_structures)
+
+        return x0, bond_array, angle_array, box_size, all_nodes, node_index_map, positions
+
+    def _perform_optimization(
+        self, x0: npt.NDArray[float], bond_array: npt.NDArray, angle_array: npt.NDArray, box_size: Tuple[float, float]
+    ) -> npt.NDArray[np.float64]:
+        """
+        Perform the optimization using scipy's minimize function.
+
+        Parameters
+        ----------
+        x0 : ndarray
+            Flattened array of initial positions.
+        bond_array : ndarray
+            Array of bonds with target lengths and force constants.
+        angle_array : ndarray
+            Array of angles with target angles and force constants.
+        box_size : Tuple[float, float]
+            Dimensions of the periodic box.
+
+        Returns
+        -------
+        optimized_positions : ndarray
+            Array of optimized positions.
+        """
+
+        # Initialize the progress bar
+        progress_bar = tqdm(total=None, desc="Optimizing positions", unit="iteration")
+
+        def optimization_callback(xk):
+            # Update the progress bar by one step
+            progress_bar.update(1)
+
+        # Objective function for optimization
+        def total_strain(x):
+            return self._total_strain(x, bond_array, angle_array, box_size)
+
+        # Start the optimization process with the callback to update progress
+        result = minimize(
+            total_strain,
+            x0,
+            method="L-BFGS-B",
+            callback=optimization_callback,
+            options={"disp": True},
+        )
+
+        # Close the progress bar
+        progress_bar.close()
+
+        # Print the number of iterations and final energy
+        print(f"\nNumber of iterations: {result.nit}\nFinal structural strain: {result.fun}")
+
+        # Reshape the optimized positions back to the 2D array format
+        optimized_positions = result.x.reshape(-1, 2)
+
+        return optimized_positions
+
+    def _update_graph_positions(
+        self,
+        optimized_positions: npt.NDArray[float],
+        all_nodes: List[int],
+        positions: Dict[int, Position],
+        bond_array: npt.NDArray,
+        box_size: Tuple[float, float],
+    ):
+        """
+        Update the positions of atoms in the graph with the optimized positions.
+
+        Parameters
+        ----------
+        optimized_positions : ndarray
+            Array of optimized positions.
+        all_nodes : List[int]
+            List of all node IDs in the graph.
+        positions : Dict[int, Position]
+            Original positions of nodes.
+        bond_array : ndarray
+            Array of bonds with target lengths and force constants.
+        box_size : Tuple[float, float]
+            Dimensions of the periodic box.
+        """
+        # Update the positions of atoms in the graph
+        position_dict = {
+            node: Position(optimized_positions[idx][0], optimized_positions[idx][1], positions[node][2])
+            for idx, node in enumerate(all_nodes)
+        }
+        nx.set_node_attributes(self.graph, position_dict, "position")
+
+        # Extract positions for bond length calculation
+        positions_array = optimized_positions  # Shape: (num_nodes, 2)
+
+        idx_i_array = bond_array["idx_i"]
+        idx_j_array = bond_array["idx_j"]
+        positions_i = positions_array[idx_i_array]
+        positions_j = positions_array[idx_j_array]
+
+        # Calculate bond lengths
+        current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+
+        # Prepare bond length updates for all bonds
+        edge_updates = {
+            (all_nodes[idx_i_array[idx]], all_nodes[idx_j_array[idx]]): {"bond_length": current_lengths[idx]}
+            for idx in range(len(idx_i_array))
+        }
+
+        # Update the bond lengths in the graph
+        nx.set_edge_attributes(self.graph, edge_updates)
+
+    def _assign_target_bond_lengths(
         self, node_index_map: Dict[int, int], all_structures: List["DopingStructure"]
     ) -> npt.NDArray:
         """
@@ -289,8 +472,10 @@ class StructureOptimizer:
             Array of bonds with indices, target lengths, and force constants.
         """
         # Dictionaries to store bond properties
-        bond_target_lengths = {}  # key: (node_i, node_j), value: list of target lengths
-        bond_k_values = {}  # key: (node_i, node_j), value: k value
+        bond_target_lengths: Dict[Tuple[int, int], List[float]] = (
+            {}
+        )  # key: (node_i, node_j), value: list of target lengths
+        bond_k_values: Dict[Tuple[int, int], float] = {}  # key: (node_i, node_j), value: k value
 
         # Set to keep track of inner bonds
         inner_bond_set = set()
@@ -366,7 +551,7 @@ class StructureOptimizer:
 
         return bond_array
 
-    def assign_target_angles(
+    def _assign_target_angles(
         self, node_index_map: Dict[int, int], all_structures: List["DopingStructure"]
     ) -> npt.NDArray:
         """
@@ -518,3 +703,127 @@ class StructureOptimizer:
         )
 
         return angle_array
+
+    @staticmethod
+    def _bond_strain(x: npt.NDArray[np.float64], bond_array: npt.NDArray, box_size: Tuple[float, float]) -> float:
+        """
+        Calculate the bond strain for the given atom positions.
+
+        Parameters
+        ----------
+        x : ndarray
+            Flattened array of positions of all atoms.
+        bond_array : ndarray
+            Array of bonds with target lengths and force constants.
+        box_size : Tuple[float, float]
+            Dimensions of the periodic box.
+
+        Returns
+        -------
+        total_strain : float
+            The total bond strain in the structure.
+        """
+        # Extract positions
+        idx_i_array = bond_array["idx_i"]
+        idx_j_array = bond_array["idx_j"]
+        positions_i = x[np.ravel(np.column_stack((idx_i_array * 2, idx_i_array * 2 + 1)))]
+        positions_j = x[np.ravel(np.column_stack((idx_j_array * 2, idx_j_array * 2 + 1)))]
+        positions_i = positions_i.reshape(-1, 2)
+        positions_j = positions_j.reshape(-1, 2)
+
+        # Calculate bond lengths
+        current_lengths, _ = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+
+        # Calculate bond strain
+        target_lengths = bond_array["target_length"]
+        k_values = bond_array["k"]
+        total_bond_strain = 0.5 * np.sum(k_values * (current_lengths - target_lengths) ** 2)
+
+        return total_bond_strain
+
+    @staticmethod
+    def _angle_strain(x: npt.NDArray[np.float64], angle_array: npt.NDArray, box_size: Tuple[float, float]) -> float:
+        """
+        Calculate the angle strain for the given atom positions.
+
+        Parameters
+        ----------
+        x : ndarray
+            Flattened array of positions of all atoms.
+        angle_array : ndarray
+            Array of angles with target angles and force constants.
+        box_size : Tuple[float, float]
+            Dimensions of the periodic box.
+
+        Returns
+        -------
+        total_strain : float
+            The total angular strain in the structure.
+        """
+        # Extract positions
+        idx_i_array = angle_array["idx_i"]
+        idx_j_array = angle_array["idx_j"]
+        idx_k_array = angle_array["idx_k"]
+        positions_i = x[np.ravel(np.column_stack((idx_i_array * 2, idx_i_array * 2 + 1)))]
+        positions_j = x[np.ravel(np.column_stack((idx_j_array * 2, idx_j_array * 2 + 1)))]
+        positions_k = x[np.ravel(np.column_stack((idx_k_array * 2, idx_k_array * 2 + 1)))]
+        positions_i = positions_i.reshape(-1, 2)
+        positions_j = positions_j.reshape(-1, 2)
+        positions_k = positions_k.reshape(-1, 2)
+
+        # Calculate vectors
+        _, v1 = minimum_image_distance_vectorized(positions_i, positions_j, box_size)
+        _, v2 = minimum_image_distance_vectorized(positions_k, positions_j, box_size)
+
+        # Calculate norms
+        norm_v1 = np.linalg.norm(v1, axis=1)
+        norm_v2 = np.linalg.norm(v2, axis=1)
+
+        # Prevent division by zero
+        norm_v1 = np.where(norm_v1 == 0, 1e-8, norm_v1)
+        norm_v2 = np.where(norm_v2 == 0, 1e-8, norm_v2)
+
+        # Calculate cos_theta safely
+        cos_theta = np.einsum("ij,ij->i", v1, v2) / (norm_v1 * norm_v2)
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)
+
+        # Calculate angles
+        theta = np.arccos(cos_theta)
+
+        # Calculate angle strain
+        target_angles = np.radians(angle_array["target_angle"])
+        delta_theta = theta - target_angles
+        k_values = angle_array["k"]
+        total_angle_strain = 0.5 * np.sum(k_values * delta_theta**2)
+
+        return total_angle_strain
+
+    def _total_strain(
+        self,
+        x: npt.NDArray[np.float64],
+        bond_array: npt.NDArray,
+        angle_array: npt.NDArray,
+        box_size: Tuple[float, float],
+    ) -> float:
+        """
+        Calculate the total structural strain (bond + angular) for the given positions.
+
+        Parameters
+        ----------
+        x : ndarray
+            Flattened array of positions of all atoms.
+        bond_array : ndarray
+            Array of bonds with target lengths and force constants.
+        angle_array : ndarray
+            Array of angles with target angles and force constants.
+        box_size : Tuple[float, float]
+            Dimensions of the periodic box.
+
+        Returns
+        -------
+        total_strain : float
+            The total structural strain in the system.
+        """
+        bond_strain = self._bond_strain(x, bond_array, box_size)
+        angle_strain = self._angle_strain(x, angle_array, box_size)
+        return bond_strain + angle_strain
