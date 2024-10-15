@@ -3,7 +3,7 @@ import json
 import os
 import random
 from itertools import pairwise
-from typing import List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import optuna
@@ -49,8 +49,8 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     )
 
     # Dictionaries to store bond and angle properties
-    bond_target_lengths = {}
-    angle_target_angles = {}
+    bond_target_lengths: Dict[Tuple[int, int], List[float]] = {}
+    angle_target_angles: Dict[Tuple[int, int, int], float] = {}
     inner_bond_set = set()
     inner_angle_set = set()
 
@@ -77,7 +77,8 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         for idx, (node_i, node_j) in enumerate(cycle_edges):
             bond = (min(node_i, node_j), max(node_i, node_j))
             inner_bond_set.add(bond)
-            bond_target_lengths[bond] = properties.target_bond_lengths_cycle[idx]
+            # Append target length
+            bond_target_lengths.setdefault(bond, []).append(properties.target_bond_lengths_cycle[idx])
 
         # Bonds between cycle atoms and their neighbors
         for idx, node_i in enumerate(cycle_atoms):
@@ -94,7 +95,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                         f"(index {idx_in_neighbors}) has no corresponding target length in "
                         f"target_bond_lengths_neighbors."
                     )
-                bond_target_lengths[bond] = target_length
+                bond_target_lengths.setdefault(bond, []).append(target_length)
 
         # Angles within the cycle
         extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
@@ -150,7 +151,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
                 inner_angle_set.add(angle1)
                 idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
-                if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                if idx_in_neighbors is not None and (2 * idx_in_neighbors) < len(properties.target_angles_neighbors):
                     target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
                 else:
                     raise ValueError(
@@ -162,7 +163,9 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 # Angle: neighbor - node_j - next node in cycle
                 angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
                 inner_angle_set.add(angle2)
-                if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_angles_neighbors):
+                if idx_in_neighbors is not None and (2 * idx_in_neighbors + 1) < len(
+                    properties.target_angles_neighbors
+                ):
                     target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors + 1]
                 else:
                     raise ValueError(
@@ -179,7 +182,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
 
     # Assign target lengths for outer bonds
     for bond in outer_bonds:
-        bond_target_lengths[bond] = graphene_sheet.c_c_bond_length
+        bond_target_lengths.setdefault(bond, []).append(graphene_sheet.c_c_bond_length)
 
     # Collect all angles in the graph
     all_angle_set = set()
@@ -198,6 +201,10 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     # Assign target angles for outer angles
     for angle in outer_angle_set:
         angle_target_angles[angle] = graphene_sheet.c_c_bond_angle  # 120 degrees
+
+    # Average the target bond lengths
+    for bond in bond_target_lengths:
+        bond_target_lengths[bond] = np.mean(bond_target_lengths[bond])
 
     # Now calculate the errors
     bond_errors = []
@@ -308,6 +315,33 @@ def objective(trial: optuna.Trial, graphene_sheets: List[GrapheneSheet]) -> floa
     return average_total_score
 
 
+# def objective(trial: optuna.Trial, graphene_sheets: List[GrapheneSheet]) -> float:
+#     """
+#     Objective function for Optuna optimization.
+#
+#     Parameters
+#     ----------
+#     trial : optuna.Trial
+#         An Optuna trial object to suggest parameter values.
+#     graphene_sheets : List[GrapheneSheet]
+#         A list of graphene sheet objects.
+#
+#     Returns
+#     -------
+#     float
+#         The average total error across all graphene sheets for the given parameter values.
+#     """
+#     random.seed(1)
+#     sheet_size = (15, 15)
+#
+#     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+#     graphene.add_nitrogen_doping(total_percentage=10)
+#
+#     average_total_score = calculate_total_error(graphene)
+#
+#     return average_total_score
+
+
 def save_study_results(study, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     df = study.trials_dataframe()
@@ -354,6 +388,7 @@ def main():
     num_sheets = 1000
     print("Generating graphene sheets...")
     graphene_sheets = create_graphene_sheets(num_sheets, write_to_file=True, create_plots=True)
+    # graphene_sheets = []
 
     # Set a seed for Optuna's sampler
     sampler = optuna.samplers.TPESampler(seed=0)  # Specify a seed for Optuna

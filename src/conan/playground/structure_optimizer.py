@@ -370,8 +370,10 @@ class StructureOptimizer:
             Array of angles with indices, target angles, and force constants.
         """
         # Dictionaries to store angle properties
-        angle_target_angles = {}  # key: (node_i, node_j, node_k), value: target angle in degrees
-        angle_k_values = {}  # key: (node_i, node_j, node_k), value: k value
+        angle_target_angles: Dict[Tuple[int, int, int], float] = (
+            {}
+        )  # key: (node_i, node_j, node_k), value: target angle in degrees
+        angle_k_values: Dict[Tuple[int, int, int], float] = {}  # key: (node_i, node_j, node_k), value: k value
 
         # Set to keep track of inner angles
         inner_angle_set = set()
