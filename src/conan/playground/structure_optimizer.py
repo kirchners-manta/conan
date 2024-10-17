@@ -24,21 +24,21 @@ class OptimizationConfig:
 
     # k_inner_bond: float = 90.0
     k_inner_bond: float = 10
-    # k_inner_bond: float = 0.11692132084283809
+    # k_inner_bond: float = 0.02913316064929499
     """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
     atoms to their neighbors in the graphene sheet."""
     # k_outer_bond: float = 75.0
     k_outer_bond: float = 0.1
-    # k_outer_bond: float = 0.2336366421530933
+    # k_outer_bond: float = 0.044157913625699714
     """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
     # k_inner_angle: float = 10.16
     k_inner_angle: float = 10
-    # k_inner_angle: float = 0.048519546967888634
+    # k_inner_angle: float = 0.012112953758454255
     """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
     atoms and their neighbors in the graphene sheet."""
     # k_outer_angle: float = 10.16
     k_outer_angle: float = 0.1
-    # k_outer_angle: float = 0.037294101916655394
+    # k_outer_angle: float = 0.011494559567111453
     """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
 
