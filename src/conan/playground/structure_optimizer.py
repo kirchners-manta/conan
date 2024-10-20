@@ -25,8 +25,9 @@ class OptimizationConfig:
     # k_inner_bond: float = 90.0
     k_inner_bond: float = 10
     # k_inner_bond: float = 0.02913316064929499
-    """The spring constant for bonds within the doping structure (cycle) as well as the direct bonds from the cycle
-    atoms to their neighbors in the graphene sheet."""
+    """The spring constant for bonds within the doping structure (cycle)."""
+    k_middle_bond: float = 5
+    """Spring constant for bonds between cycle atoms and their neighboring atoms."""
     # k_outer_bond: float = 75.0
     k_outer_bond: float = 0.1
     # k_outer_bond: float = 0.044157913625699714
@@ -34,8 +35,9 @@ class OptimizationConfig:
     # k_inner_angle: float = 10.16
     k_inner_angle: float = 10
     # k_inner_angle: float = 0.012112953758454255
-    """The spring constant for angles within the doping structure (cycle) as well as the angles between the cycle
-    atoms and their neighbors in the graphene sheet."""
+    """The spring constant for angles within the doping structure (cycle)."""
+    k_middle_angle: float = 5
+    """Spring constant for angles involving neighboring atoms."""
     # k_outer_angle: float = 10.16
     k_outer_angle: float = 0.1
     # k_outer_angle: float = 0.011494559567111453
@@ -63,8 +65,10 @@ class StructureOptimizer:
 
         # Assign constants from config
         self.k_inner_bond = config.k_inner_bond
+        self.k_middle_bond = config.k_middle_bond
         self.k_outer_bond = config.k_outer_bond
         self.k_inner_angle = config.k_inner_angle
+        self.k_middle_angle = config.k_middle_angle
         self.k_outer_angle = config.k_outer_angle
 
     def optimize_positions(self):
@@ -277,8 +281,9 @@ class StructureOptimizer:
         )  # key: (node_i, node_j), value: list of target lengths
         bond_k_values: Dict[Tuple[int, int], float] = {}  # key: (node_i, node_j), value: k value
 
-        # Set to keep track of inner bonds
+        # Sets to keep track of inner bonds and bonds between cycle atoms and their neighbors
         inner_bond_set = set()
+        middle_bond_set = set()
 
         # Collect inner bonds from doping structures
         for structure in all_structures:
@@ -309,7 +314,9 @@ class StructureOptimizer:
                 neighbors = [n for n in self.graph.neighbors(node_i) if n not in cycle_atoms]
                 for neighbor in neighbors:
                     bond = (min(node_i, neighbor), max(node_i, neighbor))
-                    inner_bond_set.add(bond)
+                    middle_bond_set.add(bond)
+
+                    # Append target length
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                     if idx_in_neighbors is not None and idx_in_neighbors < len(
                         properties.target_bond_lengths_neighbors
@@ -322,14 +329,14 @@ class StructureOptimizer:
                             f"target_bond_lengths_neighbors."
                         )
                     bond_target_lengths.setdefault(bond, []).append(target_length)
-                    # Assign k value (k_inner_bond)
-                    bond_k_values[bond] = self.k_inner_bond
+                    # Assign k value (k_middle_bond)
+                    bond_k_values[bond] = self.k_middle_bond
 
         # Collect all bonds in the graph
         all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in self.graph.edges()]
 
-        # Outer bonds are those not in inner_bond_set
-        outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
+        # Outer bonds are those not in inner_bond_set or middle_bond_set
+        outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set and bond not in middle_bond_set]
 
         # Assign target lengths and k values for outer bonds
         for bond in outer_bonds:
@@ -375,8 +382,9 @@ class StructureOptimizer:
         )  # key: (node_i, node_j, node_k), value: target angle in degrees
         angle_k_values: Dict[Tuple[int, int, int], float] = {}  # key: (node_i, node_j, node_k), value: k value
 
-        # Set to keep track of inner angles
+        # Sets to keep track of inner angles and angles between cycle atoms and their neighbors
         inner_angle_set = set()
+        middle_angle_set = set()
 
         # Collect inner angles from doping structures
         for structure in all_structures:
@@ -444,7 +452,7 @@ class StructureOptimizer:
                 for neighbor in neighbors:
                     # Angle: previous node in cycle - node_j - neighbor
                     angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
-                    inner_angle_set.add(angle1)
+                    middle_angle_set.add(angle1)
                     idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                     if idx_in_neighbors is not None and (2 * idx_in_neighbors) < len(
                         properties.target_angles_neighbors
@@ -456,11 +464,12 @@ class StructureOptimizer:
                             f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
                         )
                     angle_target_angles[angle1] = target_angle
-                    angle_k_values[angle1] = self.k_inner_angle
+                    # Assign k value (k_middle_angle)
+                    angle_k_values[angle1] = self.k_middle_angle
 
                     # Angle: neighbor - node_j - next node in cycle
                     angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
-                    inner_angle_set.add(angle2)
+                    middle_angle_set.add(angle2)
                     if idx_in_neighbors is not None and (2 * idx_in_neighbors + 1) < len(
                         properties.target_angles_neighbors
                     ):
@@ -471,7 +480,8 @@ class StructureOptimizer:
                             f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
                         )
                     angle_target_angles[angle2] = target_angle
-                    angle_k_values[angle2] = self.k_inner_angle
+                    # Assign k value (k_middle_angle)
+                    angle_k_values[angle2] = self.k_middle_angle
 
         # Collect all angles in the graph
         all_angle_set = set()
@@ -484,8 +494,8 @@ class StructureOptimizer:
                     angle = (min(node_i, node_k), node_j, max(node_i, node_k))
                     all_angle_set.add(angle)
 
-        # Outer angles are those not in inner_angle_set
-        outer_angle_set = all_angle_set - inner_angle_set
+        # Outer angles are those not in inner_angle_set or middle_angle_set
+        outer_angle_set = all_angle_set - inner_angle_set - middle_angle_set
 
         # Assign target angles for outer angles
         for angle in outer_angle_set:
