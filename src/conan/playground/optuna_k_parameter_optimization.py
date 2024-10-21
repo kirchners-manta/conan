@@ -38,7 +38,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
     Returns
     -------
     float
-        The combined total error.
+        The combined total weighted error.
     """
     # Get all nodes and their positions
     positions = {node: graphene_sheet.graph.nodes[node]["position"] for node in graphene_sheet.graph.nodes()}
@@ -50,9 +50,16 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
 
     # Dictionaries to store bond and angle properties
     bond_target_lengths: Dict[Tuple[int, int], List[float]] = {}
+    bond_weights: Dict[Tuple[int, int], float] = {}
     angle_target_angles: Dict[Tuple[int, int, int], float] = {}
-    inner_bond_set = set()
-    inner_angle_set = set()
+    angle_weights: Dict[Tuple[int, int, int], float] = {}
+    # inner_bond_set = set()
+    # inner_angle_set = set()
+
+    # Define weights
+    weight_cycle = 1.0
+    weight_neighbors = 0.5
+    weight_outer = 0.1
 
     all_structures = [
         structure
@@ -60,7 +67,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         if structure.species != NitrogenSpecies.GRAPHITIC
     ]
 
-    # Collect inner bonds and angles from doping structures
+    # Collect inner and middle bonds and angles from doping structures
     for structure in all_structures:
         properties = graphene_sheet.doping_handler.species_properties[structure.species]
 
@@ -76,16 +83,18 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
 
         for idx, (node_i, node_j) in enumerate(cycle_edges):
             bond = (min(node_i, node_j), max(node_i, node_j))
-            inner_bond_set.add(bond)
+            # inner_bond_set.add(bond)
             # Append target length
             bond_target_lengths.setdefault(bond, []).append(properties.target_bond_lengths_cycle[idx])
+            # Assign weight based on bond type
+            bond_weights[bond] = weight_cycle
 
         # Bonds between cycle atoms and their neighbors
         for idx, node_i in enumerate(cycle_atoms):
             neighbors = [n for n in graphene_sheet.graph.neighbors(node_i) if n not in cycle_atoms]
             for neighbor in neighbors:
                 bond = (min(node_i, neighbor), max(node_i, neighbor))
-                inner_bond_set.add(bond)
+                # inner_bond_set.add(bond)
                 idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                 if idx_in_neighbors is not None and idx_in_neighbors < len(properties.target_bond_lengths_neighbors):
                     target_length = properties.target_bond_lengths_neighbors[idx_in_neighbors]
@@ -96,6 +105,8 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                         f"target_bond_lengths_neighbors."
                     )
                 bond_target_lengths.setdefault(bond, []).append(target_length)
+                # Assign weight based on bond type
+                bond_weights[bond] = weight_neighbors
 
         # Angles within the cycle
         extended_cycle = cycle_atoms + [cycle_atoms[0], cycle_atoms[1]]
@@ -104,8 +115,10 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
             node_j = extended_cycle[idx + 1]
             node_k = extended_cycle[idx + 2]
             angle = (min(node_i, node_k), node_j, max(node_i, node_k))
-            inner_angle_set.add(angle)
+            # inner_angle_set.add(angle)
             angle_target_angles[angle] = properties.target_angles_cycle[idx]
+            # Assign weight based on angle type
+            angle_weights[angle] = weight_cycle
 
         # Handle additional angles for PYRIDINIC_1
         if structure.species == NitrogenSpecies.PYRIDINIC_1 and structure.additional_edge:
@@ -135,10 +148,11 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
             next_angle = (min(node_a, next_node_b), node_b, max(node_a, next_node_b))
             additional_angles.extend([prev_angle, next_angle])
 
-            # Assign target angles from properties.target_angles_additional_angles
+            # Assign target angles and weights
             for idx, angle in enumerate(additional_angles):
-                inner_angle_set.add(angle)
+                # inner_angle_set.add(angle)
                 angle_target_angles[angle] = properties.target_angles_additional_angles[idx]
+                angle_weights[angle] = weight_cycle
 
         # Angles involving neighboring atoms
         for idx_j, node_j in enumerate(cycle_atoms):
@@ -149,7 +163,7 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
             for neighbor in neighbors:
                 # Angle: previous node in cycle - node_j - neighbor
                 angle1 = (min(node_i_prev, neighbor), node_j, max(node_i_prev, neighbor))
-                inner_angle_set.add(angle1)
+                # inner_angle_set.add(angle1)
                 idx_in_neighbors = neighbor_atom_indices.get(neighbor, None)
                 if idx_in_neighbors is not None and (2 * idx_in_neighbors) < len(properties.target_angles_neighbors):
                     target_angle = properties.target_angles_neighbors[2 * idx_in_neighbors]
@@ -159,10 +173,12 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                         f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
                     )
                 angle_target_angles[angle1] = target_angle
+                # Assign weight based on angle type
+                angle_weights[angle1] = weight_neighbors
 
                 # Angle: neighbor - node_j - next node in cycle
                 angle2 = (min(neighbor, node_k_next), node_j, max(neighbor, node_k_next))
-                inner_angle_set.add(angle2)
+                # inner_angle_set.add(angle2)
                 if idx_in_neighbors is not None and (2 * idx_in_neighbors + 1) < len(
                     properties.target_angles_neighbors
                 ):
@@ -173,16 +189,21 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                         f"{idx_in_neighbors}) has no corresponding target angle in 'target_angles_neighbors'."
                     )
                 angle_target_angles[angle2] = target_angle
+                # Assign weight based on angle type
+                angle_weights[angle2] = weight_neighbors
 
     # Collect all bonds in the graph
     all_bonds = [(min(node_i, node_j), max(node_i, node_j)) for node_i, node_j in graphene_sheet.graph.edges()]
 
-    # Outer bonds are those not in inner_bond_set
-    outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
+    # # Outer bonds are those not in inner_bond_set
+    # outer_bonds = [bond for bond in all_bonds if bond not in inner_bond_set]
 
-    # Assign target lengths for outer bonds
-    for bond in outer_bonds:
-        bond_target_lengths.setdefault(bond, []).append(graphene_sheet.c_c_bond_length)
+    # Assign target lengths and weights for outer bonds
+    for bond in all_bonds:
+        if bond not in bond_target_lengths:
+            # Outer bonds
+            bond_target_lengths.setdefault(bond, []).append(graphene_sheet.c_c_bond_length)
+            bond_weights[bond] = weight_outer
 
     # Collect all angles in the graph
     all_angle_set = set()
@@ -195,12 +216,15 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
                 angle = (min(node_i, node_k), node_j, max(node_i, node_k))
                 all_angle_set.add(angle)
 
-    # Outer angles are those not in inner_angle_set
-    outer_angle_set = all_angle_set - inner_angle_set
+    # # Outer angles are those not in inner_angle_set
+    # outer_angle_set = all_angle_set - inner_angle_set
 
-    # Assign target angles for outer angles
-    for angle in outer_angle_set:
-        angle_target_angles[angle] = graphene_sheet.c_c_bond_angle  # 120 degrees
+    # Assign target angles and weights for outer angles
+    for angle in all_angle_set:
+        if angle not in angle_target_angles:
+            # Outer angles
+            angle_target_angles[angle] = graphene_sheet.c_c_bond_angle  # 120 degrees
+            angle_weights[angle] = weight_outer
 
     # Average the target bond lengths
     for bond in bond_target_lengths:
@@ -221,7 +245,12 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         )
         absolute_error = abs(calculated_length[0] - target_length)
         normalized_error = absolute_error / target_length
-        bond_errors.append(normalized_error)
+
+        # Get weight
+        weight = bond_weights[bond]
+
+        weighted_error = normalized_error * weight
+        bond_errors.append(weighted_error)
 
     angle_errors = []
     for angle, target_angle in angle_target_angles.items():
@@ -253,7 +282,12 @@ def calculate_total_error(graphene_sheet: GrapheneSheet) -> float:
         theta = np.degrees(np.arccos(cos_theta[0][0]))
         absolute_error = abs(theta - target_angle)
         normalized_error = absolute_error / target_angle
-        angle_errors.append(normalized_error)
+
+        # Get weight
+        weight = angle_weights[angle]
+
+        weighted_error = normalized_error * weight
+        angle_errors.append(weighted_error)
 
     # Compute average normalized errors
     average_bond_error = np.mean(bond_errors) if bond_errors else 0.0
@@ -283,15 +317,19 @@ def objective(trial: optuna.Trial, graphene_sheets: List[GrapheneSheet]) -> floa
     """
     # Suggest k-parameters
     k_inner_bond = trial.suggest_float("k_inner_bond", 0.01, 100.0, log=True)
+    k_middle_bond = trial.suggest_float("k_middle_bond", 0.01, 100.0, log=True)
     k_outer_bond = trial.suggest_float("k_outer_bond", 0.01, 100.0, log=True)
     k_inner_angle = trial.suggest_float("k_inner_angle", 0.01, 100.0, log=True)
+    k_middle_angle = trial.suggest_float("k_middle_angle", 0.01, 100.0, log=True)
     k_outer_angle = trial.suggest_float("k_outer_angle", 0.01, 100.0, log=True)
 
     # Create an instance of OptimizationConfig with the suggested k-values
     optimization_config = OptimizationConfig(
         k_inner_bond=k_inner_bond,
+        k_middle_bond=k_middle_bond,
         k_outer_bond=k_outer_bond,
         k_inner_angle=k_inner_angle,
+        k_middle_angle=k_middle_angle,
         k_outer_angle=k_outer_angle,
     )
 
