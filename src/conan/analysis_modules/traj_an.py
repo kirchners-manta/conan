@@ -15,6 +15,8 @@ from conan.analysis_modules import xyz_output as xyz
 
 
 def analysis_opt(traj_file, molecules, maindict):
+    """Choice between picture or analysis mode."""
+
     ddict.printLog("(1) Produce xyz files of the simulation box or pore structure.")
     ddict.printLog("(2) Analyze the trajectory.")
     choice = int(ddict.get_input("Picture or analysis mode?: ", traj_file.args, "int"))
@@ -32,8 +34,9 @@ def analysis_opt(traj_file, molecules, maindict):
 
 
 def run_analysis(traj_file, molecules, maindict):
-    an = Analysis(traj_file, molecules, maindict)
+    """Run the analysis based on the user's choice."""
 
+    an = Analysis(traj_file, molecules, maindict)
     if an.choice2 == 1 or an.choice2 == 2:
         raddens.radial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 3:
@@ -53,12 +56,14 @@ def run_analysis(traj_file, molecules, maindict):
 
 
 class Analysis:
-    def __init__(self, traj_file, molecules, maindict) -> None:
 
+    def __init__(self, traj_file, molecules, maindict) -> None:
         self.choice2 = self.analysis_choice(traj_file)
         self.run = self.get_traj_module(traj_file)
 
     def analysis_choice(self, traj_file) -> int:
+        """Choose the analysis to be performed."""
+
         # Analysis choice.
         ddict.printLog("These functions are limited to rigid/frozen pores containing undistorted CNTs.", color="red")
         ddict.printLog("(1) Calculate the radial density inside the CNT")
@@ -73,7 +78,7 @@ class Analysis:
         ddict.printLog("\nThese functions are generally applicable.", color="red")
         ddict.printLog("(7) Calculate the coordination number")
         ddict.printLog("(8) Calculate the density along the axes.")
-        ddict.printLog("(9) Calculate the velocity of the liquid in the CNT.")
+        ddict.printLog("(9) Calculate the velocity along the axes.")
         ddict.printLog("(10) Calculate the (root) mean square displacement of the liquid in the CNT.")
 
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
@@ -86,6 +91,9 @@ class Analysis:
         return analysis_choice2
 
     def get_traj_module(self, traj_file) -> callable:
+        """Get the trajectory module based on the file format.
+        Based on the file format, each frame needs to be processed differently."""
+
         if traj_file.args["trajectoryfile"].endswith(".xyz"):
             from conan.analysis_modules.traj_info import xyz as run
         elif traj_file.args["trajectoryfile"].endswith(".pdb"):
@@ -100,6 +108,8 @@ class Analysis:
 
 
 def region_question(traj_file) -> tuple:
+    """Question for the user if the calculation should be performed in a specific region."""
+
     regional_q = ddict.get_input(
         "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
     )
@@ -115,12 +125,15 @@ def region_question(traj_file) -> tuple:
 
 
 def frame_question(traj_file) -> tuple:
+    """Question for the user to specify the start frame and the frame interval."""
+
     start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
     frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
     return start_frame, frame_interval
 
 
 def process_trajectory(traj_file, molecules, an, analysis_option):
+    """Process the trajectory file. This is the main loop."""
 
     element_masses = ddict.dict_mass()
     trajectory = pd.read_csv(traj_file.args["trajectoryfile"], chunksize=traj_file.lines_chunk, header=None)
@@ -185,7 +198,7 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
 def prepare_frame(
     an, frame, element_masses, traj_file, regional_q, regions, spec_molecule, spec_atom, analysis_spec_molecule
 ):
-    """Vorbereiten des Frames für die Analyse."""
+    """Preparing the frame for the analysis module by removing atoms, which are noto needed."""
     split_frame = run_trajectory_module(an, frame, element_masses, traj_file)
     if split_frame is None:
         return None
@@ -217,6 +230,8 @@ def prepare_frame(
 
 
 def run_trajectory_module(an, frame, element_masses, traj_file):
+    """Run the trajectory module based on the file format."""
+
     try:
         split_frame = an.run(frame, element_masses, traj_file.frame0)
     except Exception as e:

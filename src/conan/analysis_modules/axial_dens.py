@@ -472,10 +472,10 @@ class AxialDensityAnalysis:
     This function is used to calculate the 3D density of the system.
     First it creates a 3D grid with the dimensions of the simulation box.
     The incrementation is set by the user.
-    Then the atoms are assigned to the grid.
+    Then all atoms of interest are assigned to the grid for every frame.
     In the end we have a 3D grid with the density information for each grid point for each individual atom/molecule.
     This data can then be used to calculate the density profile of the system.
-    Visualisation is done with a cube file.
+    Visualization is done with a cube file.
     """
 
 

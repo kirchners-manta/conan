@@ -92,10 +92,10 @@ class VelocityAnalysis:
         element_masses = ddict.dict_mass()
         first_frame["Mass"] = first_frame["Element"].map(element_masses)
 
-        ddict.printLog(
-            "Warning: This analysis potentially yields erroneous results, if the trajectory is wrapped atomwise!\n",
-            color="red",
-        )
+        # ddict.printLog(
+        #    "Warning: This analysis potentially yields erroneous results, if the trajectory is wrapped atomwise!\n",
+        #    color="red",
+        # )
         com_calc = COMCalculation(self.traj_file)
         self.old_frame = com_calc.calculate_COM(first_frame)
 
