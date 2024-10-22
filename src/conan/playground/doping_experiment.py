@@ -1461,16 +1461,52 @@ class Structure2D(MaterialStructure):
         regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
         periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
 
-        # Initialize plot with an Axes object
-        fig, ax = plt.subplots(figsize=(12, 12))
+        # Calculate the range of the structure (to scale node/edge size accordingly)
+        x_min, x_max = min(x for x, y in pos_2d.values()), max(x for x, y in pos_2d.values())
+        y_min, y_max = min(y for x, y in pos_2d.values()), max(y for x, y in pos_2d.values())
 
-        # Draw the regular edges
-        nx.draw(self.graph, pos_2d, edgelist=regular_edges, node_color=colors, node_size=200, with_labels=False, ax=ax)
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        grid_size = max(x_range, y_range)
+
+        # Scale node and edge sizes based on grid size (relative to a baseline for 15x15)
+        base_node_size = 800
+        base_edge_width = 5.0
+        base_grid_size = 15
+
+        scaling_factor = base_grid_size / grid_size  # Scaling factor to adjust node/edge size
+        node_size_scaled = base_node_size * scaling_factor  # Scaled node size
+        edge_width_scaled = base_edge_width * scaling_factor  # Scaled edge width
+
+        # Dynamically set figsize based on grid size
+        fig_size_scaled = max(10, grid_size / 2)
+
+        # Initialize plot with dynamically scaled figsize
+        fig, ax = plt.subplots(figsize=(fig_size_scaled, fig_size_scaled))
+
+        # Draw regular edges and nodes with scaled sizes
+        nx.draw(
+            self.graph,
+            pos_2d,
+            edgelist=regular_edges,
+            node_color=colors,
+            node_size=node_size_scaled,
+            with_labels=False,
+            edge_color="gray",
+            width=edge_width_scaled,
+            ax=ax,
+        )
 
         # Draw periodic edges with dashed lines if visualize_periodic_bonds is True
         if visualize_periodic_bonds:
             nx.draw_networkx_edges(
-                self.graph, pos_2d, edgelist=periodic_edges, style="dashed", edge_color="gray", ax=ax
+                self.graph,
+                pos_2d,
+                edgelist=periodic_edges,
+                style="dashed",
+                edge_color="gray",
+                width=edge_width_scaled,
+                ax=ax,
             )
 
         # Add legend
@@ -1481,24 +1517,23 @@ class Structure2D(MaterialStructure):
             if color in unique_colors:
                 legend_elements.append(
                     plt.Line2D(
-                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                        [0], [0], marker="o", color="w", label=species.value, markersize=15, markerfacecolor=color
                     )
                 )
         if legend_elements:
-            # Add legend only if there are nitrogen species present
-            ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
+            ax.legend(handles=legend_elements, title="Nitrogen Doping Species", fontsize=12, title_fontsize=14)
 
         # Add labels if specified
         if with_labels:
             labels = {node: f"{elements[node]}{node}" for node in self.graph.nodes()}
             nx.draw_networkx_labels(
-                self.graph, pos_2d, labels=labels, font_size=10, font_color="cyan", font_weight="bold", ax=ax
+                self.graph, pos_2d, labels=labels, font_size=14, font_color="black", font_weight="bold", ax=ax
             )
 
-        # Manually add x- and y-axis labels using ax.text
-        x_min, x_max = min(x for x, y in pos_2d.values()), max(x for x, y in pos_2d.values())
-        y_min, y_max = min(y for x, y in pos_2d.values()), max(y for x, y in pos_2d.values())
+        # Set equal scaling for the axes to avoid distortion
+        ax.set_aspect("equal", "box")  # Ensure both X and Y scales are equal
 
+        # Manually add x- and y-axis labels using ax.text
         ax.text((x_min + x_max) / 2, y_min - (y_max - y_min) * 0.1, "X [Å]", fontsize=14, ha="center")
         ax.text(
             x_min - (x_max - x_min) * 0.1, (y_min + y_max) / 2, "Y [Å]", fontsize=14, va="center", rotation="vertical"
@@ -1569,18 +1604,53 @@ class Structure3D(MaterialStructure):
         regular_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if not d.get("periodic")]
         periodic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get("periodic")]
 
-        # Initialize 3D plot
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(111, projection="3d")
-
         # Extract node positions
         xs, ys, zs = zip(*[pos[node] for node in self.graph.nodes()])
 
-        # Draw nodes in one step
-        ax.scatter(xs, ys, zs, color=colors, s=20)
+        # Dynamic scaling based on structure size
+        x_range = max(xs) - min(xs)
+        y_range = max(ys) - min(ys)
+        z_range = max(zs) - min(zs)
+        grid_size = max(x_range, y_range, z_range)
+
+        base_node_size = 200  # Reduced node size for 3D visualization
+        base_edge_width = 2.0  # Reduced edge width for better visibility
+        base_grid_size = 15  # Reference grid size
+
+        scaling_factor = base_grid_size / grid_size
+        node_size_scaled = base_node_size * scaling_factor
+        edge_width_scaled = base_edge_width * scaling_factor
+
+        # Dynamically set figsize based on grid size
+        fig_size_scaled = max(10, grid_size / 2)
+
+        # Initialize 3D plot
+        fig = plt.figure(figsize=(fig_size_scaled, fig_size_scaled))
+        ax = fig.add_subplot(111, projection="3d")
+
+        # Draw nodes with reduced size
+        ax.scatter(xs, ys, zs, color=colors, s=node_size_scaled)
+
+        # Draw regular edges
+        if regular_edges:
+            regular_segments = np.array(
+                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
+            )
+            regular_lines = Line3DCollection(regular_segments, colors="gray", linewidths=edge_width_scaled)
+            ax.add_collection3d(regular_lines)
+
+        # Draw periodic edges if visualize_periodic_bonds is True
+        if visualize_periodic_bonds and periodic_edges:
+            periodic_segments = np.array(
+                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
+            )
+            periodic_lines = Line3DCollection(
+                periodic_segments, colors="gray", linestyles="dashed", linewidths=edge_width_scaled
+            )
+            ax.add_collection3d(periodic_lines)
 
         # Calculate the range for each axis
-        max_range = np.array([max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs)]).max() / 2.0
+        max_range = np.array([x_range, y_range, z_range]).max() / 2.0
 
         # Calculate midpoints
         mid_x = (max(xs) + min(xs)) * 0.5
@@ -1592,31 +1662,22 @@ class Structure3D(MaterialStructure):
         ax.set_ylim(mid_y - max_range, mid_y + max_range)
         ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
-        # Create line segments for regular edges
-        if regular_edges:
-            regular_segments = np.array(
-                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in regular_edges]
-            )
-            regular_lines = Line3DCollection(regular_segments, colors="black")
-            ax.add_collection3d(regular_lines)
-
-        # Create line segments for periodic edges if visualize_periodic_bonds is True
-        if visualize_periodic_bonds and periodic_edges:
-            periodic_segments = np.array(
-                [[(pos[u][0], pos[u][1], pos[u][2]), (pos[v][0], pos[v][1], pos[v][2])] for u, v in periodic_edges]
-            )
-            periodic_lines = Line3DCollection(periodic_segments, colors="gray", linestyles="dashed")
-            ax.add_collection3d(periodic_lines)
-
-        # Add labels if specified
+        # Add labels if specified and position them above the nodes to avoid overlap
         if with_labels:
             for node in self.graph.nodes():
-                ax.text(pos[node][0], pos[node][1], pos[node][2], f"{elements[node]}{node}", color="cyan")
+                ax.text(
+                    pos[node][0],
+                    pos[node][1],
+                    pos[node][2] + 0.1,  # Offset the labels to avoid overlap
+                    f"{elements[node]}{node}",
+                    color="black",
+                    fontsize=10,
+                )
 
         # Set the axes labels
-        ax.set_xlabel("X [Å]")
-        ax.set_ylabel("Y [Å]")
-        ax.set_zlabel("Z [Å]")
+        ax.set_xlabel("X [Å]", fontsize=12)
+        ax.set_ylabel("Y [Å]", fontsize=12)
+        ax.set_zlabel("Z [Å]", fontsize=12)
 
         # Add a legend for the nitrogen species
         unique_colors = set(colors)
@@ -1626,12 +1687,11 @@ class Structure3D(MaterialStructure):
             if color in unique_colors:
                 legend_elements.append(
                     plt.Line2D(
-                        [0], [0], marker="o", color="w", label=species.value, markersize=10, markerfacecolor=color
+                        [0], [0], marker="o", color="w", label=species.value, markersize=15, markerfacecolor=color
                     )
                 )
         if legend_elements:
-            # Only add the legend if there are nitrogen species present
-            ax.legend(handles=legend_elements, title="Nitrogen Doping Species")
+            ax.legend(handles=legend_elements, title="Nitrogen Doping Species", fontsize=10, title_fontsize=12)
 
         if save_path:
             # Ensure save_path is a Path object
@@ -3459,7 +3519,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(0)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -3483,16 +3543,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
     # sheet_size = (15, 15)
-    sheet_size = (20, 20)
-
-    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
-    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3562,22 +3621,21 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    #
-    # # Create a graphene sheet
-    # graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
-    #
-    # # Create stacked graphene using the graphene sheet
-    # stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5,
-    # stacking_type="ABA")
-    #
-    # # Add nitrogen doping to the specified graphene sheets
-    # stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=True, layers=[0, 2, 4])
-    #
-    # # Plot the stacked structure
-    # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+
+    # Create a graphene sheet
+    graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+
+    # Create stacked graphene using the graphene sheet
+    stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABA")
+
+    # Add nitrogen doping to the specified graphene sheets
+    stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=True, layers=[0, 2, 4])
+
+    # Plot the stacked structure
+    stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
+
+    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS

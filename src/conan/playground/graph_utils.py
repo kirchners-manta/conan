@@ -472,14 +472,14 @@ def get_color(element: str, nitrogen_species: NitrogenSpecies = None) -> str:
     The color mapping is defined for different elements and nitrogen species to visually
     distinguish them in plots.
     """
-    colors = {"C": "black"}
+    colors = {"C": "gray"}
     nitrogen_colors = {
         # NitrogenSpecies.PYRIDINIC: "blue",
-        NitrogenSpecies.PYRIDINIC_1: "purple",
+        NitrogenSpecies.PYRIDINIC_1: "violet",
         NitrogenSpecies.PYRIDINIC_2: "orange",
-        NitrogenSpecies.PYRIDINIC_3: "green",
-        NitrogenSpecies.PYRIDINIC_4: "blue",
-        NitrogenSpecies.GRAPHITIC: "red",
+        NitrogenSpecies.PYRIDINIC_3: "lime",
+        NitrogenSpecies.PYRIDINIC_4: "cyan",
+        NitrogenSpecies.GRAPHITIC: "tomato",
         # NitrogenSpecies.PYRROLIC: "cyan",
         # NitrogenSpecies.PYRAZOLE: "green",
     }
