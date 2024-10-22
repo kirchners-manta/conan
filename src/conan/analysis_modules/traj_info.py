@@ -481,10 +481,6 @@ class Molecule:
         unique_molecule_frame = unique_molecule_frame.drop_duplicates(subset=["Bonds_sym"])
         unique_molecule_frame = unique_molecule_frame.reset_index(drop=True)
 
-        # Sort the atom labels aplphabetically to get consistent naming of species
-        for i, row in unique_molecule_frame.iterrows():
-            row["Atoms_sym"] = SortTuple(row["Atoms_sym"])
-
         # Get the chemical formulas of the unique molecules by simply counting the number of atoms of each element
         # in the Atoms_sym column
         unique_molecule_frame["Molecule"] = unique_molecule_frame["Atoms_sym"].apply(

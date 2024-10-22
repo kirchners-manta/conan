@@ -566,7 +566,7 @@ class DensityAnalysis:
         self.calculate_grid_point_densities()
 
     def calculate_grid_point_densities(self):
-        # Assuming inputdict contains all necessary grid and molecule info
+
         grid_volume = self.x_incr_dist * self.y_incr_dist * self.z_incr_dist
         print("Volume of each grid point: %0.3f \u00C5\u00B3" % grid_volume)
 
