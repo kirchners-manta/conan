@@ -7,7 +7,7 @@ import numpy.testing as npt
 import pytest
 from ase.io import read
 
-from conan.playground.doping_experiment import GrapheneSheet, OptimizationConfig, StructureOptimizer
+from conan.playground.doping_experiment_deprecated import GrapheneSheet, OptimizationConfig, StructureOptimizer
 from conan.playground.graph_utils import NitrogenSpecies, write_xyz
 
 
@@ -784,7 +784,7 @@ class TestStructureOptimizer:
 
     def test_assign_target_angles_pyridinic_1_with_additional_edge_reverse_order(self):
         # Create a mock doping structure with PYRIDINIC_1 and an additional edge
-        from conan.playground.doping_experiment import (
+        from conan.playground.doping_experiment_deprecated import (
             DopingHandler,
             DopingStructure,
             GrapheneSheet,

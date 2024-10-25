@@ -4,7 +4,7 @@ import warnings
 import pytest
 from ase.io import read
 
-from conan.playground.doping_experiment import GrapheneSheet, NitrogenSpecies
+from conan.playground.doping_experiment_deprecated import GrapheneSheet, NitrogenSpecies
 
 
 def read_optimized_structure(file_path):

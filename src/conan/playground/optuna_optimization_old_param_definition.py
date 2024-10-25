@@ -18,7 +18,7 @@ from optuna.visualization import (
 )
 from scipy.optimize import minimize
 
-from conan.playground.doping_experiment import GrapheneSheet, NitrogenSpecies
+from conan.playground.doping_experiment_deprecated import GrapheneSheet, NitrogenSpecies
 from conan.playground.graph_utils import (
     create_position,
     minimum_image_distance,

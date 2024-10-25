@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from conan.playground.doping_experiment import GrapheneSheet
+from conan.playground.doping_experiment_deprecated import GrapheneSheet
 from conan.playground.graph_utils import get_neighbors_via_edges
 
 # from conan.playground.graph_utils import get_neighbors_within_distance
