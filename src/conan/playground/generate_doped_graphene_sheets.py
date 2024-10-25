@@ -4,7 +4,7 @@ from itertools import combinations
 from typing import Dict, List, Tuple
 
 from conan.playground.doping_experiment_deprecated import GrapheneSheet
-from conan.playground.graph_utils import NitrogenSpecies, write_xyz
+from conan.playground.utils import NitrogenSpecies, write_xyz
 
 
 def create_graphene_sheets(

@@ -8,7 +8,7 @@ import pytest
 from ase.io import read
 
 from conan.playground.doping_experiment_deprecated import GrapheneSheet, OptimizationConfig, StructureOptimizer
-from conan.playground.graph_utils import NitrogenSpecies, write_xyz
+from conan.playground.utils import NitrogenSpecies, write_xyz
 
 
 def read_optimized_structure(file_path):

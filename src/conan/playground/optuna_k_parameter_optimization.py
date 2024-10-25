@@ -20,8 +20,8 @@ from tqdm import tqdm
 
 from conan.playground.doping_experiment_deprecated import GrapheneSheet
 from conan.playground.generate_doped_graphene_sheets import create_graphene_sheets
-from conan.playground.graph_utils import NitrogenSpecies, minimum_image_distance_vectorized
 from conan.playground.structure_optimizer import OptimizationConfig
+from conan.playground.utils import NitrogenSpecies, minimum_image_distance_vectorized
 
 
 # Function to calculate total error

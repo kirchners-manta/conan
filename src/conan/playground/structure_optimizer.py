@@ -13,7 +13,7 @@ import numpy.typing as npt
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from conan.playground.graph_utils import NitrogenSpecies, Position, minimum_image_distance_vectorized
+from conan.playground.utils import NitrogenSpecies, Position, minimum_image_distance_vectorized
 
 
 @dataclass
