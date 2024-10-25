@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from conan.playground.doping_experiment_deprecated import Pore
+from conan.playground.structures import Pore
 
 
 @pytest.fixture

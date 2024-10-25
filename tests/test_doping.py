@@ -1,10 +1,10 @@
 import warnings
 
-# import numpy as np
 import pytest
 from ase.io import read
 
-from conan.playground.doping_experiment_deprecated import GrapheneSheet, NitrogenSpecies
+from conan.playground.doping import NitrogenSpecies
+from conan.playground.structures import GrapheneSheet
 
 
 def read_optimized_structure(file_path):

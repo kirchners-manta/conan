@@ -7,8 +7,10 @@ import numpy.testing as npt
 import pytest
 from ase.io import read
 
-from conan.playground.doping_experiment_deprecated import GrapheneSheet, OptimizationConfig, StructureOptimizer
-from conan.playground.utils import NitrogenSpecies, write_xyz
+from conan.playground.doping import NitrogenSpecies
+from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
+from conan.playground.structures import GrapheneSheet
+from conan.playground.utils import write_xyz
 
 
 def read_optimized_structure(file_path):
@@ -784,12 +786,8 @@ class TestStructureOptimizer:
 
     def test_assign_target_angles_pyridinic_1_with_additional_edge_reverse_order(self):
         # Create a mock doping structure with PYRIDINIC_1 and an additional edge
-        from conan.playground.doping_experiment_deprecated import (
-            DopingHandler,
-            DopingStructure,
-            GrapheneSheet,
-            StructuralComponents,
-        )
+        from conan.playground.doping import DopingHandler, DopingStructure, StructuralComponents
+        from conan.playground.structures import GrapheneSheet
 
         # Set up a small graphene sheet
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=(10, 10))

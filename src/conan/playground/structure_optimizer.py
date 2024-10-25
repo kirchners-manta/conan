@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
-    from conan.playground.doping_experiment_deprecated import MaterialStructure
-    from conan.playground.doping_experiment_deprecated import DopingStructure
+    from conan.playground.structures import MaterialStructure
+    from conan.playground.doping import DopingStructure
 
 from dataclasses import dataclass
 from itertools import pairwise

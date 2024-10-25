@@ -1,6 +1,6 @@
 import pytest
 
-from conan.playground.doping_experiment_deprecated import GrapheneSheet, StackedGraphene
+from conan.playground.structures import GrapheneSheet, StackedGraphene
 
 
 @pytest.fixture
