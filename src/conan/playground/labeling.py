@@ -2,8 +2,7 @@ from typing import Optional
 
 import networkx as nx
 
-from conan.playground.structures import DopingStructureCollection
-from conan.playground.utils import NitrogenSpecies
+from conan.playground.doping import DopingStructureCollection, NitrogenSpecies
 
 
 class AtomLabeler:
