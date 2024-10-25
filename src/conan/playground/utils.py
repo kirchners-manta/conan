@@ -417,43 +417,6 @@ def get_shortest_path(graph: nx.Graph, source: int, target: int) -> List[int]:
     return nx.dijkstra_path(graph, source, target, weight="bond_length")
 
 
-def get_color(element: str, nitrogen_species: "NitrogenSpecies" = None) -> str:
-    """
-    Get the color based on the element and type of nitrogen.
-
-    Parameters
-    ----------
-    element : str
-        The chemical element of the atom (e.g., 'C' for carbon, 'N' for nitrogen).
-    nitrogen_species : NitrogenSpecies, optional
-        The type of nitrogen doping (default is None).
-
-    Returns
-    -------
-    str
-        The color associated with the element and nitrogen species.
-
-    Notes
-    -----
-    The color mapping is defined for different elements and nitrogen species to visually
-    distinguish them in plots.
-    """
-    colors = {"C": "gray"}
-    nitrogen_colors = {
-        # NitrogenSpecies.PYRIDINIC: "blue",
-        NitrogenSpecies.PYRIDINIC_1: "violet",
-        NitrogenSpecies.PYRIDINIC_2: "orange",
-        NitrogenSpecies.PYRIDINIC_3: "lime",
-        NitrogenSpecies.PYRIDINIC_4: "cyan",
-        NitrogenSpecies.GRAPHITIC: "tomato",
-        # NitrogenSpecies.PYRROLIC: "cyan",
-        # NitrogenSpecies.PYRAZOLE: "green",
-    }
-    if nitrogen_species in nitrogen_colors:
-        return nitrogen_colors[nitrogen_species]
-    return colors.get(element, "pink")
-
-
 def plot_graphene_with_path(graph: nx.Graph, path: List[int], visualize_periodic_bonds: bool = True):
     """
     Plot the graphene structure with a highlighted path.
@@ -481,7 +444,9 @@ def plot_graphene_with_path(graph: nx.Graph, path: List[int], visualize_periodic
     elements = nx.get_node_attributes(graph, "element")
 
     # Determine colors for nodes, considering nitrogen species if present
-    colors = [get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()]
+    colors = [
+        NitrogenSpecies.get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()
+    ]
     labels = {node: f"{elements[node]}{node}" for node in graph.nodes()}
 
     # Separate periodic edges and regular edges
@@ -540,7 +505,9 @@ def plot_graphene_with_depth_neighbors_based_on_bond_length(
     elements = nx.get_node_attributes(graph, "element")
 
     # Determine colors for nodes, considering nitrogen species if present
-    colors = [get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()]
+    colors = [
+        NitrogenSpecies.get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()
+    ]
     labels = {node: f"{elements[node]}{node}" for node in graph.nodes()}
 
     # Separate periodic edges and regular edges
@@ -604,7 +571,9 @@ def plot_nodes_within_distance(
     elements = nx.get_node_attributes(graph, "element")
 
     # Determine colors for nodes, considering nitrogen species if present
-    colors = [get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()]
+    colors = [
+        NitrogenSpecies.get_color(elements[node], graph.nodes[node].get("nitrogen_species")) for node in graph.nodes()
+    ]
     labels = {node: f"{elements[node]}{node}" for node in graph.nodes()}
 
     # Separate periodic edges and regular edges

@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 from conan.playground.doping import DopingHandler, NitrogenSpecies
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
-from conan.playground.utils import Position, create_position, get_color
+from conan.playground.utils import Position, create_position
 
 
 # Abstract base class for material structures
@@ -128,7 +128,8 @@ class Structure2D(MaterialStructure):
 
         # Determine colors for nodes, considering nitrogen species if present
         colors = [
-            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+            NitrogenSpecies.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
         ]
 
         # Separate periodic edges and regular edges
@@ -187,7 +188,7 @@ class Structure2D(MaterialStructure):
         unique_colors = set(colors)
         legend_elements = []
         for species in NitrogenSpecies:
-            color = get_color("N", species)
+            color = NitrogenSpecies.get_color("N", species)
             if color in unique_colors:
                 legend_elements.append(
                     plt.Line2D(
@@ -271,7 +272,8 @@ class Structure3D(MaterialStructure):
 
         # Determine colors for nodes, considering nitrogen species if present
         colors = [
-            get_color(elements[node], self.graph.nodes[node].get("nitrogen_species")) for node in self.graph.nodes()
+            NitrogenSpecies.get_color(elements[node], self.graph.nodes[node].get("nitrogen_species"))
+            for node in self.graph.nodes()
         ]
 
         # Separate periodic edges and regular edges
@@ -357,7 +359,7 @@ class Structure3D(MaterialStructure):
         unique_colors = set(colors)
         legend_elements = []
         for species in NitrogenSpecies:
-            color = get_color("N", species)
+            color = NitrogenSpecies.get_color("N", species)
             if color in unique_colors:
                 legend_elements.append(
                     plt.Line2D(

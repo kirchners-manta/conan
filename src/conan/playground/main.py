@@ -1,6 +1,6 @@
 import random
 
-from conan.playground.labeling import AtomLabeler
+# from conan.playground.labeling import AtomLabeler
 from conan.playground.structures import GrapheneSheet, Pore
 from conan.playground.utils import write_xyz
 
@@ -20,17 +20,17 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET AND LABEL THE ATOMS
-    sheet_size = (10, 10)
-
-    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
-    labeler.label_atoms()
-
-    write_xyz(graphene.graph, "graphene_sheet.xyz")
+    # # CREATE A GRAPHENE SHEET AND LABEL THE ATOMS
+    # sheet_size = (10, 10)
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
     # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
@@ -48,7 +48,7 @@ def main():
     # sheet_size = (20, 20)
     #
     # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     #
     # # Add nitrogen doping without adjusting positions
     # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
@@ -71,7 +71,7 @@ def main():
     # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
     # sheet_size = (20, 20)
     #
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
@@ -87,7 +87,7 @@ def main():
     # sheet_size = (20, 20)
     #
     # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     #
     # # Add nitrogen doping to the graphene sheet
     # start_time = time.time()  # Time the nitrogen doping process
@@ -131,7 +131,7 @@ def main():
     # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS
     #
     # # Create a base graphene sheet
-    # base_graphene = GrapheneSheet(bond_distance=1.42, sheet_size=(20, 20))
+    # base_graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
     #
     # # Create a stacked graphene structure
     # stacked_graphene = StackedGraphene(base_graphene, number_of_layers=3)
@@ -155,7 +155,7 @@ def main():
     # sheet_size = (20, 20)
     #
     # # Create a graphene sheet
-    # graphene = GrapheneSheet(bond_distance=1.42, sheet_size=sheet_size)
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     #
     # # Stack the graphene sheet
     # stacked_graphene = graphene.stack(interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABC")
@@ -185,7 +185,7 @@ def main():
     # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_zigzag_doped.xyz")
+    # write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
 
     ####################################################################################################################
     # CREATE A PORE STRUCTURE

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from conan.playground.structures import MaterialStructure, GrapheneSheet
+    from conan.playground.structures import MaterialStructure
     from conan.playground.utils import get_neighbors_via_edges, minimum_image_distance
 
 import random
@@ -56,6 +56,43 @@ class NitrogenSpecies(Enum):
     PYRIDINIC_4 = "Pyridinic-N 4"
     # PYRROLIC = "pyrrolic"
     # PYRAZOLE = "pyrazole"
+
+    @staticmethod
+    def get_color(element: str, nitrogen_species: "NitrogenSpecies" = None) -> str:
+        """
+        Get the color based on the element and type of nitrogen.
+
+        Parameters
+        ----------
+        element : str
+            The chemical element of the atom (e.g., 'C' for carbon, 'N' for nitrogen).
+        nitrogen_species : NitrogenSpecies, optional
+            The type of nitrogen doping (default is None).
+
+        Returns
+        -------
+        str
+            The color associated with the element and nitrogen species.
+
+        Notes
+        -----
+        The color mapping is defined for different elements and nitrogen species to visually
+        distinguish them in plots.
+        """
+        colors = {"C": "gray"}
+        nitrogen_colors = {
+            # NitrogenSpecies.PYRIDINIC: "blue",
+            NitrogenSpecies.PYRIDINIC_1: "violet",
+            NitrogenSpecies.PYRIDINIC_2: "orange",
+            NitrogenSpecies.PYRIDINIC_3: "lime",
+            NitrogenSpecies.PYRIDINIC_4: "cyan",
+            NitrogenSpecies.GRAPHITIC: "tomato",
+            # NitrogenSpecies.PYRROLIC: "cyan",
+            # NitrogenSpecies.PYRAZOLE: "green",
+        }
+        if nitrogen_species in nitrogen_colors:
+            return nitrogen_colors[nitrogen_species]
+        return colors.get(element, "pink")
 
 
 @dataclass
@@ -218,7 +255,8 @@ class DopingStructure:
         pos1 = graph.nodes[neighbors[0]]["position"]
         pos2 = graph.nodes[neighbors[1]]["position"]
 
-        if isinstance(structure, GrapheneSheet):
+        # if isinstance(structure, GrapheneSheet):
+        if hasattr(structure, "actual_sheet_width") and hasattr(structure, "actual_sheet_height"):
             # Calculate the box size for periodic boundary conditions
             box_size = (
                 structure.actual_sheet_width + structure.c_c_bond_length,
