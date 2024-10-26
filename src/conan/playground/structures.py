@@ -92,7 +92,7 @@ class MaterialStructure(ABC):
 
 
 # Abstract base class for 2D structures
-class Structure2D(MaterialStructure):
+class Structure2D(MaterialStructure, ABC):
     def __init__(self):
         super().__init__()
 
@@ -236,7 +236,7 @@ class Structure2D(MaterialStructure):
 
 
 # Abstract base class for 3D structures
-class Structure3D(MaterialStructure):
+class Structure3D(MaterialStructure, ABC):
     def __init__(self):
         super().__init__()
 
