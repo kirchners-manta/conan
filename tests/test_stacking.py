@@ -1,5 +1,6 @@
 import pytest
 
+from conan.playground.structure_optimizer import OptimizationConfig
 from conan.playground.structures import GrapheneSheet, StackedGraphene
 
 
@@ -125,6 +126,60 @@ class TestStackedGrapheneValidations:
             # No assertions are made since we are only testing for the absence of exceptions
         except (ValueError, IndexError):
             pytest.fail("add_nitrogen_doping raised an error unexpectedly!")
+
+    def test_adjust_atom_positions_with_invalid_layers(self, stacked_graphene):
+        invalid_layers = [0, 10]  # Layer 10 is out of range
+        with pytest.raises(IndexError, match="One or more specified layers are out of range."):
+            stacked_graphene.adjust_atom_positions(layers=invalid_layers)
+
+    def test_adjust_atom_positions_with_invalid_layers_type(self, stacked_graphene):
+        invalid_layers = "invalid"  # Not a valid type for layers
+        with pytest.raises(ValueError, match="Invalid 'layers' parameter. Must be a list of integers or 'all'."):
+            stacked_graphene.adjust_atom_positions(layers=invalid_layers)
+
+    def test_adjust_atom_positions_with_default_config(self, stacked_graphene):
+        try:
+            stacked_graphene.adjust_atom_positions()
+        except Exception as e:
+            pytest.fail(f"adjust_atom_positions raised an error unexpectedly: {e}")
+
+    def test_adjust_atom_positions_with_custom_config(self, stacked_graphene):
+        optimization_config = OptimizationConfig(k_inner_bond=5, k_middle_bond=2, k_outer_bond=0.1)
+        try:
+            stacked_graphene.adjust_atom_positions(optimization_config=optimization_config)
+        except Exception as e:
+            pytest.fail(f"adjust_atom_positions with custom config raised an error unexpectedly: {e}")
+
+    def test_adjust_atom_positions_without_adjust_positions_flag(self, stacked_graphene):
+        optimization_config = OptimizationConfig()
+        with pytest.warns(UserWarning, match="An 'optimization_config' was provided, but 'adjust_positions' is False"):
+            stacked_graphene.add_nitrogen_doping(adjust_positions=False, optimization_config=optimization_config)
+
+    def test_doping_with_valid_layers_and_positions_adjustment(self, stacked_graphene):
+        try:
+            stacked_graphene.add_nitrogen_doping(layers=[0, 1], total_percentage=10, adjust_positions=True)
+        except Exception as e:
+            pytest.fail(f"add_nitrogen_doping with valid layers and adjustment raised an error unexpectedly: {e}")
+
+    def test_doping_to_specific_layer(self, stacked_graphene):
+        try:
+            stacked_graphene.add_nitrogen_doping_to_layer(layer_index=1, total_percentage=5)
+            assert stacked_graphene.graphene_sheets[1].doping_handler is not None
+        except Exception as e:
+            pytest.fail(f"add_nitrogen_doping_to_layer raised an error unexpectedly: {e}")
+
+    def test_adjust_positions_single_layer(self, stacked_graphene):
+        try:
+            stacked_graphene.adjust_atom_positions(layers=[0])
+            # Verify that the position adjustment occurred on the specified layer
+            assert stacked_graphene.graphene_sheets[0].positions_adjusted
+        except Exception as e:
+            pytest.fail(f"adjust_atom_positions on single layer raised an error unexpectedly: {e}")
+
+    def test_warning_when_position_already_adjusted(self, stacked_graphene):
+        stacked_graphene.adjust_atom_positions(layers=[0])
+        with pytest.warns(UserWarning, match="Positions have already been adjusted."):
+            stacked_graphene.adjust_atom_positions(layers=[0])
 
 
 if __name__ == "__main__":
