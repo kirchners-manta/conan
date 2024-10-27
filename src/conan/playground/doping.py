@@ -823,7 +823,8 @@ class DopingHandler:
         Raises
         ------
         ValueError
-            If the specific percentages exceed the total percentage beyond a small tolerance.
+            If the specific percentages exceed the total percentage beyond a small tolerance, or if any percentage is
+            negative.
         """
         # Validate the input for percentages
         if percentages is not None:
@@ -842,6 +843,8 @@ class DopingHandler:
                         f"Invalid value in percentages dictionary for key {key} with value {value}. Values must be int "
                         f"or float."
                     )
+                if value <= 0:
+                    raise ValueError(f"Percentage for {key} must be positive. Received {value}.")
 
         # Validate the input for total_percentage
         if total_percentage is not None:

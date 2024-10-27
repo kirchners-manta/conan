@@ -88,6 +88,10 @@ class TestDopingValidations:
                 "must be int or float.",
             ),
             # Invalid value type
+            (
+                {NitrogenSpecies.GRAPHITIC: -10},
+                "Percentage for NitrogenSpecies.GRAPHITIC must be positive. Received -10.",
+            ),  # Negative value
         ],
     )
     def test_percentages_type_error(self, graphene_sheet, invalid_percentages, expected_message):
