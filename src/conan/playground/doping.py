@@ -866,7 +866,8 @@ class DopingHandler:
                 specific_total_percentage = sum(percentages.values())
                 # Define a small tolerance to account for floating-point errors
                 tolerance = 1e-6
-                if abs(specific_total_percentage - total_percentage) > tolerance:
+                # if abs(specific_total_percentage - total_percentage) > tolerance:
+                if specific_total_percentage > total_percentage + tolerance:
                     # Raise an error if the sum of specific percentages exceeds the total percentage beyond the
                     # tolerance
                     raise ValueError(
