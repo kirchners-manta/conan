@@ -736,6 +736,14 @@ class GrapheneSheet(Structure2D):
         radius : float
             The radius of the hole.
         """
+        # Validate center
+        if not isinstance(center, tuple) or len(center) != 2 or not all(isinstance(c, (int, float)) for c in center):
+            raise ValueError("center must be a tuple of two numbers representing coordinates.")
+
+        # Validate radius
+        if not isinstance(radius, (int, float)) or radius <= 0:
+            raise ValueError("radius must be a positive number.")
+
         # Extract node positions and IDs
         node_positions = nx.get_node_attributes(self.graph, "position")
         node_ids = np.array(list(node_positions.keys()))

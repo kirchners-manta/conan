@@ -202,3 +202,38 @@ class TestGrapheneValidations:
     def test_invalid_adjust_positions_graphene_sheet(self, graphene, invalid_adjust):
         with pytest.raises(ValueError, match="adjust_positions must be a Boolean"):
             graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=invalid_adjust)
+
+
+class TestCreateHoleValidations:
+    @pytest.mark.parametrize(
+        "invalid_center",
+        [
+            "invalid",  # Not a tuple
+            (10,),  # Tuple with only one element
+            (10, 20, 30),  # Tuple with three elements
+            (10, "invalid"),  # Second element is not a number
+            (None, 20),  # None as one of the elements
+        ],
+    )
+    def test_invalid_center(self, graphene, invalid_center):
+        """
+        Test that a ValueError is raised when 'center' is invalid.
+        """
+        with pytest.raises(ValueError, match="center must be a tuple of two numbers representing coordinates."):
+            graphene.create_hole(center=invalid_center, radius=5.0)
+
+    @pytest.mark.parametrize(
+        "invalid_radius",
+        [
+            "invalid",  # Not a number
+            -5,  # Negative radius
+            None,  # None value
+            [5],  # List instead of a number
+        ],
+    )
+    def test_invalid_radius(self, graphene, invalid_radius):
+        """
+        Test that a ValueError is raised when 'radius' is invalid.
+        """
+        with pytest.raises(ValueError, match="radius must be a positive number."):
+            graphene.create_hole(center=(10.0, 10.0), radius=invalid_radius)
