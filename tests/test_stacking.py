@@ -181,6 +181,11 @@ class TestStackedGrapheneValidations:
         with pytest.warns(UserWarning, match="Positions have already been adjusted."):
             stacked_graphene.adjust_atom_positions(layers=[0])
 
+    @pytest.mark.parametrize("invalid_adjust", ["string", 1, None, {}, []])
+    def test_invalid_adjust_positions(self, stacked_graphene, invalid_adjust):
+        with pytest.raises(ValueError, match="adjust_positions must be a Boolean"):
+            stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=invalid_adjust)
+
 
 if __name__ == "__main__":
     pytest.main()
