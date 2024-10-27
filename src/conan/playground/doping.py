@@ -832,6 +832,8 @@ class DopingHandler:
                 raise ValueError(
                     "percentages must be a dictionary with NitrogenSpecies as keys and int or float as values."
                 )
+            if len(percentages) == 0:
+                raise ValueError("percentages dictionary cannot be empty. Define at least one positive percentage.")
 
             for key, value in percentages.items():
                 if not isinstance(key, NitrogenSpecies):
