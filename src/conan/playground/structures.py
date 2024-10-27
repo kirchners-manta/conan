@@ -649,6 +649,9 @@ class GrapheneSheet(Structure2D):
           GRAPHITIC.
         - `optimization_config` is only considered if `adjust_positions` is set to True.
         """
+        if not isinstance(adjust_positions, bool):
+            raise ValueError(f"adjust_positions must be a Boolean, but got {type(adjust_positions).__name__}")
+
         # Delegate the doping process to the doping handler
         self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
 

@@ -6,21 +6,23 @@ from conan.playground.structures import GrapheneSheet
 from conan.playground.utils import get_neighbors_via_edges
 
 
-class TestGraphene:
-    @pytest.fixture
-    def graphene(self):
-        """
-        Fixture to set up a GrapheneGraph instance with a fixed random seed for reproducibility.
+@pytest.fixture
+def graphene():
+    """
+    Fixture to set up a GrapheneGraph instance with a fixed random seed for reproducibility.
 
-        Returns
-        -------
-        GrapheneSheet
-            An instance of the GrapheneGraph class with a predefined sheet size and bond distance.
-        """
-        # Set seed for reproducibility
-        random.seed(42)
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
-        return graphene
+    Returns
+    -------
+    GrapheneSheet
+        An instance of the GrapheneGraph class with a predefined sheet size and bond distance.
+    """
+    # Set seed for reproducibility
+    random.seed(42)
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+    return graphene
+
+
+class TestGraphene:
 
     def test_get_direct_neighbors_via_bonds(self, graphene: GrapheneSheet):
         """
@@ -174,31 +176,29 @@ class TestGrapheneValidations:
         with pytest.raises(ValueError, match=r"Sheet size is too small to fit even a single unit cell."):
             GrapheneSheet(bond_length=1.42, sheet_size=(0.1, 0.1))
 
-
-class TestGrapheneAdjustAtomPositions:
-
-    def test_adjust_atom_positions_invalid_config_type(self):
+    def test_adjust_atom_positions_invalid_config_type(self, graphene):
         """
         Test that a TypeError is raised when optimization_config is not an instance of OptimizationConfig.
         """
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
-
         with pytest.raises(TypeError, match="optimization_config must be an instance of OptimizationConfig."):
             graphene.adjust_atom_positions(optimization_config="invalid_config")
 
-    def test_adjust_atom_positions_with_default_config(self):
+    def test_adjust_atom_positions_with_default_config(self, graphene):
         """
         Test that positions can be adjusted using the default optimization config.
         """
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
         graphene.adjust_atom_positions()  # Should not raise any exceptions
 
-    def test_adjust_atom_positions_repeated_call(self):
+    def test_adjust_atom_positions_repeated_call(self, graphene):
         """
         Test that a warning is issued if adjust_atom_positions is called twice.
         """
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
         graphene.adjust_atom_positions()
 
         with pytest.warns(UserWarning, match="Positions have already been adjusted."):
             graphene.adjust_atom_positions()
+
+    @pytest.mark.parametrize("invalid_adjust", ["string", 1, None, {}, []])
+    def test_invalid_adjust_positions_graphene_sheet(self, graphene, invalid_adjust):
+        with pytest.raises(ValueError, match="adjust_positions must be a Boolean"):
+            graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=invalid_adjust)
