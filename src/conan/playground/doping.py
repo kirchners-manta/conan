@@ -806,31 +806,6 @@ class DopingHandler:
         atom_id = random.choice(untested_atoms)  # Randomly select an untested atom ID
         return atom_id  # Return the selected atom ID
 
-    # @staticmethod
-    # def get_next_possible_carbon_atom(atom_list):
-    #     """
-    #     Get a randomly selected carbon atom from the list of possible carbon atoms.
-    #
-    #     This method randomly selects a carbon atom from the provided list and removes it from the list.
-    #     This ensures that the same atom is not selected more than once.
-    #
-    #     Parameters
-    #     ----------
-    #     atom_list : list
-    #         The list of possible carbon atoms to select from.
-    #
-    #     Returns
-    #     -------
-    #     int or None
-    #         The ID of the selected carbon atom, or None if the list is empty.
-    #     """
-    #
-    #     if not atom_list:
-    #         return None  # Return None if the list is empty
-    #     atom_id = random.choice(atom_list)  # Randomly select an atom ID from the list
-    #     atom_list.remove(atom_id)  # Remove the selected atom ID from the list
-    #     return atom_id  # Return the selected atom ID
-
     def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
         """
         Add nitrogen doping to the structure.
@@ -869,8 +844,11 @@ class DopingHandler:
                     )
 
         # Validate the input for total_percentage
-        if total_percentage is not None and not isinstance(total_percentage, (int, float)):
-            raise ValueError("total_percentage must be an int or float.")
+        if total_percentage is not None:
+            if not isinstance(total_percentage, (int, float)):
+                raise ValueError("total_percentage must be an int or float.")
+            if total_percentage <= 0:
+                raise ValueError("total_percentage must be positive.")
 
         # Copy the percentages dictionary to avoid modifying the input
         percentages = percentages.copy() if percentages else {}
