@@ -705,8 +705,12 @@ class GrapheneSheet(Structure2D):
             warnings.warn("Positions have already been adjusted.", UserWarning)
             return
 
+        # Validate optimization_config
+        if optimization_config is not None and not isinstance(optimization_config, OptimizationConfig):
+            raise TypeError("optimization_config must be an instance of OptimizationConfig.")
+
         if optimization_config is None:
-            optimization_config: "OptimizationConfig" = OptimizationConfig()
+            optimization_config: "OptimizationConfig" = OptimizationConfig()  # Use default config if none provided
 
         # Existing code for position adjustment
         optimizer: "StructureOptimizer" = StructureOptimizer(self, optimization_config)
