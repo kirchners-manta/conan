@@ -173,3 +173,32 @@ class TestGrapheneValidations:
         """
         with pytest.raises(ValueError, match=r"Sheet size is too small to fit even a single unit cell."):
             GrapheneSheet(bond_length=1.42, sheet_size=(0.1, 0.1))
+
+
+class TestGrapheneAdjustAtomPositions:
+
+    def test_adjust_atom_positions_invalid_config_type(self):
+        """
+        Test that a TypeError is raised when optimization_config is not an instance of OptimizationConfig.
+        """
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+
+        with pytest.raises(TypeError, match="optimization_config must be an instance of OptimizationConfig."):
+            graphene.adjust_atom_positions(optimization_config="invalid_config")
+
+    def test_adjust_atom_positions_with_default_config(self):
+        """
+        Test that positions can be adjusted using the default optimization config.
+        """
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+        graphene.adjust_atom_positions()  # Should not raise any exceptions
+
+    def test_adjust_atom_positions_repeated_call(self):
+        """
+        Test that a warning is issued if adjust_atom_positions is called twice.
+        """
+        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+        graphene.adjust_atom_positions()
+
+        with pytest.warns(UserWarning, match="Positions have already been adjusted."):
+            graphene.adjust_atom_positions()
