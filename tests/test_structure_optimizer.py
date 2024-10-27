@@ -832,3 +832,45 @@ class TestStructureOptimizer:
 
         # Check that angle_array is not empty
         assert len(angle_array) > 0, "Angle array should not be empty."
+
+
+class TestOptimizationConfigValidations:
+
+    @pytest.mark.parametrize(
+        "attr_name, value, expected_message",
+        [
+            ("k_inner_bond", "invalid", "k_inner_bond must be a float or int."),
+            ("k_middle_bond", -5, "k_middle_bond must be positive. Got -5."),
+            ("k_outer_bond", 0, "k_outer_bond must be positive. Got 0."),
+        ],
+    )
+    def test_optimization_config_invalid_values(self, attr_name, value, expected_message):
+        """
+        Test that invalid values for spring constants raise appropriate exceptions.
+        """
+        kwargs = {
+            "k_inner_bond": 10,
+            "k_middle_bond": 5,
+            "k_outer_bond": 0.1,
+            "k_inner_angle": 10,
+            "k_middle_angle": 5,
+            "k_outer_angle": 0.1,
+        }
+        kwargs[attr_name] = value
+        with pytest.raises((ValueError, TypeError), match=expected_message):
+            OptimizationConfig(**kwargs)
+
+    def test_optimization_config_valid_values(self):
+        """
+        Test that valid spring constants do not raise exceptions.
+        """
+        config = OptimizationConfig(
+            k_inner_bond=10,
+            k_middle_bond=5,
+            k_outer_bond=0.1,
+            k_inner_angle=10,
+            k_middle_angle=5,
+            k_outer_angle=0.1,
+        )
+        assert config.k_inner_bond == 10
+        assert config.k_outer_angle == 0.1
