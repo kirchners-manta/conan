@@ -874,6 +874,13 @@ class DopingHandler:
                         f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
                         f"'percentages' is less than or equal to 'total_percentage'."
                     )
+                elif specific_total_percentage < total_percentage - tolerance:
+                    warnings.warn(
+                        f"The sum of specified percentages {specific_total_percentage}% is lower than the "
+                        f"total_percentage {total_percentage}%. Remaining percentage will be distributed among other "
+                        f"available species.",
+                        UserWarning,
+                    )
         else:
             # Set a default total percentage if not provided
             total_percentage = total_percentage if total_percentage is not None else 10.0
