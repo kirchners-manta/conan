@@ -142,3 +142,57 @@ class TestDopingValidations:
             UserWarning, match=r"Only \d+ nitrogen atoms of species .* could be placed due to proximity constraints"
         ):
             graphene_sheet.add_nitrogen_doping(total_percentage=50)
+
+    def test_empty_percentages_dict(self, graphene_sheet):
+        """
+        Test that a ValueError is raised when percentages is an empty dictionary.
+        """
+        with pytest.raises(
+            ValueError, match="percentages dictionary cannot be empty. Define at least one positive percentage."
+        ):
+            graphene_sheet.add_nitrogen_doping(total_percentage=10, percentages={})
+
+    def test_warning_for_incomplete_percentages(self, graphene_sheet):
+        """
+        Test that a UserWarning is raised when the sum of specific percentages is lower than total_percentage.
+        """
+        with pytest.warns(UserWarning, match="Remaining percentage will be distributed among other available species."):
+            graphene_sheet.add_nitrogen_doping(total_percentage=10, percentages={NitrogenSpecies.GRAPHITIC: 3})
+
+    # ToDo: Dieser Test muss dringend nochmal getestet werden, sobald Problem mit prozentualem Dotierungsgehalt gelöst
+    # def test_remaining_percentage_distribution(self, graphene_sheet):
+    #     """
+    #     Test that the remaining percentage is correctly distributed among other available species.
+    #     """
+    #     # Set total_percentage to 10% with 3% specified for GRAPHITIC nitrogen.
+    #     graphene_sheet.add_nitrogen_doping(total_percentage=10, percentages={NitrogenSpecies.GRAPHITIC: 3})
+    #
+    #     # Count the number of nitrogen atoms of each species in the structure.
+    #     total_atoms = graphene_sheet.graph.number_of_nodes()
+    #     nitrogen_counts = {species: 0 for species in NitrogenSpecies}
+    #
+    #     for node in graphene_sheet.graph.nodes(data=True):
+    #         element = node[1].get("element")
+    #         nitrogen_species = node[1].get("nitrogen_species")
+    #
+    #         if element == "N" and nitrogen_species in NitrogenSpecies:
+    #             nitrogen_counts[nitrogen_species] += 1
+    #
+    #     # Calculate actual percentages based on the number of nitrogen atoms.
+    #     actual_distribution = {
+    #         species: round((count / total_atoms) * 100, 2) for species, count in nitrogen_counts.items()
+    #     }
+    #
+    #     # Check that the GRAPHITIC nitrogen percentage is 3% as specified.
+    #     assert actual_distribution[NitrogenSpecies.GRAPHITIC] == 3, "Expected GRAPHITIC doping percentage to be 3%."
+    #
+    #     # Calculate the remaining percentage and expected distribution per remaining species.
+    #     remaining_species = set(NitrogenSpecies) - {NitrogenSpecies.GRAPHITIC}
+    #     remaining_percentage = 10 - actual_distribution[NitrogenSpecies.GRAPHITIC]
+    #     expected_remaining_percentage_per_species = remaining_percentage / len(remaining_species)
+    #
+    #     # Check that each remaining species has an approximately equal share of the remaining percentage.
+    #     for species in remaining_species:
+    #         assert actual_distribution[species] == pytest.approx(expected_remaining_percentage_per_species, 0.01), \
+    #             f"Expected {expected_remaining_percentage_per_species}% for {species}, but got
+    #             {actual_distribution[species]}."
