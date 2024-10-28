@@ -3519,7 +3519,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(0)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -3544,10 +3544,10 @@ def main():
 
     ####################################################################################################################
     # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (40, 40)
+    sheet_size = (15, 15)
 
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
