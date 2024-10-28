@@ -20,7 +20,7 @@ def mock_graph():
 
 
 @pytest.fixture
-def mock_doping_structures():
+def mock_doping_structures(mock_graph):
     """
     Fixture for creating a mock DopingStructureCollection with one Pyridinic-N 4 doping structure.
     """
@@ -33,6 +33,7 @@ def mock_doping_structures():
         nitrogen_atoms=[52, 55, 36, 39],
         cycle=[34, 51, 52, 53, 54, 55, 56, 41, 40, 39, 22, 21, 36, 35],
         neighboring_atoms=[33, 50, 68, 71, 57, 42, 25, 23, 20, 18],
+        subgraph=mock_graph.subgraph([34, 51, 52, 53, 54, 55, 56, 41, 40, 39, 22, 21, 36, 35]).copy(),
     )
 
     # Add doping structures to the collection
@@ -42,6 +43,9 @@ def mock_doping_structures():
 
 
 class TestAtomLabeler:
+
+    # ToDo: Test labeling procedure
+
     def test_label_atoms_without_doping(self, mock_graph):
         """
         Tests if all atoms are labeled as 'CG' when no doping structures are present.
