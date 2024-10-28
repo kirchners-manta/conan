@@ -7,8 +7,20 @@ from conan.playground.doping import DopingStructureCollection, NitrogenSpecies
 
 class AtomLabeler:
     def __init__(self, graph: nx.Graph, doping_structures: Optional["DopingStructureCollection"] = None):
+        # Validate the graph input
+        if not isinstance(graph, nx.Graph):
+            raise TypeError(f"Expected graph to be a networkx Graph instance, but got {type(graph).__name__}.")
+
         self.graph = graph
         """The networkx graph representing the structure of the material (e.g., graphene sheet)."""
+
+        # Validate the doping_structures input
+        if doping_structures is not None and not isinstance(doping_structures, DopingStructureCollection):
+            raise TypeError(
+                f"Expected doping_structures to be a DopingStructureCollection instance or None, "
+                f"but got {type(doping_structures).__name__}."
+            )
+
         self.doping_structures = doping_structures
         """The collection of doping structures within the structure."""
 
