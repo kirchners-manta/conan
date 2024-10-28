@@ -84,6 +84,13 @@ class TestGraphene:
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
 
+    def test_create_hole_radius_too_large(self, graphene: GrapheneSheet):
+        """
+        Test that a ValueError is raised when the hole radius is too large.
+        """
+        with pytest.raises(ValueError, match="Hole radius .* is too large for the graphene sheet dimensions"):
+            graphene.create_hole(center=(10, 10), radius=15)  # assuming 15 is too large for the sheet dimensions
+
     # def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
     #     """
     #     Test to verify neighbors within a given distance using KDTree.
