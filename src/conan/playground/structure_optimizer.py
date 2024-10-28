@@ -22,17 +22,17 @@ class OptimizationConfig:
     Configuration of spring constants for the structure optimization process.
     """
 
-    k_inner_bond: float = 10
+    k_inner_bond: float = 2.561003446461545
     """The spring constant for bonds within the doping structure (cycle)."""
-    k_middle_bond: float = 5
+    k_middle_bond: float = 0.21163373984436662
     """Spring constant for bonds between cycle atoms and their neighboring atoms."""
-    k_outer_bond: float = 0.1
+    k_outer_bond: float = 0.011943873730099318
     """The spring constant for bonds outside the doping structure (cycle) and not directly connected to it."""
-    k_inner_angle: float = 10
+    k_inner_angle: float = 0.4916200029764677
     """The spring constant for angles within the doping structure (cycle)."""
-    k_middle_angle: float = 5
+    k_middle_angle: float = 0.16190150558889646
     """Spring constant for angles involving neighboring atoms."""
-    k_outer_angle: float = 0.1
+    k_outer_angle: float = 0.012857015071579268
     """The spring constant for angles outside the doping structure (cycle) and not directly connected to it."""
 
     # k_inner_bond: float = 15.313719217204975
