@@ -9,10 +9,10 @@ import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
 import conan.analysis_modules.velocity as vel
+import conan.analysis_modules.coordination_number2 as cn
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
-
 
 def analysis_opt(traj_file, molecules, maindict):
     """Choice between picture or analysis mode."""
@@ -47,6 +47,8 @@ def run_analysis(traj_file, molecules, maindict):
         axdens.axial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 6:
         axdens.distance_search_analysis(traj_file, molecules, an)
+    elif an.choice2 == 7:
+        cn.coordination_number_analysis(traj_file, molecules, an)
     elif an.choice2 == 8:
         axdens.density_analysis_3D(traj_file, molecules, an)
     elif an.choice2 == 9:
