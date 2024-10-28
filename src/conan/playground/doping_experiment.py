@@ -3543,15 +3543,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    # sheet_size = (15, 15)
-    #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    sheet_size = (15, 15)
+
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -3621,21 +3621,21 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-
-    # Create a graphene sheet
-    graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
-
-    # Create stacked graphene using the graphene sheet
-    stacked_graphene = StackedGraphene(graphene_sheet, interlayer_spacing=3.34, number_of_layers=5, stacking_type="ABA")
-
-    # Add nitrogen doping to the specified graphene sheets
-    stacked_graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=True, layers=[0, 2, 4])
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
-
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    #
+    # # Create a graphene sheet
+    # graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(40, 40))
+    #
+    # # Create stacked graphene using the graphene sheet
+    # stacked_graphene = StackedGraphene(graphene_sheet, number_of_layers=5, stacking_type="ABA")
+    #
+    # # Add nitrogen doping to the specified graphene sheets
+    # stacked_graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True, layers="all")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
+    #
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS
