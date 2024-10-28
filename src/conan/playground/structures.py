@@ -741,6 +741,14 @@ class GrapheneSheet(Structure2D):
         ValueError
             If the hole radius is too large and would remove too much of the graphene sheet.
         """
+        # Validate center
+        if not isinstance(center, tuple) or len(center) != 2 or not all(isinstance(c, (int, float)) for c in center):
+            raise ValueError("center must be a tuple of two numbers representing coordinates.")
+
+        # Validate radius
+        if not isinstance(radius, (int, float)) or radius <= 0:
+            raise ValueError("radius must be a positive number.")
+
         # Check if the radius is appropriate for the sheet dimensions
         sheet_width, sheet_height = self.sheet_size
         max_radius = min(sheet_width, sheet_height) / 2 - 2 * self.c_c_bond_length  # Adding bond length as a buffer
@@ -749,14 +757,6 @@ class GrapheneSheet(Structure2D):
                 f"Hole radius {radius} is too large for the graphene sheet dimensions ({sheet_width}, {sheet_height}). "
                 f"The radius must be small enough to leave a border around the sheet."
             )
-
-        # Validate center
-        if not isinstance(center, tuple) or len(center) != 2 or not all(isinstance(c, (int, float)) for c in center):
-            raise ValueError("center must be a tuple of two numbers representing coordinates.")
-
-        # Validate radius
-        if not isinstance(radius, (int, float)) or radius <= 0:
-            raise ValueError("radius must be a positive number.")
 
         # Extract node positions and IDs
         node_positions = nx.get_node_attributes(self.graph, "position")
