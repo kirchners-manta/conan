@@ -27,7 +27,12 @@ class TestStackedGrapheneValidations:
         """
         Test that a ValueError is raised when interlayer_spacing is not a positive float or int.
         """
-        with pytest.raises(ValueError, match="interlayer_spacing must be positive number."):
+        if not isinstance(invalid_spacing, (int, float)):
+            expected_message = f"interlayer_spacing must be a float or int, but got {type(invalid_spacing).__name__}."
+        else:
+            expected_message = f"interlayer_spacing must be positive, but got {invalid_spacing}."
+
+        with pytest.raises(ValueError, match=expected_message):
             StackedGraphene(graphene_sheet, interlayer_spacing=invalid_spacing, number_of_layers=3, stacking_type="ABA")
 
     @pytest.mark.parametrize("invalid_layers", ["invalid", [], {}, -1, 0, 1.5])
@@ -35,7 +40,14 @@ class TestStackedGrapheneValidations:
         """
         Test that a ValueError is raised when number_of_layers is not a positive integer.
         """
-        with pytest.raises(ValueError, match="number_of_layers must be a positive integer"):
+        if not isinstance(invalid_layers, int):
+            expected_message = f"number_of_layers must be an integer, but got {type(invalid_layers).__name__}."
+        elif invalid_layers <= 0:
+            expected_message = f"number_of_layers must be a positive integer, but got {invalid_layers}."
+        else:
+            expected_message = "An unexpected case occurred."
+
+        with pytest.raises(ValueError, match=expected_message):
             StackedGraphene(
                 graphene_sheet, interlayer_spacing=3.34, number_of_layers=invalid_layers, stacking_type="ABA"
             )

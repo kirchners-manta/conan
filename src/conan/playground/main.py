@@ -102,7 +102,7 @@ def main():
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
+    # stacked_graphene = graphene.stack(interlayer_spacing="3.35", number_of_layers=5)
     #
     # # Plot the stacked structure
     # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
@@ -117,7 +117,9 @@ def main():
     graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(40, 40))
 
     # Create stacked graphene using the graphene sheet
-    stacked_graphene = StackedGraphene(graphene_sheet, number_of_layers=5, stacking_type="ABA")
+    stacked_graphene = StackedGraphene(
+        graphene_sheet, interlayer_spacing="2.3", number_of_layers=5, stacking_type="ABA"
+    )
 
     # Add nitrogen doping to the specified graphene sheets
     stacked_graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True, layers="all")

@@ -857,11 +857,15 @@ class StackedGraphene(Structure3D):
         super().__init__()
 
         # Validate interlayer_spacing
-        if not isinstance(interlayer_spacing, (int, float)) or interlayer_spacing <= 0:
-            raise ValueError(f"interlayer_spacing must be positive number, but got {interlayer_spacing}.")
+        if not isinstance(interlayer_spacing, (int, float)):
+            raise ValueError(f"interlayer_spacing must be a float or int, but got {type(interlayer_spacing).__name__}.")
+        if interlayer_spacing <= 0:
+            raise ValueError(f"interlayer_spacing must be positive, but got {interlayer_spacing}.")
 
         # Validate number_of_layers
-        if not isinstance(number_of_layers, int) or number_of_layers <= 0:
+        if not isinstance(number_of_layers, int):
+            raise ValueError(f"number_of_layers must be an integer, but got {type(number_of_layers).__name__}.")
+        if number_of_layers <= 0:
             raise ValueError(f"number_of_layers must be a positive integer, but got {number_of_layers}.")
 
         # Ensure stacking_type is a string and validate it
