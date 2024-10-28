@@ -26,7 +26,7 @@ def tube_length():
     "tube_size, conformation",
     [
         (8, "zigzag"),
-        (10, "armchair"),
+        (8, "armchair"),
     ],
 )
 def test_pore_with_tube_size(bond_length, sheet_size, tube_length, tube_size, conformation):
