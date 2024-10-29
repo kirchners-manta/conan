@@ -37,7 +37,7 @@ def main():
     sheet_size = (15, 15)
 
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=False)
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
