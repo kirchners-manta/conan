@@ -1,10 +1,7 @@
 import random
 
-from conan.playground.doping import NitrogenSpecies
-from conan.playground.labeling import AtomLabeler
-
 # from conan.playground.labeling import AtomLabeler
-from conan.playground.structures import GrapheneSheet, Pore, StackedGraphene
+from conan.playground.structures import GrapheneSheet, Pore
 from conan.playground.utils import write_xyz
 
 
@@ -12,7 +9,7 @@ def main():
     # Set seed for reproducibility
     # random.seed(42)
     # random.seed(3)
-    random.seed(100)
+    random.seed(1)
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET
@@ -36,15 +33,15 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    # sheet_size = (40, 40)
-    #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True)
-    # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
-    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    sheet_size = (15, 15)
+
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True)
+    # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -71,19 +68,18 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
-    sheet_size = (15, 15)
-
-    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND LABEL THE ATOMS
+    # sheet_size = (20, 20)
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 2})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
-    labeler.label_atoms()
-
-    write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
 
     ####################################################################################################################
     # # VERSION 1: CREATE A GRAPHENE SHEET, DOPE AND STACK IT
@@ -106,7 +102,7 @@ def main():
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Stack the graphene sheet
-    # stacked_graphene = graphene.stack(interlayer_spacing="3.35", number_of_layers=5)
+    # stacked_graphene = graphene.stack(interlayer_spacing=3.35, number_of_layers=5)
     #
     # # Plot the stacked structure
     # stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
@@ -115,23 +111,21 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
-    # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-
-    # Create a graphene sheet
-    graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(40, 40))
-
-    # Create stacked graphene using the graphene sheet
-    stacked_graphene = StackedGraphene(
-        graphene_sheet, interlayer_spacing="2.3", number_of_layers=5, stacking_type="ABA"
-    )
-
-    # Add nitrogen doping to the specified graphene sheets
-    stacked_graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True, layers="all")
-
-    # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
-
-    write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
+    # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    #
+    # # Create a graphene sheet
+    # graphene_sheet = GrapheneSheet(bond_length=1.42, sheet_size=(40, 40))
+    #
+    # # Create stacked graphene using the graphene sheet
+    # stacked_graphene = StackedGraphene(graphene_sheet, number_of_layers=5, stacking_type="ABA")
+    #
+    # # Add nitrogen doping to the specified graphene sheets
+    # stacked_graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True, layers="all")
+    #
+    # # Plot the stacked structure
+    # stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
+    #
+    # write_xyz(stacked_graphene.graph, "ABA_stacking.xyz")
 
     ####################################################################################################################
     # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS
@@ -200,7 +194,7 @@ def main():
     sheet_size = (20, 20)  # Size of the graphene sheets
     tube_length = 10.0  # Length of the CNT
     # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    tube_diameter = 11.5  # Diameter of the CNT
+    tube_diameter = 7  # Diameter of the CNT
     conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
 
     # Create a Pore structure

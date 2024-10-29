@@ -967,6 +967,10 @@ class DopingHandler:
         doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
         print(f"\n{doping_percentages_df}")
 
+    def _get_current_number_of_carbon_atoms(self) -> int:
+        """Return the current number of carbon atoms in the graph."""
+        return sum(1 for node, data in self.graph.nodes(data=True) if data.get("element") == "C")
+
     def _insert_doping_structures(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
         """
         Insert doping structures of a specific nitrogen species into the graphene sheet.
@@ -980,6 +984,8 @@ class DopingHandler:
 
         Notes
         -----
+        The method iteratively adds doping structures until the desired percentage is reached or no more valid
+        positions are available.
         First, a carbon atom is randomly selected. Then, it is checked whether this atom position is suitable for
         building the doping structure around it (i.e., the new structure to be inserted should not overlap with any
         existing structure). If suitable, the doping structure is built by, for example, removing atoms, replacing
