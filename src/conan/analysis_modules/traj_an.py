@@ -5,14 +5,15 @@ import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
+import conan.analysis_modules.coordination_number2 as cn
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
 import conan.analysis_modules.velocity as vel
-import conan.analysis_modules.coordination_number2 as cn
 import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
+
 
 def analysis_opt(traj_file, molecules, maindict):
     """Choice between picture or analysis mode."""
@@ -184,6 +185,8 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
+
+        analysis_option.proc_chunk()
 
         time_per_frame = (time.time() - Main_time) / proc_frames
         remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval

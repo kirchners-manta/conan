@@ -10,6 +10,7 @@ import conan.analysis_modules.traj_an as traj_an
 import conan.defdict as ddict
 from conan.analysis_modules import utils
 
+
 class CoordinationNumberAnalysis:
     def __init__(self, traj_file, molecules):
         self.traj_file = traj_file
@@ -20,14 +21,14 @@ class CoordinationNumberAnalysis:
         self.CNT_length = molecules.length_pore[0]
         self.CNT_atoms = molecules.CNT_atoms
 
-    def Coord_number_prep(inputdict, traj_file, molecules):
+    def Coord_number_prep(self):
         # Get values from inputdict
-        min_z_pore = inputdict["min_z_pore"]
-        max_z_pore = inputdict["max_z_pore"]
-        box_size = inputdict["box_size"]
-        CNT_centers = inputdict["CNT_centers"]
-        Walls_positions = inputdict["Walls_positions"]
-        args = inputdict["args"]
+        max_z_pore = self.molecules.max_z_pore
+        min_z_pore = self.molecules.min_z_pore
+        box_size = self.traj_file.box_size
+        CNT_centers = self.molecules.CNT_centers
+        Walls_positions = self.molecules.Walls_positions
+        args = self.traj_file.args
 
         ddict.printLog("")
         if len(CNT_centers) > 1:
@@ -57,7 +58,7 @@ class CoordinationNumberAnalysis:
                     # Ask user for the wanted reference point
                     z_referencepoint[1] = ddict.get_input(
                         "Enter the z-values of the reference point point (x- and y- dependent analysis not "
-                        "implemented yet, sorry D:))",
+                        "implemented yet, sorry D: )",
                         args,
                         "float",
                     )
@@ -124,42 +125,185 @@ class CoordinationNumberAnalysis:
         coord_bin_edges = np.linspace(0, coord_dist, 101)
         coord_bin_edges = coord_bin_edges.round(2)
 
-        # Ask user how the bul should be incremented
+        # Ask user how the bulk should be incremented
         coord_bulk_bin_edges = 0
         if referencepoint == "y":
             number_of_bulk_increments = int(ddict.get_input("Number of increments? ", args, "int"))
             if poresonly == "n":
                 coord_bulk_bin_edges = np.linspace(
                     0,
-                    max((z_referencepoint[3] - z_referencepoint[2]) / 2, (z_referencepoint[1] - z_referencepoint[0]) / 2),
+                    max(
+                        (z_referencepoint[3] - z_referencepoint[2]) / 2, (z_referencepoint[1] - z_referencepoint[0]) / 2
+                    ),
                     number_of_bulk_increments,
                 )
             else:
-                coord_bulk_bin_edges = np.linspace(0, inputdict["tuberadii"][0], number_of_bulk_increments)
+                coord_bulk_bin_edges = np.linspace(0, self.molecules.tuberadii[0], number_of_bulk_increments)
                 ddict.printLog(f"Bin size:{coord_bulk_bin_edges[1] - coord_bulk_bin_edges[0]} Ang.\n")
 
         # Initialize an empty DataFrame to store distances for each chunk
-        chunk_distances_df = pd.DataFrame(columns=["Frame", "Species1", "Molecule1", "Species2", "Molecule2", "Distance"])
+        chunk_distances_df = pd.DataFrame(
+            columns=["Frame", "Species1", "Molecule1", "Species2", "Molecule2", "Distance"]
+        )
         Processed_coord_df = pd.DataFrame()
 
         # Prepare output
-        outputdict = inputdict
-        outputdict["z_referencepoint"] = z_referencepoint
-        outputdict["coord_bin_edges"] = coord_bin_edges
-        outputdict["coord_bulk_bin_edges"] = coord_bulk_bin_edges
-        outputdict["chunk_distances_df"] = chunk_distances_df
-        outputdict["referencepoint"] = referencepoint
-        outputdict["poresonly"] = poresonly
-        outputdict["coord_dist"] = coord_dist
-        outputdict["processed_coord_df"] = Processed_coord_df
-        outputdict["do_xyz_analysis"] = do_xyz_analysis
+        self.z_referencepoint = z_referencepoint
+        self.coord_bin_edges = coord_bin_edges
+        self.coord_bzlk_bin_edges = coord_bulk_bin_edges
+        self._chunk_distances_df = chunk_distances_df
+        self.z_referencepoint = referencepoint
+        self.poresonly = poresonly
+        self.coord_dist = coord_dist
+        self.processed_coord_df = Processed_coord_df
+        self.do_xyz_analysis = do_xyz_analysis
 
         if do_xyz_analysis == "y":
-            outputdict["xbin_edges"] = xbin_edges
-            outputdict["ybin_edges"] = ybin_edges
-            outputdict["zbin_edges"] = zbin_edges
+            self.xbin_edges = xbin_edges
+            self.ybin_edges = ybin_edges
+            self.zbin_edges = zbin_edges
 
-        return outputdict
+    """def proc_chunk(self):
+        print("Processing Chunk...")
+        if (inputdict["do_xyz_analysis"]) == "y":
+            outputdict = Coord_xyz_chunk_processing(inputdict)
+            return outputdict
+        elif (inputdict["referencepoint"] == "y") & (inputdict["poresonly"] == "y"):
+            outputdict = Coord_pore_chunk_processing(inputdict)
+            return outputdict
+
+        # Get values from inputdict
+        chunk_distances_df = inputdict["chunk_distances_df"]
+        coord_bin_edges = inputdict["coord_bin_edges"]
+        coord_bulk_bin_edges = inputdict["coord_bulk_bin_edges"]
+        chunk_number = inputdict["chunk_number"]
+        processed_coord_df = inputdict["processed_coord_df"]
+
+        # Set up a DataFrame for the results
+        coord_df = pd.DataFrame(
+            columns=["Frame", "Reference", "Observable", "Molecule", "Zbin"] + list(coord_bin_edges[:-1])
+        )
+
+        # Extract unique frames
+        unique_frames = chunk_distances_df["Frame"].unique()
+
+        counts = np.zeros(100)
+
+        # Loop over each unique frame
+        for frame in unique_frames:
+
+            # Filter distances for the current frame
+            frame_distances = chunk_distances_df[chunk_distances_df["Frame"] == frame]
+
+            # Create an empty list to store the data
+            coord_data = []
+
+            # initialize Zbin (holds the distance to the next structure) now so
+            # we do not have to initialize it inside the loop
+            Zbin = 0
+
+            for species_pair in frame_distances[["Species1", "Species2"]].drop_duplicates().values:
+
+                # Filter distances for the current species pair in the current frame
+                if "Distance_to_referencepoint" in frame_distances:
+                    distances = frame_distances.loc[
+                        (frame_distances["Species1"] == species_pair[0])
+                        & (frame_distances["Species2"] == species_pair[1]),
+                        ["Molecule1", "Distance", "Distance_to_referencepoint"],
+                    ]
+                else:
+                    distances = frame_distances.loc[
+                        (frame_distances["Species1"] == species_pair[0])
+                        & (frame_distances["Species2"] == species_pair[1]),
+                        ["Molecule1", "Distance"],
+                    ]
+
+                # group the data by molecule
+                grouped_distances = distances.groupby(["Molecule1"])
+
+                # Loop over each molecule
+                for molecule, molecule_distances in grouped_distances:
+
+                    if "Distance_to_referencepoint" in molecule_distances:
+                        # First we take care of the distance to the next pore, as it stays the same for each molecule.
+                        # Since all values are identical we can just take the first
+                        Distance_to_referencepoint = molecule_distances["Distance_to_referencepoint"].values[0]
+
+                        # Now we sort it into a bin
+                        Zbin = coord_bulk_bin_edges[
+                            np.digitize(Distance_to_referencepoint, coord_bulk_bin_edges)
+                        ].round(2)
+
+                    # Next we take care of the coo rdination number
+
+                    # np.histogram sorts all values in 'molecule_distance['Distance']' into bins defined by
+                    # 'bins=coord_bin_edges' the [0] at the end gives us a list of all y-values
+                    # of the generated histograms.
+                    counts[:] = np.histogram(molecule_distances["Distance"], bins=coord_bin_edges)[0]
+
+                    # Now we calculate the cumulative sum of all bins
+                    counts = np.cumsum(counts)
+
+                    # Add the data for the current molecule into coord_data
+                    coord_data.append(
+                        {
+                            "Chunk": chunk_number,
+                            "Frame": frame,
+                            "Reference": species_pair[0],
+                            "Observable": species_pair[1],
+                            "Molecule": molecule_distances["Molecule1"].values[0],
+                            "Zbin": Zbin,
+                            **dict(zip(coord_bin_edges[:-1], counts)),
+                        }
+                    )
+
+        # convert coord_data into a pandas DataFrame for further processing
+        coord_df = pd.DataFrame(coord_data)
+
+        # Combine the Reference and Observable columns
+        coord_df["Reference_Observable"] = coord_df["Reference"].astype(str) + "_" + coord_df["Observable"].astype(str)
+
+        # Drop any columns that we do not need anymore
+        coord_df = coord_df.drop(columns=["Reference", "Observable", "Frame", "Molecule"])
+
+        # Reorder columns
+        coord_df = coord_df[["Chunk", "Reference_Observable", "Zbin"] + list(coord_bin_edges[:-1])]
+
+        # Set up a DataFrame for the average results. If the column 'Distance_to_referencepoint'
+        # exists (meaning we do not
+        # calculate the coordination number w.r.t. a reference point), we do not need to keep the Zbins and just average
+        # over all collected distances.
+        if "Distance_to_referencepoint" in frame_distances:
+            avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"])
+        else:
+            coord_df = coord_df.drop(columns=("Zbin"))
+            avg_coord_df = coord_df.groupby(["Reference_Observable"])
+
+        # Average the results for the current chunk
+        avg_coord_df = avg_coord_df.mean().reset_index()
+
+        # Since we need to later average over all chunks we need to save the count of how
+        # many datapoints we averaged over.
+        # The counts will serve as weights for the last averaging process.
+        if "Distance_to_referencepoint" in frame_distances:
+            count_df = coord_df.groupby(["Reference_Observable", "Zbin"]).size().reset_index(name="Count")
+        else:
+            count_df = coord_df.groupby(["Reference_Observable"]).size().reset_index(name="Count")
+
+        # Save the counts in our averaged dataframe
+        avg_coord_df["Count"] = count_df["Count"]
+
+        # Now we save the processed results in 'processed_coords_df'.
+        processed_coord_df = pd.concat([processed_coord_df, avg_coord_df])
+
+        outputdict = inputdict
+        outputdict["processed_coord_df"] = processed_coord_df
+
+        # Empty chunk_distances_df to free up memory
+        outputdict["chunk_distances_df"] = pd.DataFrame()
+
+        return outputdict"""
+
 
 def coordination_number_analysis(traj_file, molecules, an):
     coordination_number = CoordinationNumberAnalysis(traj_file, molecules)
@@ -441,142 +585,6 @@ def mirror_PBC(box_size, coord_dist, mol_com):
         mol_com = pd.concat([mol_com, new_entries], ignore_index=True)
 
     return mol_com
-
-
-def Coord_chunk_processing(inputdict):
-    print("Processing Chunk...")
-
-    if (inputdict["do_xyz_analysis"]) == "y":
-        outputdict = Coord_xyz_chunk_processing(inputdict)
-        return outputdict
-    elif (inputdict["referencepoint"] == "y") & (inputdict["poresonly"] == "y"):
-        outputdict = Coord_pore_chunk_processing(inputdict)
-        return outputdict
-
-    # Get values from inputdict
-    chunk_distances_df = inputdict["chunk_distances_df"]
-    coord_bin_edges = inputdict["coord_bin_edges"]
-    coord_bulk_bin_edges = inputdict["coord_bulk_bin_edges"]
-    chunk_number = inputdict["chunk_number"]
-    processed_coord_df = inputdict["processed_coord_df"]
-
-    # Set up a DataFrame for the results
-    coord_df = pd.DataFrame(
-        columns=["Frame", "Reference", "Observable", "Molecule", "Zbin"] + list(coord_bin_edges[:-1])
-    )
-
-    # Extract unique frames
-    unique_frames = chunk_distances_df["Frame"].unique()
-
-    counts = np.zeros(100)
-
-    # Loop over each unique frame
-    for frame in unique_frames:
-
-        # Filter distances for the current frame
-        frame_distances = chunk_distances_df[chunk_distances_df["Frame"] == frame]
-
-        # Create an empty list to store the data
-        coord_data = []
-
-        # initialize Zbin (holds the distance to the next structure) now so we do not have to initialize it inside the
-        # loop
-        Zbin = 0
-
-        for species_pair in frame_distances[["Species1", "Species2"]].drop_duplicates().values:
-
-            # Filter distances for the current species pair in the current frame
-            if "Distance_to_referencepoint" in frame_distances:
-                distances = frame_distances.loc[
-                    (frame_distances["Species1"] == species_pair[0]) & (frame_distances["Species2"] == species_pair[1]),
-                    ["Molecule1", "Distance", "Distance_to_referencepoint"],
-                ]
-            else:
-                distances = frame_distances.loc[
-                    (frame_distances["Species1"] == species_pair[0]) & (frame_distances["Species2"] == species_pair[1]),
-                    ["Molecule1", "Distance"],
-                ]
-
-            # group the data by molecule
-            grouped_distances = distances.groupby(["Molecule1"])
-
-            # Loop over each molecule
-            for molecule, molecule_distances in grouped_distances:
-
-                if "Distance_to_referencepoint" in molecule_distances:
-                    # First we take care of the distance to the next pore, as it stays the same for each molecule.
-                    # Since all values are identical we can just take the first
-                    Distance_to_referencepoint = molecule_distances["Distance_to_referencepoint"].values[0]
-
-                    # Now we sort it into a bin
-                    Zbin = coord_bulk_bin_edges[np.digitize(Distance_to_referencepoint, coord_bulk_bin_edges)].round(2)
-
-                # Next we take care of the coo rdination number
-
-                # np.histogram sorts all values in 'molecule_distance['Distance']' into bins defined by
-                # 'bins=coord_bin_edges' the [0] at the end gives us a list of all y-values of the generated histograms.
-                counts[:] = np.histogram(molecule_distances["Distance"], bins=coord_bin_edges)[0]
-
-                # Now we calculate the cumulative sum of all bins
-                counts = np.cumsum(counts)
-
-                # Add the data for the current molecule into coord_data
-                coord_data.append(
-                    {
-                        "Chunk": chunk_number,
-                        "Frame": frame,
-                        "Reference": species_pair[0],
-                        "Observable": species_pair[1],
-                        "Molecule": molecule_distances["Molecule1"].values[0],
-                        "Zbin": Zbin,
-                        **dict(zip(coord_bin_edges[:-1], counts)),
-                    }
-                )
-
-    # convert coord_data into a pandas DataFrame for further processing
-    coord_df = pd.DataFrame(coord_data)
-
-    # Combine the Reference and Observable columns
-    coord_df["Reference_Observable"] = coord_df["Reference"].astype(str) + "_" + coord_df["Observable"].astype(str)
-
-    # Drop any columns that we do not need anymore
-    coord_df = coord_df.drop(columns=["Reference", "Observable", "Frame", "Molecule"])
-
-    # Reorder columns
-    coord_df = coord_df[["Chunk", "Reference_Observable", "Zbin"] + list(coord_bin_edges[:-1])]
-
-    # Set up a DataFrame for the average results. If the column 'Distance_to_referencepoint' exists (meaning we do not
-    # calculate the coordination number w.r.t. a reference point), we do not need to keep the Zbins and just average
-    # over all collected distances.
-    if "Distance_to_referencepoint" in frame_distances:
-        avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"])
-    else:
-        coord_df = coord_df.drop(columns=("Zbin"))
-        avg_coord_df = coord_df.groupby(["Reference_Observable"])
-
-    # Average the results for the current chunk
-    avg_coord_df = avg_coord_df.mean().reset_index()
-
-    # Since we need to later average over all chunks we need to save the count of how many datapoints we averaged over.
-    # The counts will serve as weights for the last averaging process.
-    if "Distance_to_referencepoint" in frame_distances:
-        count_df = coord_df.groupby(["Reference_Observable", "Zbin"]).size().reset_index(name="Count")
-    else:
-        count_df = coord_df.groupby(["Reference_Observable"]).size().reset_index(name="Count")
-
-    # Save the counts in our averaged dataframe
-    avg_coord_df["Count"] = count_df["Count"]
-
-    # Now we save the processed results in 'processed_coords_df'.
-    processed_coord_df = pd.concat([processed_coord_df, avg_coord_df])
-
-    outputdict = inputdict
-    outputdict["processed_coord_df"] = processed_coord_df
-
-    # Empty chunk_distances_df to free up memory
-    outputdict["chunk_distances_df"] = pd.DataFrame()
-
-    return outputdict
 
 
 def Coord_post_processing(inputdict):
