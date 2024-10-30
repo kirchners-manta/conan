@@ -187,8 +187,9 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
-
-        analysis_option.proc_chunk()
+        # Run chunk processing for certain analysis options
+        if isinstance(analysis_option, cn.CoordinationNumberAnalysis):
+            analysis_option.proc_chunk()
 
         time_per_frame = (time.time() - Main_time) / proc_frames
         remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
