@@ -2,27 +2,27 @@ import random
 
 import pytest
 
-from conan.playground.doping_experiment import GrapheneSheet
-from conan.playground.graph_utils import get_neighbors_via_edges
+from conan.playground.structures import GrapheneSheet
+from conan.playground.utils import get_neighbors_via_edges
 
-# from conan.playground.graph_utils import get_neighbors_within_distance
+
+@pytest.fixture
+def graphene():
+    """
+    Fixture to set up a GrapheneGraph instance with a fixed random seed for reproducibility.
+
+    Returns
+    -------
+    GrapheneSheet
+        An instance of the GrapheneGraph class with a predefined sheet size and bond distance.
+    """
+    # Set seed for reproducibility
+    random.seed(42)
+    graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
+    return graphene
 
 
 class TestGraphene:
-    @pytest.fixture
-    def graphene(self):
-        """
-        Fixture to set up a GrapheneGraph instance with a fixed random seed for reproducibility.
-
-        Returns
-        -------
-        GrapheneSheet
-            An instance of the GrapheneGraph class with a predefined sheet size and bond distance.
-        """
-        # Set seed for reproducibility
-        random.seed(42)
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=(20, 20))
-        return graphene
 
     def test_get_direct_neighbors_via_bonds(self, graphene: GrapheneSheet):
         """
@@ -83,6 +83,13 @@ class TestGraphene:
         assert set(inclusive_neighbors) == set(
             expected_neighbors
         ), f"Expected {expected_neighbors}, but got {inclusive_neighbors}"
+
+    def test_create_hole_radius_too_large(self, graphene: GrapheneSheet):
+        """
+        Test that a ValueError is raised when the hole radius is too large.
+        """
+        with pytest.raises(ValueError, match="Hole radius .* is too large for the graphene sheet dimensions"):
+            graphene.create_hole(center=(10, 10), radius=15)  # assuming 15 is too large for the sheet dimensions
 
     # def test_get_neighbors_within_distance(self, graphene: GrapheneSheet):
     #     """
@@ -175,3 +182,65 @@ class TestGrapheneValidations:
         """
         with pytest.raises(ValueError, match=r"Sheet size is too small to fit even a single unit cell."):
             GrapheneSheet(bond_length=1.42, sheet_size=(0.1, 0.1))
+
+    def test_adjust_atom_positions_invalid_config_type(self, graphene):
+        """
+        Test that a TypeError is raised when optimization_config is not an instance of OptimizationConfig.
+        """
+        with pytest.raises(TypeError, match="optimization_config must be an instance of OptimizationConfig."):
+            graphene.adjust_atom_positions(optimization_config="invalid_config")
+
+    def test_adjust_atom_positions_with_default_config(self, graphene):
+        """
+        Test that positions can be adjusted using the default optimization config.
+        """
+        graphene.adjust_atom_positions()  # Should not raise any exceptions
+
+    def test_adjust_atom_positions_repeated_call(self, graphene):
+        """
+        Test that a warning is issued if adjust_atom_positions is called twice.
+        """
+        graphene.adjust_atom_positions()
+
+        with pytest.warns(UserWarning, match="Positions have already been adjusted."):
+            graphene.adjust_atom_positions()
+
+    @pytest.mark.parametrize("invalid_adjust", ["string", 1, None, {}, []])
+    def test_invalid_adjust_positions_graphene_sheet(self, graphene, invalid_adjust):
+        with pytest.raises(ValueError, match="adjust_positions must be a Boolean"):
+            graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=invalid_adjust)
+
+
+class TestCreateHoleValidations:
+    @pytest.mark.parametrize(
+        "invalid_center",
+        [
+            "invalid",  # Not a tuple
+            (10,),  # Tuple with only one element
+            (10, 20, 30),  # Tuple with three elements
+            (10, "invalid"),  # Second element is not a number
+            (None, 20),  # None as one of the elements
+        ],
+    )
+    def test_invalid_center(self, graphene, invalid_center):
+        """
+        Test that a ValueError is raised when 'center' is invalid.
+        """
+        with pytest.raises(ValueError, match="center must be a tuple of two numbers representing coordinates."):
+            graphene.create_hole(center=invalid_center, radius=5.0)
+
+    @pytest.mark.parametrize(
+        "invalid_radius",
+        [
+            "invalid",  # Not a number
+            -5,  # Negative radius
+            None,  # None value
+            [5],  # List instead of a number
+        ],
+    )
+    def test_invalid_radius(self, graphene, invalid_radius):
+        """
+        Test that a ValueError is raised when 'radius' is invalid.
+        """
+        with pytest.raises(ValueError, match="radius must be a positive number."):
+            graphene.create_hole(center=(10.0, 10.0), radius=invalid_radius)

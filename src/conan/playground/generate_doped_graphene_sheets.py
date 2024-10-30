@@ -3,8 +3,9 @@ import random
 from itertools import combinations
 from typing import Dict, List, Tuple
 
-from conan.playground.doping_experiment import GrapheneSheet
-from conan.playground.graph_utils import NitrogenSpecies, write_xyz
+from conan.playground.doping import NitrogenSpecies
+from conan.playground.structures import GrapheneSheet
+from conan.playground.utils import write_xyz
 
 
 def create_graphene_sheets(

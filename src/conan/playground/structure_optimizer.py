@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
-    from conan.playground.doping_experiment import MaterialStructure
-    from conan.playground.doping_experiment import DopingStructure
+    from conan.playground.structures import MaterialStructure
+    from conan.playground.doping import DopingStructure
 
 from dataclasses import dataclass
 from itertools import pairwise
@@ -13,7 +13,8 @@ import numpy.typing as npt
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from conan.playground.graph_utils import NitrogenSpecies, Position, minimum_image_distance_vectorized
+from conan.playground.doping import NitrogenSpecies
+from conan.playground.utils import Position, minimum_image_distance_vectorized
 
 
 @dataclass
@@ -41,6 +42,29 @@ class OptimizationConfig:
     # k_inner_angle: float = 15.561009696340586
     # k_middle_angle: float = 4.568395782668889
     # k_outer_angle: float = 0.18500586988987075
+
+    def __post_init__(self):
+        """
+        Validate the spring constants to ensure they are positive values.
+
+        Raises
+        ------
+        ValueError
+            If any spring constant is non-positive.
+        """
+        for attr_name in [
+            "k_inner_bond",
+            "k_middle_bond",
+            "k_outer_bond",
+            "k_inner_angle",
+            "k_middle_angle",
+            "k_outer_angle",
+        ]:
+            value = getattr(self, attr_name)
+            if not isinstance(value, (int, float)):
+                raise TypeError(f"{attr_name} must be a float or int.")
+            if value <= 0:
+                raise ValueError(f"{attr_name} must be positive. Got {value}.")
 
 
 class StructureOptimizer:

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from conan.playground.doping_experiment import CNT
+from conan.playground.structures import CNT
 
 
 @pytest.fixture

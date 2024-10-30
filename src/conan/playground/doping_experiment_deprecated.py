@@ -24,7 +24,8 @@ from networkx.utils import pairwise
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from conan.playground.graph_utils import (
+from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
+from conan.playground.utils import (
     NitrogenSpecies,
     NitrogenSpeciesProperties,
     Position,
@@ -35,7 +36,6 @@ from conan.playground.graph_utils import (
     minimum_image_distance_vectorized,
     write_xyz,
 )
-from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 
 # Define a namedtuple for structural components
 # This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors

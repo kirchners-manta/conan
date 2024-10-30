@@ -7,8 +7,10 @@ import numpy.testing as npt
 import pytest
 from ase.io import read
 
-from conan.playground.doping_experiment import GrapheneSheet, OptimizationConfig, StructureOptimizer
-from conan.playground.graph_utils import NitrogenSpecies, write_xyz
+from conan.playground.doping import NitrogenSpecies
+from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
+from conan.playground.structures import GrapheneSheet
+from conan.playground.utils import write_xyz
 
 
 def read_optimized_structure(file_path):
@@ -784,12 +786,8 @@ class TestStructureOptimizer:
 
     def test_assign_target_angles_pyridinic_1_with_additional_edge_reverse_order(self):
         # Create a mock doping structure with PYRIDINIC_1 and an additional edge
-        from conan.playground.doping_experiment import (
-            DopingHandler,
-            DopingStructure,
-            GrapheneSheet,
-            StructuralComponents,
-        )
+        from conan.playground.doping import DopingHandler, DopingStructure, StructuralComponents
+        from conan.playground.structures import GrapheneSheet
 
         # Set up a small graphene sheet
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=(10, 10))
@@ -834,3 +832,45 @@ class TestStructureOptimizer:
 
         # Check that angle_array is not empty
         assert len(angle_array) > 0, "Angle array should not be empty."
+
+
+class TestOptimizationConfigValidations:
+
+    @pytest.mark.parametrize(
+        "attr_name, value, expected_message",
+        [
+            ("k_inner_bond", "invalid", "k_inner_bond must be a float or int."),
+            ("k_middle_bond", -5, "k_middle_bond must be positive. Got -5."),
+            ("k_outer_bond", 0, "k_outer_bond must be positive. Got 0."),
+        ],
+    )
+    def test_optimization_config_invalid_values(self, attr_name, value, expected_message):
+        """
+        Test that invalid values for spring constants raise appropriate exceptions.
+        """
+        kwargs = {
+            "k_inner_bond": 10,
+            "k_middle_bond": 5,
+            "k_outer_bond": 0.1,
+            "k_inner_angle": 10,
+            "k_middle_angle": 5,
+            "k_outer_angle": 0.1,
+        }
+        kwargs[attr_name] = value
+        with pytest.raises((ValueError, TypeError), match=expected_message):
+            OptimizationConfig(**kwargs)
+
+    def test_optimization_config_valid_values(self):
+        """
+        Test that valid spring constants do not raise exceptions.
+        """
+        config = OptimizationConfig(
+            k_inner_bond=10,
+            k_middle_bond=5,
+            k_outer_bond=0.1,
+            k_inner_angle=10,
+            k_middle_angle=5,
+            k_outer_angle=0.1,
+        )
+        assert config.k_inner_bond == 10
+        assert config.k_outer_angle == 0.1
