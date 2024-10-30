@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
-import conan.analysis_modules.coordination_number2 as cn
+import conan.analysis_modules.coordination_number as cn
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
@@ -147,6 +147,8 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
     regional_q, regions = region_question(traj_file)
+    analysis_option.regional_q = regional_q
+    analysis_option.regions = regions
     start_frame, frame_interval = frame_question(traj_file)
 
     Main_time = time.time()
