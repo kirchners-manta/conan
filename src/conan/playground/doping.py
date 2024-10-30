@@ -1064,11 +1064,18 @@ class DopingHandler:
             # Reset tested_atoms since possible_carbon_atoms has changed
             tested_atoms = set()
 
-        # Warn if not all requested nitrogen atoms could be placed due to constraints
-        if nitrogen_atoms_added < desired_nitrogen_atoms:
+        # # Warn if not all requested nitrogen atoms could be placed due to constraints
+        # if nitrogen_atoms_added < desired_nitrogen_atoms:
+        #     warning_message = (
+        #         f"Could not place all desired nitrogen atoms for {nitrogen_species.value}. "
+        #         f"Only {nitrogen_atoms_added} out of {desired_nitrogen_atoms} were placed."
+        #     )
+        #     warnings.warn(warning_message, UserWarning)
+
+        # Only warn if no doping structures could be placed due to space constraints
+        if nitrogen_atoms_added == 0:
             warning_message = (
-                f"Could not place all desired nitrogen atoms for {nitrogen_species.value}. "
-                f"Only {nitrogen_atoms_added} out of {desired_nitrogen_atoms} were placed."
+                f"Could not place any nitrogen atoms for {nitrogen_species.value} due to space constraints."
             )
             warnings.warn(warning_message, UserWarning)
 
