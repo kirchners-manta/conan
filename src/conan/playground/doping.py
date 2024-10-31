@@ -945,44 +945,96 @@ class DopingHandler:
                     adjusted_structures = actual_N_structures_s[s] * scaling_factor
                     actual_N_structures_s[s] = max(1, int(round(adjusted_structures)))
 
-        # Now insert the doping structures
-        # Sort the species by N_N in decreasing order to insert larger structures first
-        species_sorted_by_N_N = sorted(species_list, key=lambda s: species_data[s]["N_N"], reverse=True)
+            # Now insert the doping structures
+            # Sort the species by N_N in decreasing order to insert larger structures first
+            species_sorted_by_N_N = sorted(species_list, key=lambda s: species_data[s]["N_N"], reverse=True)
 
-        self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
+            self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
 
-        for s in species_sorted_by_N_N:
-            num_structures = actual_N_structures_s.get(s, 0)
-            if num_structures > 0:
-                self._insert_doping_structures(nitrogen_species=s, num_structures=num_structures)
+            for s in species_sorted_by_N_N:
+                num_structures = actual_N_structures_s.get(s, 0)
+                if num_structures > 0:
+                    structures_inserted = self._insert_doping_structures(
+                        nitrogen_species=s, num_structures=num_structures
+                    )
+                    if structures_inserted < num_structures:
+                        # Issue warning about space constraints
+                        desired_doping_percentage = (
+                            num_structures * species_data[s]["N_N"] / (N_C_initial - total_N_C_removed)
+                        ) * 100
+                        actual_doping_percentage = (
+                            structures_inserted * species_data[s]["N_N"] / (N_C_initial - total_N_C_removed)
+                        ) * 100
+                        percentage_placed = (actual_doping_percentage / desired_doping_percentage) * 100
+                        warnings.warn(
+                            f"Warning: Only {percentage_placed:.2f}% of the desired "
+                            f"{desired_doping_percentage:.2f}% doping for species {s.value} could be placed due to "
+                            f"space constraints. Trying to fill the remaining doping percentage with Graphitic-N...",
+                            UserWarning,
+                        )
 
-        # Recalculate the actual percentages after insertion
-        total_atoms_after_doping = self.graph.number_of_nodes()
-        actual_percentages = {
-            species.value: (
-                round(
-                    (len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100,
-                    2,
+            # Recalculate the actual percentages after insertion
+            total_atoms_after_doping = self.graph.number_of_nodes()
+            actual_percentages = {
+                species.value: (
+                    round(
+                        (len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100,
+                        2,
+                    )
+                    if total_atoms_after_doping > 0
+                    else 0
                 )
-                if total_atoms_after_doping > 0
-                else 0
+                for species in NitrogenSpecies
+            }
+
+            # Calculate the total doping percentage
+            total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
+            total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+
+            # Step 2: Check if Total Doping Percentage is Less Than Desired
+            if total_doping_percentage < total_percentage:
+                remaining_percentage = total_percentage - total_doping_percentage
+
+                # Calculate how many additional Graphitic-N structures are needed
+                N_N_graphitic = species_data[NitrogenSpecies.GRAPHITIC]["N_N"]
+                doping_percentage_per_structure = (N_N_graphitic / total_atoms_after_doping) * 100
+                num_additional_graphitic_structures_needed = int(
+                    round(remaining_percentage / doping_percentage_per_structure)
+                )
+
+                # Attempt to insert additional Graphitic-N structures
+                structures_inserted = self._insert_doping_structures(
+                    nitrogen_species=NitrogenSpecies.GRAPHITIC,
+                    num_structures=num_additional_graphitic_structures_needed,
+                )
+
+                if structures_inserted < num_additional_graphitic_structures_needed:
+                    warnings.warn(
+                        f"Warning: Only {structures_inserted} out of "
+                        f"{num_additional_graphitic_structures_needed} additional Graphitic-N structures could be "
+                        f"placed due to space constraints.",
+                        UserWarning,
+                    )
+
+                # Update the actual percentages after inserting additional Graphitic-N
+                total_atoms_after_doping = self.graph.number_of_nodes()
+                actual_percentages[NitrogenSpecies.GRAPHITIC.value] += round(
+                    (structures_inserted / total_atoms_after_doping) * 100, 2
+                )
+                total_nitrogen_atoms += structures_inserted  # Each Graphitic-N adds one nitrogen atom
+                total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+
+            # Display the final results
+            doping_percentages_df = pd.DataFrame.from_dict(
+                actual_percentages, orient="index", columns=["Actual Percentage"]
             )
-            for species in NitrogenSpecies
-        }
-
-        # Calculate the total doping percentage
-        total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
-        total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
-
-        # Display the results
-        doping_percentages_df = pd.DataFrame.from_dict(
-            actual_percentages, orient="index", columns=["Actual Percentage"]
-        )
-        doping_percentages_df.index.name = "Nitrogen Species"
-        doping_percentages_df.reset_index(inplace=True)
-        total_row = pd.DataFrame([{"Nitrogen Species": "Total Doping", "Actual Percentage": total_doping_percentage}])
-        doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
-        print(f"\n{doping_percentages_df}")
+            doping_percentages_df.index.name = "Nitrogen Species"
+            doping_percentages_df.reset_index(inplace=True)
+            total_row = pd.DataFrame(
+                [{"Nitrogen Species": "Total Doping", "Actual Percentage": total_doping_percentage}]
+            )
+            doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
+            print(f"\n{doping_percentages_df}")
 
     def _get_current_number_of_carbon_atoms(self) -> int:
         """Return the current number of carbon atoms in the graph."""
