@@ -858,9 +858,10 @@ class DopingHandler:
             from itertools import chain, combinations
 
             best_combination = None
-            closest_doping_percentage = 0
+            # closest_doping_percentage = None
+            smallest_difference = None
 
-            # Generate all possible combinations of species (including empty set)
+            # Generate all possible combinations of species (excluding empty set)
             all_combinations = chain.from_iterable(
                 combinations(species_list, r) for r in range(1, len(species_list) + 1)
             )
@@ -871,14 +872,25 @@ class DopingHandler:
                 N_atoms_after_doping = N_C_initial - total_N_C_removed
                 total_doping_percentage = (total_N_N / N_atoms_after_doping) * 100
 
-                if total_doping_percentage <= total_percentage + 1e-6:
-                    if total_doping_percentage > closest_doping_percentage:
-                        closest_doping_percentage = total_doping_percentage
+                # Calculate the absolute difference from the desired percentage
+                difference = abs(total_doping_percentage - total_percentage)
+
+                if smallest_difference is None or difference < smallest_difference:
+                    smallest_difference = difference
+                    # closest_doping_percentage = total_doping_percentage
+                    best_combination = combo
+                elif difference == smallest_difference:
+                    # If the difference is the same, prefer the combination with larger species
+                    current_combo_N_N = sum(species_data[s]["N_N"] for s in combo)
+                    best_combo_N_N = sum(species_data[s]["N_N"] for s in best_combination)
+                    if current_combo_N_N > best_combo_N_N:
                         best_combination = combo
+                        # closest_doping_percentage = total_doping_percentage
 
             if best_combination is None:
                 warnings.warn(
-                    "Unable to achieve desired doping percentage with available doping structures.", UserWarning
+                    "Unable to achieve desired doping percentage with available doping structures.",
+                    UserWarning,
                 )
                 return
             else:
@@ -934,8 +946,12 @@ class DopingHandler:
                     actual_N_structures_s[s] = max(1, int(round(adjusted_structures)))
 
         # Now insert the doping structures
+        # Sort the species by N_N in decreasing order to insert larger structures first
+        species_sorted_by_N_N = sorted(species_list, key=lambda s: species_data[s]["N_N"], reverse=True)
+
         self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
-        for s in species_list:
+
+        for s in species_sorted_by_N_N:
             num_structures = actual_N_structures_s.get(s, 0)
             if num_structures > 0:
                 self._insert_doping_structures(nitrogen_species=s, num_structures=num_structures)
@@ -944,7 +960,10 @@ class DopingHandler:
         total_atoms_after_doping = self.graph.number_of_nodes()
         actual_percentages = {
             species.value: (
-                round((len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100, 2)
+                round(
+                    (len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100,
+                    2,
+                )
                 if total_atoms_after_doping > 0
                 else 0
             )
