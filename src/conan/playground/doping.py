@@ -811,8 +811,8 @@ class DopingHandler:
         """
         Add nitrogen doping to the structure.
 
-        This method distributes the total doping percentage equally among nitrogen species,
-        adjusting the number of structures per species to achieve a balanced distribution.
+        This method combines the strengths of previous approaches to achieve the desired total doping percentage
+        and an even distribution among nitrogen species, adapting to both small and large sheet sizes.
 
         Parameters
         ----------
@@ -837,7 +837,6 @@ class DopingHandler:
         }
 
         species_list = list(species_data.keys())
-        S = len(species_list)  # Number of species
 
         # Get initial number of carbon atoms
         N_C_initial = self._get_current_number_of_carbon_atoms()
@@ -845,66 +844,101 @@ class DopingHandler:
             warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
             return
 
-        # Desired doping percentage per species
-        P_s = total_percentage / S  # Equal distribution among species
+        # Step 1: Calculate the minimum possible total doping percentage
+        # when including one structure of each species
+        min_total_N_N = sum(species_data[s]["N_N"] for s in species_list)
+        min_total_N_C_removed = sum(species_data[s]["N_C_removed"] for s in species_list)
+        N_atoms_after_min_doping = N_C_initial - min_total_N_C_removed
+        min_total_doping_percentage = (min_total_N_N / N_atoms_after_min_doping) * 100
 
-        # Initialize dictionaries to store values
-        desired_N_structures_s = {}
-        actual_N_structures_s = {}
-        total_N_N = 0
-        total_N_C_removed = 0
+        # If the minimum possible doping percentage exceeds the desired total percentage,
+        # we cannot include all species without overshooting
+        if min_total_doping_percentage > total_percentage:
+            # Step 2: For small sheets, find the best combination of species
+            from itertools import chain, combinations
 
-        # Calculate desired number of structures per species based on desired doping percentage
-        for s in species_list:
-            N_N_s = species_data[s]["N_N"]
-            N_C_removed_s = species_data[s]["N_C_removed"]
+            best_combination = None
+            closest_doping_percentage = 0
 
-            # The doping percentage contributed by one structure of species s
-            # Considering the change in total atom count due to carbon atoms removed
-            doping_percentage_per_structure = (N_N_s / (N_C_initial - N_C_removed_s)) * 100
+            # Generate all possible combinations of species (including empty set)
+            all_combinations = chain.from_iterable(
+                combinations(species_list, r) for r in range(1, len(species_list) + 1)
+            )
 
-            # Desired number of structures for species s
-            desired_N_structures_s[s] = P_s / doping_percentage_per_structure
+            for combo in all_combinations:
+                total_N_N = sum(species_data[s]["N_N"] for s in combo)
+                total_N_C_removed = sum(species_data[s]["N_C_removed"] for s in combo)
+                N_atoms_after_doping = N_C_initial - total_N_C_removed
+                total_doping_percentage = (total_N_N / N_atoms_after_doping) * 100
 
-        # Round the number of structures to the nearest integer
-        for s in species_list:
-            actual_N_structures_s[s] = max(1, int(round(desired_N_structures_s[s])))
+                if total_doping_percentage <= total_percentage + 1e-6:
+                    if total_doping_percentage > closest_doping_percentage:
+                        closest_doping_percentage = total_doping_percentage
+                        best_combination = combo
 
-        # Recalculate total nitrogen atoms and carbon atoms removed
-        for s in species_list:
-            N_N_s = species_data[s]["N_N"]
-            N_C_removed_s = species_data[s]["N_C_removed"]
-            total_N_N += actual_N_structures_s[s] * N_N_s
-            total_N_C_removed += actual_N_structures_s[s] * N_C_removed_s
+            if best_combination is None:
+                warnings.warn(
+                    "Unable to achieve desired doping percentage with available doping structures.", UserWarning
+                )
+                return
+            else:
+                # Prepare actual_N_structures_s
+                actual_N_structures_s = {s: 0 for s in species_list}
+                for s in best_combination:
+                    actual_N_structures_s[s] = 1
+        else:
+            # Step 3: Distribute doping percentage equally among species
+            P_s = total_percentage / len(species_list)  # Equal distribution among species
 
-        # Calculate total atoms after doping
-        N_atoms_after_doping = N_C_initial - total_N_C_removed
+            # Initialize dictionaries to store values
+            desired_N_structures_s = {}
+            actual_N_structures_s = {}
+            total_N_N = 0
+            total_N_C_removed = 0
 
-        # Calculate actual doping percentages per species
-        actual_percentages = {}
-        for s in species_list:
-            N_N_s = species_data[s]["N_N"]
-            N_C_removed_s = species_data[s]["N_C_removed"]
-            N_structures_s = actual_N_structures_s[s]
-            doping_percentage_s = ((N_structures_s * N_N_s) / N_atoms_after_doping) * 100
-            actual_percentages[s.value] = round(doping_percentage_s, 2)
-
-        # Calculate total doping percentage
-        total_doping_percentage = sum(actual_percentages.values())
-
-        # Adjust the number of structures if total doping percentage differs significantly
-        tolerance = 1e-2  # 0.01% tolerance
-        if abs(total_doping_percentage - total_percentage) > tolerance:
-            scaling_factor = total_percentage / total_doping_percentage
+            # Calculate desired number of structures per species based on desired doping percentage
             for s in species_list:
-                adjusted_structures = actual_N_structures_s[s] * scaling_factor
-                actual_N_structures_s[s] = max(1, int(round(adjusted_structures)))
+                N_N_s = species_data[s]["N_N"]
+                N_C_removed_s = species_data[s]["N_C_removed"]
 
-        # Insert doping structures
+                # The doping percentage contributed by one structure of species s
+                # Considering the change in total atom count due to carbon atoms removed
+                doping_percentage_per_structure = (N_N_s / (N_C_initial - N_C_removed_s)) * 100
+
+                # Desired number of structures for species s
+                desired_N_structures_s[s] = P_s / doping_percentage_per_structure
+
+            # Round the number of structures to the nearest integer
+            for s in species_list:
+                actual_N_structures_s[s] = max(1, int(round(desired_N_structures_s[s])))
+
+            # Recalculate total nitrogen atoms and carbon atoms removed
+            for s in species_list:
+                N_N_s = species_data[s]["N_N"]
+                N_C_removed_s = species_data[s]["N_C_removed"]
+                total_N_N += actual_N_structures_s[s] * N_N_s
+                total_N_C_removed += actual_N_structures_s[s] * N_C_removed_s
+
+            # Calculate total atoms after doping
+            N_atoms_after_doping = N_C_initial - total_N_C_removed
+
+            # Calculate actual total doping percentage
+            total_doping_percentage = (total_N_N / N_atoms_after_doping) * 100
+
+            # Adjust the number of structures if total doping percentage differs significantly
+            tolerance = 1e-2  # 0.01% tolerance
+            if abs(total_doping_percentage - total_percentage) > tolerance:
+                scaling_factor = total_percentage / total_doping_percentage
+                for s in species_list:
+                    adjusted_structures = actual_N_structures_s[s] * scaling_factor
+                    actual_N_structures_s[s] = max(1, int(round(adjusted_structures)))
+
+        # Now insert the doping structures
         self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
         for s in species_list:
-            num_structures = actual_N_structures_s[s]
-            self._insert_doping_structures(nitrogen_species=s, num_structures=num_structures)
+            num_structures = actual_N_structures_s.get(s, 0)
+            if num_structures > 0:
+                self._insert_doping_structures(nitrogen_species=s, num_structures=num_structures)
 
         # Recalculate the actual percentages after insertion
         total_atoms_after_doping = self.graph.number_of_nodes()
