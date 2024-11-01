@@ -10,6 +10,7 @@ import warnings
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum
+from itertools import chain, combinations
 from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
@@ -889,6 +890,24 @@ class DopingHandler:
             # Set a default total percentage if not provided
             total_percentage = total_percentage if total_percentage is not None else 10.0
 
+        # # Calculate the remaining percentage for other species
+        # remaining_percentage = total_percentage - sum(percentages.values())
+        #
+        # # Define a tolerance for floating-point comparison
+        # tolerance = 1e-6
+        #
+        # if remaining_percentage > tolerance:
+        #     # Determine available species not included in the specified percentages
+        #     available_species = [species for species in NitrogenSpecies if species not in percentages]
+        #     # Distribute the remaining percentage equally among available species
+        #     default_distribution = {
+        #         species: remaining_percentage / len(available_species) for species in available_species
+        #     }
+        #     percentages.update(default_distribution)
+        # else:
+        #     # If the remaining percentage is negligible, we ignore it
+        #     pass
+
         # Initialize species data
         species_data = {
             NitrogenSpecies.GRAPHITIC: {"N_N": 1, "N_C_removed": 0},
@@ -902,7 +921,7 @@ class DopingHandler:
 
         # Get initial number of carbon atoms
         N_C_initial = self._get_current_number_of_carbon_atoms()
-        if N_C_initial == 0:
+        if N_C_initial == 0:  # ToDo: Sollte nicht vorkommen dürfen
             warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
             return
 
@@ -917,7 +936,6 @@ class DopingHandler:
         # we cannot include all species without overshooting
         if min_total_doping_percentage > total_percentage:
             # Step 2: For small sheets, find the best combination of species
-            from itertools import chain, combinations
 
             best_combination = None
             smallest_difference = None
@@ -1017,12 +1035,17 @@ class DopingHandler:
                 actual_N_structures_s = {s: n for s, n in actual_N_structures_s.items() if n > 0}
 
         # Now insert the doping structures
-        # Sort the species by N_N in decreasing order to insert larger structures first
-        species_sorted_by_N_N = sorted(actual_N_structures_s.keys(), key=lambda s: species_data[s]["N_N"], reverse=True)
+        # Sort the species by the number of removed carbon atoms as well as the number of contributing nitrogen atoms in
+        # decreasing order to insert larger structures first
+        species_sorted_by_num_C_removed = sorted(
+            actual_N_structures_s.keys(),
+            key=lambda s: species_data[s]["N_C_removed"] and species_data[s]["N_N"],
+            reverse=True,
+        )
 
         self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
 
-        for s in species_sorted_by_N_N:
+        for s in species_sorted_by_num_C_removed:
             num_structures = actual_N_structures_s.get(s, 0)
             if num_structures > 0:
                 structures_inserted = self._insert_doping_structures(nitrogen_species=s, num_structures=num_structures)
