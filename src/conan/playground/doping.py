@@ -819,13 +819,75 @@ class DopingHandler:
         total_percentage : float, optional
             The total percentage of carbon atoms to replace with nitrogen atoms.
         percentages : dict, optional
-            Not used in this method.
+            A dictionary specifying the percentages for each nitrogen species.
+
+        Raises
+        ------
+        ValueError
+            If the specific percentages exceed the total percentage beyond a small tolerance, or if any percentage is
+            negative.
         """
+        # Validate the input for percentages
+        if percentages is not None:
+            if not isinstance(percentages, dict):
+                raise ValueError(
+                    "percentages must be a dictionary with NitrogenSpecies as keys and int or float as values."
+                )
+            if len(percentages) == 0:
+                raise ValueError("percentages dictionary cannot be empty. Define at least one positive percentage.")
+
+            for key, value in percentages.items():
+                if not isinstance(key, NitrogenSpecies):
+                    raise ValueError(
+                        f"Invalid key in percentages dictionary: {key}. Keys must be of type NitrogenSpecies."
+                    )
+                if not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"Invalid value in percentages dictionary for key {key} with value {value}. Values must be int "
+                        f"or float."
+                    )
+                if value <= 0:
+                    raise ValueError(f"Percentage for {key} must be positive. Received {value}.")
+
         # Validate the input for total_percentage
-        if total_percentage is None:
-            total_percentage = 8.0  # Default total percentage
-        if not isinstance(total_percentage, (int, float)) or total_percentage <= 0:
-            raise ValueError("total_percentage must be a positive number.")
+        if total_percentage is not None:
+            if not isinstance(total_percentage, (int, float)):
+                raise ValueError("total_percentage must be an int or float.")
+            if total_percentage <= 0:
+                raise ValueError("total_percentage must be positive.")
+
+        # Copy the percentages dictionary to avoid modifying the input
+        percentages = percentages.copy() if percentages else {}
+
+        # Validate specific percentages and calculate the remaining percentage
+        if percentages:
+            if total_percentage is None:
+                # Set total to sum of specific percentages if not provided
+                total_percentage = sum(percentages.values())
+            else:
+                # Sum of provided specific percentages
+                specific_total_percentage = sum(percentages.values())
+                # Define a small tolerance to account for floating-point errors
+                tolerance = 1e-6
+                # if abs(specific_total_percentage - total_percentage) > tolerance:
+                if specific_total_percentage > total_percentage + tolerance:
+                    # Raise an error if the sum of specific percentages exceeds the total percentage beyond the
+                    # tolerance
+                    raise ValueError(
+                        f"The total specific percentages {specific_total_percentage}% are higher than the "
+                        f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
+                        f"'percentages' is less than or equal to 'total_percentage'."
+                    )
+                elif specific_total_percentage < total_percentage - tolerance:
+                    warnings.warn(
+                        f"The sum of specified percentages {specific_total_percentage}% is lower than the "
+                        f"total_percentage {total_percentage}%. Remaining percentage will be distributed among other "
+                        f"available species.",
+                        UserWarning,
+                    )
+        else:
+            # Set a default total percentage if not provided
+            total_percentage = total_percentage if total_percentage is not None else 10.0
 
         # Initialize species data
         species_data = {
