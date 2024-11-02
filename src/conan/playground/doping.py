@@ -96,6 +96,54 @@ class NitrogenSpecies(Enum):
             return nitrogen_colors[nitrogen_species]
         return colors.get(element, "pink")
 
+    @staticmethod
+    def get_num_nitrogen_atoms_to_add(nitrogen_species: "NitrogenSpecies") -> int:
+        """
+        Get the number of nitrogen atoms to add for a specific nitrogen species.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping.
+
+        Returns
+        -------
+        int
+            The number of nitrogen atoms to add for the specified nitrogen species.
+        """
+        if nitrogen_species in {NitrogenSpecies.PYRIDINIC_1, NitrogenSpecies.GRAPHITIC}:
+            return 1
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+            return 2
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
+            return 3
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+            return 4
+        return 0
+
+    @staticmethod
+    def get_num_carbon_atoms_to_remove(nitrogen_species: "NitrogenSpecies") -> int:
+        """
+        Get the number of carbon atoms to remove in order to insert a specific nitrogen species.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping.
+
+        Returns
+        -------
+        int
+            The number of carbon atoms to remove for the specified nitrogen species.
+        """
+        if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            return 0
+        if nitrogen_species in {NitrogenSpecies.PYRIDINIC_1, NitrogenSpecies.PYRIDINIC_2, NitrogenSpecies.PYRIDINIC_3}:
+            return 1
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+            return 2
+        return 0
+
 
 @dataclass
 class DopingStructure:
