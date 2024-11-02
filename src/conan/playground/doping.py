@@ -1107,7 +1107,7 @@ class DopingHandler:
                     ) * 100
                     percentage_placed = (actual_doping_percentage / desired_doping_percentage) * 100
                     warnings.warn(
-                        f"Warning: Only {percentage_placed:.2f}% of the desired "
+                        f"Only {percentage_placed:.2f}% of the desired "
                         f"{desired_doping_percentage:.2f}% doping for species {s.value} could be placed due to "
                         f"space constraints.",
                         UserWarning,
@@ -1223,13 +1223,10 @@ class DopingHandler:
         )
 
         # Step 4: Insert doping structures
-        # self.doping_structures = DopingStructureCollection()  # Reset previous doping structures
-        actual_structures_inserted: Dict[NitrogenSpecies, int] = self._insert_doping_structures(
-            desired_num_structures_per_species
-        )
+        self._insert_doping_structures(desired_num_structures_per_species)
 
         # Step 5: Adjust if actual doping percentage falls short of desired
-        self._adjust_for_shortfall_in_doping(total_percentage, actual_structures_inserted)
+        self._adjust_for_shortfall_in_doping(total_percentage)
 
         # Step 6: Display the final results of the doping process
         self._display_doping_results()
@@ -1508,7 +1505,7 @@ class DopingHandler:
 
         return desired_num_structures_per_species
 
-    def _insert_doping_structures(self, desired_structures: Dict[NitrogenSpecies, int]) -> Dict[NitrogenSpecies, int]:
+    def _insert_doping_structures(self, desired_structures: Dict[NitrogenSpecies, int]):
         """
         Insert a specified number of doping structures of a specific nitrogen species into the graphene sheet.
 
@@ -1525,15 +1522,7 @@ class DopingHandler:
         existing structure). If suitable, the doping structure is built by, for example, removing atoms, replacing
         other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
         the structure is inserted, all atoms of this structure are excluded from further doping positions.
-
-        Returns
-        -------
-        actual_structures : Dict[NitrogenSpecies, int]
-            A dictionary where the keys are NitrogenSpecies and the values are the number of structures successfully
-            inserted.
         """
-        actual_structures = {species: 0 for species in desired_structures}
-
         # Sort the species by the number of removed carbon atoms as well as the number of contributing nitrogen atoms in
         # decreasing order to insert larger structures first
         species_sorted_by_size = sorted(
@@ -1546,17 +1535,14 @@ class DopingHandler:
         for species in species_sorted_by_size:
             num_structures = desired_structures.get(species, 0)
             num_structures_inserted = self._attempt_insertion_for_species(species, num_structures)
-            actual_structures[species] = num_structures_inserted
 
             # Warn if not all requested structures could be placed due to space constraints
             if num_structures_inserted < num_structures:
                 warnings.warn(
-                    f"\nWarning: Only {num_structures_inserted} out of the desired {num_structures} structures of "
+                    f"Only {num_structures_inserted} out of the desired {num_structures} structures of "
                     f"species {species.value} could be placed due to space constraints.",
                     UserWarning,
                 )
-
-        return actual_structures
 
     def _attempt_insertion_for_species(self, species: NitrogenSpecies, num_structures: int):
         """
@@ -1907,7 +1893,7 @@ class DopingHandler:
         # Return False if the nitrogen species is not recognized
         return False, (None, None)
 
-    def _adjust_for_shortfall_in_doping(self, total_percentage: float, actual_structures: Dict[NitrogenSpecies, int]):
+    def _adjust_for_shortfall_in_doping(self, total_percentage: float):
         """
         Insert additional Graphitic-N structures if actual doping percentage falls short of the target.
 
@@ -1915,14 +1901,20 @@ class DopingHandler:
         ----------
         total_percentage : float
             The target total doping percentage.
-        actual_structures : dict
-            Dictionary with the number of structures inserted per nitrogen species.
         """
         total_atoms_after_doping = self.graph.number_of_nodes()
         total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
         actual_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
 
         if actual_doping_percentage < total_percentage:
+            warn_message = (
+                "For reasons of space, it is not possible to come closer to the desired total doping "
+                "percentage with an equal distribution of structures. Additional Graphitic-N structures "
+                "will be inserted to adjust for the shortfall and get closer to the desired doping "
+                "percentage.\nPlease consider whether such a high doping percentage is still practical, as "
+                "achieving it may compromise the structural integrity of the material."
+            )
+            warnings.warn(warn_message, UserWarning)
             shortfall = total_percentage - actual_doping_percentage
             doping_per_graphitic = (
                 NitrogenSpecies.get_num_nitrogen_atoms_to_add(NitrogenSpecies.GRAPHITIC) / total_atoms_after_doping
