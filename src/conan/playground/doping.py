@@ -1960,33 +1960,41 @@ class DopingHandler:
 
     def _display_doping_results(self):
         """
-        Display the final doping results, including actual percentages and absolute counts of nitrogen atoms added.
+        Display the final doping results, including actual percentages, absolute counts of nitrogen atoms added,
+        and the number of doping structures per species.
         """
         total_atoms_after_doping = self.graph.number_of_nodes()
+
+        # Calculate nitrogen atom counts and actual percentages
         nitrogen_atom_counts = {
             species: len(self.doping_structures.chosen_atoms.get(species, [])) for species in NitrogenSpecies
         }
         actual_percentages = {
-            species.value: (
-                round(
-                    (count / total_atoms_after_doping) * 100,
-                    2,
-                )
-                if total_atoms_after_doping > 0
-                else 0
-            )
+            species.value: (round((count / total_atoms_after_doping) * 100, 2) if total_atoms_after_doping > 0 else 0)
             for species, count in nitrogen_atom_counts.items()
         }
+
+        # Calculate total counts and percentages
         total_nitrogen_atoms = sum(nitrogen_atom_counts.values())
         total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+
+        # Calculate the number of structures per species using the get_structures_for_species method
+        doping_structure_counts = {
+            species: len(self.doping_structures.get_structures_for_species(species)) for species in NitrogenSpecies
+        }
 
         # Prepare the DataFrame
         doping_results = {
             "Nitrogen Species": [species.value for species in NitrogenSpecies] + ["Total Doping"],
             "Actual Percentage": list(actual_percentages.values()) + [total_doping_percentage],
             "Nitrogen Atom Count": list(nitrogen_atom_counts.values()) + [total_nitrogen_atoms],
+            "Doping Structure Count": list(doping_structure_counts.values()) + [sum(doping_structure_counts.values())],
         }
         doping_results_df = pd.DataFrame(doping_results)
+
+        # Set pandas display options to show all columns without truncation
+        pd.set_option("display.max_columns", None)  # Shows all columns
+        pd.set_option("display.width", None)  # Adjusts output to the screen width
 
         print("\nDoping Results:")
         print(doping_results_df)
