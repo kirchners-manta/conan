@@ -1355,7 +1355,7 @@ class DopingHandler:
         # If the minimum possible doping percentage exceeds the desired total percentage, we cannot include all species
         # without overshooting
         if min_total_doping_percentage > total_percentage:
-            # For very low desired doping percentages in comparison tho the sheet size, find the best combination of
+            # For very low desired doping percentages in comparison to the sheet size, find the best combination of
             # species
             desired_num_structures_per_species = self._find_best_species_combination(
                 num_initial_atoms, total_percentage
@@ -1409,14 +1409,14 @@ class DopingHandler:
             if smallest_difference is None or difference_to_desired_perc < smallest_difference:
                 smallest_difference = difference_to_desired_perc
                 best_combination = combo
-            elif difference_to_desired_perc == smallest_difference:
-                # If the difference is the same, prefer the combination with larger species
-                current_combo_num_nitrogen = sum(NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in combo)
-                best_combo_num_nitrogen = sum(
-                    NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in best_combination
-                )
-                if current_combo_num_nitrogen > best_combo_num_nitrogen:
-                    best_combination = combo
+            # elif difference_to_desired_perc == smallest_difference:
+            #     # If the difference is the same, prefer the combination with larger species
+            #     current_combo_num_nitrogen = sum(NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in combo)
+            #     best_combo_num_nitrogen = sum(
+            #         NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in best_combination
+            #     )
+            #     if current_combo_num_nitrogen > best_combo_num_nitrogen:
+            #         best_combination = combo
 
         if best_combination is None:
             warnings.warn(
@@ -1968,29 +1968,33 @@ class DopingHandler:
 
     def _display_doping_results(self):
         """
-        Display the final doping percentages achieved.
+        Display the final doping results, including actual percentages and absolute counts of nitrogen atoms added.
         """
         total_atoms_after_doping = self.graph.number_of_nodes()
+        nitrogen_atom_counts = {
+            species: len(self.doping_structures.chosen_atoms.get(species, [])) for species in NitrogenSpecies
+        }
         actual_percentages = {
             species.value: (
                 round(
-                    (len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100,
+                    (count / total_atoms_after_doping) * 100,
                     2,
                 )
                 if total_atoms_after_doping > 0
                 else 0
             )
-            for species in NitrogenSpecies
+            for species, count in nitrogen_atom_counts.items()
         }
-        total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
+        total_nitrogen_atoms = sum(nitrogen_atom_counts.values())
         total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
 
-        # Display DataFrame
-        doping_percentages_df = pd.DataFrame.from_dict(
-            actual_percentages, orient="index", columns=["Actual Percentage"]
-        )
-        doping_percentages_df.index.name = "Nitrogen Species"
-        doping_percentages_df.reset_index(inplace=True)
-        total_row = pd.DataFrame([{"Nitrogen Species": "Total Doping", "Actual Percentage": total_doping_percentage}])
-        doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
-        print(f"\n{doping_percentages_df}")
+        # Prepare the DataFrame
+        doping_results = {
+            "Nitrogen Species": [species.value for species in NitrogenSpecies] + ["Total Doping"],
+            "Actual Percentage": list(actual_percentages.values()) + [total_doping_percentage],
+            "Nitrogen Atom Count": list(nitrogen_atom_counts.values()) + [total_nitrogen_atoms],
+        }
+        doping_results_df = pd.DataFrame(doping_results)
+
+        print("\nDoping Results:")
+        print(doping_results_df)
