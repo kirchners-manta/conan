@@ -1326,6 +1326,9 @@ class DopingHandler:
         without overshooting.
         - When the desired total doping percentage allows for a distribution according to specified percentages.
 
+        If only percentages are provided (without total_percentage), it directly attempts to achieve the specified
+        percentage for each species individually.
+
         Parameters
         ----------
         num_initial_atoms : int
@@ -1341,7 +1344,7 @@ class DopingHandler:
             The calculated number of structures to insert for each nitrogen species.
         """
         # Initialize species data
-        species_list = list(NitrogenSpecies)
+        species_list = list(percentages.keys())
 
         # Calculate the minimum possible total doping percentage when including exactly one structure of each species
         min_total_num_nitrogen = sum(NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in species_list)
@@ -1355,10 +1358,10 @@ class DopingHandler:
             # For very low desired doping percentages in comparison to the sheet size, find the best combination of
             # species
             desired_num_structures_per_species = self._find_best_species_combination(
-                num_initial_atoms, total_percentage
+                num_initial_atoms, total_percentage, percentages
             )
         else:
-            # Step 2: Distribute doping percentage according to specified percentages
+            # Distribute doping percentage according to specified percentages
             desired_num_structures_per_species = self._distribute_structures_equally(
                 num_initial_atoms, total_percentage, percentages
             )
@@ -1369,6 +1372,7 @@ class DopingHandler:
     def _find_best_species_combination(
         num_initial_atoms: int,
         total_percentage: float,
+        percentages: Dict[NitrogenSpecies, float],
     ) -> Dict[NitrogenSpecies, int]:
         """
         Find the best combination of species that achieves the desired total doping percentage without overshooting.
@@ -1379,13 +1383,15 @@ class DopingHandler:
             The initial number of carbon atoms.
         total_percentage : float
             The desired total doping percentage.
+        percentages : Dict[NitrogenSpecies, float]
+            The desired percentages for each nitrogen species.
 
         Returns
         -------
         desired_num_structures_per_species : Dict[NitrogenSpecies, int]
             The calculated number of structures to insert for each nitrogen species.
         """
-        species_list = list(NitrogenSpecies)
+        species_list = list(percentages.keys())
         best_combination = None
         smallest_difference = None
 
@@ -1457,30 +1463,35 @@ class DopingHandler:
         total_num_nitrogen = 0
         total_num_carbons_to_remove = 0
 
-        for s in percentages:
-            pers_per_species = percentages[s]
-            num_nitrogen_per_species = NitrogenSpecies.get_num_nitrogen_atoms_to_add(s)
-            num_carbons_to_remove_per_species = NitrogenSpecies.get_num_carbon_atoms_to_remove(s)
+        for species in percentages:
+            pers_per_species = percentages[species]
+            num_nitrogen_per_species = NitrogenSpecies.get_num_nitrogen_atoms_to_add(species)
+            num_carbons_to_remove_per_species = NitrogenSpecies.get_num_carbon_atoms_to_remove(species)
+
+            # The doping percentage contributed by one structure of this species
+            # Considering the change in total atom count due to carbon atoms removed
             doping_percentage_per_structure = (
                 num_nitrogen_per_species / (num_initial_atoms - num_carbons_to_remove_per_species)
             ) * 100
 
-            # Desired number of structures for species s
-            desired_N_structures_s[s] = pers_per_species / doping_percentage_per_structure
+            # Desired number of structures for this species
+            desired_N_structures_s[species] = pers_per_species / doping_percentage_per_structure
 
         # Round the number of structures to the nearest integer
-        for s in desired_N_structures_s:
-            desired_num_structures_per_species[s] = int(round(desired_N_structures_s[s]))
+        for species in desired_N_structures_s:
+            desired_num_structures_per_species[species] = int(round(desired_N_structures_s[species]))
 
         # Remove species with zero or negative desired structures
         desired_num_structures_per_species = {s: n for s, n in desired_num_structures_per_species.items() if n > 0}
 
         # Recalculate total nitrogen atoms and carbon atoms removed
-        for s in desired_num_structures_per_species:
-            num_nitrogen_per_species = NitrogenSpecies.get_num_nitrogen_atoms_to_add(s)
-            num_carbons_to_remove_per_species = NitrogenSpecies.get_num_carbon_atoms_to_remove(s)
-            total_num_nitrogen += desired_num_structures_per_species[s] * num_nitrogen_per_species
-            total_num_carbons_to_remove += desired_num_structures_per_species[s] * num_carbons_to_remove_per_species
+        for species in desired_num_structures_per_species:
+            num_nitrogen_per_species = NitrogenSpecies.get_num_nitrogen_atoms_to_add(species)
+            num_carbons_to_remove_per_species = NitrogenSpecies.get_num_carbon_atoms_to_remove(species)
+            total_num_nitrogen += desired_num_structures_per_species[species] * num_nitrogen_per_species
+            total_num_carbons_to_remove += (
+                desired_num_structures_per_species[species] * num_carbons_to_remove_per_species
+            )
 
         # Calculate total atoms after doping
         num_atoms_after_doping = num_initial_atoms - total_num_carbons_to_remove
@@ -1496,9 +1507,9 @@ class DopingHandler:
         tolerance = 1e-2  # 0.01% tolerance
         if abs(total_doping_percentage - total_percentage) > tolerance:
             scaling_factor = total_percentage / total_doping_percentage
-            for s in desired_num_structures_per_species:
-                adjusted_structures = desired_num_structures_per_species[s] * scaling_factor
-                desired_num_structures_per_species[s] = int(round(adjusted_structures))
+            for species in desired_num_structures_per_species:
+                adjusted_structures = desired_num_structures_per_species[species] * scaling_factor
+                desired_num_structures_per_species[species] = int(round(adjusted_structures))
 
             # Remove species with zero or negative adjusted structures
             desired_num_structures_per_species = {s: n for s, n in desired_num_structures_per_species.items() if n > 0}
