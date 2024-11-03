@@ -1,10 +1,10 @@
 import random
 
-from conan.playground.doping import NitrogenSpecies
-
 # from conan.playground.labeling import AtomLabeler
 from conan.playground.structures import GrapheneSheet, Pore
 from conan.playground.utils import write_xyz
+
+# from conan.playground.doping import NitrogenSpecies
 
 
 def main():
@@ -39,18 +39,20 @@ def main():
     sheet_size = (40, 40)
 
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=False)
+    graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=False)
     # graphene.add_nitrogen_doping()
     # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1, NitrogenSpecies.PYRIDINIC_2: 1})
-    graphene.add_nitrogen_doping(
-        percentages={
-            NitrogenSpecies.GRAPHITIC: 1.44,
-            NitrogenSpecies.PYRIDINIC_1: 1.62,
-            NitrogenSpecies.PYRIDINIC_2: 1.8,
-            NitrogenSpecies.PYRIDINIC_3: 1.62,
-            NitrogenSpecies.PYRIDINIC_4: 1.44,
-        }
-    )
+    # graphene.add_nitrogen_doping(
+    #     percentages={
+    #         NitrogenSpecies.GRAPHITIC: 1.44,
+    #         NitrogenSpecies.PYRIDINIC_1: 1.62,
+    #         NitrogenSpecies.PYRIDINIC_2: 1.8,
+    #         NitrogenSpecies.PYRIDINIC_3: 1.62,
+    #         NitrogenSpecies.PYRIDINIC_4: 1.44,
+    #     }, adjust_positions=True
+    # )
+    # graphene.add_nitrogen_doping(total_percentage=10,
+    #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
     graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     write_xyz(graphene.graph, "graphene_sheet_doped.xyz")
@@ -133,6 +135,16 @@ def main():
     #
     # # Add nitrogen doping to the specified graphene sheets
     # stacked_graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=True, layers="all")
+    #
+    # # stacked_graphene.add_nitrogen_doping(
+    # #     percentages={
+    # #         NitrogenSpecies.GRAPHITIC: 1.44,
+    # #         NitrogenSpecies.PYRIDINIC_1: 1.62,
+    # #         NitrogenSpecies.PYRIDINIC_2: 1.8,
+    # #         NitrogenSpecies.PYRIDINIC_3: 1.62,
+    # #         NitrogenSpecies.PYRIDINIC_4: 1.44,
+    # #     }, adjust_positions=True, layers="all"
+    # # )
     #
     # # Plot the stacked structure
     # stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
