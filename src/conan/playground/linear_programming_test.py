@@ -172,7 +172,7 @@ z2 = pulp.LpVariable("z2", lowBound=0, cat="Continuous")
 
 # Objective function
 w1 = 1  # Weight for deviation from desired nitrogen percentage
-w2 = 1000  # Weight for deviation from equal distribution of nitrogen atoms
+w2 = 1  # Weight for deviation from equal distribution of nitrogen atoms
 prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
 # # Constraints for the nitrogen percentage
@@ -180,7 +180,7 @@ prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 # prob += RHS - pulp.lpSum([ki[i] * xi[i] for i in range(D)]) <= z1, "Lower bound constraint"
 
 # Nitrogen percentage constraint (replacing upper and lower bound constraints)
-prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) - RHS == P - N, "Nitrogen deviation constraint"
+prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) + P - N == RHS, "Nitrogen deviation constraint"
 prob += z1 == P + N, "Absolute deviation constraint"
 
 # Constraint for average nitrogen atoms calculation
@@ -193,8 +193,10 @@ prob += N_avg * D == pulp.lpSum([ri[i] * xi[i] for i in range(D)]), "Average nit
 # prob += z2 == pulp.lpSum([di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
 
 # Constraints for deviations in nitrogen atoms from the average without di
+# for i in range(D):
+#     prob += ri[i] * xi[i] - N_avg == P_di[i] - N_di[i], f"Nitrogen deviation for type {i}"
 for i in range(D):
-    prob += ri[i] * xi[i] - N_avg == P_di[i] - N_di[i], f"Nitrogen deviation for type {i}"
+    prob += ri[i] * xi[i] + P_di[i] - N_di[i] == N_avg, f"Nitrogen deviation for type {i}"
 
 # Total deviation in nitrogen atoms (z2) as the sum of P_di and N_di
 prob += z2 == pulp.lpSum([P_di[i] + N_di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
@@ -229,4 +231,133 @@ for i in range(D):
     actual_percentage = (N_atom_count / T_final) * 100
     print(f"{i:<6}{species:<15}{actual_percentage:>17.2f}{N_atom_count:>22}{doping_structure_count:>25}")
 print(f"{'Total Doping':<21}{P_actual:>17.2f}{N_total:>22}{sum(xi_values):>25}")
+print("\nDone")
+
+# import pulp
+# from matplotlib import pyplot as plt
+#
+# # Define the initial parameters
+# T_initial = 576  # Total initial atoms
+# P_desired = 8.0  # Desired nitrogen percentage
+# D = 5  # Number of doping types
+#
+# # Constants for each doping type
+# ci = [0, 1, 1, 1, 2]  # Carbon atoms removed
+# ri = [1, 1, 2, 3, 4]  # Nitrogen atoms added (replaced)
+# names = ["Graphitic-N", "Pyridinic-N1", "Pyridinic-N2", "Pyridinic-N3", "Pyridinic-N4"]
+#
+# # Compute initial ki values based on the desired percentage without scaling
+# P_desired_fraction = P_desired / 100.0
+# ki = [ri_i + P_desired_fraction * ci_i for ri_i, ci_i in zip(ri, ci)]
+# RHS = P_desired_fraction * T_initial
+#
+# # Initialize the problem
+# prob = pulp.LpProblem("Nitrogen_Doping_Optimization", pulp.LpMinimize)
+#
+# # Decision variables
+# xi = [pulp.LpVariable(f"x_{i}", lowBound=0, cat="Integer") for i in range(D)]
+# N_avg = pulp.LpVariable("N_avg", lowBound=0, cat="Continuous")
+# P_di = [pulp.LpVariable(f"P_d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+# N_di = [pulp.LpVariable(f"N_d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+# # P = [pulp.LpVariable(f"P{i}", lowBound=0, cat="Continuous") for i in range(D)]
+# # N = [pulp.LpVariable(f"N{i}", lowBound=0, cat="Continuous") for i in range(D)]
+# P = pulp.LpVariable("P_i", lowBound=0, cat="Continuous")
+# N = pulp.LpVariable("N_i", lowBound=0, cat="Continuous")
+# z1 = pulp.LpVariable("z1", lowBound=0, cat="Continuous")
+# z2 = pulp.LpVariable("z2", lowBound=0, cat="Continuous")
+#
+# # Objective function
+# w1 = 1  # Weight for deviation from desired nitrogen percentage
+# w2 = 1  # Weight for deviation from equal distribution of nitrogen atoms
+# prob += w1 * z1 + w2 * z2, "Minimize total deviation"
+#
+# # Nitrogen percentage constraint (replacing upper and lower bound constraints)
+# prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) + P + N == RHS, "Nitrogen deviation constraint"
+# prob += z1 == P + N, "Absolute deviation constraint"
+#
+# # Constraint for average nitrogen atoms calculation
+# prob += N_avg * D == pulp.lpSum([ri[i] * xi[i] for i in range(D)]), "Average nitrogen atoms constraint"
+#
+# # Constraints for deviations in nitrogen atoms from the average without di
+# for i in range(D):
+#     prob += ri[i] * xi[i] - N_avg == P_di[i] - N_di[i], f"Nitrogen deviation for type {i}"
+#
+# # Total deviation in nitrogen atoms (z2) as the sum of P_di and N_di
+# prob += z2 == pulp.lpSum([P_di[i] + N_di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
+#
+# # Solve the problem
+# prob.solve()
+#
+# # Retrieve the solution
+# xi_values = [int(xi[i].varValue) for i in range(D)]
+# N_avg_value = N_avg.varValue
+# P_value = P.varValue
+# N_value = N.varValue
+# # P_values = [P[i].varValue for i in range(D)]
+# # N_values = [N[i].varValue for i in range(D)]
+# P_di_values = [P_di[i].varValue for i in range(D)]
+# N_di_values = [N_di[i].varValue for i in range(D)]
+# z1_value = z1.varValue
+# z2_value = z2.varValue
+#
+# # Compute the actual nitrogen percentage after calculating T_final
+# N_total = sum([ri[i] * xi_values[i] for i in range(D)])
+# C_removed = sum([ci[i] * xi_values[i] for i in range(D)])
+# T_final = T_initial - C_removed
+# P_actual = (N_total / T_final) * 100
+#
+# # Scale the actual deviation in nitrogen percentage (z1) with T_final
+# z1_percentage = z1_value / (T_final / 100)
+#
+# # Print the results
+# print("Doping Results:")
+# print("|Nitrogen Species | Actual Percentage | Nitrogen Atom Count | Doping Structure Count |")
+# for i in range(D):
+#     species = names[i]
+#     N_atom_count = ri[i] * xi_values[i]
+#     doping_structure_count = xi_values[i]
+#     actual_percentage = (N_atom_count / T_final) * 100
+#     print(f"{i:<6}{species:<15}{actual_percentage:>17.2f}{N_atom_count:>22}{doping_structure_count:>25}")
+# print(f"{'Total Doping':<21}{P_actual:>17.2f}{N_total:>22}{sum(xi_values):>25}")
+#
+# # Output the final objective value with scaled z1
+# print(f"Objective value (z1 + z2): {prob.objective.value()}")
+# print(f"Actual deviation in nitrogen percentage (scaled z1): {z1_percentage}")
+# print("\nDone")
+
+
+import matplotlib.pyplot as plt
+
+# Species names and calculated nitrogen percentages based on optimized results
+species = ["Graphitic-N", "Pyridinic-N1", "Pyridinic-N2", "Pyridinic-N3", "Pyridinic-N4"]
+actual_percentages = [(ri[i] * xi_values[i] / T_final) * 100 for i in range(D)]
+desired_percentage_per_species = [P_desired / D] * len(species)  # Equal target distribution
+
+# Create the plot
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Plot desired nitrogen percentage per species as black circles
+ax.plot(species, desired_percentage_per_species, "ko", label="Desired Nitrogen Percentage per Species")
+
+# Plot the actual nitrogen percentage as a continuous blue line
+ax.plot(species, actual_percentages, "b", label="Actual Nitrogen Percentage per Species")
+
+# Annotate deviations with correct "N" or "P" labeling based on relative position of actual and desired values
+for i, (act, des) in enumerate(zip(actual_percentages, desired_percentage_per_species)):
+    if des < act:  # Actual above desired (positive deviation), should be "P"
+        ax.plot([species[i], species[i]], [des, act], linestyle="--", color="orange")  # Orange dashed line
+        ax.text(i, (des + act) / 2, f"P_{i+1}", ha="right", va="top", fontsize=12, color="orange")
+    elif des > act:  # Desired above actual (negative deviation), should be "N"
+        ax.plot([species[i], species[i]], [act, des], linestyle="--", color="orange")  # Orange dashed line
+        ax.text(i, (des + act) / 2, f"N_{i+1}", ha="right", va="bottom", fontsize=12, color="orange")
+
+# Axis labels and title
+ax.set_xlabel("Nitrogen Species", fontsize=14)
+ax.set_ylabel("Nitrogen Percentage (%)", fontsize=14)
+ax.set_title("Desired vs. Actual Nitrogen Percentage per Species with Correct Deviations (P and N)", fontsize=16)
+ax.legend()
+
+# Show grid and plot
+plt.grid(True)
+plt.show()
 print("\nDone")
