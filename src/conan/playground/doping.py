@@ -1472,7 +1472,7 @@ class DopingHandler:
         # Filter out any species with zero or negative desired structures
         desired_num_structures = {s: n for s, n in desired_num_structures.items() if n > 0}
 
-        # Step 2: Calculate the total number of nitrogen and carbon atoms after doping
+        # Step 2: Calculate the total number of nitrogen atoms to add and carbon atoms to remove after doping
         total_nitrogen_atoms = sum(
             desired_num_structures[species] * NitrogenSpecies.get_num_nitrogen_atoms_to_add(species)
             for species in desired_num_structures

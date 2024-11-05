@@ -1,8 +1,11 @@
 import random
 
 # from conan.playground.labeling import AtomLabeler
-from conan.playground.structures import GrapheneSheet, Pore
+from conan.playground.structures import CNT, GrapheneSheet, Pore
 from conan.playground.utils import write_xyz
+
+# from conan.playground.doping import NitrogenSpecies
+
 
 # from conan.playground.doping import NitrogenSpecies
 
@@ -49,7 +52,7 @@ def main():
     #         NitrogenSpecies.PYRIDINIC_2: 1.8,
     #         NitrogenSpecies.PYRIDINIC_3: 1.62,
     #         NitrogenSpecies.PYRIDINIC_4: 1.44,
-    #     }, adjust_positions=True
+    #     }, adjust_positions=False
     # )
     # graphene.add_nitrogen_doping(total_percentage=10,
     #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
@@ -201,15 +204,15 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # # CREATE A CNT STRUCTURE
-    #
-    # # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
-    # # cnt.add_nitrogen_doping(total_percentage=10)
-    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-    #
-    # # Save the CNT structure to a file
-    # write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
+    # CREATE A CNT STRUCTURE
+
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
+    cnt.add_nitrogen_doping(total_percentage=10)
+    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+
+    # Save the CNT structure to a file
+    write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
 
     ####################################################################################################################
     # CREATE A PORE STRUCTURE
