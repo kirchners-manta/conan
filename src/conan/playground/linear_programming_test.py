@@ -162,27 +162,42 @@ prob = pulp.LpProblem("Nitrogen_Doping_Optimization", pulp.LpMinimize)
 # Decision variables
 xi = [pulp.LpVariable(f"x_{i}", lowBound=0, cat="Integer") for i in range(D)]
 N_avg = pulp.LpVariable("N_avg", lowBound=0, cat="Continuous")
-di = [pulp.LpVariable(f"d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+# di = [pulp.LpVariable(f"d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+P_di = [pulp.LpVariable(f"P_d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+N_di = [pulp.LpVariable(f"N_d_{i}", lowBound=0, cat="Continuous") for i in range(D)]
+P = pulp.LpVariable("P_i", lowBound=0, cat="Continuous")
+N = pulp.LpVariable("N_i", lowBound=0, cat="Continuous")
 z1 = pulp.LpVariable("z1", lowBound=0, cat="Continuous")
 z2 = pulp.LpVariable("z2", lowBound=0, cat="Continuous")
 
 # Objective function
-w1 = 1000  # Weight for deviation from desired nitrogen percentage
-w2 = 1  # Weight for deviation from equal distribution of nitrogen atoms
+w1 = 1  # Weight for deviation from desired nitrogen percentage
+w2 = 1000  # Weight for deviation from equal distribution of nitrogen atoms
 prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
-# Constraints for the nitrogen percentage
-prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) - RHS <= z1, "Upper bound constraint"
-prob += RHS - pulp.lpSum([ki[i] * xi[i] for i in range(D)]) <= z1, "Lower bound constraint"
+# # Constraints for the nitrogen percentage
+# prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) - RHS <= z1, "Upper bound constraint"
+# prob += RHS - pulp.lpSum([ki[i] * xi[i] for i in range(D)]) <= z1, "Lower bound constraint"
+
+# Nitrogen percentage constraint (replacing upper and lower bound constraints)
+prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) - RHS == P - N, "Nitrogen deviation constraint"
+prob += z1 == P + N, "Absolute deviation constraint"
 
 # Constraint for average nitrogen atoms calculation
 prob += N_avg * D == pulp.lpSum([ri[i] * xi[i] for i in range(D)]), "Average nitrogen atoms constraint"
 
-# Constraints for deviations in nitrogen atoms from the average
+# # Constraints for deviations in nitrogen atoms from the average
+# for i in range(D):
+#     prob += di[i] >= ri[i] * xi[i] - N_avg, f"Deviation_positive_{i}"
+#     prob += di[i] >= N_avg - ri[i] * xi[i], f"Deviation_negative_{i}"
+# prob += z2 == pulp.lpSum([di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
+
+# Constraints for deviations in nitrogen atoms from the average without di
 for i in range(D):
-    prob += di[i] >= ri[i] * xi[i] - N_avg, f"Deviation_positive_{i}"
-    prob += di[i] >= N_avg - ri[i] * xi[i], f"Deviation_negative_{i}"
-prob += z2 == pulp.lpSum([di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
+    prob += ri[i] * xi[i] - N_avg == P_di[i] - N_di[i], f"Nitrogen deviation for type {i}"
+
+# Total deviation in nitrogen atoms (z2) as the sum of P_di and N_di
+prob += z2 == pulp.lpSum([P_di[i] + N_di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
 
 # Solve the problem
 prob.solve()
@@ -190,7 +205,11 @@ prob.solve()
 # Retrieve the solution
 xi_values = [int(xi[i].varValue) for i in range(D)]
 N_avg_value = N_avg.varValue
-di_values = [di[i].varValue for i in range(D)]
+P_value = P.varValue
+N_value = N.varValue
+# di_values = [di[i].varValue for i in range(D)]
+P_di_values = [P_di[i].varValue for i in range(D)]
+N_di_values = [N_di[i].varValue for i in range(D)]
 z1_value = z1.varValue
 z2_value = z2.varValue
 
@@ -210,3 +229,4 @@ for i in range(D):
     actual_percentage = (N_atom_count / T_final) * 100
     print(f"{i:<6}{species:<15}{actual_percentage:>17.2f}{N_atom_count:>22}{doping_structure_count:>25}")
 print(f"{'Total Doping':<21}{P_actual:>17.2f}{N_total:>22}{sum(xi_values):>25}")
+print("\nDone")
