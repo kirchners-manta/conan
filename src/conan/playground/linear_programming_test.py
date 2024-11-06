@@ -184,7 +184,7 @@ prob += pulp.lpSum([ki[i] * xi[i] for i in range(D)]) + P - N == RHS, "Nitrogen 
 prob += z1 == P + N, "Absolute deviation constraint"
 
 # Constraint for average nitrogen atoms calculation
-prob += N_avg * D == pulp.lpSum([ri[i] * xi[i] for i in range(D)]), "Average nitrogen atoms constraint"
+prob += N_avg == pulp.lpSum([ri[i] * xi[i] for i in range(D)]) / D, "Average nitrogen atoms constraint"
 
 # # Constraints for deviations in nitrogen atoms from the average
 # for i in range(D):
