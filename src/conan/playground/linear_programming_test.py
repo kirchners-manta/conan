@@ -368,58 +368,101 @@ print("\nDone")
 # plt.show()
 # print("\nDone")
 
+# import matplotlib.pyplot as plt
+# import numpy as np
+#
+# # Visualization of objective functions
+#
+# # Objective Function 1: Nitrogen Percentage Deviation
+# species = ["Graphitic-N", "Pyridinic-N1", "Pyridinic-N2", "Pyridinic-N3", "Pyridinic-N4"]
+# actual_percentages = [(ri[i] * xi_values[i] / T_final) * 100 for i in range(D)]
+# desired_percentage_per_species = [P_desired / D] * len(species)
+#
+# fig, ax1 = plt.subplots(figsize=(10, 6))
+# ax1.plot(species, desired_percentage_per_species, "ko", label="Desired Nitrogen Percentage per Species")
+# ax1.plot(species, actual_percentages, "b", label="Actual Nitrogen Percentage per Species")
+# for i, (act, des) in enumerate(zip(actual_percentages, desired_percentage_per_species)):
+#     if des < act:
+#         ax1.plot([species[i], species[i]], [des, act], linestyle="--", color="orange")
+#         ax1.text(i, (des + act) / 2, f"P_{i+1}", ha="right", va="top", fontsize=12, color="orange")
+#     elif des > act:
+#         ax1.plot([species[i], species[i]], [act, des], linestyle="--", color="orange")
+#         ax1.text(i, (des + act) / 2, f"N_{i+1}", ha="right", va="bottom", fontsize=12, color="orange")
+# ax1.set_xlabel("Nitrogen Species", fontsize=14)
+# ax1.set_ylabel("Nitrogen Percentage (%)", fontsize=14)
+# ax1.set_title("Objective Function 1: Nitrogen Percentage Deviation", fontsize=16)
+# ax1.legend()
+# plt.grid(True)
+#
+# # Objective Function 2: Deviation from Equal Nitrogen Distribution
+# fig, ax2 = plt.subplots(figsize=(10, 6))
+# N_avg_values = [N_avg_value] * len(species)
+# actual_atoms_per_species = [ri[i] * xi_values[i] for i in range(D)]
+# ax2.plot(species, N_avg_values, "ko", label="Average Nitrogen Atoms per Species")
+# ax2.plot(species, actual_atoms_per_species, "b", label="Actual Nitrogen Atoms per Species")
+# for i, (actual, avg) in enumerate(zip(actual_atoms_per_species, N_avg_values)):
+#     if actual > avg:
+#         ax2.plot([species[i], species[i]], [avg, actual], linestyle="--", color="orange")
+#         ax2.text(i, (avg + actual) / 2, f"P_d_{i+1}", ha="right", va="top", fontsize=12, color="orange")
+#     elif actual < avg:
+#         ax2.plot([species[i], species[i]], [actual, avg], linestyle="--", color="orange")
+#         ax2.text(i, (avg + actual) / 2, f"N_d_{i+1}", ha="right", va="bottom", fontsize=12, color="orange")
+# ax2.set_xlabel("Nitrogen Species", fontsize=14)
+# ax2.set_ylabel("Nitrogen Atom Count", fontsize=14)
+# ax2.set_title("Objective Function 2: Deviation from Equal Nitrogen Distribution", fontsize=16)
+# ax2.legend()
+# plt.grid(True)
+#
+# # Combined Objective Function: Total Deviation
+# fig, ax3 = plt.subplots(figsize=(10, 6))
+# total_deviation_z1 = np.sum([abs(desired_percentage_per_species[i] - actual_percentages[i]) for i in range(D)])
+# total_deviation_z2 = np.sum([abs(N_avg_values[i] - actual_atoms_per_species[i]) for i in range(D)])
+# ax3.bar(["z1", "z2"], [total_deviation_z1, total_deviation_z2], color=["blue", "green"])
+# ax3.set_ylabel("Deviation Magnitude", fontsize=14)
+# ax3.set_title("Combined Objective Function: Sum of Deviations", fontsize=16)
+# plt.grid(True)
+#
+# plt.show()
+
 import matplotlib.pyplot as plt
-import numpy as np
 
-# Visualization of objective functions
-
-# Objective Function 1: Nitrogen Percentage Deviation
-species = ["Graphitic-N", "Pyridinic-N1", "Pyridinic-N2", "Pyridinic-N3", "Pyridinic-N4"]
+# Visualization of nitrogen percentage deviation per species
+species = names
 actual_percentages = [(ri[i] * xi_values[i] / T_final) * 100 for i in range(D)]
-desired_percentage_per_species = [P_desired / D] * len(species)
+desired_percentage_per_species = [P_actual / D] * D
 
-fig, ax1 = plt.subplots(figsize=(10, 6))
-ax1.plot(species, desired_percentage_per_species, "ko", label="Desired Nitrogen Percentage per Species")
-ax1.plot(species, actual_percentages, "b", label="Actual Nitrogen Percentage per Species")
-for i, (act, des) in enumerate(zip(actual_percentages, desired_percentage_per_species)):
-    if des < act:
-        ax1.plot([species[i], species[i]], [des, act], linestyle="--", color="orange")
-        ax1.text(i, (des + act) / 2, f"P_{i+1}", ha="right", va="top", fontsize=12, color="orange")
-    elif des > act:
-        ax1.plot([species[i], species[i]], [act, des], linestyle="--", color="orange")
-        ax1.text(i, (des + act) / 2, f"N_{i+1}", ha="right", va="bottom", fontsize=12, color="orange")
-ax1.set_xlabel("Nitrogen Species", fontsize=14)
-ax1.set_ylabel("Nitrogen Percentage (%)", fontsize=14)
-ax1.set_title("Objective Function 1: Nitrogen Percentage Deviation", fontsize=16)
-ax1.legend()
+plt.figure(figsize=(10, 6))
+plt.bar(species, actual_percentages, color="skyblue", label="Actual Nitrogen Percentage per Species")
+plt.axhline(y=P_desired / D, color="r", linestyle="--", label="Desired Nitrogen Percentage per Species")
+plt.xlabel("Nitrogen Species", fontsize=14)
+plt.ylabel("Nitrogen Percentage (%)", fontsize=14)
+plt.title("Nitrogen Percentage per Species", fontsize=16)
+plt.legend()
 plt.grid(True)
+plt.show()
 
-# Objective Function 2: Deviation from Equal Nitrogen Distribution
-fig, ax2 = plt.subplots(figsize=(10, 6))
-N_avg_values = [N_avg_value] * len(species)
+# Visualization of nitrogen atoms deviation from average per species
+N_avg_value = N_total / D
 actual_atoms_per_species = [ri[i] * xi_values[i] for i in range(D)]
-ax2.plot(species, N_avg_values, "ko", label="Average Nitrogen Atoms per Species")
-ax2.plot(species, actual_atoms_per_species, "b", label="Actual Nitrogen Atoms per Species")
-for i, (actual, avg) in enumerate(zip(actual_atoms_per_species, N_avg_values)):
-    if actual > avg:
-        ax2.plot([species[i], species[i]], [avg, actual], linestyle="--", color="orange")
-        ax2.text(i, (avg + actual) / 2, f"P_d_{i+1}", ha="right", va="top", fontsize=12, color="orange")
-    elif actual < avg:
-        ax2.plot([species[i], species[i]], [actual, avg], linestyle="--", color="orange")
-        ax2.text(i, (avg + actual) / 2, f"N_d_{i+1}", ha="right", va="bottom", fontsize=12, color="orange")
-ax2.set_xlabel("Nitrogen Species", fontsize=14)
-ax2.set_ylabel("Nitrogen Atom Count", fontsize=14)
-ax2.set_title("Objective Function 2: Deviation from Equal Nitrogen Distribution", fontsize=16)
-ax2.legend()
-plt.grid(True)
+deviations = [abs(N_avg_value - actual_atoms_per_species[i]) for i in range(D)]
 
-# Combined Objective Function: Total Deviation
-fig, ax3 = plt.subplots(figsize=(10, 6))
-total_deviation_z1 = np.sum([abs(desired_percentage_per_species[i] - actual_percentages[i]) for i in range(D)])
-total_deviation_z2 = np.sum([abs(N_avg_values[i] - actual_atoms_per_species[i]) for i in range(D)])
-ax3.bar(["z1", "z2"], [total_deviation_z1, total_deviation_z2], color=["blue", "green"])
-ax3.set_ylabel("Deviation Magnitude", fontsize=14)
-ax3.set_title("Combined Objective Function: Sum of Deviations", fontsize=16)
+plt.figure(figsize=(10, 6))
+plt.bar(species, actual_atoms_per_species, color="lightgreen", label="Actual Nitrogen Atoms per Species")
+plt.axhline(y=N_avg_value, color="r", linestyle="--", label="Average Nitrogen Atoms per Species")
+plt.xlabel("Nitrogen Species", fontsize=14)
+plt.ylabel("Nitrogen Atom Count", fontsize=14)
+plt.title("Deviation from Average Nitrogen Atoms per Species", fontsize=16)
+plt.legend()
 plt.grid(True)
+plt.show()
 
+# Visualization of deviations z1 and z2
+deviations_values = [z1_value, z2_value]
+deviations_labels = ["z1: Nitrogen Percentage Deviation", "z2: Equal Distribution Deviation"]
+
+plt.figure(figsize=(8, 6))
+plt.bar(deviations_labels, deviations_values, color=["blue", "green"])
+plt.ylabel("Deviation Magnitude", fontsize=14)
+plt.title("Objective Function Components", fontsize=16)
+plt.grid(True)
 plt.show()
