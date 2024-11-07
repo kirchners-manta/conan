@@ -287,11 +287,17 @@ plt.grid(True)
 
 # Visualization of deviations z1 and z2
 deviations_values = [z1_value, z2_value]
-deviations_labels = ["z1: Nitrogen Percentage Deviation", "z2: Equal Distribution Deviation"]
+deviations_labels = ["z1: Nitrogen Atom Deviation", "z2: Equal Distribution Deviation"]
 
 plt.figure(figsize=(8, 6))
-plt.bar(deviations_labels, deviations_values, color=["blue", "green"])
-plt.ylabel("Deviation Magnitude", fontsize=14)
+bars = plt.bar(deviations_labels, deviations_values, color=["blue", "green"])
+plt.ylabel("Deviation Magnitude (Number of Nitrogen Atoms)", fontsize=14)
 plt.title("Objective Function Components", fontsize=16)
+
+# Annotate the bars with the deviation values
+for bar, value in zip(bars, deviations_values):
+    height = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width() / 2, height, f"{value:.2f}", ha="center", va="bottom", fontsize=12)
+
 plt.grid(True)
 plt.show()
