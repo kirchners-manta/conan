@@ -216,7 +216,7 @@ for i in range(D):
 prob += z2 == pulp.lpSum([P_di[i] + N_di[i] for i in range(D)]), "Total deviation in nitrogen atoms"
 
 # Solve the problem
-prob.solve()
+prob.solve(pulp.PULP_CBC_CMD(msg=True))
 
 # Retrieve the solution (optimized values of the variables from the solved model)
 xi_values = [int(xi[i].varValue) for i in range(D)]
@@ -240,7 +240,7 @@ z1_percentage = z1_value / (T_final / 100)
 
 # Print the results
 print("Doping Results:")
-print("|Nitrogen Species | Actual Percentage | Nitrogen Atom Count | Doping Structure Count |")
+print("|Nitrogen Species | Actual Percentage (%) | Nitrogen Atom Count | Doping Structure Count |")
 for i in range(D):
     species = names[i]
     N_atom_count = ri[i] * xi_values[i]
@@ -250,54 +250,57 @@ for i in range(D):
 print(f"{'Total Doping':<21}{P_actual:>17.2f}{N_total:>22}{sum(xi_values):>25}")
 
 # Output the final objective value with scaled z1
-print(f"Objective value (z1={z1_value} + z2={z2_value}): {prob.objective.value()}")
-print(f"Actual deviation in nitrogen percentage (scaled z1): {z1_percentage}")
-print("\nDone")
+print(f"\nTotal Deviation (Objective Value): {prob.objective.value()}")
+print(f" - z1 (Deviation in Nitrogen Atoms): {z1_value} atoms")
+print(f" - z1 as Percentage Deviation: {z1_percentage:.4f}%")
+print(f" - z2 (Deviation from Equal Distribution): {z2_value} atoms")
 
 
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
-# Visualization of nitrogen percentage deviation per species
-species = names
+# Compute actual percentages per species
 actual_percentages = [(ri[i] * xi_values[i] / T_final) * 100 for i in range(D)]
-desired_percentage_per_species = [P_actual / D] * D
-
-plt.figure(figsize=(10, 6))
-plt.bar(species, actual_percentages, color="skyblue", label="Actual Nitrogen Percentage per Species")
-plt.axhline(y=P_desired / D, color="r", linestyle="--", label="Desired Nitrogen Percentage per Species")
-plt.xlabel("Nitrogen Species", fontsize=14)
-plt.ylabel("Nitrogen Percentage (%)", fontsize=14)
-plt.title("Nitrogen Percentage per Species", fontsize=16)
-plt.legend()
-plt.grid(True)
-
-# Visualization of nitrogen atoms deviation from average per species
-N_avg_value = N_total / D
+# Compute actual atoms per species
 actual_atoms_per_species = [ri[i] * xi_values[i] for i in range(D)]
-deviations = [abs(N_avg_value - actual_atoms_per_species[i]) for i in range(D)]
 
-plt.figure(figsize=(10, 6))
-plt.bar(species, actual_atoms_per_species, color="lightgreen", label="Actual Nitrogen Atoms per Species")
-plt.axhline(y=N_avg_value, color="r", linestyle="--", label="Average Nitrogen Atoms per Species")
-plt.xlabel("Nitrogen Species", fontsize=14)
-plt.ylabel("Nitrogen Atom Count", fontsize=14)
-plt.title("Deviation from Average Nitrogen Atoms per Species", fontsize=16)
-plt.legend()
-plt.grid(True)
+# Create a figure with a specific size
+plt.figure(figsize=(14, 10))
 
-# Visualization of deviations z1 and z2
+# Define the grid layout
+gs = gridspec.GridSpec(2, 2)
+
+# Top Left Plot: Nitrogen Percentage per Species
+ax1 = plt.subplot(gs[0, 0])
+ax1.bar(names, actual_percentages, color="skyblue", label="Actual Nitrogen Percentage per Species")
+ax1.axhline(y=P_desired / D, color="r", linestyle="--", label="Desired Nitrogen Percentage per Species")
+ax1.set_xlabel("Nitrogen Species", fontsize=12)
+ax1.set_ylabel("Nitrogen Percentage (%)", fontsize=12)
+ax1.set_title("Nitrogen Percentage per Species", fontsize=14)
+ax1.legend()
+ax1.grid(True)
+
+# Top Right Plot: Nitrogen Atoms per Species
+ax2 = plt.subplot(gs[0, 1])
+ax2.bar(names, actual_atoms_per_species, color="lightgreen", label="Actual Nitrogen Atoms per Species")
+ax2.axhline(y=N_avg_value, color="r", linestyle="--", label="Average Nitrogen Atoms per Species")
+ax2.set_xlabel("Nitrogen Species", fontsize=12)
+ax2.set_ylabel("Nitrogen Atom Count", fontsize=12)
+ax2.set_title("Nitrogen Atoms per Species", fontsize=14)
+ax2.legend()
+ax2.grid(True)
+
+# Bottom Center Plot: Objective Function Components
+ax3 = plt.subplot(gs[1, :])
 deviations_values = [z1_value, z2_value]
 deviations_labels = ["z1: Nitrogen Atom Deviation", "z2: Equal Distribution Deviation"]
-
-plt.figure(figsize=(8, 6))
-bars = plt.bar(deviations_labels, deviations_values, color=["blue", "green"])
-plt.ylabel("Deviation Magnitude (Number of Nitrogen Atoms)", fontsize=14)
-plt.title("Objective Function Components", fontsize=16)
-
-# Annotate the bars with the deviation values
+bars = ax3.bar(deviations_labels, deviations_values, color=["blue", "green"])
+ax3.set_ylabel("Deviation Magnitude (Number of Nitrogen Atoms)", fontsize=12)
+ax3.set_title("Objective Function Components", fontsize=14)
 for bar, value in zip(bars, deviations_values):
     height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width() / 2, height, f"{value:.2f}", ha="center", va="bottom", fontsize=12)
+    ax3.text(bar.get_x() + bar.get_width() / 2, height, f"{value:.2f}", ha="center", va="bottom", fontsize=12)
+ax3.grid(True)
 
-plt.grid(True)
+plt.tight_layout()
 plt.show()
