@@ -66,7 +66,7 @@ def smooth_data(Z, sigma=1.0):
     return gaussian_filter(Z, sigma=sigma)
 
 
-def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5000, 5000)):
+def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200)):
     """
     Plot a contour plot with filled contours and contour lines.
 
@@ -94,7 +94,7 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5000, 5000
     plt.ylabel("Angle (Degree)")
     plt.title(title)
     plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
-    plt.xticks(np.arange(-5000, 6000, 1000))
+    plt.xticks(np.arange(-5200, 5200, 1000))
     plt.yticks(np.arange(0, 190, 45))
     plt.xlim(xlim)
     plt.show()
