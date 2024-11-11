@@ -10,7 +10,7 @@ import warnings
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, NamedTuple, Optional, Set, Tuple
 
 import networkx as nx
 import pandas as pd
@@ -21,6 +21,27 @@ from conan.playground.utils import get_neighbors_via_edges, minimum_image_distan
 # Define a namedtuple for structural components
 # This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
+
+
+class OptimizationWeights(NamedTuple):
+    """
+    Represents the weights used in the optimization of nitrogen doping to achieve the desired nitrogen percentage while
+    maintaining an equal distribution among species.
+
+    Attributes
+    ----------
+    nitrogen_percentage_weight : float
+        Weight for the deviation from the desired nitrogen percentage (w1).
+    equal_distribution_weight : float
+        Weight for the deviation from equal distribution among species (w2).
+    """
+
+    nitrogen_percentage_weight: float = 1000.0
+    equal_distribution_weight: float = 1.0
+
+    def validate_weights(self):
+        if self.nitrogen_percentage_weight <= 0 or self.equal_distribution_weight <= 0:
+            raise ValueError("Weights must be positive numbers.")
 
 
 @dataclass
@@ -860,8 +881,7 @@ class DopingHandler:
         self,
         total_percentage: Optional[float] = None,
         percentages: Optional[dict] = None,
-        w1: float = 1000,
-        w2: float = 1,
+        optimization_weights: Optional[OptimizationWeights] = None,
     ):
         """
         Add nitrogen doping to the structure using linear programming optimization and utilizing graph manipulation
@@ -877,11 +897,15 @@ class DopingHandler:
             The total percentage of carbon atoms to replace with nitrogen atoms.
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species.
-        w1 : float, optional
-            Weight for the deviation from the desired nitrogen percentage in the objective function.
-        w2 : float, optional
-            Weight for the deviation from equal distribution among species in the objective function.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
 
         Raises
         ------
@@ -901,7 +925,7 @@ class DopingHandler:
 
         # Step 3: Calculate desired number of structures for each species using optimization
         desired_num_structures_per_species = self._calculate_num_desired_structures(
-            num_initial_atoms, total_percentage, percentages, w1, w2
+            num_initial_atoms, total_percentage, percentages, optimization_weights
         )
 
         # Step 4: Insert doping structures
@@ -1002,8 +1026,7 @@ class DopingHandler:
         num_initial_atoms: int,
         total_percentage: float,
         percentages: Dict[NitrogenSpecies, float],
-        w1: float,
-        w2: float,
+        optimization_weights: Optional[OptimizationWeights],
     ) -> Dict[NitrogenSpecies, int]:
         """
         Calculate the desired number of structures for each species using linear programming optimization.
@@ -1020,16 +1043,28 @@ class DopingHandler:
             The desired total nitrogen doping percentage.
         percentages : Dict[NitrogenSpecies, float]
             The desired percentages for each nitrogen species.
-        w1 : float
-            Weight for the deviation from the desired nitrogen percentage in the objective function.
-        w2 : float
-            Weight for the deviation from equal distribution among species in the objective function.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
 
         Returns
         -------
         Dict[NitrogenSpecies, int]
             The calculated number of structures to insert for each nitrogen species.
         """
+        # Use default weights if none provided
+        if optimization_weights is None:
+            optimization_weights = OptimizationWeights()
+
+        w1 = optimization_weights.nitrogen_percentage_weight
+        w2 = optimization_weights.equal_distribution_weight
+
         # Convert desired percentage to fractions
         total_percentage_fraction = total_percentage / 100.0
 

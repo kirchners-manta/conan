@@ -15,7 +15,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-from conan.playground.doping import DopingHandler, NitrogenSpecies
+from conan.playground.doping import DopingHandler, NitrogenSpecies, OptimizationWeights
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 from conan.playground.utils import Position, create_position
 
@@ -609,6 +609,7 @@ class GrapheneSheet(Structure2D):
         self,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
     ):
@@ -626,6 +627,15 @@ class GrapheneSheet(Structure2D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
@@ -653,7 +663,7 @@ class GrapheneSheet(Structure2D):
             raise ValueError(f"adjust_positions must be a Boolean, but got {type(adjust_positions).__name__}")
 
         # Delegate the doping process to the doping handler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
+        self.doping_handler.add_nitrogen_doping(total_percentage, percentages, optimization_weights)
 
         # Reset the positions_adjusted flag since the structure has changed
         self.positions_adjusted = False
@@ -942,6 +952,7 @@ class StackedGraphene(Structure3D):
         self,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         layers: Union[List[int], str] = "all",
         optimization_config: Optional["OptimizationConfig"] = None,
@@ -956,6 +967,15 @@ class StackedGraphene(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         layers : Union[List[int], str], optional
@@ -1006,6 +1026,7 @@ class StackedGraphene(Structure3D):
                 layer_index=layer_index,
                 total_percentage=total_percentage,
                 percentages=percentages,
+                optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
             )
@@ -1015,6 +1036,7 @@ class StackedGraphene(Structure3D):
         layer_index: int,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
     ):
@@ -1030,6 +1052,15 @@ class StackedGraphene(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
@@ -1051,6 +1082,7 @@ class StackedGraphene(Structure3D):
             self.graphene_sheets[layer_index].add_nitrogen_doping(
                 total_percentage=total_percentage,
                 percentages=percentages,
+                optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
             )
@@ -1745,7 +1777,12 @@ class CNT(Structure3D):
         # Add these periodic edges to the graph, marking them as periodic
         self.graph.add_edges_from(edges, bond_length=self.bond_length, periodic=True)
 
-    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+    def add_nitrogen_doping(
+        self,
+        total_percentage: float = None,
+        percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
+    ):
         """
         Add nitrogen doping to the CNT.
 
@@ -1762,6 +1799,15 @@ class CNT(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
 
         Raises
         ------
@@ -1783,7 +1829,7 @@ class CNT(Structure3D):
         other computational methods. Future versions may include 3D position optimization.
         """
         # Delegate the doping process to the DopingHandler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
+        self.doping_handler.add_nitrogen_doping(total_percentage, percentages, optimization_weights)
 
         # Issue a user warning about the lack of 3D position adjustment
         warnings.warn(

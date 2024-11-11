@@ -1,5 +1,7 @@
 import random
 
+from conan.playground.doping import OptimizationWeights
+
 # from conan.playground.labeling import AtomLabeler
 from conan.playground.structures import CNT, GrapheneSheet, Pore
 from conan.playground.utils import write_xyz
@@ -41,8 +43,17 @@ def main():
     # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
     sheet_size = (40, 40)
 
+    # # Use default optimization weights
+    # weights = OptimizationWeights()
+
+    # Define optimization weights
+    weights = OptimizationWeights(
+        nitrogen_percentage_weight=1,
+        equal_distribution_weight=1000,
+    )
+
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=False)
+    graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False, optimization_weights=weights)
     # graphene.add_nitrogen_doping()
     # # graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1, NitrogenSpecies.PYRIDINIC_2: 1})
     # graphene.add_nitrogen_doping(
