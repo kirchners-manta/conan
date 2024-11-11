@@ -978,7 +978,14 @@ class DopingHandler:
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species.
         optimization_weights : OptimizationWeights, optional
-            An instance containing weights for the optimization objective function.
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+            objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+            objective function.
 
         Raises
         ------
@@ -987,7 +994,7 @@ class DopingHandler:
             negative.
         """
         # Step 1: Validate inputs and prepare percentages
-        total_percentage, percentages = self._validate_and_set_percentages(total_percentage, percentages)
+        total_percentage, percentages = self._validate_and_prepare_percentages(total_percentage, percentages)
 
         # Step 2: Get initial number of carbon atoms in the structure
         num_initial_atoms = self.graph.number_of_nodes()
@@ -1038,23 +1045,35 @@ class DopingHandler:
         self._display_doping_results()
 
     @staticmethod
-    def _validate_and_set_percentages(
+    def _validate_and_prepare_percentages(
         total_percentage: Optional[float], percentages: Optional[Dict[NitrogenSpecies, float]]
     ) -> (float, Dict[NitrogenSpecies, float], List[NitrogenSpecies]):
         """
-        Validate and set the total doping percentage and percentages per species.
+        Validate the input percentages and total percentage, and set default values if necessary.
 
         Parameters
         ----------
         total_percentage : float
             The total nitrogen doping percentage.
         percentages : Dict[NitrogenSpecies, float]
-            A dictionary of percentages per nitrogen species.
+            A dictionary specifying the desired percentages for each nitrogen species.
 
         Returns
         -------
-        Tuple(float, Dict[NitrogenSpecies, float], List[NitrogenSpecies])
-            The total doping percentage and the percentages per species after validation.
+        Tuple(float, Dict[NitrogenSpecies, float])
+            The validated total nitrogen doping percentage as well as the validated and prepared percentages per
+            nitrogen species.
+
+         Raises
+        ------
+        ValueError
+            If input values are invalid or inconsistent.
+
+        Notes
+        -----
+        This method ensures that the input percentages and total_percentage are valid and consistent.
+        If total_percentage is not provided, it defaults to 10%.
+        If percentages are provided, it checks that they are valid and do not exceed the total_percentage.
         """
         # Validate the input for percentages
         if percentages is not None:
@@ -1092,12 +1111,7 @@ class DopingHandler:
         specific_total_percentage = sum(percentages.values())
         tolerance = 1e-6
 
-        # # Determine available species not included in the specified percentages
-        # all_species = list(NitrogenSpecies)
-        # specified_species = list(percentages.keys())
-        # remaining_available_species = [species for species in all_species if species not in specified_species]
-
-        # Validate specific percentages and calculate the remaining percentage
+        # Validate specific percentages and total_percentage
         if percentages:
             if total_percentage is None:
                 # Set total to sum of specific percentages if not provided
@@ -1124,23 +1138,6 @@ class DopingHandler:
         else:
             # Set a default total percentage if not provided
             total_percentage = total_percentage if total_percentage is not None else 10.0
-
-        # # Calculate the remaining percentage for other species
-        # remaining_percentage = total_percentage - sum(percentages.values())
-        # tolerance = 1e-6
-        #
-        # if remaining_percentage > tolerance:
-        #     # Determine available species not included in the specified percentages
-        #     remaining_available_species = [species for species in NitrogenSpecies if species not in percentages]
-        #     # Distribute the remaining percentage equally among available species
-        #     default_distribution = {
-        #         species: remaining_percentage / len(remaining_available_species) for species in
-        #         remaining_available_species
-        #     }
-        #     percentages.update(default_distribution)
-        # else:
-        #     # If the remaining percentage is negligible, we ignore it
-        #     pass
 
         return total_percentage, percentages
 
