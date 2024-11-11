@@ -969,7 +969,14 @@ class DopingHandler:
         optimization_weights: Optional[OptimizationWeights] = None,
     ):
         """
-        Add nitrogen doping to the structure using linear programming optimization.
+        Add nitrogen doping to the structure.
+
+        This method calculates the optimal number of doping structures for each nitrogen species to achieve the desired
+        total nitrogen percentage and specified percentages for certain species. It uses direct calculation for
+        specified percentages and linear programming optimization for distributing the remaining percentage among other
+        species.
+
+        # ToDo: Das ist noch nicht alles, was die Methode macht. Muss noch erweitert werden!
 
         Parameters
         ----------
@@ -992,6 +999,11 @@ class DopingHandler:
         ValueError
             If the specific percentages exceed the total percentage beyond a small tolerance, or if any percentage is
             negative.
+
+        Notes
+        -----
+        This method orchestrates the doping process by validating inputs, calculating the number of structures needed,
+        inserting the doping structures, and adjusting for any shortfall in the actual doping percentage achieved.
         """
         # Step 1: Validate inputs and prepare percentages
         total_percentage, percentages = self._validate_and_prepare_percentages(total_percentage, percentages)
@@ -1002,46 +1014,51 @@ class DopingHandler:
             warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
             return
 
-        # Step 3: Calculate structures for specified percentages
-        fixed_structures = {}
-        num_atoms_remaining = num_initial_atoms
-        specific_total_percentage = sum(percentages.values())
-        tolerance = 1e-6
+        # # Step 3: Calculate structures for specified percentages
+        # fixed_structures = {}
+        # num_atoms_remaining = num_initial_atoms
+        # specific_total_percentage = sum(percentages.values())
+        # tolerance = 1e-6
+        #
+        # if percentages and abs(total_percentage - specific_total_percentage) <= tolerance:
+        #     # Only specified percentages are given and sum up to total_percentage
+        #     fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+        #         num_initial_atoms, percentages
+        #     )
+        #     desired_num_structures = fixed_structures
+        # else:
+        #     # Calculate structures for specified percentages
+        #     if percentages:
+        #         fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+        #             num_initial_atoms, percentages
+        #         )
+        #     else:
+        #         fixed_structures = {}
+        #         num_atoms_remaining = num_initial_atoms
+        #
+        #     # Remaining percentage
+        #     remaining_percentage = total_percentage - sum(percentages.values())
+        #
+        #     # Step 4: Use optimization for remaining percentages
+        #     desired_structures_remaining = self._calculate_num_desired_structures(
+        #         num_atoms_remaining, remaining_percentage, optimization_weights, fixed_structures
+        #     )
+        #
+        #     # Combine the results
+        #     desired_num_structures = {**fixed_structures, **desired_structures_remaining}
 
-        if percentages and abs(total_percentage - specific_total_percentage) <= tolerance:
-            # Only specified percentages are given and sum up to total_percentage
-            fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
-                num_initial_atoms, percentages
-            )
-            desired_num_structures = fixed_structures
-        else:
-            # Calculate structures for specified percentages
-            if percentages:
-                fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
-                    num_initial_atoms, percentages
-                )
-            else:
-                fixed_structures = {}
-                num_atoms_remaining = num_initial_atoms
+        # Step 3: Calculate desired number of structures
+        desired_num_structures = self._calculate_num_desired_structures(
+            num_initial_atoms, total_percentage, percentages, optimization_weights
+        )
 
-            # Remaining percentage
-            remaining_percentage = total_percentage - sum(percentages.values())
-
-            # Step 4: Use optimization for remaining percentages
-            desired_structures_remaining = self._calculate_num_desired_structures(
-                num_atoms_remaining, remaining_percentage, optimization_weights, fixed_structures
-            )
-
-            # Combine the results
-            desired_num_structures = {**fixed_structures, **desired_structures_remaining}
-
-        # Step 5: Insert doping structures
+        # Step 4: Insert doping structures
         self._insert_doping_structures(desired_num_structures)
 
-        # Step 6: Adjust if actual doping percentage falls short of desired
+        # Step 5: Adjust if actual doping percentage falls short of desired
         self._adjust_for_shortfall_in_doping(total_percentage)
 
-        # Step 7: Display the final results of the doping process
+        # Step 6: Display the final results of the doping process
         self._display_doping_results()
 
     @staticmethod
@@ -1270,8 +1287,79 @@ class DopingHandler:
 
         return desired_num_structures
 
-    @staticmethod
     def _calculate_num_desired_structures(
+        self,
+        num_initial_atoms: int,
+        total_percentage: float,
+        percentages: Dict[NitrogenSpecies, float],
+        optimization_weights: Optional[OptimizationWeights],
+    ) -> Dict[NitrogenSpecies, int]:
+        """
+        Calculate the desired number of structures for each nitrogen species.
+
+        This method handles the calculation of the number of doping structures needed to achieve the desired total
+        nitrogen percentage and specified percentages for certain nitrogen species.
+
+        Parameters
+        ----------
+        num_initial_atoms : int
+            The initial number of carbon atoms in the structure.
+        total_percentage : float
+            The desired total nitrogen doping percentage.
+        percentages : Dict[NitrogenSpecies, float]
+            The desired percentages for each nitrogen species.
+        optimization_weights : OptimizationWeights, optional
+            Weights for the optimization objective function.
+
+        Returns
+        -------
+        desired_num_structures : Dict[NitrogenSpecies, int]
+            The calculated number of structures to insert for each nitrogen species.
+
+        Notes
+        -----
+        This method first calculates the number of structures for the specified species to achieve their desired
+        percentages as closely as possible. Then, it calculates the remaining percentage and uses linear programming to
+        distribute it among the remaining species.
+
+        It ensures that the total nitrogen percentage achieved is as close as possible to the desired total_percentage,
+        and that the distribution among species meets the specified percentages.
+        """
+        # Initialize variables
+        specific_total_percentage = sum(percentages.values())
+        tolerance = 1e-6
+
+        if percentages and abs(total_percentage - specific_total_percentage) <= tolerance:
+            # Only specified percentages are given and sum up to total_percentage
+            fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+                num_initial_atoms, percentages
+            )
+            desired_num_structures = fixed_structures
+        else:
+            # Calculate structures for specified percentages
+            if percentages:
+                fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+                    num_initial_atoms, percentages
+                )
+            else:
+                fixed_structures = {}
+                num_atoms_remaining = num_initial_atoms
+
+            # Remaining percentage
+            remaining_percentage = total_percentage - sum(percentages.values())
+
+            # Use optimization for remaining percentages
+            desired_structures_remaining = self._calculate_num_desired_structures_using_linear_programming(
+                num_atoms_remaining, remaining_percentage, optimization_weights, fixed_structures
+            )
+
+            # Combine the results
+            desired_num_structures = {**fixed_structures, **desired_structures_remaining}
+
+        return desired_num_structures
+
+    @staticmethod
+    def _calculate_num_desired_structures_using_linear_programming(
         num_initial_atoms: int,
         total_percentage: float,
         optimization_weights: Optional[OptimizationWeights],
@@ -1295,6 +1383,19 @@ class DopingHandler:
         -------
         desired_num_structures : Dict[NitrogenSpecies, int]
             The calculated number of structures to insert for each remaining nitrogen species.
+
+        Notes
+        -----
+        This method sets up and solves a linear programming problem to determine the optimal number of doping structures
+        for each remaining nitrogen species.
+
+        The objective is to minimize the deviation from the desired total nitrogen percentage and achieve an equal
+        distribution among the species.
+
+        The optimization considers the impact of each doping structure on the total number of atoms and the number of
+        nitrogen atoms added.
+
+        It excludes species that already have fixed structures assigned.
         """
         # Use default weights if none provided
         if optimization_weights is None:
@@ -1415,6 +1516,36 @@ class DopingHandler:
             The calculated number of structures for each specified species.
         num_atoms_remaining : int
             The number of carbon atoms remaining after inserting the specified structures.
+
+        Notes
+        -----
+        This method calculates the optimal integer number of structures for each specified nitrogen species to achieve
+        the desired doping percentages as closely as possible.
+
+        It uses an analytical formula to compute the initial estimate of the number of structures, and then evaluates
+        integer candidates (floor and ceiling values) to find the best match.
+
+        The method accounts for the removal of carbon atoms due to the insertion of doping structures.
+
+        Mathematical Derivation
+        -----------------------
+        The desired percentage for a species is given by:
+
+            P_d = (n * r_i) / (N - n * c_i) * 100%
+
+        Solving for n:
+
+            n = (P_d / 100) * N / (r_i + (P_d / 100) * c_i)
+
+        Where:
+        - P_d: Desired percentage as a fraction (e.g., 0.05 for 5%)
+        - N: Number of carbon atoms remaining
+        - n: Number of structures to insert (integer)
+        - r_i: Number of nitrogen atoms added per structure for species i
+        - c_i: Number of carbon atoms removed per structure for species i
+
+        The method considers both the floor and ceiling of n to find the integer value that minimizes the absolute
+        difference between the achieved percentage and the desired percentage.
         """
         desired_num_structures = {}
         num_atoms_remaining = num_initial_atoms
