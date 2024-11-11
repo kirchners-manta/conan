@@ -28,12 +28,37 @@ class OptimizationWeights(NamedTuple):
     Represents the weights used in the optimization of nitrogen doping to achieve the desired nitrogen percentage while
     maintaining an equal distribution among species.
 
+    In the linear programming model, the objective function is: Minimize w1 * z1 + w2 * z2, where z1 represents the
+    absolute deviation from the desired total nitrogen percentage and z2 represents the absolute deviation from an equal
+    distribution of nitrogen atoms among the different species.
+
     Attributes
     ----------
     nitrogen_percentage_weight : float
         Weight for the deviation from the desired nitrogen percentage (w1).
     equal_distribution_weight : float
         Weight for the deviation from equal distribution among species (w2).
+
+    Notes
+    -----
+    * Effects of high w1 and w2 values:
+
+        High nitrogen_percentage_weight: The optimization will prioritize achieving the desired nitrogen percentage so
+        that the solution will closely match the desired nitrogen percentage, potentially at the expense of an equal
+        distribution of nitrogen atoms among species.
+
+        High equal_distribution_weight: The optimization will prioritize achieving an equal distribution of nitrogen
+        atoms among species, potentially at the expense of deviating from the desired nitrogen percentage.
+
+    * Trade-off between w1 and w2:
+
+        Balancing Act: Adjusting w1 and w2 allows you to balance between achieving the exact nitrogen percentage and
+        maintaining an equal distribution among species.
+
+        Scenario Examples:
+         - w1 >> w2: Focus on matching the nitrogen percentage; distribution among species is less critical.
+         - w2 >> w1: Focus on equal distribution; some deviation from the nitrogen percentage is acceptable.
+         - w1 ≈ w2: The model seeks a compromise between the two objectives.
     """
 
     nitrogen_percentage_weight: float = 1000.0
@@ -1554,7 +1579,7 @@ class DopingHandler:
         if actual_doping_percentage < total_percentage:
             warn_message = (
                 "For reasons of space, it is not possible to come closer to the desired total doping "
-                "percentage with an equal distribution of structures. Additional Graphitic-N structures "
+                "percentage if we strive for an equal distribution of structures. Additional Graphitic-N structures "
                 "will be inserted to adjust for the shortfall and get closer to the desired doping "
                 "percentage.\nPlease consider whether such a high doping percentage is still practical, as "
                 "achieving it may compromise the structural integrity of the material."
