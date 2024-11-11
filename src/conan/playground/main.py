@@ -41,7 +41,7 @@ def main():
 
     ####################################################################################################################
     # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (20, 20)
+    sheet_size = (40, 40)
 
     # # Use default optimization weights
     # weights = OptimizationWeights()
@@ -49,19 +49,21 @@ def main():
     # Define optimization weights
     weights = OptimizationWeights(
         nitrogen_percentage_weight=1000,
-        equal_distribution_weight=0,
+        equal_distribution_weight=1,
     )
 
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=15, adjust_positions=False, optimization_weights=weights)
+    # graphene.add_nitrogen_doping(total_percentage=8, adjust_positions=False, optimization_weights=weights)
     # graphene.add_nitrogen_doping(optimization_weights=weights)
     graphene.add_nitrogen_doping(
-        percentages={NitrogenSpecies.PYRIDINIC_4: 5, NitrogenSpecies.PYRIDINIC_2: 7}, optimization_weights=weights
+        total_percentage=10,
+        percentages={NitrogenSpecies.PYRIDINIC_4: 3, NitrogenSpecies.PYRIDINIC_2: 2},
+        optimization_weights=weights,
     )
     # graphene.add_nitrogen_doping(
     #     percentages={
     #         NitrogenSpecies.GRAPHITIC: 0.73,
-    #         NitrogenSpecies.PYRIDINIC_1: 2.6,  # ToDo: Eigentlich müsste hier 2.73 stehen, um auf 2.73 zu kommen???
+    #         NitrogenSpecies.PYRIDINIC_1: 2.73,
     #         NitrogenSpecies.PYRIDINIC_2: 1.45,
     #         NitrogenSpecies.PYRIDINIC_3: 1.64,
     #         NitrogenSpecies.PYRIDINIC_4: 1.45,
