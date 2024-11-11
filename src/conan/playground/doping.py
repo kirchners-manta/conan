@@ -1014,39 +1014,6 @@ class DopingHandler:
             warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
             return
 
-        # # Step 3: Calculate structures for specified percentages
-        # fixed_structures = {}
-        # num_atoms_remaining = num_initial_atoms
-        # specific_total_percentage = sum(percentages.values())
-        # tolerance = 1e-6
-        #
-        # if percentages and abs(total_percentage - specific_total_percentage) <= tolerance:
-        #     # Only specified percentages are given and sum up to total_percentage
-        #     fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
-        #         num_initial_atoms, percentages
-        #     )
-        #     desired_num_structures = fixed_structures
-        # else:
-        #     # Calculate structures for specified percentages
-        #     if percentages:
-        #         fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
-        #             num_initial_atoms, percentages
-        #         )
-        #     else:
-        #         fixed_structures = {}
-        #         num_atoms_remaining = num_initial_atoms
-        #
-        #     # Remaining percentage
-        #     remaining_percentage = total_percentage - sum(percentages.values())
-        #
-        #     # Step 4: Use optimization for remaining percentages
-        #     desired_structures_remaining = self._calculate_num_desired_structures(
-        #         num_atoms_remaining, remaining_percentage, optimization_weights, fixed_structures
-        #     )
-        #
-        #     # Combine the results
-        #     desired_num_structures = {**fixed_structures, **desired_structures_remaining}
-
         # Step 3: Calculate desired number of structures
         desired_num_structures = self._calculate_num_desired_structures(
             num_initial_atoms, total_percentage, percentages, optimization_weights
