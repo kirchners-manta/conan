@@ -1175,6 +1175,91 @@ class DopingHandler:
 
         return desired_num_structures
 
+    @staticmethod
+    def _calculate_num_structures_for_specified_percentages(
+        num_initial_atoms: int, percentages: Dict[NitrogenSpecies, float]
+    ) -> Tuple[Dict[NitrogenSpecies, int], int]:
+        """
+        Calculate the number of structures needed for each specified species to achieve their desired percentages
+        as closely as possible.
+
+        Parameters
+        ----------
+        num_initial_atoms : int
+            The initial number of carbon atoms in the structure.
+        percentages : Dict[NitrogenSpecies, float]
+            The desired percentages for each specified nitrogen species.
+
+        Returns
+        -------
+        desired_num_structures : Dict[NitrogenSpecies, int]
+            The calculated number of structures for each specified species.
+        num_atoms_remaining : int
+            The number of carbon atoms remaining after inserting the specified structures.
+        """
+        desired_num_structures = {}
+        num_atoms_remaining = num_initial_atoms
+
+        for species, desired_percentage in percentages.items():
+            # Get the number of nitrogen atoms added and carbon atoms removed per structure
+            ri = NitrogenSpecies.get_num_nitrogen_atoms_to_add(species)
+            ci = NitrogenSpecies.get_num_carbon_atoms_to_remove(species)
+
+            # Desired percentage as a fraction
+            desired_percentage_fraction = desired_percentage / 100.0
+
+            # Calculate n using the derived formula
+            numerator = desired_percentage_fraction * num_atoms_remaining
+            denominator = ri + desired_percentage_fraction * ci
+
+            # Avoid division by zero
+            if denominator == 0:
+                n = 0
+            else:
+                n = numerator / denominator
+
+            # Since n must be an integer, consider floor and ceiling values
+            n_floor = int(n)
+            n_ceil = n_floor + 1
+
+            # Initialize variables to track the best n
+            min_delta = float("inf")
+            best_n = n_floor
+
+            # Evaluate both floor and ceiling candidates
+            for n_candidate in [n_floor, n_ceil]:
+                if n_candidate < 0:
+                    continue
+
+                # Calculate total nitrogen atoms added
+                total_ri = n_candidate * ri
+
+                # Calculate the total number of atoms after doping
+                num_atoms_after_doping = num_atoms_remaining - n_candidate * ci
+
+                if num_atoms_after_doping <= 0:
+                    continue  # Skip invalid candidate
+
+                # Calculate the achieved percentage
+                achieved_percentage = (total_ri / num_atoms_after_doping) * 100.0
+
+                # Calculate the absolute difference from desired percentage
+                delta = abs(achieved_percentage - desired_percentage)
+
+                # Update the best_n if this delta is smaller
+                if delta < min_delta:
+                    min_delta = delta
+                    best_n = n_candidate
+
+            # Assign the best_n for this species
+            desired_num_structures[species] = best_n
+
+            # Update the number of atoms remaining
+            num_atoms_removed = best_n * ci
+            num_atoms_remaining -= num_atoms_removed
+
+        return desired_num_structures, num_atoms_remaining
+
     def _insert_doping_structures(self, desired_structures: Dict[NitrogenSpecies, int]):
         """
         Insert a specified number of doping structures of a specific nitrogen species into the graphene sheet.
