@@ -616,9 +616,9 @@ class GrapheneSheet(Structure2D):
         """
         Add nitrogen doping to the graphene sheet.
 
-        This method replaces a specified percentage of carbon atoms with nitrogen atoms in the graphene sheet.
-        If specific percentages for different nitrogen species are provided, it ensures the sum does not exceed the
-        total percentage. The remaining percentage is distributed equally among the available nitrogen species.
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
 
         Parameters
         ----------
@@ -657,12 +657,15 @@ class GrapheneSheet(Structure2D):
 
         Notes
         -----
-        - If no total percentage is provided, a default of 10% is used.
-        - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
-        - Remaining percentages are distributed equally among the available nitrogen species.
-        - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
-          GRAPHITIC.
-        - `optimization_config` is only considered if `adjust_positions` is set to True.
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         """
         if not isinstance(adjust_positions, bool):
             raise ValueError(f"adjust_positions must be a Boolean, but got {type(adjust_positions).__name__}")
@@ -965,6 +968,10 @@ class StackedGraphene(Structure3D):
         """
         Add nitrogen doping to one or multiple layers in the stacked graphene structure.
 
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
+
         Parameters
         ----------
         total_percentage : float, optional
@@ -1005,8 +1012,18 @@ class StackedGraphene(Structure3D):
 
         Notes
         -----
+        - The doping process includes multiple stages:
+              1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+              2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+                 distribution of doping structures, respecting both the target nitrogen percentage and species
+                 distribution.
+              3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a
+                 graph theoretical approach.
+              4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+                 percentage is not reached due to space constraints.
+              5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         - After doping, positions may be adjusted by setting `adjust_positions=True` or by calling
-        `adjust_atom_positions()`.
+          `adjust_atom_positions()`.
         """
         # Determine which layers to dope
         if isinstance(layers, str) and layers.lower() == "all":
@@ -1053,6 +1070,10 @@ class StackedGraphene(Structure3D):
         """
         Add nitrogen doping to a specific layer in the stacked graphene structure.
 
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
+
         Parameters
         ----------
         layer_index : int
@@ -1087,6 +1108,18 @@ class StackedGraphene(Structure3D):
         ------
         UserWarning
             If `adjust_positions` is `False` but `optimization_config` is provided.
+
+        Notes
+        -----
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
@@ -1801,10 +1834,10 @@ class CNT(Structure3D):
         """
         Add nitrogen doping to the CNT.
 
-        This method replaces a specified percentage of carbon atoms with nitrogen atoms in the CNT.
-        If specific percentages for different nitrogen species are provided, it ensures the sum does not exceed the
-        total percentage. The remaining percentage is distributed equally among the available nitrogen species. Note
-        that no position adjustment is implemented for three-dimensional structures and therefore not supported for
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration.
+        Note that no position adjustment is implemented for three-dimensional structures and therefore not supported for
         CNTs as well.
 
         Parameters
@@ -1836,11 +1869,15 @@ class CNT(Structure3D):
 
         Notes
         -----
-        - If no total percentage is provided, a default of 10% is used.
-        - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
-        - Remaining percentages are distributed equally among the available nitrogen species.
-        - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
-          GRAPHITIC.
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
 
         Warnings
         --------
