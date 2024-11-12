@@ -632,10 +632,15 @@ class GrapheneSheet(Structure2D):
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
             - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-            objective function.
+              objective function.
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-            objective function.
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
@@ -972,10 +977,15 @@ class StackedGraphene(Structure3D):
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
             - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-            objective function.
+              objective function.
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-            objective function.
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         layers : Union[List[int], str], optional
@@ -1057,10 +1067,15 @@ class StackedGraphene(Structure3D):
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
             - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-            objective function.
+              objective function.
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-            objective function.
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
@@ -1804,10 +1819,15 @@ class CNT(Structure3D):
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
             - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-            objective function.
+              objective function.
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-            objective function.
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
 
         Raises
         ------

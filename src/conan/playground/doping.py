@@ -902,66 +902,6 @@ class DopingHandler:
         atom_id = random.choice(untested_atoms)  # Randomly select an untested atom ID
         return atom_id  # Return the selected atom ID
 
-    # def add_nitrogen_doping(
-    #     self,
-    #     total_percentage: Optional[float] = None,
-    #     percentages: Optional[dict] = None,
-    #     optimization_weights: Optional[OptimizationWeights] = None,
-    # ):
-    #     """
-    #     Add nitrogen doping to the structure using linear programming optimization and utilizing graph manipulation
-    #     techniques to insert the doping structures.
-    #
-    #     This method adds nitrogen doping to the structure by determining the optimal number of doping structures
-    #     for each nitrogen species to achieve the desired total nitrogen percentage and an equal distribution
-    #     among species. It uses a linear programming model solved with PuLP.
-    #
-    #     Parameters
-    #     ----------
-    #     total_percentage : float, optional
-    #         The total percentage of carbon atoms to replace with nitrogen atoms.
-    #     percentages : dict, optional
-    #         A dictionary specifying the percentages for each nitrogen species.
-    #     optimization_weights : OptimizationWeights, optional
-    #         An instance containing weights for the optimization objective function to balance the trade-off between
-    #         gaining the desired nitrogen percentage and achieving an equal distribution among species.
-    #
-    #         - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-    #         objective function.
-    #
-    #         - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-    #         objective function.
-    #
-    #     Raises
-    #     ------
-    #     ValueError
-    #         If the specific percentages exceed the total percentage beyond a small tolerance, or if any percentage is
-    #         negative.
-    #     """
-    #
-    #     # Step 1: Validate inputs and prepare percentages
-    #     total_percentage, percentages = self._validate_and_set_percentages(total_percentage, percentages)
-    #
-    #     # Step 2: Get initial number of carbon atoms in the structure
-    #     num_initial_atoms = self.graph.number_of_nodes()
-    #     if num_initial_atoms == 0:  # ToDo: Sollte hoffentlich nicht vorkommen
-    #         warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
-    #         return
-    #
-    #     # Step 3: Calculate desired number of structures for each species using optimization
-    #     desired_num_structures_per_species = self._calculate_num_desired_structures(
-    #         num_initial_atoms, total_percentage, percentages, optimization_weights
-    #     )
-    #
-    #     # Step 4: Insert doping structures
-    #     self._insert_doping_structures(desired_num_structures_per_species)
-    #
-    #     # Step 5: Adjust if actual doping percentage falls short of desired
-    #     self._adjust_for_shortfall_in_doping(total_percentage)
-    #
-    #     # Step 6: Display the final results of the doping process
-    #     self._display_doping_results()
-
     def add_nitrogen_doping(
         self,
         total_percentage: Optional[float] = None,
@@ -990,10 +930,15 @@ class DopingHandler:
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
 
             - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
-            objective function.
+              objective function.
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
-            objective function.
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
 
         Raises
         ------
@@ -1014,10 +959,10 @@ class DopingHandler:
         **Optimization Approach**:
 
         - The method formulates a mixed-integer linear programming (MILP) problem that considers all nitrogen species
-        together.
+          together.
         - It accounts for changes in the total number of atoms due to the insertion of doping structures.
         - The objective is to minimize the multi-objective function that balances the deviation from the desired total
-        nitrogen percentage and the deviation from an equal distribution among species.
+          nitrogen percentage and the deviation from an equal distribution among species.
         """
         # Step 1: Validate inputs and prepare percentages
         total_percentage, percentages = self._validate_and_prepare_percentages(total_percentage, percentages)
@@ -1161,7 +1106,19 @@ class DopingHandler:
         percentages : Dict[NitrogenSpecies, float]
             The desired percentages for each nitrogen species.
         optimization_weights : OptimizationWeights, optional
-            Weights for the optimization objective function.
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
 
         Returns
         -------
@@ -1227,7 +1184,19 @@ class DopingHandler:
         total_percentage : float
             The desired total nitrogen doping percentage to be distributed among the remaining species.
         optimization_weights : OptimizationWeights, optional
-            Weights for the optimization objective function.
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         fixed_structures : Dict[NitrogenSpecies, int]
             The number of structures already assigned to specified species.
 
@@ -1364,10 +1333,9 @@ class DopingHandler:
 
         Returns
         -------
-        desired_num_structures : Dict[NitrogenSpecies, int]
-            The calculated number of structures for each specified species.
-        num_atoms_remaining : int
-            The number of carbon atoms remaining after inserting the specified structures.
+        Tuple[Dict[NitrogenSpecies, int], int]
+            The calculated number of structures for each specified species and the number of carbon atoms remaining
+            after inserting the specified structures.
 
         Notes
         -----
@@ -1383,14 +1351,14 @@ class DopingHandler:
         -----------------------
         The desired percentage for a species is given by:
 
-            P_d = (n * r_i) / (N - n * c_i) * 100%
+            P_d = (n * r_i) / (N - n * c_i) * 100
 
         Solving for n:
 
             n = (P_d / 100) * N / (r_i + (P_d / 100) * c_i)
 
         Where:
-        - P_d: Desired percentage as a fraction (e.g., 0.05 for 5%)
+        - P_d: Desired percentage (e.g., 5%)
         - N: Number of carbon atoms remaining
         - n: Number of structures to insert (integer)
         - r_i: Number of nitrogen atoms added per structure for species i
