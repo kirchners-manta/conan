@@ -1981,39 +1981,75 @@ class DopingHandler:
 
     def _adjust_for_shortfall_in_doping(self, total_percentage: float):
         """
-        Insert additional Graphitic-N structures if actual doping percentage falls short of the target.
+        Attempt to adjust for any shortfall in the actual doping percentage.
+
+        If the actual doping percentage falls short of the desired total percentage beyond a certain tolerance,
+        this method attempts to insert additional Graphitic-N structures to compensate for the shortfall.
+
 
         Parameters
         ----------
         total_percentage : float
             The target total doping percentage.
+
+        Notes
+        -----
+        - A tolerance is used to determine if the actual doping percentage is sufficiently close to the desired
+          percentage.
+        - Additional Graphitic-N structures are inserted if necessary and possible.
+        - If unable to achieve the desired doping percentage due to space constraints, a warning is issued.
         """
         total_atoms_after_doping = self.graph.number_of_nodes()
         total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
-        actual_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+        actual_doping_percentage = (total_nitrogen_atoms / total_atoms_after_doping) * 100
 
-        if actual_doping_percentage < total_percentage:
-            warn_message = (
-                "For reasons of space, it is not possible to come closer to the desired total doping "
-                "percentage if we strive for an equal distribution of structures. Additional Graphitic-N structures "
-                "will be inserted to adjust for the shortfall and get closer to the desired doping "
-                "percentage.\nPlease consider whether such a high doping percentage is still practical, as "
-                "achieving it may compromise the structural integrity of the material."
+        # Calculate the minimal possible increase in doping percentage achievable by adding one Graphitic-N structure
+        min_possible_increment = (
+            NitrogenSpecies.get_num_nitrogen_atoms_to_add(NitrogenSpecies.GRAPHITIC) / total_atoms_after_doping
+        ) * 100
+
+        # Define the tolerance as half of the minimal possible increment
+        tolerance = min_possible_increment / 2
+
+        # Calculate the shortfall
+        shortfall = total_percentage - actual_doping_percentage
+
+        if shortfall > tolerance:
+            # Warning indicating attempt to fill the shortfall with Graphitic-N
+            warnings.warn(
+                f"Attempting to fill the remaining shortfall of {shortfall:.2f}% with Graphitic-N structures "
+                "to reach the desired doping percentage.",
+                UserWarning,
             )
-            warnings.warn(warn_message, UserWarning)
-            shortfall = total_percentage - actual_doping_percentage
-            doping_per_graphitic = (
-                NitrogenSpecies.get_num_nitrogen_atoms_to_add(NitrogenSpecies.GRAPHITIC) / total_atoms_after_doping
-            ) * 100
+
+            doping_per_graphitic = min_possible_increment  # Since one Graphitic-N adds min_possible_increment%
+
+            # Calculate the number of additional Graphitic-N structures needed
             additional_graphitic_needed = int(round(shortfall / doping_per_graphitic))
 
-            inserted = self._attempt_insertion_for_species(NitrogenSpecies.GRAPHITIC, additional_graphitic_needed)
-            if inserted < additional_graphitic_needed:
-                warnings.warn(
-                    f"Only {inserted} out of {additional_graphitic_needed} additional Graphitic-N structures could be "
-                    "placed due to space constraints.",
-                    UserWarning,
+            if additional_graphitic_needed > 0:
+                inserted = self._attempt_insertion_for_species(NitrogenSpecies.GRAPHITIC, additional_graphitic_needed)
+                if inserted > 0:
+                    # Update total nitrogen atoms and actual doping percentage after insertion
+                    total_nitrogen_atoms += inserted * NitrogenSpecies.get_num_nitrogen_atoms_to_add(
+                        NitrogenSpecies.GRAPHITIC
+                    )
+                    actual_doping_percentage = (total_nitrogen_atoms / total_atoms_after_doping) * 100
+
+                    # Recalculate the shortfall after insertion
+                    shortfall = total_percentage - actual_doping_percentage
+
+            # Check if the shortfall is still beyond the tolerance after insertion
+            if shortfall > tolerance:
+                # Unable to achieve desired doping percentage due to space constraints
+                warn_message = (
+                    f"Unable to achieve the desired total doping percentage of {total_percentage}% due to space "
+                    f"constraints. The actual doping percentage achieved is {actual_doping_percentage:.2f}%."
                 )
+                warnings.warn(warn_message, UserWarning)
+        else:
+            # Actual doping percentage is within acceptable tolerance; no action needed
+            pass
 
     def _update_actual_doping_percentages(self, additional_structures_inserted: int, species: NitrogenSpecies):
         """
