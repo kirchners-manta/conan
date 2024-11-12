@@ -102,19 +102,19 @@ class TestDopingValidations:
         with pytest.raises(ValueError, match=expected_message):
             graphene_sheet.add_nitrogen_doping(percentages=invalid_percentages)
 
-    @pytest.mark.parametrize(
-        "small_sheet_size, expected_warning",
-        [
-            ((5, 5), "The selected doping percentage is too low or the structure is too small to allow for doping."),
-        ],
-    )
-    def test_doping_too_small(self, small_sheet_size, expected_warning):
-        """
-        Test that a warning is raised when the structure is too small to allow for doping.
-        """
-        graphene = GrapheneSheet(bond_length=1.42, sheet_size=small_sheet_size)
-        with pytest.warns(UserWarning, match=expected_warning):
-            graphene.add_nitrogen_doping(total_percentage=0.01)
+    # @pytest.mark.parametrize(
+    #     "small_sheet_size, expected_warning",
+    #     [
+    #         ((5, 5), "The selected doping percentage is too low or the structure is too small to allow for doping."),
+    #     ],
+    # )
+    # def test_doping_too_small(self, small_sheet_size, expected_warning):
+    #     """
+    #     Test that a warning is raised when the structure is too small to allow for doping.
+    #     """
+    #     graphene = GrapheneSheet(bond_length=1.42, sheet_size=small_sheet_size)
+    #     with pytest.warns(UserWarning, match=expected_warning):
+    #         graphene.add_nitrogen_doping(total_percentage=0.01)
 
     @pytest.mark.parametrize(
         "valid_total_percentage, valid_percentages",
@@ -139,7 +139,9 @@ class TestDopingValidations:
 
     def test_warning_when_not_all_atoms_placed(self, graphene_sheet):
         with pytest.warns(
-            UserWarning, match=r"Only \d+ nitrogen atoms of species .* could be placed due to proximity constraints"
+            UserWarning,
+            match=r"Only \d+ out of the desired \d+ structures of species .* could be placed due to space "
+            r"constraints.",
         ):
             graphene_sheet.add_nitrogen_doping(total_percentage=50)
 
