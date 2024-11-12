@@ -122,7 +122,7 @@ def main():
         Y,
         Z,
         title="Combined Distribution Function Contour Plot (Raw Data)",
-        cmap="jet",
+        cmap="viridis",
         levels_filled=50,
     )
 
@@ -133,7 +133,7 @@ def main():
         Y,
         Z_smoothed,
         title="Combined Distribution Function Contour Plot (Smoothed Data)",
-        cmap="jet",
+        cmap="viridis",
         levels_filled=50,
     )
 
