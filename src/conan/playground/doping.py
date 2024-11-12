@@ -969,21 +969,22 @@ class DopingHandler:
         optimization_weights: Optional[OptimizationWeights] = None,
     ):
         """
-        Add nitrogen doping to the structure.
+        Add nitrogen doping to the structure using optimization and utilizing graph manipulation techniques to insert
+        the doping structures.
 
         This method calculates the optimal number of doping structures for each nitrogen species to achieve the desired
-        total nitrogen percentage and specified percentages for certain species. It uses direct calculation for
-        specified percentages and linear programming optimization for distributing the remaining percentage among other
-        species.
-
-        # ToDo: Das ist noch nicht alles, was die Methode macht. Muss noch erweitert werden!
+        total nitrogen percentage and specified percentages for certain species. It uses a mixed-integer linear
+        programming model to find the best solution.
 
         Parameters
         ----------
         total_percentage : float, optional
             The total percentage of carbon atoms to replace with nitrogen atoms.
         percentages : dict, optional
-            A dictionary specifying the percentages for each nitrogen species.
+            A dictionary specifying the desired percentages for each nitrogen species.
+            The percentages should sum up to the total_percentage or less.
+            If they sum to less than total_percentage, the remaining percentage will be
+            distributed among other species to meet the total_percentage.
         optimization_weights : OptimizationWeights, optional
             An instance containing weights for the optimization objective function to balance the trade-off between
             gaining the desired nitrogen percentage and achieving an equal distribution among species.
@@ -1002,8 +1003,21 @@ class DopingHandler:
 
         Notes
         -----
-        This method orchestrates the doping process by validating inputs, calculating the number of structures needed,
-        inserting the doping structures, and adjusting for any shortfall in the actual doping percentage achieved.
+        **Workflow**:
+
+        1. **Validation**: Validates inputs and prepares percentages.
+        2. **Calculation**: Calculates the number of structures needed for each nitrogen species using optimization.
+        3. **Insertion**: Inserts the doping structures into the structure.
+        4. **Adjustment**: Adjusts for any shortfall in the actual doping percentage achieved.
+        5. **Results**: Displays the final doping results.
+
+        **Optimization Approach**:
+
+        - The method formulates a mixed-integer linear programming (MILP) problem that considers all nitrogen species
+        together.
+        - It accounts for changes in the total number of atoms due to the insertion of doping structures.
+        - The objective is to minimize the multi-objective function that balances the deviation from the desired total
+        nitrogen percentage and the deviation from an equal distribution among species.
         """
         # Step 1: Validate inputs and prepare percentages
         total_percentage, percentages = self._validate_and_prepare_percentages(total_percentage, percentages)
