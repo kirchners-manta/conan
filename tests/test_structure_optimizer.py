@@ -7,7 +7,7 @@ import numpy.testing as npt
 import pytest
 from ase.io import read
 
-from conan.playground.doping import NitrogenSpecies
+from conan.playground.doping import NitrogenSpecies, OptimizationWeights
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 from conan.playground.structures import GrapheneSheet
 from conan.playground.utils import write_xyz
@@ -42,8 +42,9 @@ class TestStructureOptimizer:
         # Set up the graphene sheet
         random.seed(1)
         sheet_size = (15, 15)
+        weights = OptimizationWeights(nitrogen_percentage_weight=1, equal_distribution_weight=1)
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-        graphene.add_nitrogen_doping(total_percentage=10)
+        graphene.add_nitrogen_doping(total_percentage=10, optimization_weights=weights)
 
         # Create the optimizer
         config = OptimizationConfig(
@@ -65,10 +66,11 @@ class TestStructureOptimizer:
 
         # Set up the graphene sheet with the same parameters as the optimized reference structure
         sheet_size = (20, 20)
+        weights = OptimizationWeights(nitrogen_percentage_weight=1, equal_distribution_weight=1)
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
 
         # Apply nitrogen doping with 10% total percentage
-        graphene.add_nitrogen_doping(total_percentage=10)
+        graphene.add_nitrogen_doping(total_percentage=10, optimization_weights=weights)
 
         # Create the optimizer
         config = OptimizationConfig(
