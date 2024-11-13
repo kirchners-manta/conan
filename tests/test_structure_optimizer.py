@@ -1,6 +1,7 @@
 import os
 import random
 import tempfile
+import warnings
 
 import numpy as np
 import numpy.testing as npt
@@ -111,6 +112,9 @@ class TestStructureOptimizer:
         return optimized_positions, elements
 
     def test_assign_target_bond_lengths_and_k_values(self, setup_structure_optimizer_small_system):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore expected warnings in this test
+
         optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
@@ -249,6 +253,9 @@ class TestStructureOptimizer:
         ), "Bond k values do not match expected values."
 
     def test_assign_target_angles_and_k_values(self, setup_structure_optimizer_small_system):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore expected warnings in this test
+
         optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
@@ -671,7 +678,9 @@ class TestStructureOptimizer:
         optimizer = setup_structure_optimizer
 
         # Perform the position optimization
-        optimizer.optimize_positions()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore optimization warnings
+            optimizer.optimize_positions()
 
         # Write the optimized structure to a temporary XYZ file
         graphene_sheet = optimizer.structure
