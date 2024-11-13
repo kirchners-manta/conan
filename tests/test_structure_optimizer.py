@@ -42,9 +42,16 @@ class TestStructureOptimizer:
         # Set up the graphene sheet
         random.seed(1)
         sheet_size = (15, 15)
-        weights = OptimizationWeights(nitrogen_percentage_weight=1, equal_distribution_weight=1)
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-        graphene.add_nitrogen_doping(total_percentage=10, optimization_weights=weights)
+        graphene.add_nitrogen_doping(
+            percentages={
+                NitrogenSpecies.GRAPHITIC: 1.49,
+                NitrogenSpecies.PYRIDINIC_1: 1.49,
+                NitrogenSpecies.PYRIDINIC_2: 2.99,
+                NitrogenSpecies.PYRIDINIC_3: 4.48,
+                NitrogenSpecies.PYRIDINIC_4: 5.97,
+            }
+        )
 
         # Create the optimizer
         config = OptimizationConfig(
