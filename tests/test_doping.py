@@ -138,12 +138,16 @@ class TestDopingValidations:
                 pytest.fail("add_nitrogen_doping raised ValueError unexpectedly!")
 
     def test_warning_when_not_all_atoms_placed(self, graphene_sheet):
-        with pytest.warns(
-            UserWarning,
-            match=r"Only \d+ out of the desired \d+ structures of species .* could be placed due to space "
-            r"constraints.",
-        ):
-            graphene_sheet.add_nitrogen_doping(total_percentage=50)
+        # Ignore the warning for the doping requirement if it occurs
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+
+            with pytest.warns(
+                UserWarning,
+                match=r"Only \d+ out of the desired \d+ structures of species .* could be placed due to space "
+                r"constraints.",
+            ):
+                graphene_sheet.add_nitrogen_doping(total_percentage=50)
 
     def test_empty_percentages_dict(self, graphene_sheet):
         """
