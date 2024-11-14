@@ -134,7 +134,7 @@ class AtomLabeler:
             self._label_atoms_in_sheet(self.structure.graph, doping_structures)
 
     @staticmethod
-    def _label_atoms_in_sheet(self, graph: nx.Graph, doping_structures: DopingStructureCollection):
+    def _label_atoms_in_sheet(graph: nx.Graph, doping_structures: DopingStructureCollection):
         """
         Label atoms in a single graphene sheet.
 
