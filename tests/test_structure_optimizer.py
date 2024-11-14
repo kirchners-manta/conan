@@ -2,6 +2,7 @@ import os
 import random
 import tempfile
 import warnings
+import platform
 
 import numpy as np
 import numpy.testing as npt
@@ -704,7 +705,15 @@ class TestStructureOptimizer:
         assert optimized_elements == ref_elements, "Element symbols do not match."
 
         # Compare positions with tolerances
-        npt.assert_allclose(optimized_positions, ref_positions, atol=1e-4, rtol=1e-4)
+        try:
+            if platform.system() in ['Windows', 'Darwin']:  # Darwin ist macOS
+                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
+            else:
+                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
+        except AssertionError as e:
+            for i, (opt_pos, ref_pos) in enumerate(zip(optimized_positions, ref_positions)):
+                print(f"Atom {i}: Optimized position = {opt_pos}, Reference position = {ref_pos}")
+            raise AssertionError("Positions do not match within tolerance.") from e
 
     def test_assign_target_bond_lengths_missing_target_length(self, setup_structure_optimizer_small_system):
         optimizer = setup_structure_optimizer_small_system
