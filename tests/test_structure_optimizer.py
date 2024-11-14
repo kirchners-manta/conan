@@ -1,8 +1,8 @@
 import os
+import platform
 import random
 import tempfile
 import warnings
-import platform
 
 import numpy as np
 import numpy.testing as npt
@@ -706,7 +706,7 @@ class TestStructureOptimizer:
 
         # Compare positions with tolerances
         try:
-            if platform.system() in ['Windows', 'Darwin']:  # Darwin ist macOS
+            if platform.system() in ["Windows", "Darwin"]:  # Darwin ist macOS
                 npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
             else:
                 npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
