@@ -87,7 +87,7 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
     levels_filled : int, optional
         Number of levels for filled contours (default is 50).
     xlim : tuple, optional
-        Limits for the x-axis (default is (-5000, 5000)).
+        Limits for the x-axis (default is (-5200, 5200)).
     save_path : str, optional
         Path to save the plot as an image (default is None, which does not save the plot).
     """
@@ -98,7 +98,7 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
     plt.ylabel("Angle (Degree)")
     plt.title(title)
     plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
-    plt.xticks(np.arange(-5200, 5200, 1000))
+    plt.xticks(np.arange(-5000, 6000, 1000))
     plt.yticks(np.arange(0, 190, 45))
     plt.xlim(xlim)
 
@@ -153,6 +153,88 @@ def process_cdf(file_path, output_dir=None):
         cmap="viridis",
         levels_filled=50,
         save_path=smoothed_plot_path,
+    )
+
+
+def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", levels_filled=50, save_path=None):
+    """
+    Plot a zoomed contour plot around a specified center.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Meshgrid array for the x-axis.
+    Y : np.ndarray
+        Meshgrid array for the y-axis.
+    Z : np.ndarray
+        2D array of values for contour plotting.
+    title : str
+        Title of the plot.
+    center : float
+        The center of the zoomed region on the x-axis.
+    zoom_range : int, optional
+        Range of the zoom around the center (default is 2000).
+    cmap : str, optional
+        Colormap for filled contours (default is 'jet').
+    levels_filled : int, optional
+        Number of levels for filled contours (default is 50).
+    save_path : str, optional
+        Path to save the plot as an image (default is None, which does not save the plot).
+    """
+    x_min, x_max = center - zoom_range, center + zoom_range
+    plt.figure(figsize=(10, 8))
+    contour_filled = plt.contourf(X, Y, Z, levels=levels_filled, cmap=cmap, alpha=0.8)
+    plt.colorbar(contour_filled, label="Occurrence")
+    plt.xlabel("Distance from Plane (pm)")
+    plt.ylabel("Angle (Degree)")
+    plt.title(title)
+    plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
+    plt.xticks(np.arange(x_min, x_max + 500, 500))
+    plt.yticks(np.arange(0, 190, 45))
+    plt.xlim(x_min, x_max)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Zoomed plot saved to {save_path}")
+    else:
+        plt.show()
+
+
+def process_zoomed_cdf(file_path, center, output_dir=None):
+    """
+    Process a CDF file and generate a zoomed contour plot.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the CDF CSV file.
+    center : float
+        Center of the zoomed region on the x-axis.
+    output_dir : str, optional
+        Directory to save the resulting plots. If None, plots are shown but not saved.
+    """
+    # Create output directory if it does not exist
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    # Load data
+    cdf_data = load_cdf_data(file_path)
+
+    # Create pivot table and meshgrid for plotting
+    X, Y, Z = create_pivot_table(cdf_data)
+
+    # Generate zoomed plot
+    zoomed_plot_path = os.path.join(output_dir, "cdf_zoomed.png") if output_dir else None
+    plot_zoomed_contour(
+        X,
+        Y,
+        Z,
+        title="Zoomed Combined Distribution Function Contour Plot",
+        center=center,
+        zoom_range=2000,
+        cmap="viridis",
+        levels_filled=50,
+        save_path=zoomed_plot_path,
     )
 
 
@@ -241,17 +323,58 @@ def plot_z_density_profiles(base_dir, analysis_type, output_dir):
 
 def cdf_analysis():
     # Define input file and output directory
-    file_path = (
-        "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod1/output/Travis/"
-        "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
-    )
-    output_dir = "analysis_outputs"
+    file_paths = [
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod1/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
+        ),
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod2/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
+        ),
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod3/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
+        ),
+    ]
+    output_base_dir = "analysis_outputs"
 
-    # Create output directory if it does not exist
-    os.makedirs(output_dir, exist_ok=True)
+    for idx, file_path in enumerate(file_paths, start=1):
+        output_dir = os.path.join(output_base_dir, f"prod{idx}")
+        process_cdf(file_path, output_dir)
 
-    # Process the CDF file
-    process_cdf(file_path, output_dir)
+
+def cdf_zoomed_analysis():
+    """
+    Perform zoomed CDF analysis for prod1, prod2, and prod3.
+
+    Centers are defined as:
+    - prod1: z = 670 pm
+    - prod2: z = -670 pm
+    - prod3: z = -670 pm
+    """
+    file_paths_and_centers = [
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod1/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv",
+            670,
+        ),
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod2/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv",
+            -670,
+        ),
+        (
+            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod3/output/Travis/"
+            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv",
+            -670,
+        ),
+    ]
+    output_base_dir = "zoomed_analysis_outputs"
+
+    for idx, (file_path, center) in enumerate(file_paths_and_centers, start=1):
+        output_dir = os.path.join(output_base_dir, f"prod{idx}")
+        process_zoomed_cdf(file_path, center, output_dir)
 
 
 def axial_density_analysis():
@@ -274,7 +397,9 @@ def main():
     Main function to process and visualize data to analyze.
     """
 
-    cdf_analysis()
+    # cdf_analysis()
+
+    cdf_zoomed_analysis()
 
     # axial_density_analysis()
 
