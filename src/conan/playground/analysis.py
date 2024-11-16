@@ -223,7 +223,7 @@ def plot_z_density_profiles(base_dir, analysis_type, output_dir):
             continue
 
         z_values, density_values = load_density_profile(analysis_path)
-        plt.plot(z_values, density_values, label=f"{prod}", color=color)
+        plt.plot(z_values, density_values, label=f"{prod}", color=color, alpha=0.7)
 
     plt.title(f"z-Density Profile - {analysis_type}", fontsize=14)
     plt.xlabel("z [Å]", fontsize=12)
@@ -274,9 +274,9 @@ def main():
     Main function to process and visualize data to analyze.
     """
 
-    # cdf_analysis()
+    cdf_analysis()
 
-    axial_density_analysis()
+    # axial_density_analysis()
 
 
 if __name__ == "__main__":
