@@ -98,7 +98,7 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
     plt.ylabel("Angle (Degree)")
     plt.title(title)
     plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
-    plt.xticks(np.arange(-5000, 6000, 1000))
+    plt.xticks(np.arange(-5200, 5200 + 1000, 1000))
     plt.yticks(np.arange(0, 190, 45))
     plt.xlim(xlim)
 
@@ -107,53 +107,6 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
         print(f"Plot saved to {save_path}")
     else:
         plt.show()
-
-
-def process_cdf(file_path, output_dir=None):
-    """
-    Process a CDF file and generate contour plots for raw and smoothed data.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the CDF CSV file.
-    output_dir : str, optional
-        Directory to save the resulting plots. If None, plots are shown but not saved.
-    """
-    # Create output directory if it does not exist and if output_dir is provided
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-
-    # Load data
-    cdf_data = load_cdf_data(file_path)
-
-    # Create pivot table and meshgrid for plotting
-    X, Y, Z = create_pivot_table(cdf_data)
-
-    # Plot raw data
-    raw_plot_path = os.path.join(output_dir, "cdf_raw.png") if output_dir else None
-    plot_contour(
-        X,
-        Y,
-        Z,
-        title="Combined Distribution Function Contour Plot (Raw Data)",
-        cmap="viridis",
-        levels_filled=50,
-        save_path=raw_plot_path,
-    )
-
-    # Smooth data and plot
-    Z_smoothed = smooth_data(Z, sigma=1.0)
-    smoothed_plot_path = os.path.join(output_dir, "cdf_smoothed.png") if output_dir else None
-    plot_contour(
-        X,
-        Y,
-        Z_smoothed,
-        title="Combined Distribution Function Contour Plot (Smoothed Data)",
-        cmap="viridis",
-        levels_filled=50,
-        save_path=smoothed_plot_path,
-    )
 
 
 def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", levels_filled=50, save_path=None):
@@ -200,16 +153,57 @@ def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", lev
         plt.show()
 
 
-def process_zoomed_cdf(file_path, center, output_dir=None):
+def shift_data_to_center(cdf_data, center):
     """
-    Process a CDF file and generate a zoomed contour plot.
+    Shift the 'Distance from Plane / pm' values so that the specified center becomes zero.
+
+    Parameters
+    ----------
+    cdf_data : pd.DataFrame
+        Pandas DataFrame containing the CDF data.
+    center : float
+        The value in 'Distance from Plane / pm' to be shifted to zero.
+
+    Returns
+    -------
+    pd.DataFrame
+        Updated CDF data with shifted 'Distance from Plane / pm' values.
+    """
+    cdf_data["Distance from Plane / pm"] -= center
+    return cdf_data
+
+
+def determine_x_limits(cdf_data, padding=200):
+    """
+    Determine dynamic x-axis limits based on the data range.
+
+    Parameters
+    ----------
+    cdf_data : pd.DataFrame
+        Pandas DataFrame containing the CDF data.
+    padding : int, optional
+        Extra range to add to the min and max values (default is 200).
+
+    Returns
+    -------
+    tuple
+        The x-axis limits as (min_x, max_x).
+    """
+    min_x = cdf_data["Distance from Plane / pm"].min() - padding
+    max_x = cdf_data["Distance from Plane / pm"].max() + padding
+    return min_x, max_x
+
+
+def process_cdf(file_path, center=None, output_dir=None):
+    """
+    Process a CDF file, optionally shift data to center around the specified value, and generate all plots.
 
     Parameters
     ----------
     file_path : str
         Path to the CDF CSV file.
-    center : float
-        Center of the zoomed region on the x-axis.
+    center : float, optional
+        The value to be shifted to zero in the 'Distance from Plane / pm' column.
     output_dir : str, optional
         Directory to save the resulting plots. If None, plots are shown but not saved.
     """
@@ -220,8 +214,42 @@ def process_zoomed_cdf(file_path, center, output_dir=None):
     # Load data
     cdf_data = load_cdf_data(file_path)
 
+    # Optionally shift data so that the specified center becomes zero
+    if center is not None:
+        cdf_data = shift_data_to_center(cdf_data, center)
+
+    # Determine dynamic x-axis limits
+    xlim = determine_x_limits(cdf_data)
+
     # Create pivot table and meshgrid for plotting
     X, Y, Z = create_pivot_table(cdf_data)
+
+    # Plot shifted raw data
+    raw_plot_path = os.path.join(output_dir, "cdf_raw.png") if output_dir else None
+    plot_contour(
+        X,
+        Y,
+        Z,
+        title="Combined Distribution Function Contour Plot (Raw Data)",
+        cmap="viridis",
+        levels_filled=50,
+        xlim=xlim,
+        save_path=raw_plot_path,
+    )
+
+    # Smooth data and plot shifted smoothed data
+    Z_smoothed = smooth_data(Z, sigma=1.0)
+    smoothed_plot_path = os.path.join(output_dir, "cdf_smoothed.png") if output_dir else None
+    plot_contour(
+        X,
+        Y,
+        Z_smoothed,
+        title="Combined Distribution Function Contour Plot (Smoothed Data)",
+        cmap="viridis",
+        levels_filled=50,
+        xlim=xlim,
+        save_path=smoothed_plot_path,
+    )
 
     # Generate zoomed plot
     zoomed_plot_path = os.path.join(output_dir, "cdf_zoomed.png") if output_dir else None
@@ -229,9 +257,9 @@ def process_zoomed_cdf(file_path, center, output_dir=None):
         X,
         Y,
         Z,
-        title="Zoomed Combined Distribution Function Contour Plot",
-        center=center,
-        zoom_range=2000,
+        title="Combined Distribution Function Contour Plot (Zoomed-In)",
+        center=0,  # After shifting, the center is at 0
+        zoom_range=2200,
         cmap="viridis",
         levels_filled=50,
         save_path=zoomed_plot_path,
@@ -322,31 +350,8 @@ def plot_z_density_profiles(base_dir, analysis_type, output_dir):
 
 
 def cdf_analysis():
-    # Define input file and output directory
-    file_paths = [
-        (
-            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod1/output/Travis/"
-            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
-        ),
-        (
-            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod2/output/Travis/"
-            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
-        ),
-        (
-            "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod3/output/Travis/"
-            "cdf/cdf_2_pldf[C306r_C307r_C305r]_#2o_adf[C306r_C307r_C305r]-[C2o_C1o]_triples.csv"
-        ),
-    ]
-    output_base_dir = "analysis_outputs"
-
-    for idx, file_path in enumerate(file_paths, start=1):
-        output_dir = os.path.join(output_base_dir, f"prod{idx}")
-        process_cdf(file_path, output_dir)
-
-
-def cdf_zoomed_analysis():
     """
-    Perform zoomed CDF analysis for prod1, prod2, and prod3.
+    Perform CDF analysis with zoomed plots for prod1, prod2, and prod3.
 
     Centers are defined as:
     - prod1: z = 670 pm
@@ -370,11 +375,11 @@ def cdf_zoomed_analysis():
             -670,
         ),
     ]
-    output_base_dir = "zoomed_analysis_outputs"
+    output_base_dir = "analysis_outputs"
 
     for idx, (file_path, center) in enumerate(file_paths_and_centers, start=1):
         output_dir = os.path.join(output_base_dir, f"prod{idx}")
-        process_zoomed_cdf(file_path, center, output_dir)
+        process_cdf(file_path, center, output_dir)
 
 
 def axial_density_analysis():
@@ -397,9 +402,7 @@ def main():
     Main function to process and visualize data to analyze.
     """
 
-    # cdf_analysis()
-
-    cdf_zoomed_analysis()
+    cdf_analysis()
 
     # axial_density_analysis()
 
