@@ -68,9 +68,9 @@ def smooth_data(Z, sigma=1.0):
     return gaussian_filter(Z, sigma=sigma)
 
 
-def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200), save_path=None):
+def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200), wall_positions=None, save_path=None):
     """
-    Plot a contour plot with filled contours and contour lines.
+    Plot a contour plot with filled contours and vertical lines or rectangles indicating wall positions.
 
     Parameters
     ----------
@@ -88,6 +88,8 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
         Number of levels for filled contours (default is 50).
     xlim : tuple, optional
         Limits for the x-axis (default is (-5200, 5200)).
+    wall_positions : list of float, optional
+        Positions of the walls to be indicated on the plot.
     save_path : str, optional
         Path to save the plot as an image (default is None, which does not save the plot).
     """
@@ -98,18 +100,26 @@ def plot_contour(X, Y, Z, title, cmap="jet", levels_filled=50, xlim=(-5200, 5200
     plt.ylabel("Angle (Degree)")
     plt.title(title)
     plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
-    plt.xticks(np.arange(-5200, 5200 + 1000, 1000))
+    plt.xticks(np.arange(xlim[0], xlim[1] + 1000, 1000))
     plt.yticks(np.arange(0, 190, 45))
     plt.xlim(xlim)
 
+    # Add wall indicators
+    if wall_positions:
+        for wall in wall_positions:
+            plt.axvline(x=wall, color="k", linestyle="--", linewidth=1.5, alpha=0.8)
+            plt.axvline(x=-wall, color="k", linestyle="--", linewidth=1.5, alpha=0.8)
+
     if save_path:
         plt.savefig(save_path, dpi=300)
-        print(f"Plot saved to {save_path}")
+        print(f"Plot with walls saved to {save_path}")
     else:
         plt.show()
 
 
-def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", levels_filled=50, save_path=None):
+def plot_zoomed_contour(
+    X, Y, Z, title, center, zoom_range=2000, cmap="jet", levels_filled=50, wall_positions=None, save_path=None
+):
     """
     Plot a zoomed contour plot around a specified center.
 
@@ -131,6 +141,8 @@ def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", lev
         Colormap for filled contours (default is 'jet').
     levels_filled : int, optional
         Number of levels for filled contours (default is 50).
+    wall_positions : list of float, optional
+        Positions of the walls to be indicated on the plot.
     save_path : str, optional
         Path to save the plot as an image (default is None, which does not save the plot).
     """
@@ -145,6 +157,12 @@ def plot_zoomed_contour(X, Y, Z, title, center, zoom_range=2000, cmap="jet", lev
     plt.xticks(np.arange(x_min, x_max + 500, 500))
     plt.yticks(np.arange(0, 190, 45))
     plt.xlim(x_min, x_max)
+
+    # Add wall indicators
+    if wall_positions:
+        for wall in wall_positions:
+            plt.axvline(x=wall, color="k", linestyle="--", linewidth=2.5, alpha=0.8)
+            plt.axvline(x=-wall, color="k", linestyle="--", linewidth=2.5, alpha=0.8)
 
     if save_path:
         plt.savefig(save_path, dpi=300)
@@ -194,9 +212,10 @@ def determine_x_limits(cdf_data, padding=200):
     return min_x, max_x
 
 
-def process_cdf(file_path, center=None, output_dir=None):
+def process_cdf(file_path, center=None, wall_positions=None, output_dir=None):
     """
-    Process a CDF file, optionally shift data to center around the specified value, and generate all plots.
+     Process a CDF file, optionally shift data to center around the specified value, and generate plots with wall
+     indicators.
 
     Parameters
     ----------
@@ -204,6 +223,8 @@ def process_cdf(file_path, center=None, output_dir=None):
         Path to the CDF CSV file.
     center : float, optional
         The value to be shifted to zero in the 'Distance from Plane / pm' column.
+    wall_positions : list of float, optional
+        Positions of the walls to be indicated on the plots.
     output_dir : str, optional
         Directory to save the resulting plots. If None, plots are shown but not saved.
     """
@@ -234,6 +255,7 @@ def process_cdf(file_path, center=None, output_dir=None):
         cmap="viridis",
         levels_filled=50,
         xlim=xlim,
+        wall_positions=wall_positions,
         save_path=raw_plot_path,
     )
 
@@ -248,6 +270,7 @@ def process_cdf(file_path, center=None, output_dir=None):
         cmap="viridis",
         levels_filled=50,
         xlim=xlim,
+        wall_positions=wall_positions,
         save_path=smoothed_plot_path,
     )
 
@@ -262,6 +285,7 @@ def process_cdf(file_path, center=None, output_dir=None):
         zoom_range=2200,
         cmap="viridis",
         levels_filled=50,
+        wall_positions=wall_positions,
         save_path=zoomed_plot_path,
     )
 
@@ -358,6 +382,7 @@ def cdf_analysis():
     - prod2: z = -670 pm
     - prod3: z = -670 pm
     """
+    wall_positions = [0, 335, 670]  # Wall positions in pm if the center is at 0
     file_paths_and_centers = [
         (
             "/home/sarah/Desktop/Master AMP/Masterarbeit/mnt/marie/simulations/sim_master_thesis/prod1/output/Travis/"
@@ -379,7 +404,7 @@ def cdf_analysis():
 
     for idx, (file_path, center) in enumerate(file_paths_and_centers, start=1):
         output_dir = os.path.join(output_base_dir, f"prod{idx}")
-        process_cdf(file_path, center, output_dir)
+        process_cdf(file_path, center, wall_positions, output_dir)
 
 
 def axial_density_analysis():
