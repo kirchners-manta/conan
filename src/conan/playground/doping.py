@@ -10,7 +10,7 @@ import warnings
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 import pandas as pd
@@ -23,7 +23,8 @@ from conan.playground.utils import get_neighbors_via_edges, minimum_image_distan
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
 
 
-class OptimizationWeights(NamedTuple):
+@dataclass(frozen=True)
+class OptimizationWeights:
     """
     Represents the weights used in the optimization of nitrogen doping to achieve the desired nitrogen percentage while
     maintaining an equal distribution among species.
@@ -64,7 +65,7 @@ class OptimizationWeights(NamedTuple):
     nitrogen_percentage_weight: float = 1000.0
     equal_distribution_weight: float = 1.0
 
-    def validate_weights(self):
+    def __post_init__(self):
         if self.nitrogen_percentage_weight <= 0 or self.equal_distribution_weight <= 0:
             raise ValueError("Weights must be positive numbers.")
 
@@ -594,6 +595,9 @@ class DopingStructureCollection:
         """
 
         return [structure for structure in self.structures if structure.species == species]
+
+    def __iter__(self):
+        return iter(self.structures)
 
 
 class DopingHandler:
