@@ -16,6 +16,9 @@ from conan.playground.utils import write_xyz
 # from conan.playground.doping import NitrogenSpecies
 
 
+# from conan.playground.doping import NitrogenSpecies
+
+
 def main():
     # Set seed for reproducibility
     # random.seed(42)
@@ -57,30 +60,43 @@ def main():
     # # )
     #
     # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True, optimization_weights=weights)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
     # # graphene.add_nitrogen_doping(optimization_weights=weights)
     # # graphene.add_nitrogen_doping(
     # #     total_percentage=10,
     # #     percentages={NitrogenSpecies.PYRIDINIC_4: 3, NitrogenSpecies.PYRIDINIC_2: 2},
     # #     optimization_weights=weights,
     # # )
-    # graphene.add_nitrogen_doping(
-    #     percentages={
-    #         NitrogenSpecies.GRAPHITIC: 2.87,
-    #         NitrogenSpecies.PYRIDINIC_1: 1.00,
-    #         NitrogenSpecies.PYRIDINIC_2: 1.82,
-    #         NitrogenSpecies.PYRIDINIC_3: 2.18,
-    #         NitrogenSpecies.PYRIDINIC_4: 2.18,
-    #     },
-    #     adjust_positions=False,
-    # )
+    # # graphene.add_nitrogen_doping(
+    # #     percentages={
+    # #         NitrogenSpecies.GRAPHITIC: 2.87,
+    # #         NitrogenSpecies.PYRIDINIC_1: 1.00,
+    # #         NitrogenSpecies.PYRIDINIC_2: 1.82,
+    # #         NitrogenSpecies.PYRIDINIC_3: 2.18,
+    # #         NitrogenSpecies.PYRIDINIC_4: 2.18,
+    # #     },
+    # #     adjust_positions=False,
+    # # )
     # # # graphene.add_nitrogen_doping(total_percentage=10,
     # # #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    #
     # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
     # # Label atoms before writing to XYZ file
-    # # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
-    # labeler = AtomLabeler(graphene)
+    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
+    # # labeler = AtomLabeler(graphene)
     # labeler.label_atoms()
     #
     # write_xyz(graphene.graph, "graphene_sheet_doped_10_percent.xyz")
@@ -180,11 +196,11 @@ def main():
     stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Label atoms before writing to XYZ file
-    # labeler = AtomLabeler(stacked_graphene.graph, stacked_graphene.doping_handler.doping_structures)
-    labeler = AtomLabeler(stacked_graphene)
+    labeler = AtomLabeler(stacked_graphene.graph, stacked_graphene.doping_handler.doping_structures)
+    # labeler = AtomLabeler(stacked_graphene)
     labeler.label_atoms()
 
-    write_xyz(stacked_graphene.graph, "ABA_stacking_10_percent_default_optimized.xyz")
+    write_xyz(stacked_graphene.graph, "ABA_stacking_10_percent_default.xyz")
 
     ####################################################################################################################
     # # VERSION 2: DIRECTLY USE THE STACKED GRAPHENE SHEET AND ADJUST POSITIONS OF SPECIFIC LAYERS

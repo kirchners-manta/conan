@@ -6,6 +6,7 @@ import copy
 import math
 import warnings
 from abc import ABC, abstractmethod
+from functools import cached_property
 
 # from functools import cache
 from math import cos, pi, sin
@@ -935,57 +936,50 @@ class StackedGraphene(Structure3D):
         self._stacked_graph = None  # Internal variable to store the combined graph
         self._stacked_doping_handler = None  # Internal variable to store the combined doping handler
 
-        # Build the initial structure by combining all graphene sheets
-        self.build_structure()
+        # # Build the initial structure by combining all graphene sheets
+        # self.build_structure()
 
-    @property
+    @cached_property
     def graph(self):
         """
         Returns the combined graph of all graphene sheets in the stack.
+        Caches the result to avoid re-computation unless invalidated.
         """
-        combined_graph = nx.Graph()
-        for sheet in self.graphene_sheets:
-            combined_graph.update(sheet.graph)
-        return combined_graph
+        if self._stacked_graph is None:
+            combined_graph = nx.Graph()
+            for sheet in self.graphene_sheets:
+                combined_graph.update(sheet.graph)
+            self._stacked_graph = combined_graph
+        return self._stacked_graph
 
-    @property
+    @cached_property
     def doping_handler(self):
         """
         Returns a DopingHandler that contains all doping structures from the sheets.
+        Caches the result to avoid re-computation unless invalidated.
         """
-        combined_doping_handler = DopingHandler(self)
-        combined_doping_structures = DopingStructureCollection()
+        if self._stacked_doping_handler is None:
+            combined_doping_handler = DopingHandler(self)
+            combined_doping_structures = DopingStructureCollection()
 
-        for sheet in self.graphene_sheets:
-            # Add doping structures from the sheet
-            for doping_structure in sheet.doping_handler.doping_structures:
-                combined_doping_structures.add_structure(doping_structure)
-            # Combine chosen_atoms
-            for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
-                combined_doping_structures.chosen_atoms[species].extend(atoms)
+            for sheet in self.graphene_sheets:
+                # Add doping structures from the sheet
+                for doping_structure in sheet.doping_handler.doping_structures:
+                    combined_doping_structures.add_structure(doping_structure)
+                # Combine chosen_atoms
+                for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
+                    combined_doping_structures.chosen_atoms[species].extend(atoms)
 
-        combined_doping_handler.doping_structures = combined_doping_structures
-        return combined_doping_handler
+            combined_doping_handler.doping_structures = combined_doping_structures
+            self._stacked_doping_handler = combined_doping_handler
+        return self._stacked_doping_handler
 
-    # @property
-    # def graph(self):
-    #     if self._stacked_graph:
-    #         return self._stacked_graph
-    #
-    #     # todo calc inner graph
-    #
-    #     self._stacked_graph = Something
-    #
-    #     return self._stacked_graph
-    #
-    # @property
-    # def doping_handler(self):
-    #     if self._stacked_doping_handler:
-    #         return self._stacked_doping_handler
-    #
-    #
-    #     self._stacked_doping_handler = Something
-    #     return self._stacked_doping_handler
+    def _invalidate_cache(self):
+        # Manually delete the cached properties
+        if "graph" in self.__dict__:
+            del self.__dict__["graph"]
+        if "doping_handler" in self.__dict__:
+            del self.__dict__["doping_handler"]
 
     @staticmethod
     def _adjust_node_ids(sheet: GrapheneSheet, node_id_offset: int):
@@ -1072,26 +1066,20 @@ class StackedGraphene(Structure3D):
             sheet.graph.nodes[node]["position"] = shifted_pos
 
     def build_structure(self):
-        """
-        Combine all the graphene sheets into a single structure and collect doping structures.
-        """
-        # Start with the graph of the first layer
-        self.graph = self.graphene_sheets[0].graph.copy()
-
-        # Iterate over the remaining layers and combine them into self.graph
-        for sheet in self.graphene_sheets[1:]:
-            self.graph = nx.disjoint_union(self.graph, sheet.graph)
-
-        # Initialize the main graph and the DopingHandler
-        # self.graph = nx.Graph()
-        # self.doping_handler = DopingHandler(self)
+        # """
+        # Combine all the graphene sheets into a single structure and collect doping structures.
+        # """
+        # # Start with the graph of the first layer
+        # self.graph = self.graphene_sheets[0].graph.copy()
         #
-        # for sheet in self.graphene_sheets:
-        #     # Add the sheet graph to the main graph
-        #     self.graph.update(sheet.graph)
-        #     # Collect the doping structures from the sheet
-        #     for doping_structure in sheet.doping_handler.doping_structures:
-        #         self.doping_handler.doping_structures.add_structure(doping_structure)
+        # # Iterate over the remaining layers and combine them into self.graph
+        # for sheet in self.graphene_sheets[1:]:
+        #     self.graph = nx.disjoint_union(self.graph, sheet.graph)
+        """
+        Build the stacked graphene structure by combining all graphene sheets.
+        For this class, the structure is dynamically built and cached in the properties.
+        """
+        pass  # No action needed since the properties handle the structure building
 
     def add_nitrogen_doping(
         self,
@@ -1275,6 +1263,8 @@ class StackedGraphene(Structure3D):
 
             # # Rebuild the main graph in order to update the structure after doping
             # self.build_structure()
+            # Invalidate the cache after modifying the sheet
+            self._invalidate_cache()
         else:
             raise IndexError("Layer index out of range.")
 
@@ -1317,6 +1307,8 @@ class StackedGraphene(Structure3D):
 
         # # Rebuild the main graph to reflect updated positions
         # self.build_structure()
+        # Invalidate the cache after modifying the sheet
+        self._invalidate_cache()
 
 
 class CNT(Structure3D):
