@@ -325,7 +325,7 @@ def find_analysis_types(base_dir):
     list of str
         List of analysis folder names found in the CONAN directory.
     """
-    prod1_conan_dir = os.path.join(base_dir, "prod1", "output", "CONAN")
+    prod1_conan_dir = os.path.join(base_dir, "prod1", "output", "CONAN", "axial_density_analysis")
     if not os.path.exists(prod1_conan_dir):
         print(f"CONAN directory not found: {prod1_conan_dir}")
         return []
@@ -351,7 +351,9 @@ def plot_z_density_profiles(base_dir, analysis_type, output_dir):
     plt.figure(figsize=(10, 6))
 
     for prod, color in zip(prod_dirs, colors):
-        analysis_path = os.path.join(base_dir, prod, "output", "CONAN", analysis_type, "z_dens_profile.csv")
+        analysis_path = os.path.join(
+            base_dir, prod, "output", "CONAN", "axial_density_analysis", analysis_type, "z_dens_profile.csv"
+        )
         if not os.path.exists(analysis_path):
             print(f"File not found: {analysis_path}")
             continue
