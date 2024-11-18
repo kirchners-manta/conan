@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
+import conan.analysis_modules.coordination_number as cn
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
@@ -47,6 +48,8 @@ def run_analysis(traj_file, molecules, maindict):
         axdens.axial_density_analysis(traj_file, molecules, an)
     elif an.choice2 == 6:
         axdens.distance_search_analysis(traj_file, molecules, an)
+    elif an.choice2 == 7:
+        cn.coordination_number_analysis(traj_file, molecules, an)
     elif an.choice2 == 8:
         axdens.density_analysis_3D(traj_file, molecules, an)
     elif an.choice2 == 9:
@@ -144,6 +147,8 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
     regional_q, regions = region_question(traj_file)
+    analysis_option.regional_q = regional_q
+    analysis_option.regions = regions
     start_frame, frame_interval = frame_question(traj_file)
 
     Main_time = time.time()
@@ -182,6 +187,9 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
+        # Run chunk processing for certain analysis options
+        if isinstance(analysis_option, cn.CoordinationNumberAnalysis):
+            analysis_option.proc_chunk()
 
         time_per_frame = (time.time() - Main_time) / proc_frames
         remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
