@@ -17,7 +17,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-from conan.playground.doping import DopingHandler, NitrogenSpecies, OptimizationWeights, StructuralComponents
+from conan.playground.doping import (
+    DopingHandler,
+    DopingStructureCollection,
+    NitrogenSpecies,
+    OptimizationWeights,
+    StructuralComponents,
+)
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 from conan.playground.utils import Position, create_position
 
@@ -925,11 +931,41 @@ class StackedGraphene(Structure3D):
             self.graphene_sheets.append(new_sheet)
             # Update the total number of nodes
             total_nodes += new_sheet.graph.number_of_nodes()
-        self._stacked_graph = None
-        self._stacked_doping_handler = None
 
-        # Build the structure by combining all graphene sheets
+        self._stacked_graph = None  # Internal variable to store the combined graph
+        self._stacked_doping_handler = None  # Internal variable to store the combined doping handler
+
+        # Build the initial structure by combining all graphene sheets
         self.build_structure()
+
+    @property
+    def graph(self):
+        """
+        Returns the combined graph of all graphene sheets in the stack.
+        """
+        combined_graph = nx.Graph()
+        for sheet in self.graphene_sheets:
+            combined_graph.update(sheet.graph)
+        return combined_graph
+
+    @property
+    def doping_handler(self):
+        """
+        Returns a DopingHandler that contains all doping structures from the sheets.
+        """
+        combined_doping_handler = DopingHandler(self)
+        combined_doping_structures = DopingStructureCollection()
+
+        for sheet in self.graphene_sheets:
+            # Add doping structures from the sheet
+            for doping_structure in sheet.doping_handler.doping_structures:
+                combined_doping_structures.add_structure(doping_structure)
+            # Combine chosen_atoms
+            for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
+                combined_doping_structures.chosen_atoms[species].extend(atoms)
+
+        combined_doping_handler.doping_structures = combined_doping_structures
+        return combined_doping_handler
 
     # @property
     # def graph(self):
@@ -1237,8 +1273,8 @@ class StackedGraphene(Structure3D):
                 optimization_config=optimization_config,
             )
 
-            # Rebuild the main graph in order to update the structure after doping
-            self.build_structure()
+            # # Rebuild the main graph in order to update the structure after doping
+            # self.build_structure()
         else:
             raise IndexError("Layer index out of range.")
 
@@ -1279,8 +1315,8 @@ class StackedGraphene(Structure3D):
             sheet = self.graphene_sheets[layer_index]
             sheet.adjust_atom_positions(optimization_config=optimization_config)
 
-        # Rebuild the main graph to reflect updated positions
-        self.build_structure()
+        # # Rebuild the main graph to reflect updated positions
+        # self.build_structure()
 
 
 class CNT(Structure3D):

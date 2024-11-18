@@ -1,13 +1,14 @@
 import random
 
-from conan.playground.doping import NitrogenSpecies
-
 # from conan.playground.doping import OptimizationWeights
 from conan.playground.labeling import AtomLabeler
 
 # from conan.playground.labeling import AtomLabeler
-from conan.playground.structures import CNT, GrapheneSheet, Pore, StackedGraphene
+from conan.playground.structures import GrapheneSheet, StackedGraphene
 from conan.playground.utils import write_xyz
+
+# from conan.playground.doping import NitrogenSpecies
+
 
 # from conan.playground.doping import NitrogenSpecies
 
@@ -43,46 +44,46 @@ def main():
     # write_xyz(graphene.graph, "graphene_sheet.xyz")
 
     ####################################################################################################################
-    # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    sheet_size = (40, 40)
-
-    # # Use default optimization weights
-    # weights = OptimizationWeights()
-
-    # # Define optimization weights
-    # weights = OptimizationWeights(
-    #     nitrogen_percentage_weight=1000,
-    #     equal_distribution_weight=1,
-    # )
-
-    graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True, optimization_weights=weights)
-    # graphene.add_nitrogen_doping(optimization_weights=weights)
+    # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
+    # sheet_size = (40, 40)
+    #
+    # # # Use default optimization weights
+    # # weights = OptimizationWeights()
+    #
+    # # # Define optimization weights
+    # # weights = OptimizationWeights(
+    # #     nitrogen_percentage_weight=1000,
+    # #     equal_distribution_weight=1,
+    # # )
+    #
+    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True, optimization_weights=weights)
+    # # graphene.add_nitrogen_doping(optimization_weights=weights)
+    # # graphene.add_nitrogen_doping(
+    # #     total_percentage=10,
+    # #     percentages={NitrogenSpecies.PYRIDINIC_4: 3, NitrogenSpecies.PYRIDINIC_2: 2},
+    # #     optimization_weights=weights,
+    # # )
     # graphene.add_nitrogen_doping(
-    #     total_percentage=10,
-    #     percentages={NitrogenSpecies.PYRIDINIC_4: 3, NitrogenSpecies.PYRIDINIC_2: 2},
-    #     optimization_weights=weights,
+    #     percentages={
+    #         NitrogenSpecies.GRAPHITIC: 2.87,
+    #         NitrogenSpecies.PYRIDINIC_1: 1.00,
+    #         NitrogenSpecies.PYRIDINIC_2: 1.82,
+    #         NitrogenSpecies.PYRIDINIC_3: 2.18,
+    #         NitrogenSpecies.PYRIDINIC_4: 2.18,
+    #     },
+    #     adjust_positions=False,
     # )
-    graphene.add_nitrogen_doping(
-        percentages={
-            NitrogenSpecies.GRAPHITIC: 2.87,
-            NitrogenSpecies.PYRIDINIC_1: 1.00,
-            NitrogenSpecies.PYRIDINIC_2: 1.82,
-            NitrogenSpecies.PYRIDINIC_3: 2.18,
-            NitrogenSpecies.PYRIDINIC_4: 2.18,
-        },
-        adjust_positions=False,
-    )
-    # # graphene.add_nitrogen_doping(total_percentage=10,
-    # #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
-    graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Label atoms before writing to XYZ file
-    # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
-    labeler = AtomLabeler(graphene)
-    labeler.label_atoms()
-
-    write_xyz(graphene.graph, "graphene_sheet_doped_10_percent.xyz")
+    # # # graphene.add_nitrogen_doping(total_percentage=10,
+    # # #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
+    # graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # # labeler = AtomLabeler(graphene.graph, graphene.doping_handler.doping_structures)
+    # labeler = AtomLabeler(graphene)
+    # labeler.label_atoms()
+    #
+    # write_xyz(graphene.graph, "graphene_sheet_doped_10_percent.xyz")
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS
@@ -161,7 +162,7 @@ def main():
     stacked_graphene = StackedGraphene(graphene_sheet, number_of_layers=5, stacking_type="ABA")
 
     # Add nitrogen doping to the specified graphene sheets
-    stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True, layers="all")
+    stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False, layers="all")
 
     # stacked_graphene.add_nitrogen_doping(
     #     percentages={
@@ -176,7 +177,7 @@ def main():
     # )
 
     # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
+    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
 
     # Label atoms before writing to XYZ file
     # labeler = AtomLabeler(stacked_graphene.graph, stacked_graphene.doping_handler.doping_structures)
@@ -235,44 +236,44 @@ def main():
     # write_xyz(stacked_graphene.graph, "ABC_stacking.xyz")
 
     ####################################################################################################################
-    # CREATE A CNT STRUCTURE
-
-    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
-    cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
-    cnt.add_nitrogen_doping(total_percentage=10)
-    cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the CNT structure to a file
-    write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
+    # # CREATE A CNT STRUCTURE
+    #
+    # # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_size=8, conformation="zigzag", periodic=False)
+    # cnt = CNT(bond_length=1.42, tube_length=10.0, tube_diameter=6, conformation="zigzag", periodic=False)
+    # cnt.add_nitrogen_doping(total_percentage=10)
+    # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the CNT structure to a file
+    # write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
 
     ####################################################################################################################
-    # CREATE A PORE STRUCTURE
-    # Define parameters for the graphene sheets and CNT
-    bond_length = 1.42  # Bond length for carbon atoms
-    sheet_size = (20, 20)  # Size of the graphene sheets
-    tube_length = 10.0  # Length of the CNT
-    # tube_size = 8  # Number of hexagonal units around the CNT circumference
-    tube_diameter = 7  # Diameter of the CNT
-    conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
-
-    # Create a Pore structure
-    pore = Pore(
-        bond_length=bond_length,
-        sheet_size=sheet_size,
-        tube_length=tube_length,
-        # tube_size=tube_size,
-        tube_diameter=tube_diameter,
-        conformation=conformation,
-    )
-
-    # Add optional nitrogen doping (if needed)
-    # pore.add_nitrogen_doping(total_percentage=10)
-
-    # Visualize the structure with labels (without showing periodic bonds)
-    pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
-
-    # Save the Pore structure to a file
-    write_xyz(pore.graph, "pore_structure.xyz")
+    # # CREATE A PORE STRUCTURE
+    # # Define parameters for the graphene sheets and CNT
+    # bond_length = 1.42  # Bond length for carbon atoms
+    # sheet_size = (20, 20)  # Size of the graphene sheets
+    # tube_length = 10.0  # Length of the CNT
+    # # tube_size = 8  # Number of hexagonal units around the CNT circumference
+    # tube_diameter = 7  # Diameter of the CNT
+    # conformation = "zigzag"  # Conformation of the CNT (can be "zigzag" or "armchair")
+    #
+    # # Create a Pore structure
+    # pore = Pore(
+    #     bond_length=bond_length,
+    #     sheet_size=sheet_size,
+    #     tube_length=tube_length,
+    #     # tube_size=tube_size,
+    #     tube_diameter=tube_diameter,
+    #     conformation=conformation,
+    # )
+    #
+    # # Add optional nitrogen doping (if needed)
+    # # pore.add_nitrogen_doping(total_percentage=10)
+    #
+    # # Visualize the structure with labels (without showing periodic bonds)
+    # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Save the Pore structure to a file
+    # write_xyz(pore.graph, "pore_structure.xyz")
 
 
 if __name__ == "__main__":
