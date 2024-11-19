@@ -1059,6 +1059,7 @@ class StackedGraphene(Structure3D):
         # Invalidate cached properties if any
         self._invalidate_cache()
 
+        # Combine the graphs of all graphene sheets
         combined_graph = nx.Graph()
         for sheet in self.graphene_sheets:
             combined_graph.update(sheet.graph)
@@ -1068,6 +1069,7 @@ class StackedGraphene(Structure3D):
         """
         Build the doping handler for the stacked graphene structure.
         """
+        # Combine doping structures from all graphene sheets
         combined_doping_handler = DopingHandler(self)
         combined_doping_structures = DopingStructureCollection()
 
@@ -1152,7 +1154,6 @@ class StackedGraphene(Structure3D):
           `adjust_atom_positions()`.
         """
         # Determine which layers to dope
-        # self._stacked_doping_handler, self._stacked_graph = None, None
         if isinstance(layers, str) and layers.lower() == "all":
             layers = list(range(self.number_of_layers))
         elif isinstance(layers, list):
@@ -1262,9 +1263,7 @@ class StackedGraphene(Structure3D):
                 optimization_config=optimization_config,
             )
 
-            # # Rebuild the main graph in order to update the structure after doping
-            # self.build_structure()
-            # Invalidate the cache after modifying the sheet
+            # Invalidate the cache after modifying the sheet in order to update the structure after doping
             self._invalidate_cache()
         else:
             raise IndexError("Layer index out of range.")
@@ -1306,9 +1305,7 @@ class StackedGraphene(Structure3D):
             sheet = self.graphene_sheets[layer_index]
             sheet.adjust_atom_positions(optimization_config=optimization_config)
 
-        # # Rebuild the main graph to reflect updated positions
-        # self.build_structure()
-        # Invalidate the cache after modifying the sheet
+        # Invalidate the cache after modifying the sheet in order to update the structure after doping
         self._invalidate_cache()
 
 
