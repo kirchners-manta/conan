@@ -936,8 +936,8 @@ class StackedGraphene(Structure3D):
         self._stacked_graph = None  # Internal variable to store the combined graph
         self._stacked_doping_handler = None  # Internal variable to store the combined doping handler
 
-        # # Build the initial structure by combining all graphene sheets
-        # self.build_structure()
+        # Build the initial structure by combining all graphene sheets
+        self.build_structure()
 
     @cached_property
     def graph(self):
@@ -946,10 +946,7 @@ class StackedGraphene(Structure3D):
         Caches the result to avoid re-computation unless invalidated.
         """
         if self._stacked_graph is None:
-            combined_graph = nx.Graph()
-            for sheet in self.graphene_sheets:
-                combined_graph.update(sheet.graph)
-            self._stacked_graph = combined_graph
+            self.build_structure()
         return self._stacked_graph
 
     @cached_property
@@ -959,23 +956,13 @@ class StackedGraphene(Structure3D):
         Caches the result to avoid re-computation unless invalidated.
         """
         if self._stacked_doping_handler is None:
-            combined_doping_handler = DopingHandler(self)
-            combined_doping_structures = DopingStructureCollection()
-
-            for sheet in self.graphene_sheets:
-                # Add doping structures from the sheet
-                for doping_structure in sheet.doping_handler.doping_structures:
-                    combined_doping_structures.add_structure(doping_structure)
-                # Combine chosen_atoms
-                for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
-                    combined_doping_structures.chosen_atoms[species].extend(atoms)
-
-            combined_doping_handler.doping_structures = combined_doping_structures
-            self._stacked_doping_handler = combined_doping_handler
+            self._build_doping_handler()
         return self._stacked_doping_handler
 
     def _invalidate_cache(self):
-        # Manually delete the cached properties
+        """Invalidate the cached properties."""
+        self._stacked_graph = None
+        self._stacked_doping_handler = None
         if "graph" in self.__dict__:
             del self.__dict__["graph"]
         if "doping_handler" in self.__dict__:
@@ -1066,20 +1053,34 @@ class StackedGraphene(Structure3D):
             sheet.graph.nodes[node]["position"] = shifted_pos
 
     def build_structure(self):
-        # """
-        # Combine all the graphene sheets into a single structure and collect doping structures.
-        # """
-        # # Start with the graph of the first layer
-        # self.graph = self.graphene_sheets[0].graph.copy()
-        #
-        # # Iterate over the remaining layers and combine them into self.graph
-        # for sheet in self.graphene_sheets[1:]:
-        #     self.graph = nx.disjoint_union(self.graph, sheet.graph)
         """
         Build the stacked graphene structure by combining all graphene sheets.
-        For this class, the structure is dynamically built and cached in the properties.
         """
-        pass  # No action needed since the properties handle the structure building
+        # Invalidate cached properties if any
+        self._invalidate_cache()
+
+        combined_graph = nx.Graph()
+        for sheet in self.graphene_sheets:
+            combined_graph.update(sheet.graph)
+        self._stacked_graph = combined_graph
+
+    def _build_doping_handler(self):
+        """
+        Build the doping handler for the stacked graphene structure.
+        """
+        combined_doping_handler = DopingHandler(self)
+        combined_doping_structures = DopingStructureCollection()
+
+        for sheet in self.graphene_sheets:
+            # Add doping structures from the sheet
+            for doping_structure in sheet.doping_handler.doping_structures:
+                combined_doping_structures.add_structure(doping_structure)
+            # Combine chosen_atoms
+            for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
+                combined_doping_structures.chosen_atoms[species].extend(atoms)
+
+        combined_doping_handler.doping_structures = combined_doping_structures
+        self._stacked_doping_handler = combined_doping_handler
 
     def add_nitrogen_doping(
         self,
@@ -1151,7 +1152,7 @@ class StackedGraphene(Structure3D):
           `adjust_atom_positions()`.
         """
         # Determine which layers to dope
-        self._stacked_doping_handler, self._stacked_graph = None, None
+        # self._stacked_doping_handler, self._stacked_graph = None, None
         if isinstance(layers, str) and layers.lower() == "all":
             layers = list(range(self.number_of_layers))
         elif isinstance(layers, list):

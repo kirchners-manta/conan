@@ -48,7 +48,7 @@ def main():
 
     ####################################################################################################################
     # # CREATE A GRAPHENE SHEET, DOPE IT AND ADJUST POSITIONS VIA ADD_NITROGEN_DOPING METHOD
-    # sheet_size = (40, 40)
+    # sheet_size = (10, 10)
     #
     # # # Use default optimization weights
     # # weights = OptimizationWeights()
@@ -80,14 +80,14 @@ def main():
     # # # graphene.add_nitrogen_doping(total_percentage=10,
     # # #                              percentages={NitrogenSpecies.PYRIDINIC_4: 2, NitrogenSpecies.GRAPHITIC: 3})
     #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
-    #
-    # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # #
+    # # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
+    # #
+    # # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
+    # # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
     #
     # graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
     # graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False)
@@ -193,7 +193,7 @@ def main():
     # )
 
     # Plot the stacked structure
-    stacked_graphene.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    stacked_graphene.plot_structure(with_labels=False, visualize_periodic_bonds=False)
 
     # Label atoms before writing to XYZ file
     labeler = AtomLabeler(stacked_graphene.graph, stacked_graphene.doping_handler.doping_structures)
