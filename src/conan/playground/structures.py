@@ -396,6 +396,139 @@ class Structure3D(MaterialStructure, ABC):
             plt.show()
 
 
+class CombinedStructure(MaterialStructure, ABC):
+    """
+    Abstract base class for combined structures.
+    Provides shared logic for combined structures like StackedGraphene and Pore.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._combined_graph = None
+        self._combined_doping_handler = None
+
+    @cached_property
+    def graph(self):
+        """
+        Returns the combined graph of all substructures in the stack.
+        Caches the result to avoid re-computation unless invalidated.
+        """
+        if self._combined_graph is None:
+            self.build_structure()
+        return self._combined_graph
+
+    @cached_property
+    def doping_handler(self):
+        """
+        Returns a DopingHandler that contains all doping structures from all substructures.
+        Caches the result to avoid re-computation unless invalidated.
+        """
+        if self._combined_doping_handler is None:
+            self._build_doping_handler()
+        return self._combined_doping_handler
+
+    def _invalidate_cache(self):
+        """Invalidate the cached properties."""
+        self._combined_graph = None
+        self._combined_doping_handler = None
+        if "graph" in self.__dict__:
+            del self.__dict__["graph"]
+        if "doping_handler" in self.__dict__:
+            del self.__dict__["doping_handler"]
+
+    @abstractmethod
+    def build_structure(self):
+        """
+        Abstract method to build the combined structure.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    @abstractmethod
+    def get_components(self):
+        """
+        Abstract method to retrieve the individual components of the combined structure.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    def _build_doping_handler(self):
+        """
+        Build the doping handler for the stacked material structure.
+        """
+        # Combine doping structures from all material structures
+        combined_doping_handler = DopingHandler(self)
+        combined_doping_structures = DopingStructureCollection()
+
+        for component in self.get_components():
+            # Add doping structures from the material structure
+            for doping_structure in component.doping_handler.doping_structures:
+                combined_doping_structures.add_structure(doping_structure)
+            # Combine chosen_atoms
+            for species, atoms in component.doping_handler.doping_structures.chosen_atoms.items():
+                combined_doping_structures.chosen_atoms[species].extend(atoms)
+
+        combined_doping_handler.doping_structures = combined_doping_structures
+        self._combined_doping_handler = combined_doping_handler
+
+    @staticmethod
+    def _adjust_node_ids(mat_structure: MaterialStructure, node_id_offset: int):
+        """
+        Adjust the node IDs of a structure by a given offset.
+
+        Parameters
+        ----------
+        mat_structure: MaterialStructure
+            The material structure whose node IDs need to be adjusted.
+        node_id_offset: int
+            The offset to add to each node ID.
+        """
+        # Create a mapping from old to new node IDs
+        mapping = {node: node + node_id_offset for node in mat_structure.graph.nodes()}
+        # Update the node IDs in the graph
+        mat_structure.graph = nx.relabel_nodes(mat_structure.graph, mapping)
+        mat_structure.doping_handler.graph = mat_structure.graph
+        # Update the node IDs in the doping structures
+        for doping_structure in mat_structure.doping_handler.doping_structures:
+            # Adjust nitrogen atoms
+            doping_structure.nitrogen_atoms = [node + node_id_offset for node in doping_structure.nitrogen_atoms]
+            # Adjust cycle
+            if doping_structure.cycle is not None:
+                doping_structure.cycle = [node + node_id_offset for node in doping_structure.cycle]
+            # Adjust neighboring atoms
+            if doping_structure.neighboring_atoms is not None:
+                doping_structure.neighboring_atoms = [
+                    node + node_id_offset for node in doping_structure.neighboring_atoms
+                ]
+            # Adjust structural components
+            if doping_structure.structural_components is not None:
+                components = StructuralComponents([], [])
+                components.structure_building_atoms.extend(
+                    [node + node_id_offset for node in doping_structure.structural_components.structure_building_atoms]
+                )
+                components.structure_building_neighbors.extend(
+                    [
+                        node + node_id_offset
+                        for node in doping_structure.structural_components.structure_building_neighbors
+                    ]
+                )
+                doping_structure.structural_components = components
+            # Adjust additional edge
+            if doping_structure.additional_edge is not None:
+                doping_structure.additional_edge = (
+                    doping_structure.additional_edge[0] + node_id_offset,
+                    doping_structure.additional_edge[1] + node_id_offset,
+                )
+            # Adjust subgraph node IDs
+            if doping_structure.subgraph is not None:
+                # Relabel the nodes in the subgraph
+                doping_structure.subgraph = nx.relabel_nodes(doping_structure.subgraph, mapping)
+            # Adjust chosen_atoms in DopingStructureCollection
+            chosen_atoms = mat_structure.doping_handler.doping_structures.chosen_atoms
+            for species, atoms in chosen_atoms.items():
+                chosen_atoms[species] = [node + node_id_offset for node in atoms]
+
+
 class GrapheneSheet(Structure2D):
     """
     Represents a graphene sheet structure.
@@ -848,7 +981,7 @@ class GrapheneSheet(Structure2D):
         return StackedGraphene(self, interlayer_spacing, number_of_layers, stacking_type)
 
 
-class StackedGraphene(Structure3D):
+class StackedGraphene(CombinedStructure, Structure3D):
     """
     Represents a stacked graphene structure.
     """
@@ -881,7 +1014,8 @@ class StackedGraphene(Structure3D):
             If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
             not 'ABA' or 'ABC'.
         """
-        super().__init__()
+        CombinedStructure.__init__(self)
+        Structure3D.__init__(self)
 
         # Validate interlayer_spacing
         if not isinstance(interlayer_spacing, (int, float)):
@@ -906,124 +1040,18 @@ class StackedGraphene(Structure3D):
         if self.stacking_type not in valid_stacking_types:
             raise ValueError(f"stacking_type must be one of {valid_stacking_types}, but got '{self.stacking_type}'.")
 
-        self.graphene_sheets = []
+        self.graphene_sheets = [graphene_sheet]
         """A list to hold individual GrapheneSheet instances."""
         self.interlayer_spacing = interlayer_spacing
         """The spacing between layers in the z-direction."""
         self.number_of_layers = number_of_layers
         """The number of layers to stack."""
 
-        # Add the original graphene sheet as the first layer
-        # toggle_dimension(graphene_sheet.graph)
-        self.graphene_sheets.append(graphene_sheet)
-
-        # Initialize total number of nodes
-        total_nodes = graphene_sheet.graph.number_of_nodes()
-
-        # Add additional layers by copying the original graphene sheet
-        for layer in range(1, self.number_of_layers):
-            # Create a copy of the original graphene sheet and shift it
-            new_sheet = copy.deepcopy(graphene_sheet)
-            # Adjust the node IDs of the new sheet
-            self._adjust_node_ids(new_sheet, total_nodes)
-            # Shift the sheet according to the stacking type
-            self._shift_sheet(new_sheet, layer)
-            # Add the new sheet to the list
-            self.graphene_sheets.append(new_sheet)
-            # Update the total number of nodes
-            total_nodes += new_sheet.graph.number_of_nodes()
-
-        self._stacked_graph = None  # Internal variable to store the combined graph
-        self._stacked_doping_handler = None  # Internal variable to store the combined doping handler
+        # Generate additional layers by copying the base graphene sheet and shifting it
+        self._generate_layers()
 
         # Build the initial structure by combining all graphene sheets
         self.build_structure()
-
-    @cached_property
-    def graph(self):
-        """
-        Returns the combined graph of all graphene sheets in the stack.
-        Caches the result to avoid re-computation unless invalidated.
-        """
-        if self._stacked_graph is None:
-            self.build_structure()
-        return self._stacked_graph
-
-    @cached_property
-    def doping_handler(self):
-        """
-        Returns a DopingHandler that contains all doping structures from the sheets.
-        Caches the result to avoid re-computation unless invalidated.
-        """
-        if self._stacked_doping_handler is None:
-            self._build_doping_handler()
-        return self._stacked_doping_handler
-
-    def _invalidate_cache(self):
-        """Invalidate the cached properties."""
-        self._stacked_graph = None
-        self._stacked_doping_handler = None
-        if "graph" in self.__dict__:
-            del self.__dict__["graph"]
-        if "doping_handler" in self.__dict__:
-            del self.__dict__["doping_handler"]
-
-    @staticmethod
-    def _adjust_node_ids(sheet: GrapheneSheet, node_id_offset: int):
-        """
-        Adjust the node IDs of a graphene sheet by a given offset.
-
-        Parameters
-        ----------
-        sheet : GrapheneSheet
-            The graphene sheet whose node IDs need to be adjusted.
-        node_id_offset : int
-            The offset to be added to each node ID.
-        """
-        # Create a mapping from old to new node IDs
-        mapping = {node: node + node_id_offset for node in sheet.graph.nodes()}
-        # Update the node IDs in the graph
-        sheet.graph = nx.relabel_nodes(sheet.graph, mapping)
-        sheet.doping_handler.graph = sheet.graph
-        # Update the node IDs in the doping structures
-        for doping_structure in sheet.doping_handler.doping_structures:
-            # Adjust nitrogen atoms
-            doping_structure.nitrogen_atoms = [node + node_id_offset for node in doping_structure.nitrogen_atoms]
-            # Adjust cycle
-            if doping_structure.cycle is not None:
-                doping_structure.cycle = [node + node_id_offset for node in doping_structure.cycle]
-            # Adjust neighboring atoms
-            if doping_structure.neighboring_atoms is not None:
-                doping_structure.neighboring_atoms = [
-                    node + node_id_offset for node in doping_structure.neighboring_atoms
-                ]
-            # Adjust structural components
-            if doping_structure.structural_components is not None:
-                structural_components = StructuralComponents([], [])
-                structural_components.structure_building_atoms.extend(
-                    [node + node_id_offset for node in doping_structure.structural_components.structure_building_atoms]
-                )
-                structural_components.structure_building_neighbors.extend(
-                    [
-                        node + node_id_offset
-                        for node in doping_structure.structural_components.structure_building_neighbors
-                    ]
-                )
-                doping_structure.structural_components = structural_components
-            # Adjust additional edge
-            if doping_structure.additional_edge is not None:
-                doping_structure.additional_edge = (
-                    doping_structure.additional_edge[0] + node_id_offset,
-                    doping_structure.additional_edge[1] + node_id_offset,
-                )
-            # Adjust subgraph node IDs
-            if doping_structure.subgraph is not None:
-                # Relabel the nodes in the subgraph
-                doping_structure.subgraph = nx.relabel_nodes(doping_structure.subgraph, mapping)
-        # Adjust chosen_atoms in DopingStructureCollection
-        chosen_atoms = sheet.doping_handler.doping_structures.chosen_atoms
-        for species, atoms in chosen_atoms.items():
-            chosen_atoms[species] = [node + node_id_offset for node in atoms]
 
     def _shift_sheet(self, sheet: GrapheneSheet, layer: int):
         """
@@ -1052,6 +1080,23 @@ class StackedGraphene(Structure3D):
             shifted_pos = Position(pos.x + x_shift, pos.y, z_shift)
             sheet.graph.nodes[node]["position"] = shifted_pos
 
+    def _generate_layers(self):
+        # Initialize total number of nodes
+        total_nodes = self.graphene_sheets[0].graph.number_of_nodes()
+
+        # Add additional layers by copying the original graphene sheet
+        for layer in range(1, self.number_of_layers):
+            # Create a copy of the original graphene sheet and shift it
+            new_sheet = copy.deepcopy(self.graphene_sheets[0])
+            # Adjust the node IDs of the new sheet
+            self._adjust_node_ids(new_sheet, total_nodes)
+            # Shift the sheet according to the stacking type
+            self._shift_sheet(new_sheet, layer)
+            # Add the new sheet to the list
+            self.graphene_sheets.append(new_sheet)
+            # Update the total number of nodes
+            total_nodes += new_sheet.graph.number_of_nodes()
+
     def build_structure(self):
         """
         Build the stacked graphene structure by combining all graphene sheets.
@@ -1063,26 +1108,10 @@ class StackedGraphene(Structure3D):
         combined_graph = nx.Graph()
         for sheet in self.graphene_sheets:
             combined_graph.update(sheet.graph)
-        self._stacked_graph = combined_graph
+        self._combined_graph = combined_graph
 
-    def _build_doping_handler(self):
-        """
-        Build the doping handler for the stacked graphene structure.
-        """
-        # Combine doping structures from all graphene sheets
-        combined_doping_handler = DopingHandler(self)
-        combined_doping_structures = DopingStructureCollection()
-
-        for sheet in self.graphene_sheets:
-            # Add doping structures from the sheet
-            for doping_structure in sheet.doping_handler.doping_structures:
-                combined_doping_structures.add_structure(doping_structure)
-            # Combine chosen_atoms
-            for species, atoms in sheet.doping_handler.doping_structures.chosen_atoms.items():
-                combined_doping_structures.chosen_atoms[species].extend(atoms)
-
-        combined_doping_handler.doping_structures = combined_doping_structures
-        self._stacked_doping_handler = combined_doping_handler
+    def get_components(self):
+        return self.graphene_sheets
 
     def add_nitrogen_doping(
         self,
@@ -2026,7 +2055,7 @@ class CNT(Structure3D):
         )
 
 
-class Pore(Structure3D):
+class Pore(CombinedStructure, Structure3D):
     """
     Represents a Pore structure consisting of two graphene sheets connected by a CNT.
     """
@@ -2058,7 +2087,8 @@ class Pore(Structure3D):
         conformation : str, optional
             The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         """
-        super().__init__()
+        CombinedStructure.__init__(self)
+        Structure3D.__init__(self)
 
         # Input validation and parameter handling
         if tube_size is None and tube_diameter is None:
@@ -2087,29 +2117,31 @@ class Pore(Structure3D):
             )
             self.tube_size = temp_cnt.tube_size
 
-        # Create the graphene sheets and CNT
-        self.graphene1 = GrapheneSheet(bond_length, sheet_size)
-        self.graphene2 = GrapheneSheet(bond_length, sheet_size)
-        self.cnt = CNT(
-            bond_length=bond_length,
-            tube_length=tube_length,
-            tube_size=tube_size,
-            tube_diameter=tube_diameter,
-            conformation=conformation,
-        )
+        # Assemble the components of the pore
+        self._assemble_components()
 
         # Build the structure
         self.build_structure()
 
-    def build_structure(self):
+    def _assemble_components(self):
         """
-        Build the Pore structure by connecting the two graphene sheets with the CNT.
+        Assemble the components of the pore: two graphene sheets and a CNT.
         """
-        # Calculate the x and y shift to center the CNT in the middle of the first graphene sheet
+        # Create the graphene sheets and CNT
+        self.graphene1 = GrapheneSheet(self.bond_length, self.sheet_size)
+        self.graphene2 = GrapheneSheet(self.bond_length, self.sheet_size)
+        self.cnt = CNT(
+            bond_length=self.bond_length,
+            tube_length=self.tube_length,
+            tube_size=self.tube_size,
+            conformation=self.conformation,
+        )
+
+        # Calculate the x and y shift to center the CNT in the middle of the graphene sheets
         x_shift = self.graphene1.actual_sheet_width / 2
         y_shift = self.graphene1.actual_sheet_height / 2
 
-        # Position the CNT exactly in the center of the first graphene sheet in the x and y directions
+        # Position the CNT exactly in the center of the graphene sheets in the x and y directions
         self.cnt.translate(x_shift=x_shift, y_shift=y_shift)
 
         # Shift the second graphene sheet along the z-axis by the length of the CNT
@@ -2121,16 +2153,21 @@ class Pore(Structure3D):
         self.graphene1.create_hole(center, radius)
         self.graphene2.create_hole(center, radius)
 
-        # Merge the three structures (graphene1, CNT, graphene2)
-        self._merge_structures()
+        # Adjust node IDs to prevent overlaps
+        total_nodes = self.graphene1.graph.number_of_nodes()
+        self._adjust_node_ids(self.cnt, total_nodes)
+        total_nodes += self.cnt.graph.number_of_nodes()
+        self._adjust_node_ids(self.graphene2, total_nodes)
 
-    def _merge_structures(self):
+    def build_structure(self):
         """
-        Merge the two graphene sheets and the CNT into a single structure.
+        Build the Pore structure by combining the graphene sheets and the CNT.
         """
-        # self.graph = nx.compose_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
-        self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
-        # self._connect_graphene_to_cnt()
+        self._invalidate_cache()
+        self._combined_graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
+
+    def get_components(self):
+        return [self.graphene1, self.cnt, self.graphene2]
 
     def add_nitrogen_doping(self, total_percentage: float = 10):
         """

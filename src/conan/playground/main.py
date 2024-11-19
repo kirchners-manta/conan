@@ -178,7 +178,7 @@ def main():
     stacked_graphene = StackedGraphene(graphene_sheet, number_of_layers=5, stacking_type="ABA")
 
     # Add nitrogen doping to the specified graphene sheets
-    stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=False, layers="all")
+    stacked_graphene.add_nitrogen_doping(total_percentage=10, adjust_positions=True, layers="all")
 
     # stacked_graphene.add_nitrogen_doping(
     #     percentages={
@@ -259,6 +259,10 @@ def main():
     # cnt.add_nitrogen_doping(total_percentage=10)
     # cnt.plot_structure(with_labels=True, visualize_periodic_bonds=False)
     #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(cnt.graph, cnt.doping_handler.doping_structures)
+    # labeler.label_atoms()
+    #
     # # Save the CNT structure to a file
     # write_xyz(cnt.graph, "CNT_structure_zigzag.xyz")
 
@@ -287,6 +291,10 @@ def main():
     #
     # # Visualize the structure with labels (without showing periodic bonds)
     # pore.plot_structure(with_labels=True, visualize_periodic_bonds=False)
+    #
+    # # Label atoms before writing to XYZ file
+    # labeler = AtomLabeler(pore.graph, pore.doping_handler.doping_structures)
+    # labeler.label_atoms()
     #
     # # Save the Pore structure to a file
     # write_xyz(pore.graph, "pore_structure.xyz")
