@@ -754,6 +754,7 @@ class GrapheneSheet(Structure2D):
         optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to the graphene sheet.
@@ -789,6 +790,10 @@ class GrapheneSheet(Structure2D):
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -813,7 +818,9 @@ class GrapheneSheet(Structure2D):
             raise ValueError(f"adjust_positions must be a Boolean, but got {type(adjust_positions).__name__}")
 
         # Delegate the doping process to the doping handler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages, optimization_weights)
+        self.doping_handler.add_nitrogen_doping(
+            total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
+        )
 
         # Reset the positions_adjusted flag since the structure has changed
         self.positions_adjusted = False
@@ -1121,6 +1128,7 @@ class StackedGraphene(CombinedStructure, Structure3D):
         adjust_positions: bool = False,
         layers: Union[List[int], str] = "all",
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to one or multiple layers in the stacked graphene structure.
@@ -1159,6 +1167,10 @@ class StackedGraphene(CombinedStructure, Structure3D):
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -1213,6 +1225,7 @@ class StackedGraphene(CombinedStructure, Structure3D):
                 optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
+                ensure_even_num_nitrogen_atoms=ensure_even_num_nitrogen_atoms,
             )
 
     def add_nitrogen_doping_to_layer(
@@ -1223,6 +1236,7 @@ class StackedGraphene(CombinedStructure, Structure3D):
         optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to a specific layer in the stacked graphene structure.
@@ -1260,6 +1274,10 @@ class StackedGraphene(CombinedStructure, Structure3D):
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -1290,6 +1308,7 @@ class StackedGraphene(CombinedStructure, Structure3D):
                 optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
+                ensure_even_num_nitrogen_atoms=ensure_even_num_nitrogen_atoms,
             )
 
             # Invalidate the cache after modifying the sheet in order to update the structure after doping
@@ -1987,6 +2006,7 @@ class CNT(Structure3D):
         total_percentage: float = None,
         percentages: dict = None,
         optimization_weights: Optional["OptimizationWeights"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to the CNT.
@@ -2018,6 +2038,10 @@ class CNT(Structure3D):
             the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
             `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
             the specified percentages exactly.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -2043,7 +2067,9 @@ class CNT(Structure3D):
         other computational methods. Future versions may include 3D position optimization.
         """
         # Delegate the doping process to the DopingHandler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages, optimization_weights)
+        self.doping_handler.add_nitrogen_doping(
+            total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
+        )
 
         # Issue a user warning about the lack of 3D position adjustment
         warnings.warn(

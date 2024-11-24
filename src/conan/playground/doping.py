@@ -911,6 +911,7 @@ class DopingHandler:
         total_percentage: Optional[float] = None,
         percentages: Optional[Dict[NitrogenSpecies, float]] = None,
         optimization_weights: Optional[OptimizationWeights] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to the structure using optimization and utilizing graph manipulation techniques to insert
@@ -938,11 +939,15 @@ class DopingHandler:
 
             - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
               objective function.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
-            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
-            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
-            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
-            the specified percentages exactly.
+        **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+        the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+        `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+        the specified percentages exactly.
 
         Raises
         ------
@@ -979,7 +984,7 @@ class DopingHandler:
 
         # Step 3: Calculate desired number of structures
         desired_num_structures = self._calculate_num_desired_structures(
-            num_initial_atoms, total_percentage, percentages, optimization_weights
+            num_initial_atoms, total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
         )
 
         # Step 4: Insert doping structures
@@ -1094,6 +1099,7 @@ class DopingHandler:
         total_percentage: float,
         percentages: Dict[NitrogenSpecies, float],
         optimization_weights: Optional[OptimizationWeights],
+        ensure_even_num_nitrogen_atoms: bool,
     ) -> Dict[NitrogenSpecies, int]:
         """
         Calculate the desired number of structures for each nitrogen species.
@@ -1123,6 +1129,10 @@ class DopingHandler:
             the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
             `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
             the specified percentages exactly.
+        ensure_even_num_nitrogen_atoms: bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Returns
         -------
@@ -1163,7 +1173,11 @@ class DopingHandler:
 
             # Use optimization for remaining percentages
             desired_structures_remaining = self._calculate_num_desired_structures_using_linear_programming(
-                num_atoms_remaining, remaining_percentage, optimization_weights, fixed_structures
+                num_atoms_remaining,
+                remaining_percentage,
+                optimization_weights,
+                fixed_structures,
+                ensure_even_num_nitrogen_atoms,
             )
 
             # Combine the results
@@ -1177,6 +1191,7 @@ class DopingHandler:
         total_percentage: float,
         optimization_weights: Optional[OptimizationWeights],
         fixed_structures: Dict[NitrogenSpecies, int],
+        ensure_even_num_nitrogen_atoms: bool,
     ) -> Dict[NitrogenSpecies, int]:
         """
         Calculate the desired number of structures for the remaining species using linear programming optimization.
@@ -1203,6 +1218,10 @@ class DopingHandler:
             the specified percentages exactly.
         fixed_structures : Dict[NitrogenSpecies, int]
             The number of structures already assigned to specified species.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Returns
         -------
@@ -1274,6 +1293,10 @@ class DopingHandler:
         # types
         z2 = LpVariable("z2", lowBound=0, cat="Continuous")
 
+        # Additional integer variable for ensuring even number of nitrogen atoms
+        if ensure_even_num_nitrogen_atoms:
+            y = LpVariable("y", lowBound=0, cat="Integer")
+
         # Objective function
         prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
@@ -1306,6 +1329,13 @@ class DopingHandler:
             z2 == lpSum([p_num_nitrogen_dev_i[i] + n_num_nitrogen_dev_i[i] for i in range(num_doping_types)]),
             "Total deviation in nitrogen atoms",
         )
+
+        # Even nitrogen atoms constraint
+        if ensure_even_num_nitrogen_atoms:
+            prob += (
+                lpSum([ri[i] * xi[i] for i in range(num_doping_types)]) - 2 * y == 0,
+                "Even number of nitrogen atoms constraint",
+            )
 
         # Solve the problem
         prob.solve(PULP_CBC_CMD(msg=False))

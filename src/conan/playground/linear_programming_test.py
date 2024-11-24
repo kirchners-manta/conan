@@ -40,7 +40,7 @@ z1 = pulp.LpVariable("z1", lowBound=0, cat="Continuous")
 z2 = pulp.LpVariable("z2", lowBound=0, cat="Continuous")
 
 # Objective function
-w1 = 1000  # Weight for deviation from desired nitrogen percentage
+w1 = 1  # Weight for deviation from desired nitrogen percentage
 w2 = 1  # Weight for deviation from equal distribution of nitrogen atoms
 prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
@@ -199,7 +199,7 @@ z2 = pulp.LpVariable("z2", lowBound=0, cat="Continuous")
 y = pulp.LpVariable("y", lowBound=0, cat="Integer")
 
 # Objective function
-w1 = 1000  # Weight for deviation from desired nitrogen percentage
+w1 = 1  # Weight for deviation from desired nitrogen percentage
 w2 = 1  # Weight for deviation from equal distribution of nitrogen atoms
 prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
