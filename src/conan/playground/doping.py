@@ -99,10 +99,10 @@ class NitrogenSpeciesProperties:
 class NitrogenSpecies(Enum):
     GRAPHITIC = "Graphitic-N"
     # PYRIDINIC = "pyridinic"
-    PYRIDINIC_1 = "Pyridinic-N 1"
-    PYRIDINIC_2 = "Pyridinic-N 2"
-    PYRIDINIC_3 = "Pyridinic-N 3"
-    PYRIDINIC_4 = "Pyridinic-N 4"
+    PYRIDINIC_1 = "Pyridinic-N1"
+    PYRIDINIC_2 = "Pyridinic-N2"
+    PYRIDINIC_3 = "Pyridinic-N3"
+    PYRIDINIC_4 = "Pyridinic-N4"
     # PYRROLIC = "pyrrolic"
     # PYRAZOLE = "pyrazole"
 
@@ -1241,7 +1241,7 @@ class DopingHandler:
 
         It excludes species that already have fixed structures assigned.
         """
-        # Use default weights if none provided
+        # Default weights for the optimization objective function
         if optimization_weights is None:
             optimization_weights = OptimizationWeights()
 
@@ -1255,29 +1255,26 @@ class DopingHandler:
         if num_doping_types == 0:
             return {}
 
-        # Constants for each doping type
+        # --- Constants (per doping type) ---
         # Number of carbon atoms removed by doping type i
-        ci = [NitrogenSpecies.get_num_carbon_atoms_to_remove(s) for s in remaining_species]
+        r = [NitrogenSpecies.get_num_carbon_atoms_to_remove(s) for s in remaining_species]
         # Number of nitrogen atoms added by doping type i
-        ri = [NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in remaining_species]
-
+        a = [NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in remaining_species]
         # Convert desired percentage to fractions
         total_percentage_fraction = total_percentage / 100.0
-
         # Compute ki values (effective nitrogen contribution of doping type i, accounting for nitrogen added and the
         # effect of carbon atoms removed on the overall nitrogen percentage)
-        ki = [ri_i + total_percentage_fraction * ci_i for ri_i, ci_i in zip(ri, ci)]
-
+        k = [ai + total_percentage_fraction * ri for ai, ri in zip(a, r)]
         # The right-hand side of the equation, representing the desired total nitrogen atoms based on the initial total
         # atoms
         rhs = total_percentage_fraction * num_initial_atoms
 
-        # Initialize the problem
+        # --- Initialize the optimization problem ---
         prob = LpProblem("Nitrogen_Doping_Optimization_Remaining", LpMinimize)
 
-        # Decision variables
+        # --- Decision Variables ---
         # Integer variable representing the number of doping structures of type i to insert
-        xi = [LpVariable(f"x_{i}", lowBound=0, cat="Integer") for i in range(num_doping_types)]
+        x = [LpVariable(f"x_{i}", lowBound=0, cat="Integer") for i in range(num_doping_types)]
         # Continuous variable representing the average number of nitrogen atoms per doping type
         num_nitrogen_avg = LpVariable("N_avg", lowBound=0, cat="Continuous")
         # Continuous variables for positive and negative deviations of nitrogen atoms added by doping type i from N_avg
@@ -1287,53 +1284,58 @@ class DopingHandler:
         # nitrogen atoms
         p_perc_dev = LpVariable("P", lowBound=0, cat="Continuous")
         n_perc_dev = LpVariable("N", lowBound=0, cat="Continuous")
+        # Additional integer variable for ensuring even number of nitrogen atoms
+        if ensure_even_num_nitrogen_atoms:
+            y = LpVariable("y", lowBound=0, cat="Integer")
+
+        # --- Objective Function Components ---
         # Continuous variable representing the deviation in nitrogen percentage from the desired value
         z1 = LpVariable("z1", lowBound=0, cat="Continuous")
         # Continuous variable representing the total deviation in nitrogen atoms from equal distribution among doping
         # types
         z2 = LpVariable("z2", lowBound=0, cat="Continuous")
 
-        # Additional integer variable for ensuring even number of nitrogen atoms
-        if ensure_even_num_nitrogen_atoms:
-            y = LpVariable("y", lowBound=0, cat="Integer")
-
-        # Objective function
+        # --- Objective Function ---
         prob += w1 * z1 + w2 * z2, "Minimize total deviation"
 
-        # Nitrogen percentage constraint (replacing upper and lower bound constraints) to ensure that the total
-        # effective nitrogen contribution from all doping types matches the desired total nitrogen atoms (rhs),
-        # accounting for deviations (P, N)
-        prob += (
-            lpSum([ki[i] * xi[i] for i in range(num_doping_types)]) + p_perc_dev - n_perc_dev == rhs,
-            "Nitrogen deviation constraint",
-        )
+        # --- Objective Function Terms ---
         # Define z1 as the sum of positive and negative deviations, effectively capturing the absolute deviation in
         # nitrogen atoms
         prob += z1 == p_perc_dev + n_perc_dev, "Absolute deviation constraint"
 
+        # Define z2 as the sum of all individual deviations, representing the total deviation from equal nitrogen
+        # distribution
+        prob += (
+            z2 == lpSum([p_num_nitrogen_dev_i[i] + n_num_nitrogen_dev_i[i] for i in range(num_doping_types)]),
+            "Total deviation in nitrogen atoms",
+        )
+
+        # --- Constraints ---
+        # Nitrogen percentage constraint (replacing upper and lower bound constraints) to ensure that the total
+        # effective nitrogen contribution from all doping types matches the desired total nitrogen atoms (rhs),
+        # accounting for deviations (P, N)
+        prob += (
+            lpSum([k[i] * x[i] for i in range(num_doping_types)]) + p_perc_dev - n_perc_dev == rhs,
+            "Nitrogen deviation constraint",
+        )
+
         # Constraint to calculate the average number of nitrogen atoms added per doping type
         prob += (
-            num_nitrogen_avg == lpSum([ri[i] * xi[i] for i in range(num_doping_types)]) / num_doping_types,
+            num_nitrogen_avg == lpSum([a[i] * x[i] for i in range(num_doping_types)]) / num_doping_types,
             "Average nitrogen atoms constraint",
         )
 
         # Constraints for deviations in nitrogen atoms from the average
         for i in range(num_doping_types):
             prob += (
-                ri[i] * xi[i] + p_num_nitrogen_dev_i[i] - n_num_nitrogen_dev_i[i] == num_nitrogen_avg,
+                a[i] * x[i] + p_num_nitrogen_dev_i[i] - n_num_nitrogen_dev_i[i] == num_nitrogen_avg,
                 f"Nitrogen deviation for type {i}",
             )
-            # Define z2 as the sum of all individual deviations, representing the total deviation from equal nitrogen
-            # distribution
-        prob += (
-            z2 == lpSum([p_num_nitrogen_dev_i[i] + n_num_nitrogen_dev_i[i] for i in range(num_doping_types)]),
-            "Total deviation in nitrogen atoms",
-        )
 
         # Even nitrogen atoms constraint
         if ensure_even_num_nitrogen_atoms:
             prob += (
-                lpSum([ri[i] * xi[i] for i in range(num_doping_types)]) - 2 * y == 0,
+                lpSum([a[i] * x[i] for i in range(num_doping_types)]) - 2 * y == 0,
                 "Even number of nitrogen atoms constraint",
             )
 
@@ -1345,8 +1347,8 @@ class DopingHandler:
             warnings.warn("Optimal solution not found. Doping may not meet desired specifications.", UserWarning)
 
         # Retrieve the solution
-        xi_values = [int(xi[i].varValue) for i in range(num_doping_types)]
-        desired_num_structures = {remaining_species[i]: xi_values[i] for i in range(num_doping_types)}
+        x_values = [int(x[i].varValue) for i in range(num_doping_types)]
+        desired_num_structures = {remaining_species[i]: x_values[i] for i in range(num_doping_types)}
 
         return desired_num_structures
 
