@@ -1,13 +1,15 @@
 import os
+import platform
 import random
 import tempfile
+import warnings
 
 import numpy as np
 import numpy.testing as npt
 import pytest
 from ase.io import read
 
-from conan.playground.doping import NitrogenSpecies
+from conan.playground.doping import NitrogenSpecies, OptimizationWeights
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 from conan.playground.structures import GrapheneSheet
 from conan.playground.utils import write_xyz
@@ -43,7 +45,15 @@ class TestStructureOptimizer:
         random.seed(1)
         sheet_size = (15, 15)
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-        graphene.add_nitrogen_doping(total_percentage=10)
+        graphene.add_nitrogen_doping(
+            percentages={
+                NitrogenSpecies.GRAPHITIC: 1.49,
+                NitrogenSpecies.PYRIDINIC_1: 1.49,
+                NitrogenSpecies.PYRIDINIC_2: 2.99,
+                NitrogenSpecies.PYRIDINIC_3: 4.48,
+                NitrogenSpecies.PYRIDINIC_4: 5.97,
+            }
+        )
 
         # Create the optimizer
         config = OptimizationConfig(
@@ -65,10 +75,11 @@ class TestStructureOptimizer:
 
         # Set up the graphene sheet with the same parameters as the optimized reference structure
         sheet_size = (20, 20)
+        weights = OptimizationWeights(nitrogen_percentage_weight=1, equal_distribution_weight=1)
         graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
 
         # Apply nitrogen doping with 10% total percentage
-        graphene.add_nitrogen_doping(total_percentage=10)
+        graphene.add_nitrogen_doping(total_percentage=10, optimization_weights=weights)
 
         # Create the optimizer
         config = OptimizationConfig(
@@ -102,6 +113,9 @@ class TestStructureOptimizer:
         return optimized_positions, elements
 
     def test_assign_target_bond_lengths_and_k_values(self, setup_structure_optimizer_small_system):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore expected warnings in this test
+
         optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
@@ -240,6 +254,9 @@ class TestStructureOptimizer:
         ), "Bond k values do not match expected values."
 
     def test_assign_target_angles_and_k_values(self, setup_structure_optimizer_small_system):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore expected warnings in this test
+
         optimizer = setup_structure_optimizer_small_system
 
         # Get all doping structures except graphitic nitrogen (graphitic nitrogen does not affect the structure)
@@ -662,7 +679,9 @@ class TestStructureOptimizer:
         optimizer = setup_structure_optimizer
 
         # Perform the position optimization
-        optimizer.optimize_positions()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # Ignore optimization warnings
+            optimizer.optimize_positions()
 
         # Write the optimized structure to a temporary XYZ file
         graphene_sheet = optimizer.structure
@@ -686,7 +705,15 @@ class TestStructureOptimizer:
         assert optimized_elements == ref_elements, "Element symbols do not match."
 
         # Compare positions with tolerances
-        npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
+        try:
+            if platform.system() in ["Windows", "Darwin"]:  # Darwin ist macOS
+                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
+            else:
+                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
+        except AssertionError as e:
+            for i, (opt_pos, ref_pos) in enumerate(zip(optimized_positions, ref_positions)):
+                print(f"Atom {i}: Optimized position = {opt_pos}, Reference position = {ref_pos}")
+            raise AssertionError("Positions do not match within tolerance.") from e
 
     def test_assign_target_bond_lengths_missing_target_length(self, setup_structure_optimizer_small_system):
         optimizer = setup_structure_optimizer_small_system

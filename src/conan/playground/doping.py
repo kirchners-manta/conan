@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from conan.playground.structures import MaterialStructure
     from conan.playground.utils import get_neighbors_via_edges, minimum_image_distance
 
+# import math
 import random
 import warnings
 from collections import defaultdict, namedtuple
@@ -13,12 +14,60 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 import pandas as pd
+from pulp import PULP_CBC_CMD, LpMinimize, LpProblem, LpStatusOptimal, LpVariable, lpSum
 
 from conan.playground.utils import get_neighbors_via_edges, minimum_image_distance
 
 # Define a namedtuple for structural components
 # This namedtuple will be used to store the atom(s) around which the doping structure is built and its/their neighbors
 StructuralComponents = namedtuple("StructuralComponents", ["structure_building_atoms", "structure_building_neighbors"])
+
+
+@dataclass(frozen=True)
+class OptimizationWeights:
+    """
+    Represents the weights used in the optimization of nitrogen doping to achieve the desired nitrogen percentage while
+    maintaining an equal distribution among species.
+
+    In the linear programming model, the objective function is: Minimize w1 * z1 + w2 * z2, where z1 represents the
+    absolute deviation from the desired total nitrogen percentage and z2 represents the absolute deviation from an equal
+    distribution of nitrogen atoms among the different species.
+
+    Attributes
+    ----------
+    nitrogen_percentage_weight : float
+        Weight for the deviation from the desired nitrogen percentage (w1).
+    equal_distribution_weight : float
+        Weight for the deviation from equal distribution among species (w2).
+
+    Notes
+    -----
+    * Effects of high w1 and w2 values:
+
+        High nitrogen_percentage_weight: The optimization will prioritize achieving the desired nitrogen percentage so
+        that the solution will closely match the desired nitrogen percentage, potentially at the expense of an equal
+        distribution of nitrogen atoms among species.
+
+        High equal_distribution_weight: The optimization will prioritize achieving an equal distribution of nitrogen
+        atoms among species, potentially at the expense of deviating from the desired nitrogen percentage.
+
+    * Trade-off between w1 and w2:
+
+        Balancing Act: Adjusting w1 and w2 allows you to balance between achieving the exact nitrogen percentage and
+        maintaining an equal distribution among species.
+
+        Scenario Examples:
+         - w1 >> w2: Focus on matching the nitrogen percentage; distribution among species is less critical.
+         - w2 >> w1: Focus on equal distribution; some deviation from the nitrogen percentage is acceptable.
+         - w1 ≈ w2: The model seeks a compromise between the two objectives.
+    """
+
+    nitrogen_percentage_weight: float = 1000.0
+    equal_distribution_weight: float = 1.0
+
+    def __post_init__(self):
+        if self.nitrogen_percentage_weight <= 0 or self.equal_distribution_weight <= 0:
+            raise ValueError("Weights must be positive numbers.")
 
 
 @dataclass
@@ -50,10 +99,10 @@ class NitrogenSpeciesProperties:
 class NitrogenSpecies(Enum):
     GRAPHITIC = "Graphitic-N"
     # PYRIDINIC = "pyridinic"
-    PYRIDINIC_1 = "Pyridinic-N 1"
-    PYRIDINIC_2 = "Pyridinic-N 2"
-    PYRIDINIC_3 = "Pyridinic-N 3"
-    PYRIDINIC_4 = "Pyridinic-N 4"
+    PYRIDINIC_1 = "Pyridinic-N1"
+    PYRIDINIC_2 = "Pyridinic-N2"
+    PYRIDINIC_3 = "Pyridinic-N3"
+    PYRIDINIC_4 = "Pyridinic-N4"
     # PYRROLIC = "pyrrolic"
     # PYRAZOLE = "pyrazole"
 
@@ -93,6 +142,54 @@ class NitrogenSpecies(Enum):
         if nitrogen_species in nitrogen_colors:
             return nitrogen_colors[nitrogen_species]
         return colors.get(element, "pink")
+
+    @staticmethod
+    def get_num_nitrogen_atoms_to_add(nitrogen_species: "NitrogenSpecies") -> int:
+        """
+        Get the number of nitrogen atoms to add for a specific nitrogen species.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping.
+
+        Returns
+        -------
+        int
+            The number of nitrogen atoms to add for the specified nitrogen species.
+        """
+        if nitrogen_species in {NitrogenSpecies.PYRIDINIC_1, NitrogenSpecies.GRAPHITIC}:
+            return 1
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_2:
+            return 2
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_3:
+            return 3
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+            return 4
+        return 0
+
+    @staticmethod
+    def get_num_carbon_atoms_to_remove(nitrogen_species: "NitrogenSpecies") -> int:
+        """
+        Get the number of carbon atoms to remove in order to insert a specific nitrogen species.
+
+        Parameters
+        ----------
+        nitrogen_species : NitrogenSpecies
+            The type of nitrogen doping.
+
+        Returns
+        -------
+        int
+            The number of carbon atoms to remove for the specified nitrogen species.
+        """
+        if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            return 0
+        if nitrogen_species in {NitrogenSpecies.PYRIDINIC_1, NitrogenSpecies.PYRIDINIC_2, NitrogenSpecies.PYRIDINIC_3}:
+            return 1
+        if nitrogen_species == NitrogenSpecies.PYRIDINIC_4:
+            return 2
+        return 0
 
 
 @dataclass
@@ -499,6 +596,9 @@ class DopingStructureCollection:
 
         return [structure for structure in self.structures if structure.species == species]
 
+    def __iter__(self):
+        return iter(self.structures)
+
 
 class DopingHandler:
     def __init__(self, carbon_structure: "MaterialStructure"):
@@ -806,25 +906,126 @@ class DopingHandler:
         atom_id = random.choice(untested_atoms)  # Randomly select an untested atom ID
         return atom_id  # Return the selected atom ID
 
-    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+    def add_nitrogen_doping(
+        self,
+        total_percentage: Optional[float] = None,
+        percentages: Optional[Dict[NitrogenSpecies, float]] = None,
+        optimization_weights: Optional[OptimizationWeights] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
+    ):
         """
-        Add nitrogen doping to the structure.
+        Add nitrogen doping to the structure using optimization and utilizing graph manipulation techniques to insert
+        the doping structures.
 
-        This method handles the addition of nitrogen doping to the structure using the provided percentages and
-        utilizing graph manipulation techniques to insert the doping structures.
+        This method calculates the optimal number of doping structures for each nitrogen species to achieve the desired
+        total nitrogen percentage and specified percentages for certain species. It uses a mixed-integer linear
+        programming model to find the best solution.
 
         Parameters
         ----------
         total_percentage : float, optional
             The total percentage of carbon atoms to replace with nitrogen atoms.
         percentages : dict, optional
-            A dictionary specifying the percentages for each nitrogen species.
+            A dictionary specifying the desired percentages for each nitrogen species.
+            The percentages should sum up to the total_percentage or less.
+            If they sum to less than total_percentage, the remaining percentage will be
+            distributed among other species to meet the total_percentage.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
+
+        **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+        the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+        `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+        the specified percentages exactly.
 
         Raises
         ------
         ValueError
             If the specific percentages exceed the total percentage beyond a small tolerance, or if any percentage is
             negative.
+
+        Notes
+        -----
+        **Workflow**:
+
+        1. **Validation**: Validates inputs and prepares percentages.
+        2. **Calculation**: Calculates the number of structures needed for each nitrogen species using optimization.
+        3. **Insertion**: Inserts the doping structures into the structure.
+        4. **Adjustment**: Adjusts for any shortfall in the actual doping percentage achieved.
+        5. **Results**: Displays the final doping results.
+
+        **Optimization Approach**:
+
+        - The method formulates a mixed-integer linear programming (MILP) problem that considers all nitrogen species
+          together.
+        - It accounts for changes in the total number of atoms due to the insertion of doping structures.
+        - The objective is to minimize the multi-objective function that balances the deviation from the desired total
+          nitrogen percentage and the deviation from an equal distribution among species.
+        """
+        # Step 1: Validate inputs and prepare percentages
+        total_percentage, percentages = self._validate_and_prepare_percentages(total_percentage, percentages)
+
+        # Step 2: Get initial number of carbon atoms in the structure
+        num_initial_atoms = self.graph.number_of_nodes()
+        if num_initial_atoms == 0:
+            warnings.warn("The structure has no carbon atoms to dope.", UserWarning)
+            return
+
+        # Step 3: Calculate desired number of structures
+        desired_num_structures = self._calculate_num_desired_structures(
+            num_initial_atoms, total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
+        )
+
+        # Step 4: Insert doping structures
+        self._insert_doping_structures(desired_num_structures)
+
+        # Step 5: Adjust if actual doping percentage falls short of desired
+        self._adjust_for_shortfall_in_doping(total_percentage)
+
+        # Step 6: Display the final results of the doping process
+        self._display_doping_results()
+
+    @staticmethod
+    def _validate_and_prepare_percentages(
+        total_percentage: Optional[float], percentages: Optional[Dict[NitrogenSpecies, float]]
+    ) -> (float, Dict[NitrogenSpecies, float], List[NitrogenSpecies]):
+        """
+        Validate the input percentages and total percentage, and set default values if necessary.
+
+        Parameters
+        ----------
+        total_percentage : float
+            The total nitrogen doping percentage.
+        percentages : Dict[NitrogenSpecies, float]
+            A dictionary specifying the desired percentages for each nitrogen species.
+
+        Returns
+        -------
+        Tuple(float, Dict[NitrogenSpecies, float])
+            The validated total nitrogen doping percentage as well as the validated and prepared percentages per
+            nitrogen species.
+
+         Raises
+        ------
+        ValueError
+            If input values are invalid or inconsistent.
+
+        Notes
+        -----
+        This method ensures that the input percentages and total_percentage are valid and consistent.
+        If total_percentage is not provided, it defaults to 10%.
+        If percentages are provided, it checks that they are valid and do not exceed the total_percentage.
         """
         # Validate the input for percentages
         if percentages is not None:
@@ -858,125 +1059,422 @@ class DopingHandler:
         # Copy the percentages dictionary to avoid modifying the input
         percentages = percentages.copy() if percentages else {}
 
-        # Validate specific percentages and calculate the remaining percentage
+        # Calculate the sum of specified percentages
+        specific_total_percentage = sum(percentages.values())
+        tolerance = 1e-6
+
+        # Validate specific percentages and total_percentage
         if percentages:
             if total_percentage is None:
                 # Set total to sum of specific percentages if not provided
-                total_percentage = sum(percentages.values())
+                total_percentage = specific_total_percentage
             else:
-                # Sum of provided specific percentages
-                specific_total_percentage = sum(percentages.values())
-                # Define a small tolerance to account for floating-point errors
-                tolerance = 1e-6
-                # if abs(specific_total_percentage - total_percentage) > tolerance:
+                # total_percentage is provided; check against specific_total_percentage
                 if specific_total_percentage > total_percentage + tolerance:
                     # Raise an error if the sum of specific percentages exceeds the total percentage beyond the
                     # tolerance
                     raise ValueError(
-                        f"The total specific percentages {specific_total_percentage}% are higher than the "
-                        f"total_percentage {total_percentage}%. Please adjust your input so that the sum of the "
-                        f"'percentages' is less than or equal to 'total_percentage'."
+                        f"The total specific percentages {specific_total_percentage}% exceed the total_percentage "
+                        f"{total_percentage}%. Please adjust your input so that the sum of the 'percentages' is less "
+                        f"than or equal to 'total_percentage'."
                     )
                 elif specific_total_percentage < total_percentage - tolerance:
+                    # Do not pre-distribute; let the optimization model handle it
                     warnings.warn(
                         f"The sum of specified percentages {specific_total_percentage}% is lower than the "
                         f"total_percentage {total_percentage}%. Remaining percentage will be distributed among other "
                         f"available species.",
                         UserWarning,
                     )
+                    pass  # The optimization model will handle the remaining percentage
         else:
             # Set a default total percentage if not provided
             total_percentage = total_percentage if total_percentage is not None else 10.0
 
-            # # Set a default total percentage if not provided
-            # if total_percentage is None:
-            #     total_percentage = 10  # Default total percentage
-            # # Initialize an empty dictionary if no specific percentages are provided
-            # percentages = {}
+        return total_percentage, percentages
 
-        # Calculate the remaining percentage for other species
-        remaining_percentage = total_percentage - sum(percentages.values())
-
-        # Define a tolerance for floating-point comparison
-        tolerance = 1e-6
-
-        if remaining_percentage > tolerance:
-            # Determine available species not included in the specified percentages
-            available_species = [species for species in NitrogenSpecies if species not in percentages]
-            # Distribute the remaining percentage equally among available species
-            default_distribution = {
-                species: remaining_percentage / len(available_species) for species in available_species
-            }
-
-            # # Add the default distribution to the specified percentages
-            # for species, pct in default_distribution.items():
-            #     if species not in percentages:
-            #         percentages[species] = pct
-            # Add the default distribution to the local percentages dictionary
-
-            percentages.update(default_distribution)
-        else:
-            # If the remaining percentage is negligible, we ignore it
-            pass
-
-        # Calculate the number of nitrogen atoms to add based on the given percentage
-        num_atoms = self.graph.number_of_nodes()
-        specific_num_nitrogen = {species: int(num_atoms * pct / 100) for species, pct in percentages.items()}
-
-        # Check if all specific_num_nitrogen values are zero
-        if all(count == 0 for count in specific_num_nitrogen.values()):
-            warnings.warn(
-                "The selected doping percentage is too low or the structure is too small to allow for doping.",
-                UserWarning,
-            )
-            return  # Exit the method early if no doping can be done
-
-        # Define the order of nitrogen doping insertion based on the species
-        species_order = [
-            NitrogenSpecies.PYRIDINIC_4,
-            NitrogenSpecies.PYRIDINIC_3,
-            NitrogenSpecies.PYRIDINIC_2,
-            NitrogenSpecies.PYRIDINIC_1,
-            NitrogenSpecies.GRAPHITIC,
-        ]
-        for species in species_order:
-            if species in specific_num_nitrogen:
-                num_nitrogen_atoms = specific_num_nitrogen[species]
-                # Insert the doping structures for the current species
-                self._insert_doping_structures(num_nitrogen_atoms, species)
-
-        # Calculate the actual percentages of added nitrogen species
-        total_atoms = self.graph.number_of_nodes()
-        actual_percentages = {
-            species.value: (
-                round((len(self.doping_structures.chosen_atoms[species]) / total_atoms) * 100, 2)
-                if total_atoms > 0
-                else 0
-            )
-            for species in NitrogenSpecies
-        }
-
-        # Display the results in a DataFrame and add the total doping percentage
-        total_doping_percentage = sum(actual_percentages.values())
-        doping_percentages_df = pd.DataFrame.from_dict(
-            actual_percentages, orient="index", columns=["Actual Percentage"]
-        )
-        doping_percentages_df.index.name = "Nitrogen Species"
-        doping_percentages_df.reset_index(inplace=True)
-        total_row = pd.DataFrame([{"Nitrogen Species": "Total Doping", "Actual Percentage": total_doping_percentage}])
-        doping_percentages_df = pd.concat([doping_percentages_df, total_row], ignore_index=True)
-        print(f"\n{doping_percentages_df}")
-
-    def _insert_doping_structures(self, num_nitrogen: int, nitrogen_species: NitrogenSpecies):
+    def _calculate_num_desired_structures(
+        self,
+        num_initial_atoms: int,
+        total_percentage: float,
+        percentages: Dict[NitrogenSpecies, float],
+        optimization_weights: Optional[OptimizationWeights],
+        ensure_even_num_nitrogen_atoms: bool,
+    ) -> Dict[NitrogenSpecies, int]:
         """
-        Insert doping structures of a specific nitrogen species into the graphene sheet.
+        Calculate the desired number of structures for each nitrogen species.
+
+        This method handles the calculation of the number of doping structures needed to achieve the desired total
+        nitrogen percentage and specified percentages for certain nitrogen species.
 
         Parameters
         ----------
-        num_nitrogen : int
-            The number of nitrogen atoms of the specified species to add.
-        nitrogen_species : NitrogenSpecies
-            The type of nitrogen doping to add.
+        num_initial_atoms : int
+            The initial number of carbon atoms in the structure.
+        total_percentage : float
+            The desired total nitrogen doping percentage.
+        percentages : Dict[NitrogenSpecies, float]
+            The desired percentages for each nitrogen species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
+        ensure_even_num_nitrogen_atoms: bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
+
+        Returns
+        -------
+        desired_num_structures : Dict[NitrogenSpecies, int]
+            The calculated number of structures to insert for each nitrogen species.
+
+        Notes
+        -----
+        This method first calculates the number of structures for the specified species to achieve their desired
+        percentages as closely as possible. Then, it calculates the remaining percentage and uses linear programming to
+        distribute it among the remaining species.
+
+        It ensures that the total nitrogen percentage achieved is as close as possible to the desired total_percentage,
+        and that the distribution among species meets the specified percentages.
+        """
+        # Initialize variables
+        specific_total_percentage = sum(percentages.values())
+        tolerance = 1e-6
+
+        if percentages and abs(total_percentage - specific_total_percentage) <= tolerance:
+            # Only specified percentages are given and sum up to total_percentage
+            fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+                num_initial_atoms, percentages
+            )
+            desired_num_structures = fixed_structures
+        else:
+            # Calculate structures for specified percentages
+            if percentages:
+                fixed_structures, num_atoms_remaining = self._calculate_num_structures_for_specified_percentages(
+                    num_initial_atoms, percentages
+                )
+            else:
+                fixed_structures = {}
+                num_atoms_remaining = num_initial_atoms
+
+            # Remaining percentage
+            remaining_percentage = total_percentage - sum(percentages.values())
+
+            # Use optimization for remaining percentages
+            desired_structures_remaining = self._calculate_num_desired_structures_using_linear_programming(
+                num_atoms_remaining,
+                remaining_percentage,
+                optimization_weights,
+                fixed_structures,
+                ensure_even_num_nitrogen_atoms,
+            )
+
+            # Combine the results
+            desired_num_structures = {**fixed_structures, **desired_structures_remaining}
+
+        return desired_num_structures
+
+    @staticmethod
+    def _calculate_num_desired_structures_using_linear_programming(
+        num_initial_atoms: int,
+        total_percentage: float,
+        optimization_weights: Optional[OptimizationWeights],
+        fixed_structures: Dict[NitrogenSpecies, int],
+        ensure_even_num_nitrogen_atoms: bool,
+    ) -> Dict[NitrogenSpecies, int]:
+        """
+        Calculate the desired number of structures for the remaining species using linear programming optimization.
+
+        Parameters
+        ----------
+        num_initial_atoms : int
+            The initial number of carbon atoms in the structure (possibly after already inserting specified structures)
+        total_percentage : float
+            The desired total nitrogen doping percentage to be distributed among the remaining species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
+        fixed_structures : Dict[NitrogenSpecies, int]
+            The number of structures already assigned to specified species.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
+
+        Returns
+        -------
+        desired_num_structures : Dict[NitrogenSpecies, int]
+            The calculated number of structures to insert for each remaining nitrogen species.
+
+        Notes
+        -----
+        This method sets up and solves a linear programming problem to determine the optimal number of doping structures
+        for each remaining nitrogen species.
+
+        The objective is to minimize the deviation from the desired total nitrogen percentage and achieve an equal
+        distribution among the species.
+
+        The optimization considers the impact of each doping structure on the total number of atoms and the number of
+        nitrogen atoms added.
+
+        It excludes species that already have fixed structures assigned.
+        """
+        # Default weights for the optimization objective function
+        if optimization_weights is None:
+            optimization_weights = OptimizationWeights()
+
+        w1 = optimization_weights.nitrogen_percentage_weight
+        w2 = optimization_weights.equal_distribution_weight
+
+        # Remaining species (excluding those in fixed_structures)
+        remaining_species = [s for s in NitrogenSpecies if s not in fixed_structures]
+        num_doping_types = len(remaining_species)
+
+        if num_doping_types == 0:
+            return {}
+
+        # --- Constants (per doping type) ---
+        # Number of carbon atoms removed by doping type i
+        r = [NitrogenSpecies.get_num_carbon_atoms_to_remove(s) for s in remaining_species]
+        # Number of nitrogen atoms added by doping type i
+        a = [NitrogenSpecies.get_num_nitrogen_atoms_to_add(s) for s in remaining_species]
+        # Convert desired percentage to fractions
+        total_percentage_fraction = total_percentage / 100.0
+        # Compute ki values (effective nitrogen contribution of doping type i, accounting for nitrogen added and the
+        # effect of carbon atoms removed on the overall nitrogen percentage)
+        k = [ai + total_percentage_fraction * ri for ai, ri in zip(a, r)]
+        # The right-hand side of the equation, representing the desired total nitrogen atoms based on the initial total
+        # atoms
+        rhs = total_percentage_fraction * num_initial_atoms
+
+        # --- Initialize the optimization problem ---
+        prob = LpProblem("Nitrogen_Doping_Optimization_Remaining", LpMinimize)
+
+        # --- Decision Variables ---
+        # Integer variable representing the number of doping structures of type i to insert
+        x = [LpVariable(f"x_{i}", lowBound=0, cat="Integer") for i in range(num_doping_types)]
+        # Continuous variable representing the average number of nitrogen atoms per doping type
+        num_nitrogen_avg = LpVariable("N_avg", lowBound=0, cat="Continuous")
+        # Continuous variables for positive and negative deviations of nitrogen atoms added by doping type i from N_avg
+        p_num_nitrogen_dev_i = [LpVariable(f"P_{i}", lowBound=0, cat="Continuous") for i in range(num_doping_types)]
+        n_num_nitrogen_dev_i = [LpVariable(f"N_{i}", lowBound=0, cat="Continuous") for i in range(num_doping_types)]
+        # Continuous variables for positive and negative deviations (in nitrogen atom units) from the desired total
+        # nitrogen atoms
+        p_perc_dev = LpVariable("P", lowBound=0, cat="Continuous")
+        n_perc_dev = LpVariable("N", lowBound=0, cat="Continuous")
+        # Additional integer variable for ensuring even number of nitrogen atoms
+        if ensure_even_num_nitrogen_atoms:
+            y = LpVariable("y", lowBound=0, cat="Integer")
+
+        # --- Objective Function Components ---
+        # Continuous variable representing the deviation in nitrogen percentage from the desired value
+        z1 = LpVariable("z1", lowBound=0, cat="Continuous")
+        # Continuous variable representing the total deviation in nitrogen atoms from equal distribution among doping
+        # types
+        z2 = LpVariable("z2", lowBound=0, cat="Continuous")
+
+        # --- Objective Function ---
+        prob += w1 * z1 + w2 * z2, "Minimize total deviation"
+
+        # --- Objective Function Terms ---
+        # Define z1 as the sum of positive and negative deviations, effectively capturing the absolute deviation in
+        # nitrogen atoms
+        prob += z1 == p_perc_dev + n_perc_dev, "Absolute deviation constraint"
+
+        # Define z2 as the sum of all individual deviations, representing the total deviation from equal nitrogen
+        # distribution
+        prob += (
+            z2 == lpSum([p_num_nitrogen_dev_i[i] + n_num_nitrogen_dev_i[i] for i in range(num_doping_types)]),
+            "Total deviation in nitrogen atoms",
+        )
+
+        # --- Constraints ---
+        # Nitrogen percentage constraint (replacing upper and lower bound constraints) to ensure that the total
+        # effective nitrogen contribution from all doping types matches the desired total nitrogen atoms (rhs),
+        # accounting for deviations (P, N)
+        prob += (
+            lpSum([k[i] * x[i] for i in range(num_doping_types)]) + p_perc_dev - n_perc_dev == rhs,
+            "Nitrogen deviation constraint",
+        )
+
+        # Constraint to calculate the average number of nitrogen atoms added per doping type
+        prob += (
+            num_nitrogen_avg == lpSum([a[i] * x[i] for i in range(num_doping_types)]) / num_doping_types,
+            "Average nitrogen atoms constraint",
+        )
+
+        # Constraints for deviations in nitrogen atoms from the average
+        for i in range(num_doping_types):
+            prob += (
+                a[i] * x[i] + p_num_nitrogen_dev_i[i] - n_num_nitrogen_dev_i[i] == num_nitrogen_avg,
+                f"Nitrogen deviation for type {i}",
+            )
+
+        # Even nitrogen atoms constraint
+        if ensure_even_num_nitrogen_atoms:
+            prob += (
+                lpSum([a[i] * x[i] for i in range(num_doping_types)]) - 2 * y == 0,
+                "Even number of nitrogen atoms constraint",
+            )
+
+        # Solve the problem
+        prob.solve(PULP_CBC_CMD(msg=False))
+
+        # Check if an optimal solution was found
+        if prob.status != LpStatusOptimal:
+            warnings.warn("Optimal solution not found. Doping may not meet desired specifications.", UserWarning)
+
+        # Retrieve the solution
+        x_values = [int(x[i].varValue) for i in range(num_doping_types)]
+        desired_num_structures = {remaining_species[i]: x_values[i] for i in range(num_doping_types)}
+
+        return desired_num_structures
+
+    @staticmethod
+    def _calculate_num_structures_for_specified_percentages(
+        num_initial_atoms: int, percentages: Dict[NitrogenSpecies, float]
+    ) -> Tuple[Dict[NitrogenSpecies, int], int]:
+        """
+        Calculate the number of structures needed for each specified species to achieve their desired percentages
+        as closely as possible.
+
+        Parameters
+        ----------
+        num_initial_atoms : int
+            The initial number of carbon atoms in the structure.
+        percentages : Dict[NitrogenSpecies, float]
+            The desired percentages for each specified nitrogen species.
+
+        Returns
+        -------
+        Tuple[Dict[NitrogenSpecies, int], int]
+            The calculated number of structures for each specified species and the number of carbon atoms remaining
+            after inserting the specified structures.
+
+        Notes
+        -----
+        This method calculates the optimal integer number of structures for each specified nitrogen species to achieve
+        the desired doping percentages as closely as possible.
+
+        It uses an analytical formula to compute the initial estimate of the number of structures, and then evaluates
+        integer candidates (floor and ceiling values) to find the best match.
+
+        The method accounts for the removal of carbon atoms due to the insertion of doping structures.
+
+        Mathematical Derivation
+        -----------------------
+        The desired percentage for a species is given by:
+
+            P_d = (n * r_i) / (N - n * c_i) * 100
+
+        Solving for n:
+
+            n = (P_d / 100) * N / (r_i + (P_d / 100) * c_i)
+
+        Where:
+        - P_d: Desired percentage (e.g., 5%)
+        - N: Number of carbon atoms remaining
+        - n: Number of structures to insert (integer)
+        - r_i: Number of nitrogen atoms added per structure for species i
+        - c_i: Number of carbon atoms removed per structure for species i
+
+        The method considers both the floor and ceiling of n to find the integer value that minimizes the absolute
+        difference between the achieved percentage and the desired percentage.
+        """
+        desired_num_structures = {}
+        num_atoms_remaining = num_initial_atoms
+
+        for species, desired_percentage in percentages.items():
+            # Get the number of nitrogen atoms added and carbon atoms removed per structure
+            ri = NitrogenSpecies.get_num_nitrogen_atoms_to_add(species)
+            ci = NitrogenSpecies.get_num_carbon_atoms_to_remove(species)
+
+            # Desired percentage as a fraction
+            desired_percentage_fraction = desired_percentage / 100.0
+
+            # Calculate n using the derived formula
+            numerator = desired_percentage_fraction * num_atoms_remaining
+            denominator = ri + desired_percentage_fraction * ci
+
+            # Avoid division by zero
+            if denominator == 0:
+                n = 0
+            else:
+                n = numerator / denominator
+
+            # Since n must be an integer, consider floor and ceiling values
+            n_floor = int(n)
+            n_ceil = n_floor + 1
+
+            # Initialize variables to track the best n
+            min_delta = float("inf")
+            best_n = n_floor
+
+            # Evaluate both floor and ceiling candidates
+            for n_candidate in [n_floor, n_ceil]:
+                if n_candidate < 0:
+                    continue
+
+                # Calculate total nitrogen atoms added
+                total_ri = n_candidate * ri
+
+                # Calculate the total number of atoms after doping
+                num_atoms_after_doping = num_atoms_remaining - n_candidate * ci
+
+                if num_atoms_after_doping <= 0:
+                    continue  # Skip invalid candidate
+
+                # Calculate the achieved percentage
+                achieved_percentage = (total_ri / num_atoms_after_doping) * 100.0
+
+                # Calculate the absolute difference from desired percentage
+                delta = abs(achieved_percentage - desired_percentage)
+
+                # Update the best_n if this delta is smaller
+                if delta < min_delta:
+                    min_delta = delta
+                    best_n = n_candidate
+
+            # Assign the best_n for this species
+            desired_num_structures[species] = best_n
+
+            # Update the number of atoms remaining
+            num_atoms_removed = best_n * ci
+            num_atoms_remaining -= num_atoms_removed
+
+        return desired_num_structures, num_atoms_remaining
+
+    def _insert_doping_structures(self, desired_structures: Dict[NitrogenSpecies, int]):
+        """
+        Insert a specified number of doping structures of a specific nitrogen species into the graphene sheet.
+
+        Parameters
+        ----------
+        desired_structures : Dict[NitrogenSpecies, int]
+            A dictionary where the keys are NitrogenSpecies and the values are the number of structures to insert for
+            that species.
 
         Notes
         -----
@@ -986,45 +1484,83 @@ class DopingHandler:
         other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
         the structure is inserted, all atoms of this structure are excluded from further doping positions.
         """
-        # Create a set to keep track of tested atoms
-        tested_atoms = set()
+        # Sort the species by the number of removed carbon atoms as well as the number of contributing nitrogen atoms in
+        # decreasing order to insert larger structures first
+        species_sorted_by_size = sorted(
+            desired_structures.keys(),
+            key=lambda s: NitrogenSpecies.get_num_carbon_atoms_to_remove(s)
+            and NitrogenSpecies.get_num_nitrogen_atoms_to_add(s),
+            reverse=True,
+        )
 
-        # Loop until the required number of nitrogen atoms is added or there are no more possible carbon atoms to test
-        while len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen and len(tested_atoms) < len(
-            self.possible_carbon_atoms
-        ):
+        for species in species_sorted_by_size:
+            num_structures = desired_structures.get(species, 0)
+            num_structures_inserted = self._attempt_insertion_for_species(species, num_structures)
+
+            # Warn if not all requested structures could be placed due to space constraints
+            if num_structures_inserted < num_structures:
+                warnings.warn(
+                    f"Only {num_structures_inserted} out of the desired {num_structures} structures of "
+                    f"species {species.value} could be placed due to space constraints.",
+                    UserWarning,
+                )
+
+    def _attempt_insertion_for_species(self, species: NitrogenSpecies, num_structures: int):
+        """
+        Insert a specific number of doping structures for a given species.
+
+        Parameters
+        ----------
+        species : NitrogenSpecies
+            The nitrogen species to insert.
+        num_structures : int
+            The desired number of structures to insert.
+
+        Notes
+        -----
+        First, a carbon atom is randomly selected. Then, it is checked whether this atom position is suitable for
+        building the doping structure around it (i.e., the new structure to be inserted should not overlap with any
+        existing structure). If suitable, the doping structure is built by, for example, removing atoms, replacing
+        other C atoms with N atoms, and possibly adding new bonds between atoms (in the case of Pyridinic_1). After
+        the structure is inserted, all atoms of this structure are excluded from further doping positions.
+
+        Returns
+        -------
+        int
+            The actual number of structures successfully inserted for the species.
+        """
+        tested_atoms: Set[int] = set()  # Set to keep track of tested atoms
+        structures_inserted = 0  # Counter for the number of structures inserted
+
+        while structures_inserted < num_structures and len(tested_atoms) < len(self.possible_carbon_atoms):
             # Get the next possible carbon atom to test for doping
             atom_id = self.get_next_possible_carbon_atom(self.possible_carbon_atoms, tested_atoms)
             if atom_id is None:
                 break  # No more atoms to test
 
-            # Add the atom to tested_atoms
+            # Add the atom to the already tested atoms
             tested_atoms.add(atom_id)
 
             # Check if the atom_id is a valid doping position and return the structural components
-            is_valid, structural_components = self._is_valid_doping_site(nitrogen_species, atom_id)
+            is_valid, structural_components = self._is_valid_doping_site(species, atom_id)
             if not is_valid:
                 # No valid doping position found, proceed to the next possible carbon atom
                 continue
 
             # The doping position is valid, proceed with nitrogen doping
-            if nitrogen_species == NitrogenSpecies.GRAPHITIC:
+            if species == NitrogenSpecies.GRAPHITIC:
                 # Handle graphitic doping
                 self._handle_graphitic_doping(structural_components)
             else:
                 # Handle pyridinic doping
-                self._handle_pyridinic_doping(structural_components, nitrogen_species)
+                self._handle_pyridinic_doping(structural_components, species)
 
-            # Reset tested_atoms since possible_carbon_atoms has changed
+            structures_inserted += 1
+
+            # Reset tested_atoms since possible_carbon_atoms may have changed
             tested_atoms = set()
 
-        # Warn if not all requested nitrogen atoms could be placed due to proximity constraints
-        if len(self.doping_structures.chosen_atoms[nitrogen_species]) < num_nitrogen:
-            warning_message = (
-                f"\nWarning: Only {len(self.doping_structures.chosen_atoms[nitrogen_species])} nitrogen atoms of "
-                f"species {nitrogen_species.value} could be placed due to proximity constraints."
-            )
-            warnings.warn(warning_message, UserWarning)
+        return structures_inserted
 
     def _handle_graphitic_doping(self, structural_components: StructuralComponents):
         """
@@ -1037,8 +1573,8 @@ class DopingHandler:
         Parameters
         ----------
         structural_components : StructuralComponents
-            The structural components required to build the graphitic doping structure. This includes the atom that
-            will be changed to nitrogen and its neighboring atoms.
+            The structural components required to build the graphitic doping structure. This includes the atom that will
+            be changed to nitrogen and its neighboring atoms.
         """
 
         # Get the atom ID of the structure-building atom (the one to be doped with nitrogen)
@@ -1061,9 +1597,9 @@ class DopingHandler:
 
         # Create the doping structure
         doping_structure = DopingStructure(
-            species=NitrogenSpecies.GRAPHITIC,  # Set the nitrogen species
-            structural_components=structural_components,  # Use the provided structural components
-            nitrogen_atoms=[atom_id],  # List of nitrogen atoms in this structure
+            species=NitrogenSpecies.GRAPHITIC,
+            structural_components=structural_components,
+            nitrogen_atoms=[atom_id],
         )
 
         # Add the doping structure to the collection
@@ -1084,7 +1620,6 @@ class DopingHandler:
         nitrogen_species : NitrogenSpecies
             The specific type of nitrogen doping to be applied, such as PYRIDINIC_1, PYRIDINIC_2, etc.
         """
-
         # Remove the carbon atom(s) specified in the structural components from the graph
         for atom in structural_components.structure_building_atoms:
             self.graph.remove_node(atom)  # Remove the atom from the graph
@@ -1318,3 +1853,145 @@ class DopingHandler:
 
         # Return False if the nitrogen species is not recognized
         return False, (None, None)
+
+    def _adjust_for_shortfall_in_doping(self, total_percentage: float):
+        """
+        Attempt to adjust for any shortfall in the actual doping percentage.
+
+        If the actual doping percentage falls short of the desired total percentage beyond a certain tolerance,
+        this method attempts to insert additional Graphitic-N structures to compensate for the shortfall.
+
+
+        Parameters
+        ----------
+        total_percentage : float
+            The target total doping percentage.
+
+        Notes
+        -----
+        - A tolerance is used to determine if the actual doping percentage is sufficiently close to the desired
+          percentage.
+        - Additional Graphitic-N structures are inserted if necessary and possible.
+        - If unable to achieve the desired doping percentage due to space constraints, a warning is issued.
+        """
+        total_atoms_after_doping = self.graph.number_of_nodes()
+        total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
+        actual_doping_percentage = (total_nitrogen_atoms / total_atoms_after_doping) * 100
+
+        # Calculate the minimal possible increase in doping percentage achievable by adding one Graphitic-N structure
+        min_possible_increment = (
+            NitrogenSpecies.get_num_nitrogen_atoms_to_add(NitrogenSpecies.GRAPHITIC) / total_atoms_after_doping
+        ) * 100
+
+        # Define the tolerance as half of the minimal possible increment
+        tolerance = min_possible_increment / 2
+
+        # Calculate the shortfall
+        shortfall = total_percentage - actual_doping_percentage
+
+        if shortfall > tolerance:
+            # Warning indicating attempt to fill the shortfall with Graphitic-N
+            warnings.warn(
+                f"Attempting to fill the remaining shortfall of {shortfall:.2f}% with Graphitic-N structures "
+                "to reach the desired doping percentage.",
+                UserWarning,
+            )
+
+            doping_per_graphitic = min_possible_increment  # Since one Graphitic-N adds min_possible_increment%
+
+            # Calculate the number of additional Graphitic-N structures needed
+            additional_graphitic_needed = int(round(shortfall / doping_per_graphitic))
+
+            if additional_graphitic_needed > 0:
+                inserted = self._attempt_insertion_for_species(NitrogenSpecies.GRAPHITIC, additional_graphitic_needed)
+                if inserted > 0:
+                    # Update total nitrogen atoms and actual doping percentage after insertion
+                    total_nitrogen_atoms += inserted * NitrogenSpecies.get_num_nitrogen_atoms_to_add(
+                        NitrogenSpecies.GRAPHITIC
+                    )
+                    actual_doping_percentage = (total_nitrogen_atoms / total_atoms_after_doping) * 100
+
+                    # Recalculate the shortfall after insertion
+                    shortfall = total_percentage - actual_doping_percentage
+
+            # Check if the shortfall is still beyond the tolerance after insertion
+            if shortfall > tolerance:
+                # Unable to achieve desired doping percentage due to space constraints
+                warn_message = (
+                    f"Unable to achieve the desired total doping percentage of {total_percentage}% due to space "
+                    f"constraints. The actual doping percentage achieved is {actual_doping_percentage:.2f}%."
+                )
+                warnings.warn(warn_message, UserWarning)
+        else:
+            # Actual doping percentage is within acceptable tolerance; no action needed
+            pass
+
+    def _update_actual_doping_percentages(self, additional_structures_inserted: int, species: NitrogenSpecies):
+        """
+        Update the actual doping percentages after adding additional structures.
+        """
+        total_atoms_after_doping = self.graph.number_of_nodes()
+        actual_percentages = {
+            species.value: (
+                round(
+                    (len(self.doping_structures.chosen_atoms.get(species, [])) / total_atoms_after_doping) * 100,
+                    2,
+                )
+                if total_atoms_after_doping > 0
+                else 0
+            )
+            for species in NitrogenSpecies
+        }
+
+        # Update Graphitic-N Doping
+        if species == NitrogenSpecies.GRAPHITIC:
+            actual_percentages[species.value] += round(
+                (additional_structures_inserted / total_atoms_after_doping) * 100, 2
+            )
+
+        # Recalculate total nitrogen and total doping percentage
+        total_nitrogen_atoms = sum(len(atoms) for atoms in self.doping_structures.chosen_atoms.values())
+        total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+
+        return actual_percentages, total_doping_percentage
+
+    def _display_doping_results(self):
+        """
+        Display the final doping results, including actual percentages, absolute counts of nitrogen atoms added,
+        and the number of doping structures per species.
+        """
+        total_atoms_after_doping = self.graph.number_of_nodes()
+
+        # Calculate nitrogen atom counts and actual percentages
+        nitrogen_atom_counts = {
+            species: len(self.doping_structures.chosen_atoms.get(species, [])) for species in NitrogenSpecies
+        }
+        actual_percentages = {
+            species.value: (round((count / total_atoms_after_doping) * 100, 2) if total_atoms_after_doping > 0 else 0)
+            for species, count in nitrogen_atom_counts.items()
+        }
+
+        # Calculate total counts and percentages
+        total_nitrogen_atoms = sum(nitrogen_atom_counts.values())
+        total_doping_percentage = round((total_nitrogen_atoms / total_atoms_after_doping) * 100, 2)
+
+        # Calculate the number of structures per species using the get_structures_for_species method
+        doping_structure_counts = {
+            species: len(self.doping_structures.get_structures_for_species(species)) for species in NitrogenSpecies
+        }
+
+        # Prepare the DataFrame
+        doping_results = {
+            "Nitrogen Species": [species.value for species in NitrogenSpecies] + ["Total Doping"],
+            "Actual Percentage": list(actual_percentages.values()) + [total_doping_percentage],
+            "Nitrogen Atom Count": list(nitrogen_atom_counts.values()) + [total_nitrogen_atoms],
+            "Doping Structure Count": list(doping_structure_counts.values()) + [sum(doping_structure_counts.values())],
+        }
+        doping_results_df = pd.DataFrame(doping_results)
+
+        # Set pandas display options to show all columns without truncation
+        pd.set_option("display.max_columns", None)  # Shows all columns
+        pd.set_option("display.width", None)  # Adjusts output to the screen width
+
+        print("\nDoping Results:")
+        print(doping_results_df)

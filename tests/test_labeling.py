@@ -1,4 +1,5 @@
 import random
+import warnings
 
 import pytest
 
@@ -15,7 +16,12 @@ def mock_graph():
     random.seed(100)
     sheet_size = (20, 20)
     graphene = GrapheneSheet(bond_length=1.42, sheet_size=sheet_size)
-    graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+
+    # Temporarily ignore warnings for this setup
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        graphene.add_nitrogen_doping(percentages={NitrogenSpecies.PYRIDINIC_4: 1})
+
     return graphene.graph
 
 

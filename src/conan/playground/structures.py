@@ -6,6 +6,9 @@ import copy
 import math
 import warnings
 from abc import ABC, abstractmethod
+from functools import cached_property
+
+# from functools import cache
 from math import cos, pi, sin
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -15,7 +18,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-from conan.playground.doping import DopingHandler, NitrogenSpecies
+from conan.playground.doping import (
+    DopingHandler,
+    DopingStructureCollection,
+    NitrogenSpecies,
+    OptimizationWeights,
+    StructuralComponents,
+)
 from conan.playground.structure_optimizer import OptimizationConfig, StructureOptimizer
 from conan.playground.utils import Position, create_position
 
@@ -387,6 +396,139 @@ class Structure3D(MaterialStructure, ABC):
             plt.show()
 
 
+class CombinedStructure(MaterialStructure, ABC):
+    """
+    Abstract base class for combined structures.
+    Provides shared logic for combined structures like StackedGraphene and Pore.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._combined_graph = None
+        self._combined_doping_handler = None
+
+    @cached_property
+    def graph(self):
+        """
+        Returns the combined graph of all substructures in the stack.
+        Caches the result to avoid re-computation unless invalidated.
+        """
+        if self._combined_graph is None:
+            self.build_structure()
+        return self._combined_graph
+
+    @cached_property
+    def doping_handler(self):
+        """
+        Returns a DopingHandler that contains all doping structures from all substructures.
+        Caches the result to avoid re-computation unless invalidated.
+        """
+        if self._combined_doping_handler is None:
+            self._build_doping_handler()
+        return self._combined_doping_handler
+
+    def _invalidate_cache(self):
+        """Invalidate the cached properties."""
+        self._combined_graph = None
+        self._combined_doping_handler = None
+        if "graph" in self.__dict__:
+            del self.__dict__["graph"]
+        if "doping_handler" in self.__dict__:
+            del self.__dict__["doping_handler"]
+
+    @abstractmethod
+    def build_structure(self):
+        """
+        Abstract method to build the combined structure.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    @abstractmethod
+    def get_components(self):
+        """
+        Abstract method to retrieve the individual components of the combined structure.
+        Must be implemented by subclasses.
+        """
+        pass
+
+    def _build_doping_handler(self):
+        """
+        Build the doping handler for the stacked material structure.
+        """
+        # Combine doping structures from all material structures
+        combined_doping_handler = DopingHandler(self)
+        combined_doping_structures = DopingStructureCollection()
+
+        for component in self.get_components():
+            # Add doping structures from the material structure
+            for doping_structure in component.doping_handler.doping_structures:
+                combined_doping_structures.add_structure(doping_structure)
+            # Combine chosen_atoms
+            for species, atoms in component.doping_handler.doping_structures.chosen_atoms.items():
+                combined_doping_structures.chosen_atoms[species].extend(atoms)
+
+        combined_doping_handler.doping_structures = combined_doping_structures
+        self._combined_doping_handler = combined_doping_handler
+
+    @staticmethod
+    def _adjust_node_ids(mat_structure: MaterialStructure, node_id_offset: int):
+        """
+        Adjust the node IDs of a structure by a given offset.
+
+        Parameters
+        ----------
+        mat_structure: MaterialStructure
+            The material structure whose node IDs need to be adjusted.
+        node_id_offset: int
+            The offset to add to each node ID.
+        """
+        # Create a mapping from old to new node IDs
+        mapping = {node: node + node_id_offset for node in mat_structure.graph.nodes()}
+        # Update the node IDs in the graph
+        mat_structure.graph = nx.relabel_nodes(mat_structure.graph, mapping)
+        mat_structure.doping_handler.graph = mat_structure.graph
+        # Update the node IDs in the doping structures
+        for doping_structure in mat_structure.doping_handler.doping_structures:
+            # Adjust nitrogen atoms
+            doping_structure.nitrogen_atoms = [node + node_id_offset for node in doping_structure.nitrogen_atoms]
+            # Adjust cycle
+            if doping_structure.cycle is not None:
+                doping_structure.cycle = [node + node_id_offset for node in doping_structure.cycle]
+            # Adjust neighboring atoms
+            if doping_structure.neighboring_atoms is not None:
+                doping_structure.neighboring_atoms = [
+                    node + node_id_offset for node in doping_structure.neighboring_atoms
+                ]
+            # Adjust structural components
+            if doping_structure.structural_components is not None:
+                components = StructuralComponents([], [])
+                components.structure_building_atoms.extend(
+                    [node + node_id_offset for node in doping_structure.structural_components.structure_building_atoms]
+                )
+                components.structure_building_neighbors.extend(
+                    [
+                        node + node_id_offset
+                        for node in doping_structure.structural_components.structure_building_neighbors
+                    ]
+                )
+                doping_structure.structural_components = components
+            # Adjust additional edge
+            if doping_structure.additional_edge is not None:
+                doping_structure.additional_edge = (
+                    doping_structure.additional_edge[0] + node_id_offset,
+                    doping_structure.additional_edge[1] + node_id_offset,
+                )
+            # Adjust subgraph node IDs
+            if doping_structure.subgraph is not None:
+                # Relabel the nodes in the subgraph
+                doping_structure.subgraph = nx.relabel_nodes(doping_structure.subgraph, mapping)
+            # Adjust chosen_atoms in DopingStructureCollection
+            chosen_atoms = mat_structure.doping_handler.doping_structures.chosen_atoms
+            for species, atoms in chosen_atoms.items():
+                chosen_atoms[species] = [node + node_id_offset for node in atoms]
+
+
 class GrapheneSheet(Structure2D):
     """
     Represents a graphene sheet structure.
@@ -609,15 +751,17 @@ class GrapheneSheet(Structure2D):
         self,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to the graphene sheet.
 
-        This method replaces a specified percentage of carbon atoms with nitrogen atoms in the graphene sheet.
-        If specific percentages for different nitrogen species are provided, it ensures the sum does not exceed the
-        total percentage. The remaining percentage is distributed equally among the available nitrogen species.
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
 
         Parameters
         ----------
@@ -626,12 +770,30 @@ class GrapheneSheet(Structure2D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -642,18 +804,23 @@ class GrapheneSheet(Structure2D):
 
         Notes
         -----
-        - If no total percentage is provided, a default of 10% is used.
-        - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
-        - Remaining percentages are distributed equally among the available nitrogen species.
-        - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
-          GRAPHITIC.
-        - `optimization_config` is only considered if `adjust_positions` is set to True.
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         """
         if not isinstance(adjust_positions, bool):
             raise ValueError(f"adjust_positions must be a Boolean, but got {type(adjust_positions).__name__}")
 
         # Delegate the doping process to the doping handler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
+        self.doping_handler.add_nitrogen_doping(
+            total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
+        )
 
         # Reset the positions_adjusted flag since the structure has changed
         self.positions_adjusted = False
@@ -821,7 +988,7 @@ class GrapheneSheet(Structure2D):
         return StackedGraphene(self, interlayer_spacing, number_of_layers, stacking_type)
 
 
-class StackedGraphene(Structure3D):
+class StackedGraphene(CombinedStructure, Structure3D):
     """
     Represents a stacked graphene structure.
     """
@@ -854,7 +1021,8 @@ class StackedGraphene(Structure3D):
             If `interlayer_spacing` is non-positive, `number_of_layers` is not a positive integer, or `stacking_type` is
             not 'ABA' or 'ABC'.
         """
-        super().__init__()
+        CombinedStructure.__init__(self)
+        Structure3D.__init__(self)
 
         # Validate interlayer_spacing
         if not isinstance(interlayer_spacing, (int, float)):
@@ -879,25 +1047,17 @@ class StackedGraphene(Structure3D):
         if self.stacking_type not in valid_stacking_types:
             raise ValueError(f"stacking_type must be one of {valid_stacking_types}, but got '{self.stacking_type}'.")
 
-        self.graphene_sheets = []
+        self.graphene_sheets = [graphene_sheet]
         """A list to hold individual GrapheneSheet instances."""
         self.interlayer_spacing = interlayer_spacing
         """The spacing between layers in the z-direction."""
         self.number_of_layers = number_of_layers
         """The number of layers to stack."""
 
-        # Add the original graphene sheet as the first layer
-        # toggle_dimension(graphene_sheet.graph)
-        self.graphene_sheets.append(graphene_sheet)
+        # Generate additional layers by copying the base graphene sheet and shifting it
+        self._generate_layers()
 
-        # Add additional layers by copying the original graphene sheet
-        for layer in range(1, self.number_of_layers):
-            # Create a copy of the original graphene sheet and shift it
-            new_sheet = copy.deepcopy(graphene_sheet)
-            self._shift_sheet(new_sheet, layer)
-            self.graphene_sheets.append(new_sheet)
-
-        # Build the structure by combining all graphene sheets
+        # Build the initial structure by combining all graphene sheets
         self.build_structure()
 
     def _shift_sheet(self, sheet: GrapheneSheet, layer: int):
@@ -927,27 +1087,55 @@ class StackedGraphene(Structure3D):
             shifted_pos = Position(pos.x + x_shift, pos.y, z_shift)
             sheet.graph.nodes[node]["position"] = shifted_pos
 
+    def _generate_layers(self):
+        # Initialize total number of nodes
+        total_nodes = self.graphene_sheets[0].graph.number_of_nodes()
+
+        # Add additional layers by copying the original graphene sheet
+        for layer in range(1, self.number_of_layers):
+            # Create a copy of the original graphene sheet and shift it
+            new_sheet = copy.deepcopy(self.graphene_sheets[0])
+            # Adjust the node IDs of the new sheet
+            self._adjust_node_ids(new_sheet, total_nodes)
+            # Shift the sheet according to the stacking type
+            self._shift_sheet(new_sheet, layer)
+            # Add the new sheet to the list
+            self.graphene_sheets.append(new_sheet)
+            # Update the total number of nodes
+            total_nodes += new_sheet.graph.number_of_nodes()
+
     def build_structure(self):
         """
-        Combine all the graphene sheets into a single structure.
+        Build the stacked graphene structure by combining all graphene sheets.
         """
-        # Start with the graph of the first layer
-        self.graph = self.graphene_sheets[0].graph.copy()
+        # Invalidate cached properties if any
+        self._invalidate_cache()
 
-        # Iterate over the remaining layers and combine them into self.graph
-        for sheet in self.graphene_sheets[1:]:
-            self.graph = nx.disjoint_union(self.graph, sheet.graph)
+        # Combine the graphs of all graphene sheets
+        combined_graph = nx.Graph()
+        for sheet in self.graphene_sheets:
+            combined_graph.update(sheet.graph)
+        self._combined_graph = combined_graph
+
+    def get_components(self):
+        return self.graphene_sheets
 
     def add_nitrogen_doping(
         self,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         layers: Union[List[int], str] = "all",
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to one or multiple layers in the stacked graphene structure.
+
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
 
         Parameters
         ----------
@@ -956,6 +1144,20 @@ class StackedGraphene(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         layers : Union[List[int], str], optional
@@ -965,6 +1167,10 @@ class StackedGraphene(Structure3D):
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -975,8 +1181,18 @@ class StackedGraphene(Structure3D):
 
         Notes
         -----
+        - The doping process includes multiple stages:
+              1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+              2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+                 distribution of doping structures, respecting both the target nitrogen percentage and species
+                 distribution.
+              3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a
+                 graph theoretical approach.
+              4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+                 percentage is not reached due to space constraints.
+              5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         - After doping, positions may be adjusted by setting `adjust_positions=True` or by calling
-        `adjust_atom_positions()`.
+          `adjust_atom_positions()`.
         """
         # Determine which layers to dope
         if isinstance(layers, str) and layers.lower() == "all":
@@ -1006,8 +1222,10 @@ class StackedGraphene(Structure3D):
                 layer_index=layer_index,
                 total_percentage=total_percentage,
                 percentages=percentages,
+                optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
+                ensure_even_num_nitrogen_atoms=ensure_even_num_nitrogen_atoms,
             )
 
     def add_nitrogen_doping_to_layer(
@@ -1015,11 +1233,17 @@ class StackedGraphene(Structure3D):
         layer_index: int,
         total_percentage: float = None,
         percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
         adjust_positions: bool = False,
         optimization_config: Optional["OptimizationConfig"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
     ):
         """
         Add nitrogen doping to a specific layer in the stacked graphene structure.
+
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration. If specified, it also optimizes atom positions after doping.
 
         Parameters
         ----------
@@ -1030,17 +1254,47 @@ class StackedGraphene(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
         adjust_positions : bool, optional
             Whether to adjust the positions of atoms after doping. Default is False.
         optimization_config : OptimizationConfig, optional
             Configuration containing optimization constants for adjusting atom positions. If None, default values are
             used.
             **Note**: This parameter only takes effect if `adjust_positions=True`.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
         UserWarning
             If `adjust_positions` is `False` but `optimization_config` is provided.
+
+        Notes
+        -----
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
         """
         if 0 <= layer_index < len(self.graphene_sheets):
 
@@ -1051,12 +1305,14 @@ class StackedGraphene(Structure3D):
             self.graphene_sheets[layer_index].add_nitrogen_doping(
                 total_percentage=total_percentage,
                 percentages=percentages,
+                optimization_weights=optimization_weights,
                 adjust_positions=adjust_positions,
                 optimization_config=optimization_config,
+                ensure_even_num_nitrogen_atoms=ensure_even_num_nitrogen_atoms,
             )
 
-            # Rebuild the main graph in order to update the structure after doping
-            self.build_structure()
+            # Invalidate the cache after modifying the sheet in order to update the structure after doping
+            self._invalidate_cache()
         else:
             raise IndexError("Layer index out of range.")
 
@@ -1097,8 +1353,8 @@ class StackedGraphene(Structure3D):
             sheet = self.graphene_sheets[layer_index]
             sheet.adjust_atom_positions(optimization_config=optimization_config)
 
-        # Rebuild the main graph to reflect updated positions
-        self.build_structure()
+        # Invalidate the cache after modifying the sheet in order to update the structure after doping
+        self._invalidate_cache()
 
 
 class CNT(Structure3D):
@@ -1745,14 +2001,20 @@ class CNT(Structure3D):
         # Add these periodic edges to the graph, marking them as periodic
         self.graph.add_edges_from(edges, bond_length=self.bond_length, periodic=True)
 
-    def add_nitrogen_doping(self, total_percentage: float = None, percentages: dict = None):
+    def add_nitrogen_doping(
+        self,
+        total_percentage: float = None,
+        percentages: dict = None,
+        optimization_weights: Optional["OptimizationWeights"] = None,
+        ensure_even_num_nitrogen_atoms: bool = False,
+    ):
         """
         Add nitrogen doping to the CNT.
 
-        This method replaces a specified percentage of carbon atoms with nitrogen atoms in the CNT.
-        If specific percentages for different nitrogen species are provided, it ensures the sum does not exceed the
-        total percentage. The remaining percentage is distributed equally among the available nitrogen species. Note
-        that no position adjustment is implemented for three-dimensional structures and therefore not supported for
+        This method calculates the optimal nitrogen doping distribution across various nitrogen species to achieve a
+        target nitrogen percentage while balancing deviation from an even species distribution and the desired overall
+        nitrogen concentration.
+        Note that no position adjustment is implemented for three-dimensional structures and therefore not supported for
         CNTs as well.
 
         Parameters
@@ -1762,6 +2024,24 @@ class CNT(Structure3D):
         percentages : dict, optional
             A dictionary specifying the percentages for each nitrogen species. Keys should be NitrogenSpecies enum
             values and values should be the percentages for the corresponding species.
+        optimization_weights : OptimizationWeights, optional
+            An instance containing weights for the optimization objective function to balance the trade-off between
+            gaining the desired nitrogen percentage and achieving an equal distribution among species.
+
+            - nitrogen_percentage_weight: Weight for the deviation from the desired nitrogen percentage in the
+              objective function.
+
+            - equal_distribution_weight: Weight for the deviation from equal distribution among species in the
+              objective function.
+
+            **Note**: `optimization_weights` only have an effect if `total_percentage` is provided and is greater than
+            the sum of specified `percentages`. If `total_percentage` is equal to or less than the sum of the individual
+            `percentages`, the optimization solver will not be used, and an alternative method is employed to meet
+            the specified percentages exactly.
+        ensure_even_num_nitrogen_atoms : bool, optional
+            If set to True, ensures that the total number of nitrogen atoms added is even. This is important for
+            maintaining a singlet state (Multiplicity = 1) in quantum chemical calculations, where an even number of
+            electrons is required. By default, it is False.
 
         Raises
         ------
@@ -1770,11 +2050,15 @@ class CNT(Structure3D):
 
         Notes
         -----
-        - If no total percentage is provided, a default of 10% is used.
-        - If specific percentages are provided and their sum exceeds the total percentage, a ValueError is raised.
-        - Remaining percentages are distributed equally among the available nitrogen species.
-        - Nitrogen species are added in a predefined order: PYRIDINIC_4, PYRIDINIC_3, PYRIDINIC_2, PYRIDINIC_1,
-          GRAPHITIC.
+        The doping process includes multiple stages:
+          1. **Validation:** Ensures provided percentages are feasible and adjusts if necessary.
+          2. **Optimization:** Solves a mixed-integer linear programming (MILP) problem to determine the best
+             distribution of doping structures, respecting both the target nitrogen percentage and species distribution.
+          3. **Insertion:** Incorporates the calculated nitrogen doping structures into the material utilizing a graph
+             theoretical approach.
+          4. **Adjustment (if needed):** Compensates for shortfalls in actual nitrogen levels if the desired target
+             percentage is not reached due to space constraints.
+          5. **Position Adjustment:** Optionally adjusts atom positions based on optimization configuration.
 
         Warnings
         --------
@@ -1783,7 +2067,9 @@ class CNT(Structure3D):
         other computational methods. Future versions may include 3D position optimization.
         """
         # Delegate the doping process to the DopingHandler
-        self.doping_handler.add_nitrogen_doping(total_percentage, percentages)
+        self.doping_handler.add_nitrogen_doping(
+            total_percentage, percentages, optimization_weights, ensure_even_num_nitrogen_atoms
+        )
 
         # Issue a user warning about the lack of 3D position adjustment
         warnings.warn(
@@ -1795,7 +2081,7 @@ class CNT(Structure3D):
         )
 
 
-class Pore(Structure3D):
+class Pore(CombinedStructure, Structure3D):
     """
     Represents a Pore structure consisting of two graphene sheets connected by a CNT.
     """
@@ -1827,7 +2113,8 @@ class Pore(Structure3D):
         conformation : str, optional
             The conformation of the CNT ('armchair' or 'zigzag'). Default is 'zigzag'.
         """
-        super().__init__()
+        CombinedStructure.__init__(self)
+        Structure3D.__init__(self)
 
         # Input validation and parameter handling
         if tube_size is None and tube_diameter is None:
@@ -1856,29 +2143,31 @@ class Pore(Structure3D):
             )
             self.tube_size = temp_cnt.tube_size
 
-        # Create the graphene sheets and CNT
-        self.graphene1 = GrapheneSheet(bond_length, sheet_size)
-        self.graphene2 = GrapheneSheet(bond_length, sheet_size)
-        self.cnt = CNT(
-            bond_length=bond_length,
-            tube_length=tube_length,
-            tube_size=tube_size,
-            tube_diameter=tube_diameter,
-            conformation=conformation,
-        )
+        # Assemble the components of the pore
+        self._assemble_components()
 
         # Build the structure
         self.build_structure()
 
-    def build_structure(self):
+    def _assemble_components(self):
         """
-        Build the Pore structure by connecting the two graphene sheets with the CNT.
+        Assemble the components of the pore: two graphene sheets and a CNT.
         """
-        # Calculate the x and y shift to center the CNT in the middle of the first graphene sheet
+        # Create the graphene sheets and CNT
+        self.graphene1 = GrapheneSheet(self.bond_length, self.sheet_size)
+        self.graphene2 = GrapheneSheet(self.bond_length, self.sheet_size)
+        self.cnt = CNT(
+            bond_length=self.bond_length,
+            tube_length=self.tube_length,
+            tube_size=self.tube_size,
+            conformation=self.conformation,
+        )
+
+        # Calculate the x and y shift to center the CNT in the middle of the graphene sheets
         x_shift = self.graphene1.actual_sheet_width / 2
         y_shift = self.graphene1.actual_sheet_height / 2
 
-        # Position the CNT exactly in the center of the first graphene sheet in the x and y directions
+        # Position the CNT exactly in the center of the graphene sheets in the x and y directions
         self.cnt.translate(x_shift=x_shift, y_shift=y_shift)
 
         # Shift the second graphene sheet along the z-axis by the length of the CNT
@@ -1890,16 +2179,21 @@ class Pore(Structure3D):
         self.graphene1.create_hole(center, radius)
         self.graphene2.create_hole(center, radius)
 
-        # Merge the three structures (graphene1, CNT, graphene2)
-        self._merge_structures()
+        # Adjust node IDs to prevent overlaps
+        total_nodes = self.graphene1.graph.number_of_nodes()
+        self._adjust_node_ids(self.cnt, total_nodes)
+        total_nodes += self.cnt.graph.number_of_nodes()
+        self._adjust_node_ids(self.graphene2, total_nodes)
 
-    def _merge_structures(self):
+    def build_structure(self):
         """
-        Merge the two graphene sheets and the CNT into a single structure.
+        Build the Pore structure by combining the graphene sheets and the CNT.
         """
-        # self.graph = nx.compose_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
-        self.graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
-        # self._connect_graphene_to_cnt()
+        self._invalidate_cache()
+        self._combined_graph = nx.disjoint_union_all([self.graphene1.graph, self.cnt.graph, self.graphene2.graph])
+
+    def get_components(self):
+        return [self.graphene1, self.cnt, self.graphene2]
 
     def add_nitrogen_doping(self, total_percentage: float = 10):
         """

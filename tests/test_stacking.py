@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 from conan.playground.structure_optimizer import OptimizationConfig
@@ -133,11 +135,13 @@ class TestStackedGrapheneValidations:
         """
         Test that valid nitrogen doping operation works without errors.
         """
-        try:
-            stacked_graphene.add_nitrogen_doping(total_percentage=10)
-            # No assertions are made since we are only testing for the absence of exceptions
-        except (ValueError, IndexError):
-            pytest.fail("add_nitrogen_doping raised an error unexpectedly!")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            try:
+                stacked_graphene.add_nitrogen_doping(total_percentage=10)
+                # No assertions are made since we are only testing for the absence of exceptions
+            except (ValueError, IndexError):
+                pytest.fail("add_nitrogen_doping raised an error unexpectedly!")
 
     def test_adjust_atom_positions_with_invalid_layers(self, stacked_graphene):
         invalid_layers = [0, 10]  # Layer 10 is out of range
@@ -150,10 +154,12 @@ class TestStackedGrapheneValidations:
             stacked_graphene.adjust_atom_positions(layers=invalid_layers)
 
     def test_adjust_atom_positions_with_default_config(self, stacked_graphene):
-        try:
-            stacked_graphene.adjust_atom_positions()
-        except Exception as e:
-            pytest.fail(f"adjust_atom_positions raised an error unexpectedly: {e}")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            try:
+                stacked_graphene.adjust_atom_positions()
+            except Exception as e:
+                pytest.fail(f"adjust_atom_positions raised an error unexpectedly: {e}")
 
     def test_adjust_atom_positions_with_custom_config(self, stacked_graphene):
         optimization_config = OptimizationConfig(k_inner_bond=5, k_middle_bond=2, k_outer_bond=0.1)
@@ -164,14 +170,20 @@ class TestStackedGrapheneValidations:
 
     def test_adjust_atom_positions_without_adjust_positions_flag(self, stacked_graphene):
         optimization_config = OptimizationConfig()
-        with pytest.warns(UserWarning, match="An 'optimization_config' was provided, but 'adjust_positions' is False"):
-            stacked_graphene.add_nitrogen_doping(adjust_positions=False, optimization_config=optimization_config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with pytest.warns(
+                UserWarning, match="An 'optimization_config' was provided, but 'adjust_positions' is " "False"
+            ):
+                stacked_graphene.add_nitrogen_doping(adjust_positions=False, optimization_config=optimization_config)
 
     def test_doping_with_valid_layers_and_positions_adjustment(self, stacked_graphene):
-        try:
-            stacked_graphene.add_nitrogen_doping(layers=[0, 1], total_percentage=10, adjust_positions=True)
-        except Exception as e:
-            pytest.fail(f"add_nitrogen_doping with valid layers and adjustment raised an error unexpectedly: {e}")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            try:
+                stacked_graphene.add_nitrogen_doping(layers=[0, 1], total_percentage=10, adjust_positions=True)
+            except Exception as e:
+                pytest.fail(f"add_nitrogen_doping with valid layers and adjustment raised an error unexpectedly: {e}")
 
     def test_doping_to_specific_layer(self, stacked_graphene):
         try:
