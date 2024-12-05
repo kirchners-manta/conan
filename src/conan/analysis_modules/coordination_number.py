@@ -18,8 +18,9 @@ class CoordinationNumberAnalysis:
         self.element_radii = {}
         self.maxdisp_atom_dist = 0
         self.maxdisp_atom_row = None
-        self.CNT_length = molecules.length_pore[0]
-        self.CNT_atoms = molecules.CNT_atoms
+        if molecules.length_pore:
+            self.CNT_length = molecules.length_pore[0]
+            self.CNT_atoms = molecules.CNT_atoms
 
     def Coord_number_prep(self):
         # Get values from inputdict
