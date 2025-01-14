@@ -3,6 +3,7 @@ This GitHub repository contains the CONAN program.
 
 Please find the corresponding publication under the following link:
 https://pubs.acs.org/doi/10.1021/acs.jcim.3c01075
+https://doi.org/10.1021/acs.jpcb.3c08493
 
 The program and manual is maintained by Leonard Dick (dick@thch.uni-bonn.de).
 Please cite the publication, if you use the program in your research.
