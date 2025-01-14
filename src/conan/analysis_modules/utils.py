@@ -2,6 +2,9 @@ import numpy as np
 
 import conan.defdict as ddict
 
+"""
+calculates the minimum image distance between two sets of coordinates"""
+
 
 def minimum_image_distance(box_dimension, coordinates_reference, coordinates_observed):
 
