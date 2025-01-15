@@ -326,13 +326,13 @@ class AxialDensityAnalysis:
 
         # Aggregate atom masses into bins
         zdens_df_temp = (
-            split_frame.groupby(pd.cut(split_frame["Z"].astype(float), z_bin_edges))["Mass"]
+            split_frame.groupby(pd.cut(split_frame["Z"].astype(float), z_bin_edges), observed=False)["Mass"]
             .sum()
             .reset_index(name="Weighted_counts")
             .copy()
         )
         zdens_df_temp["Counts"] = (
-            split_frame.groupby(pd.cut(split_frame["Z"].astype(float), z_bin_edges))["Mass"]
+            split_frame.groupby(pd.cut(split_frame["Z"].astype(float), z_bin_edges), observed=False)["Mass"]
             .count()
             .reset_index(name="Counts")["Counts"]
             .copy()
@@ -415,8 +415,8 @@ class AxialDensityAnalysis:
 
     def _choose_radius_for_volume(self, args):
         which_radius = ddict.get_input(
-            "Do you want to use the accessible radius (1) or the CNT radius (2)",
-            " to compute the increments' volume? [1/2] ",
+            "Do you want to use the accessible radius (1) or "
+            "the CNT radius (2) to compute the increments' volume? [1/2] ",
             args,
             "string",
         )

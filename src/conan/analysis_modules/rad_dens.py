@@ -127,7 +127,7 @@ class RadialDensityAnalysis:
 
         # Group by bins and sum the property
         raddens_df_temp = (
-            split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges))[property_name]
+            split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges), observed=False)[property_name]
             .sum()
             .reset_index(name="Weighted_counts")
         )
