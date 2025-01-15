@@ -1,4 +1,5 @@
 import sys
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,10 +9,11 @@ import conan.analysis_modules.traj_an as traj_an
 import conan.analysis_modules.utils as ut
 import conan.defdict as ddict
 
-import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
 from pandas.errors import PerformanceWarning
+
 warnings.filterwarnings("ignore", category=PerformanceWarning)
+
 
 def radial_velocity_analysis(traj_file, molecules, an):
     va = VelocityAnalysis(traj_file, molecules)

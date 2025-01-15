@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,8 +11,8 @@ import conan.analysis_modules.traj_an as traj_an
 import conan.defdict as ddict
 from conan.analysis_modules import utils
 
-import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
+
 
 class CoordinationNumberAnalysis:
     def __init__(self, traj_file, molecules):
@@ -293,7 +294,9 @@ class CoordinationNumberAnalysis:
         # many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
         if "Distance_to_referencepoint" in frame_distances:
-            count_df = coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            count_df = (
+                coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            )
         else:
             count_df = coord_df.groupby(["Reference_Observable"], observed=False).size().reset_index(name="Count")
 
@@ -432,11 +435,15 @@ class CoordinationNumberAnalysis:
         # coordination number over all collected points (and not w.r.t the distance to a reference point)
         if "Zbin" in processed_coord_df:
             processed_coord_df = (
-                processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).apply(weighted_average).reset_index()
+                processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
+                .apply(weighted_average)
+                .reset_index()
             )
         else:
             processed_coord_df = (
-                processed_coord_df.groupby(["Reference_Observable"], observed=False).apply(weighted_average).reset_index()
+                processed_coord_df.groupby(["Reference_Observable"], observed=False)
+                .apply(weighted_average)
+                .reset_index()
             )
 
         # Now we iterate over each species pair and write the data into separate files
@@ -709,7 +716,11 @@ class CoordinationNumberAnalysis:
         # Since we need to later average over all chunks we
         # need to save the count of how many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
-        count_df = coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False).size().reset_index(name="Count")
+        count_df = (
+            coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False)
+            .size()
+            .reset_index(name="Count")
+        )
 
         # Save the counts in our averaged dataframe
         avg_coord_df["Count"] = count_df["Count"]
@@ -745,9 +756,9 @@ class CoordinationNumberAnalysis:
         #  we dropped it earlier as the user chose to average the
         # coordination
         # number over all collected points (and not w.r.t the distance to a reference point)
-        processed_coord_df = processed_coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False).apply(
-            weighted_average
-        )
+        processed_coord_df = processed_coord_df.groupby(
+            ["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False
+        ).apply(weighted_average)
 
         # For some reason there is still a 'Zbin' column after the
         # grouping so we need to drop it before we reset the index
@@ -1060,7 +1071,9 @@ class CoordinationNumberAnalysis:
         # need to save the count of how many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
         if "Distance_to_referencepoint" in frame_distances:
-            count_df = coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            count_df = (
+                coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            )
         else:
             count_df = coord_df.groupby(["Reference_Observable"], observed=False).size().reset_index(name="Count")
 
@@ -1091,7 +1104,9 @@ class CoordinationNumberAnalysis:
         # we dropped it earlier as the user chose to average the
         # coordination number over all collected points (and not w.r.t the distance to a reference point)
         processed_coord_df = (
-            processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).apply(weighted_average).reset_index()
+            processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
+            .apply(weighted_average)
+            .reset_index()
         )
 
         # Now we iterate over each species pair and write the data into separate files

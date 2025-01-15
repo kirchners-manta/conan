@@ -415,7 +415,8 @@ class AxialDensityAnalysis:
 
     def _choose_radius_for_volume(self, args):
         which_radius = ddict.get_input(
-            "Do you want to use the accessible radius (1) or the CNT radius (2) to compute the increments' volume? [1/2] ",
+            "Do you want to use the accessible radius (1) or "
+            "the CNT radius (2) to compute the increments' volume? [1/2] ",
             args,
             "string",
         )

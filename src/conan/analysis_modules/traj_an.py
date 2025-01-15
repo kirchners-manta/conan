@@ -14,8 +14,9 @@ import conan.defdict as ddict
 from conan.analysis_modules import traj_info
 from conan.analysis_modules import xyz_output as xyz
 
-#import warnings
-#warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
+# import warnings
+# warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
+
 
 def analysis_opt(traj_file, molecules, maindict):
     """Choice between picture or analysis mode."""
