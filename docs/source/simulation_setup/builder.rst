@@ -1,4 +1,4 @@
-Structures
+Build module
 =================
 
 The mode is used to build carbon and boron nitride structures from scratch and print the xyz structures to a file.
@@ -57,6 +57,7 @@ saved in ``structures/structure.xyz``. All available commands and their usage ar
    build_commands/defects.rst
    build_commands/add.rst
    build_commands/undo.rst
+   build_commands/stack.rst
 
 .. image:: ../pictures/wall.png
    :width: 40%
