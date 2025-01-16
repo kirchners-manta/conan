@@ -5,14 +5,15 @@ import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
+import conan.analysis_modules.cnt_fill as cnt_fill
 import conan.analysis_modules.coordination_number as cn
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
+import conan.analysis_modules.traj_info as traj_info
 import conan.analysis_modules.velocity as vel
+import conan.analysis_modules.xyz_output as xyz
 import conan.defdict as ddict
-from conan.analysis_modules import traj_info
-from conan.analysis_modules import xyz_output as xyz
 
 
 def analysis_opt(traj_file, molecules, maindict):
@@ -56,6 +57,8 @@ def run_analysis(traj_file, molecules, maindict):
         vel.mol_velocity_analysis(traj_file, molecules, an)
     elif an.choice2 == 10:
         msd.msd_analysis(traj_file, molecules, an)
+    elif an.choice2 == 11:
+        cnt_fill.cnt_loading_mass(traj_file, molecules, an)
 
 
 class Analysis:
@@ -85,7 +88,7 @@ class Analysis:
         ddict.printLog("(10) Calculate the (root) mean square displacement of the liquid in the CNT.")
 
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)
@@ -98,13 +101,13 @@ class Analysis:
         Based on the file format, each frame needs to be processed differently."""
 
         if traj_file.args["trajectoryfile"].endswith(".xyz"):
-            from conan.analysis_modules.traj_info import xyz as run
+            from traj_info import xyz as run
         elif traj_file.args["trajectoryfile"].endswith(".pdb"):
-            from conan.analysis_modules.traj_info import pdb as run
+            from traj_info import pdb as run
         elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(
             ".lammpstrj"
         ):
-            from conan.analysis_modules.traj_info import lammpstrj as run
+            from traj_info import lammpstrj as run
         else:
             raise ValueError("Unsupported trajectory file format")
         return run
@@ -217,7 +220,8 @@ def prepare_frame(
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+    if an.choice2 != 11:
+        split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
 
     if regional_q == "y":
         split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]

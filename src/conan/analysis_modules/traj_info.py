@@ -771,7 +771,9 @@ class Molecule:
 
         if len(CNTs) > 0:
             CNT_pore_question = ddict.get_input(
-                "Does one of the pores contain rigid CNTs? [y/n]: ", traj_file.args, "str"
+                "Does one of the pores contain rigid CNTs along the z axis of the simulation box? [y/n]: ",
+                traj_file.args,
+                "str",
             )
             if CNT_pore_question == "y":
                 if len(CNTs) == 0:
@@ -864,7 +866,7 @@ class Molecule:
         if "CNT" not in traj_file.frame0.columns:
             traj_file.frame0["CNT"] = None
 
-        # creat a CNT_atoms dataframe with just the CNT atoms (value in the 'CNT' column is larger than 0.)
+        # create a CNT_atoms dataframe with just the CNT atoms (value in the 'CNT' column is larger than 0.)
 
         CNT_atoms = traj_file.frame0[traj_file.frame0["CNT"] > 0].copy()
 
