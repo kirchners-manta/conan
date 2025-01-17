@@ -39,4 +39,5 @@ jobs:
         run: |
           ssh -T git@github.com || true
           git remote set-url origin git@github.com:kirchners-manta/conan.git
+          git fetch origin main
           git push origin main
