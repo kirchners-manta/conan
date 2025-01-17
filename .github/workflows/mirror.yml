@@ -33,6 +33,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
 
+
       - name: Commit and push changes to public repository
         env:
           GIT_SSH_COMMAND: 'ssh -i ~/.ssh/id_ed25519'
