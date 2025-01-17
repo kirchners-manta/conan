@@ -142,8 +142,13 @@ class CNTload:
 
         ring1_array = np.array([ring1_x, ring1_y, ring1_z])
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
+        ring1_ref = np.array([ring1_ref[0], ring1_ref[1], ring1_ref[2]])
 
-        self.dist_ring = np.linalg.norm(ring1_array - ring1_ref).round(3)
+        # self.dist_ring = np.linalg.norm(ring1_array - ring1_ref).round(3)
+        self.dist_ring = np.linalg.norm(
+            traj_info.minimum_image_distance(ring1_array, ring1_ref, self.traj_file.box_size)
+        )
+        print("radius of the ring:", self.dist_ring.round(3))
 
         self.dist = np.linalg.norm(
             traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
@@ -200,7 +205,6 @@ class CNTload:
 
         # calculate the center of geometry for the ring1 atoms
         ring1 = split_frame.loc[self.ring1]
-        ring1_ref = ring1.iloc[0][["X", "Y", "Z"]].values
         ring1_x = ring1["X"].mean()
         ring1_y = ring1["Y"].mean()
         ring1_z = ring1["Z"].mean()
@@ -213,23 +217,15 @@ class CNTload:
         ring1_array = np.array([ring1_x, ring1_y, ring1_z])
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
 
-        # calculate the distance between the mean posistion and a reference atom of the same ring
-        self.dist_ring = np.linalg.norm(ring1_array - ring1_ref).round(3)
-
         "This is the shortening part regarding the cnt space to observe" ""
         # calculate the normalized vector between the two rings
         cnt_axis = (ring2_array - ring1_array) / np.linalg.norm(ring2_array - ring1_array)
-        # print("CNT axis:", cnt_axis)
 
         ring1_array = ring1_array + self.shortening * cnt_axis
         ring2_array = ring2_array - self.shortening * cnt_axis
         self.dist = np.linalg.norm(
             traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
         ).round(3)
-
-        # print("Ring1 array:", ring1_array)
-        # print("Ring2 array:", ring2_array)
-        # print("Distance between the rings:", self.dist)
 
         """ Now we calculate the mass of the liquid within the CNTs.
         First identify which species are within the CNTs.
@@ -245,13 +241,13 @@ class CNTload:
 
         # check if a liquid atom is within the CNT
         for atom_position in atom_positions:
-            if points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_position[:3]) is True:
+            if points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_position[:3]):
                 # print(atom_position[3])
                 # add the mass of the given atom to the total mass of the liquid within the CNT
                 self.liquid_mass += atom_position[3]
                 # print(self.liquid_mass)
 
-        print("\nTotal liquid mass:", self.liquid_mass.round(3))
+        print("\nTotal liquid mass:", round(self.liquid_mass, 3))
 
         self.proc_frame_counter += 1
 
