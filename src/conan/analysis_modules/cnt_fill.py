@@ -119,8 +119,9 @@ class CNTload:
         self.ring2 = np.array([atom for atom in pore_atoms[pore_atoms["ring"] == 2].index])
 
         ddict.printLog(
-            "\nPlease use global, unwrapped coordinates for this analysis.",
-            " Otherwise the results are potentially erroneous.",
+            "\nPlease make sure the CNT is not larger than half the box size,"
+            " the CNT doese not cross preiodic boundaries and the atomic positions are wrapped"
+            " into the simulation box correctly. For pre-processing, please use Travis\n",
             color="red",
         )
 
@@ -144,7 +145,6 @@ class CNTload:
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
         ring1_ref = np.array([ring1_ref[0], ring1_ref[1], ring1_ref[2]])
 
-        # self.dist_ring = np.linalg.norm(ring1_array - ring1_ref).round(3)
         self.dist_ring = np.linalg.norm(
             traj_info.minimum_image_distance(ring1_array, ring1_ref, self.traj_file.box_size)
         )
@@ -175,7 +175,7 @@ class CNTload:
         if self.shortening_q == "y":
             self.shortening = float(
                 ddict.get_input(
-                    "Please enter the amount you want the axis to be shortened",
+                    "Please enter the amount you want the axis to be shortened"
                     " (amount is subtracted from both sides): ",
                     self.traj_file.args,
                     "float",
@@ -217,7 +217,9 @@ class CNTload:
         ring1_array = np.array([ring1_x, ring1_y, ring1_z])
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
 
-        "This is the shortening part regarding the cnt space to observe" ""
+        """
+        This is the shortening part regarding the cnt space to observe
+        """
         # calculate the normalized vector between the two rings
         cnt_axis = (ring2_array - ring1_array) / np.linalg.norm(ring2_array - ring1_array)
 
@@ -226,6 +228,10 @@ class CNTload:
         self.dist = np.linalg.norm(
             traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
         ).round(3)
+
+        # now calculate the center point of the CNT
+        cnt_center = (ring1_array + cnt_axis * self.dist / 2).round(3)
+        print("Center of the CNT:", cnt_center)
 
         """ Now we calculate the mass of the liquid within the CNTs.
         First identify which species are within the CNTs.

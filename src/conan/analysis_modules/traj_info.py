@@ -670,10 +670,10 @@ class Molecule:
         if structure_frame.empty or traj_file.args["manual"]:
             if structure_frame.empty:
                 ddict.printLog(
-                    "No structures were found in the simulation box. \n",
+                    "No frozen structures were found in the simulation box. \n",
                     color="red",
                 )
-            define_struc = ddict.get_input("Manually define the structures? [y/n]: ", traj_file.args, "str")
+            define_struc = ddict.get_input("Manually define structures? [y/n]: ", traj_file.args, "str")
             if define_struc == "n":
                 sys.exit()
             else:
