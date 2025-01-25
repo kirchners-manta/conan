@@ -1,8 +1,8 @@
 # CONAN
 This GitHub repository contains the CONAN program.
 
-Please find the corresponding publications under the following link:
-https://pubs.acs.org/doi/10.1021/acs.jcim.3c01075
+Please find the corresponding publications under the following link:\
+https://pubs.acs.org/doi/10.1021/acs.jcim.3c01075\
 https://doi.org/10.1021/acs.jpcb.3c08493
 
 The program and manual is maintained by Leonard Dick (dick@thch.uni-bonn.de).
@@ -33,6 +33,12 @@ You can test your current code using:
 To install the package for regular usage:
 ```bash
 pip install .
+```
+Alternatively, use pipx:
+```bash
+sudo apt install pipx
+pipx ensurepath
+pipx install .
 ```
 
 ## Usage
