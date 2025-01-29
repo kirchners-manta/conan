@@ -247,7 +247,7 @@ class TrajectoryFile:
 
         # Calculate how many bytes each line of the trajectory file has.
         bytes_per_line = trajectory_file_size / (number_of_lines)
-        # The number of lines in a chunk. Each chunk is roughly 50 MB large.
+        # The number of frames in a chunk. Each chunk is roughly 50 MB large.
         chunk_size = int(100000000 / ((self.lines_per_frame) * bytes_per_line))
         # The number of chunks (always round up).
         number_of_chunks = math.ceil(number_of_frames / chunk_size)
@@ -760,6 +760,7 @@ class Molecule:
 
         # Copy the structure frame back to the original structure frame.
         structure_frame = structure_frame_copy
+        traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(structure_frame["Struc"].dtype)
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.

@@ -127,7 +127,7 @@ class RadialDensityAnalysis:
 
         # Group by bins and sum the property
         raddens_df_temp = (
-            split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges))[property_name]
+            split_frame.groupby(pd.cut(split_frame["Distance"], raddens_bin_edges), observed=False)[property_name]
             .sum()
             .reset_index(name="Weighted_counts")
         )
@@ -331,10 +331,7 @@ class RadialDensityAnalysis:
                 fig.savefig("Radial_density_function_polar.pdf")
                 ddict.printLog("-> Radial density function countour plot saved as Radial_density_function_polar.pdf\n")
 
-        raw_data = ddict.get_input("Do you want to save the raw data? (y/n) ", args, "string")
-        if raw_data == "y":
-            raddens_df.to_csv("Radial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
-            ddict.printLog("Raw mass distribution data saved as Radial_mass_dist_raw.csv")
-            raddens_df_density.to_csv("Radial_density_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
-            ddict.printLog("Raw density data saved as Radial_density_raw.csv")
-        pass
+        raddens_df.to_csv("Radial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
+        ddict.printLog("Raw mass distribution data saved as Radial_mass_dist_raw.csv")
+        raddens_df_density.to_csv("Radial_density_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
+        ddict.printLog("Raw density data saved as Radial_density_raw.csv")

@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 import conan.analysis_modules.traj_an as traj_an
 import conan.analysis_modules.traj_info as traj_info
@@ -37,7 +39,6 @@ class CNTload:
         self.traj_file = traj_file
         self.molecules = molecules
         self.an = an
-        self.liquid_mass = 0
         self.proc_frame_counter = 0
         self.shortening_q = "n"
         self.shortening = 0
@@ -190,6 +191,10 @@ class CNTload:
 
         print("Distance between the rings:", self.dist)
 
+        # finally set up an array to store the liquid mass each time frame which is processed.
+        self.liquid_mass = 0
+        self.frame_masses = np.array([])
+
     def analyze_frame(self, split_frame, frame_counter):
         """
         Calculate the loading mass of the liquid within the CNTs.
@@ -197,6 +202,8 @@ class CNTload:
         for each open end of the CNT. (ring1, ring2)
 
         """
+
+        frame_mass = 0
         # print(split_frame)
         # turn the X, Y and Z values into floats
         split_frame["X"] = split_frame["X"].astype(float)
@@ -229,11 +236,9 @@ class CNTload:
             traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
         ).round(3)
 
-        # now calculate the center point of the CNT
-        cnt_center = (ring1_array + cnt_axis * self.dist / 2).round(3)
-        print("Center of the CNT:", cnt_center)
+        # cnt_center = (ring1_array + cnt_axis * self.dist / 2).round(3)
 
-        """ Now we calculate the mass of the liquid within the CNTs.
+        """ Calculate the mass of the liquid within the CNTs.
         First identify which species are within the CNTs.
         For this use the points in cylider function."""
 
@@ -248,12 +253,12 @@ class CNTload:
         # check if a liquid atom is within the CNT
         for atom_position in atom_positions:
             if points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_position[:3]):
-                # print(atom_position[3])
-                # add the mass of the given atom to the total mass of the liquid within the CNT
+                # print(atom_position)
                 self.liquid_mass += atom_position[3]
-                # print(self.liquid_mass)
+                frame_mass += atom_position[3]
 
-        print("\nTotal liquid mass:", round(self.liquid_mass, 3))
+        self.frame_masses = np.append(self.frame_masses, frame_mass)
+        # print(f"Frame {frame_counter} mass: {frame_mass}")
 
         self.proc_frame_counter += 1
 
@@ -270,3 +275,44 @@ class CNTload:
         self.liq_mass_per_angstrom = self.liq_mass_per_frame / self.dist
         print(f"Loading mass per angstrom: {self.liq_mass_per_angstrom}")
         self.liquid_mass = 0
+
+        # print the frame masses
+        print(self.frame_masses)
+
+        pd_frame_masses = pd.DataFrame(self.frame_masses)
+        print(pd_frame_masses)
+        # rename  the column
+        pd_frame_masses.columns = ["Frame_masses"]
+        print(pd_frame_masses)
+
+        # now add a new running average column
+        # pd_frame_masses["Running_average"] = pd_frame_masses["Frame_masses"].expanding().mean()
+
+        # add a new column with the average of 5, 10 and  50 frames
+        pd_frame_masses["5_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=5).mean().shift(-2)
+        pd_frame_masses["10_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=10).mean().shift(-5)
+        pd_frame_masses["50_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=50).mean().shift(-25)
+
+        print(pd_frame_masses)
+
+        # plot the results
+        fig, ax = plt.subplots()
+        ax.plot(pd_frame_masses["Frame_masses"], label="Loading mass")
+        # ax.plot(pd_frame_masses["Running_average"], label="Running_average")
+        ax.plot(pd_frame_masses["5_frame_average"], label="5 frame average")
+        ax.plot(pd_frame_masses["10_frame_average"], label="10 frame average")
+        ax.plot(pd_frame_masses["50_frame_average"], label="50 frame average")
+
+        ax.set_xlabel("Frame number")
+        ax.set_ylabel("Frame masses")
+        ax.legend()
+        ax.grid()
+
+        # save the plot
+        fig.savefig("frame_masses.png")
+
+        # calculate the running average of the frame masses
+
+        """Now plot the results. The frame masses are plotted against the frame number.
+        Also plot the running average of the frame masses. As well as the average of 5 and 10 frames.
+        Exploit the matplotlib library for this."""

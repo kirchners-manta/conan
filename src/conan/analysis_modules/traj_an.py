@@ -1,7 +1,6 @@
 import sys
 import time
 
-import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
@@ -159,10 +158,12 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
         chunk_number += 1
         print(f"\nChunk {chunk_number} of {traj_file.num_chunks}")
 
-        if chunk.shape[0] == traj_file.lines_last_chunk:
-            frames = np.split(chunk, traj_file.last_chunk_size)
-        else:
-            frames = np.split(chunk, traj_file.chunk_size)
+        frames = []
+        num_frames = chunk.shape[0] // traj_file.lines_per_frame
+        for i in range(num_frames):
+            start_idx = i * traj_file.lines_per_frame
+            end_idx = (i + 1) * traj_file.lines_per_frame
+            frames.append(chunk.iloc[start_idx:end_idx])
 
         for frame in frames:
             frame_counter += 1
@@ -209,8 +210,9 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
 def prepare_frame(
     an, frame, element_masses, traj_file, regional_q, regions, spec_molecule, spec_atom, analysis_spec_molecule
 ):
-    """Preparing the frame for the analysis module by removing atoms, which are noto needed."""
+    """Preparing the frame for the analysis module by removing atoms, which are not needed."""
     split_frame = run_trajectory_module(an, frame, element_masses, traj_file)
+
     if split_frame is None:
         return None
 
