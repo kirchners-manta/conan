@@ -310,9 +310,3 @@ class CNTload:
 
         # save the plot
         fig.savefig("frame_masses.png")
-
-        # calculate the running average of the frame masses
-
-        """Now plot the results. The frame masses are plotted against the frame number.
-        Also plot the running average of the frame masses. As well as the average of 5 and 10 frames.
-        Exploit the matplotlib library for this."""
