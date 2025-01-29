@@ -737,6 +737,7 @@ class Molecule:
                 )
 
                 # Change the structure column to pore{i}
+                structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
                 structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Pore{counter_pore}"
                 CNTs.append(f"Pore{counter_pore}")
 
@@ -762,7 +763,7 @@ class Molecule:
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
-        traj_file.frame0["Struc"].replace(False, "Liquid", inplace=True)
+        traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
 
         # Print the structure information .
         ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
