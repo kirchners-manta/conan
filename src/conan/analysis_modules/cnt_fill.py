@@ -276,17 +276,8 @@ class CNTload:
         print(f"Loading mass per angstrom: {self.liq_mass_per_angstrom}")
         self.liquid_mass = 0
 
-        # print the frame masses
-        print(self.frame_masses)
-
         pd_frame_masses = pd.DataFrame(self.frame_masses)
-        print(pd_frame_masses)
-        # rename  the column
         pd_frame_masses.columns = ["Frame_masses"]
-        print(pd_frame_masses)
-
-        # now add a new running average column
-        # pd_frame_masses["Running_average"] = pd_frame_masses["Frame_masses"].expanding().mean()
 
         # add a new column with the average of 5, 10 and  50 frames
         pd_frame_masses["5_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=5).mean().shift(-2)
@@ -298,7 +289,6 @@ class CNTload:
         # plot the results
         fig, ax = plt.subplots()
         ax.plot(pd_frame_masses["Frame_masses"], label="Loading mass")
-        # ax.plot(pd_frame_masses["Running_average"], label="Running_average")
         ax.plot(pd_frame_masses["5_frame_average"], label="5 frame average")
         ax.plot(pd_frame_masses["10_frame_average"], label="10 frame average")
         ax.plot(pd_frame_masses["50_frame_average"], label="50 frame average")
@@ -310,3 +300,6 @@ class CNTload:
 
         # save the plot
         fig.savefig("frame_masses.png")
+
+        # save the data
+        pd_frame_masses.to_csv("frame_masses.csv")
