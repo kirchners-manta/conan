@@ -18,8 +18,8 @@ def points_in_cylinder(pt1, pt2, r, atom_to_check):
     const = r * np.linalg.norm(vec)
     return (
         (np.dot(atom_to_check - pt1, vec) >= 0)
-        & (np.dot(atom_to_check - pt2, vec) <= 0)
-        & (np.linalg.norm(np.cross(atom_to_check - pt1, vec)) <= const)
+        and (np.dot(atom_to_check - pt2, vec) <= 0)
+        and (np.linalg.norm(np.cross(atom_to_check - pt1, vec)) <= const)
     )
 
 
