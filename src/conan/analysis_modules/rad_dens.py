@@ -331,6 +331,10 @@ class RadialDensityAnalysis:
                 fig.savefig("Radial_density_function_polar.pdf")
                 ddict.printLog("-> Radial density function countour plot saved as Radial_density_function_polar.pdf\n")
 
+        # Add a new column to the raddens_df dataframe with the total mass/charge in each frame.
+        # (excluding the frame column)
+        raddens_df["Total"] = raddens_df.iloc[:, 1:].sum(axis=1)
+
         raddens_df.to_csv("Radial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
         ddict.printLog("Raw mass distribution data saved as Radial_mass_dist_raw.csv")
         raddens_df_density.to_csv("Radial_density_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
