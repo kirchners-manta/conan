@@ -131,7 +131,7 @@ def dict_vdW() -> dict:
         "Au": 1.66,
         "D": 0.00,
         "X": 0.00,
-    }  # 'Na = 2.27'
+    }
     return elem_vdW
 
 
