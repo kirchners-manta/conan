@@ -34,12 +34,6 @@ To install the package for regular usage:
 ```bash
 pip install .
 ```
-Alternatively, use pipx:
-```bash
-sudo apt install pipx
-pipx ensurepath
-pipx install .
-```
 
 ## Usage
 After installing the package, conan is available via the command line:

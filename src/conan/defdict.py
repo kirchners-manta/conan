@@ -1,6 +1,6 @@
 # The program is written by Leonard Dick, 2023
 
-""" This file contains all globally needed functions and dictionaries."""
+"""This file contains all globally needed functions and dictionaries."""
 
 # MODULES
 import argparse

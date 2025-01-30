@@ -179,14 +179,14 @@ class DistanceSearchAnalysis:
                 self.minimal_distance_row["Atom"],
                 " with a distance of: ",
                 round(self.minimal_distance, 2),
-                " \u00C5",
+                " \u00c5",
             )
             ddict.printLog(
                 "The furthest atom is: ",
                 self.maximal_distance_row["Atom"],
                 " with a distance of: ",
                 round(self.maximal_distance, 2),
-                " \u00C5",
+                " \u00c5",
             )
         else:
             ddict.printLog("No atoms found in the specified distance search.")
@@ -568,7 +568,7 @@ class DensityAnalysis:
     def calculate_grid_point_densities(self):
 
         grid_volume = self.x_incr_dist * self.y_incr_dist * self.z_incr_dist
-        print("Volume of each grid point: %0.3f \u00C5\u00B3" % grid_volume)
+        print("Volume of each grid point: %0.3f \u00c5\u00b3" % grid_volume)
 
         # Initialize list to store densities of grid points
         grid_point_densities = []
@@ -643,6 +643,6 @@ class DensityAnalysis:
         # Plot profile
         fig, ax = plt.subplots()
         ax.plot(df[axis], df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-        ax.set(xlabel=f"{axis} [\u00C5]", ylabel="Density [g/cm\u00B3]", title="Density profile")
+        ax.set(xlabel=f"{axis} [\u00c5]", ylabel="Density [g/cm\u00b3]", title="Density profile")
         ax.grid()
         fig.savefig(f"{axis}_density_profile.pdf")
