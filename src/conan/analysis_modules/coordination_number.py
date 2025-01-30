@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +10,8 @@ import scipy
 import conan.analysis_modules.traj_an as traj_an
 import conan.defdict as ddict
 from conan.analysis_modules import utils
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
 
 
 class CoordinationNumberAnalysis:
@@ -224,7 +227,7 @@ class CoordinationNumberAnalysis:
                     ]
 
                 # group the data by molecule
-                grouped_distances = distances.groupby(["Molecule1"])
+                grouped_distances = distances.groupby(["Molecule1"], observed=False)
 
                 # Loop over each molecule
                 for molecule, molecule_distances in grouped_distances:
@@ -279,10 +282,10 @@ class CoordinationNumberAnalysis:
         # calculate the coordination number w.r.t. a reference point), we do not need to keep the Zbins and just average
         # over all collected distances.
         if "Distance_to_referencepoint" in frame_distances:
-            avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"])
+            avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
         else:
             coord_df = coord_df.drop(columns=("Zbin"))
-            avg_coord_df = coord_df.groupby(["Reference_Observable"])
+            avg_coord_df = coord_df.groupby(["Reference_Observable"], observed=False)
 
         # Average the results for the current chunk
         avg_coord_df = avg_coord_df.mean().reset_index()
@@ -291,9 +294,11 @@ class CoordinationNumberAnalysis:
         # many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
         if "Distance_to_referencepoint" in frame_distances:
-            count_df = coord_df.groupby(["Reference_Observable", "Zbin"]).size().reset_index(name="Count")
+            count_df = (
+                coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            )
         else:
-            count_df = coord_df.groupby(["Reference_Observable"]).size().reset_index(name="Count")
+            count_df = coord_df.groupby(["Reference_Observable"], observed=False).size().reset_index(name="Count")
 
         # Save the counts in our averaged dataframe
         avg_coord_df["Count"] = count_df["Count"]
@@ -345,7 +350,7 @@ class CoordinationNumberAnalysis:
         split_frame["Mass"] = split_frame["Mass"].astype(float)
 
         # Precompute total mass for each molecule
-        total_mass_per_molecule = split_frame.groupby("Molecule")["Mass"].transform("sum")
+        total_mass_per_molecule = split_frame.groupby("Molecule", observed=False)["Mass"].transform("sum")
 
         # Calculate mass weighted coordinates
         split_frame["X_COM"] = (split_frame["X"] * split_frame["Mass"]) / total_mass_per_molecule
@@ -354,7 +359,7 @@ class CoordinationNumberAnalysis:
 
         # Calculate the center of mass for each molecule
         mol_com = (
-            split_frame.groupby("Molecule")
+            split_frame.groupby("Molecule", observed=False)
             .agg(Species=("Species", "first"), X_COM=("X_COM", "sum"), Y_COM=("Y_COM", "sum"), Z_COM=("Z_COM", "sum"))
             .reset_index()
         )
@@ -430,11 +435,15 @@ class CoordinationNumberAnalysis:
         # coordination number over all collected points (and not w.r.t the distance to a reference point)
         if "Zbin" in processed_coord_df:
             processed_coord_df = (
-                processed_coord_df.groupby(["Reference_Observable", "Zbin"]).apply(weighted_average).reset_index()
+                processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
+                .apply(weighted_average)
+                .reset_index()
             )
         else:
             processed_coord_df = (
-                processed_coord_df.groupby(["Reference_Observable"]).apply(weighted_average).reset_index()
+                processed_coord_df.groupby(["Reference_Observable"], observed=False)
+                .apply(weighted_average)
+                .reset_index()
             )
 
         # Now we iterate over each species pair and write the data into separate files
@@ -546,7 +555,7 @@ class CoordinationNumberAnalysis:
         split_frame["Mass"] = split_frame["Mass"].astype(float)
 
         # Precompute total mass for each molecule
-        total_mass_per_molecule = split_frame.groupby("Molecule")["Mass"].transform("sum")
+        total_mass_per_molecule = split_frame.groupby("Molecule", observed=False)["Mass"].transform("sum")
 
         # Calculate mass weighted coordinates
         split_frame["X_COM"] = (split_frame["X"] * split_frame["Mass"]) / total_mass_per_molecule
@@ -555,7 +564,7 @@ class CoordinationNumberAnalysis:
 
         # Calculate the center of mass for each molecule
         mol_com = (
-            split_frame.groupby("Molecule")
+            split_frame.groupby("Molecule", observed=False)
             .agg(Species=("Species", "first"), X_COM=("X_COM", "sum"), Y_COM=("Y_COM", "sum"), Z_COM=("Z_COM", "sum"))
             .reset_index()
         )
@@ -647,7 +656,7 @@ class CoordinationNumberAnalysis:
                 ]
 
                 # group the data by molecule
-                grouped_distances = distances.groupby(["Molecule1"])
+                grouped_distances = distances.groupby(["Molecule1"], observed=False)
 
                 # Loop over each molecule
                 for molecule, molecule_distances in grouped_distances:
@@ -699,7 +708,7 @@ class CoordinationNumberAnalysis:
         # we do not need to keep the Zbins and just average
         # over all collected distances.
 
-        avg_coord_df = coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"])
+        avg_coord_df = coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False)
 
         # Average the results for the current chunk
         avg_coord_df = avg_coord_df.mean().reset_index()
@@ -707,7 +716,11 @@ class CoordinationNumberAnalysis:
         # Since we need to later average over all chunks we
         # need to save the count of how many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
-        count_df = coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"]).size().reset_index(name="Count")
+        count_df = (
+            coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False)
+            .size()
+            .reset_index(name="Count")
+        )
 
         # Save the counts in our averaged dataframe
         avg_coord_df["Count"] = count_df["Count"]
@@ -743,9 +756,9 @@ class CoordinationNumberAnalysis:
         #  we dropped it earlier as the user chose to average the
         # coordination
         # number over all collected points (and not w.r.t the distance to a reference point)
-        processed_coord_df = processed_coord_df.groupby(["Reference_Observable", "Xbin", "Ybin", "Zbin"]).apply(
-            weighted_average
-        )
+        processed_coord_df = processed_coord_df.groupby(
+            ["Reference_Observable", "Xbin", "Ybin", "Zbin"], observed=False
+        ).apply(weighted_average)
 
         # For some reason there is still a 'Zbin' column after the
         # grouping so we need to drop it before we reset the index
@@ -874,7 +887,7 @@ class CoordinationNumberAnalysis:
         split_frame["Mass"] = split_frame["Mass"].astype(float)
 
         # Precompute total mass for each molecule
-        total_mass_per_molecule = split_frame.groupby("Molecule")["Mass"].transform("sum")
+        total_mass_per_molecule = split_frame.groupby("Molecule", observed=False)["Mass"].transform("sum")
 
         # Calculate mass weighted coordinates
         split_frame["X_COM"] = (split_frame["X"] * split_frame["Mass"]) / total_mass_per_molecule
@@ -883,7 +896,7 @@ class CoordinationNumberAnalysis:
 
         # Calculate the center of mass for each molecule
         mol_com = (
-            split_frame.groupby("Molecule")
+            split_frame.groupby("Molecule", observed=False)
             .agg(Species=("Species", "first"), X_COM=("X_COM", "sum"), Y_COM=("Y_COM", "sum"), Z_COM=("Z_COM", "sum"))
             .reset_index()
         )
@@ -990,7 +1003,7 @@ class CoordinationNumberAnalysis:
                     ["Molecule1", "Distance", "Distance_to_referencepoint"],
                 ]
                 # group the data by molecule
-                grouped_distances = distances.groupby(["Molecule1"])
+                grouped_distances = distances.groupby(["Molecule1"], observed=False)
 
                 # Loop over each molecule
                 for molecule, molecule_distances in grouped_distances:
@@ -1046,10 +1059,10 @@ class CoordinationNumberAnalysis:
         # we do not need to keep the Zbins and just average
         # over all collected distances.
         if "Distance_to_referencepoint" in frame_distances:
-            avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"])
+            avg_coord_df = coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
         else:
             coord_df = coord_df.drop(columns=("Zbin"))
-            avg_coord_df = coord_df.groupby(["Reference_Observable"])
+            avg_coord_df = coord_df.groupby(["Reference_Observable"], observed=False)
 
         # Average the results for the current chunk
         avg_coord_df = avg_coord_df.mean().reset_index()
@@ -1058,9 +1071,11 @@ class CoordinationNumberAnalysis:
         # need to save the count of how many datapoints we averaged over.
         # The counts will serve as weights for the last averaging process.
         if "Distance_to_referencepoint" in frame_distances:
-            count_df = coord_df.groupby(["Reference_Observable", "Zbin"]).size().reset_index(name="Count")
+            count_df = (
+                coord_df.groupby(["Reference_Observable", "Zbin"], observed=False).size().reset_index(name="Count")
+            )
         else:
-            count_df = coord_df.groupby(["Reference_Observable"]).size().reset_index(name="Count")
+            count_df = coord_df.groupby(["Reference_Observable"], observed=False).size().reset_index(name="Count")
 
         # Save the counts in our averaged dataframe
         avg_coord_df["Count"] = count_df["Count"]
@@ -1089,7 +1104,9 @@ class CoordinationNumberAnalysis:
         # we dropped it earlier as the user chose to average the
         # coordination number over all collected points (and not w.r.t the distance to a reference point)
         processed_coord_df = (
-            processed_coord_df.groupby(["Reference_Observable", "Zbin"]).apply(weighted_average).reset_index()
+            processed_coord_df.groupby(["Reference_Observable", "Zbin"], observed=False)
+            .apply(weighted_average)
+            .reset_index()
         )
 
         # Now we iterate over each species pair and write the data into separate files

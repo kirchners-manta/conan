@@ -14,6 +14,9 @@ import conan.analysis_modules.velocity as vel
 import conan.analysis_modules.xyz_output as xyz
 import conan.defdict as ddict
 
+# import warnings
+# warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
+
 
 def analysis_opt(traj_file, molecules, maindict):
     """Choice between picture or analysis mode."""
