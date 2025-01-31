@@ -48,6 +48,7 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    analysis/mol_ident
    analysis/acc_volume
    analysis/dens_prof
+   analysis/Coordination_number
 
 .. toctree::
    :caption: Other
