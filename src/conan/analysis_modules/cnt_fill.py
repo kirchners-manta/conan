@@ -320,6 +320,7 @@ class CNTload:
         ax.plot(pd_mass_per_angstrom["5_frame_average"], label="5 frame average")
         ax.plot(pd_mass_per_angstrom["10_frame_average"], label="10 frame average")
         ax.plot(pd_mass_per_angstrom["50_frame_average"], label="50 frame average")
+        ax.axhline(y=self.liq_mass_per_angstrom, color="black", linestyle="--", label="Average mass per angstrom")
 
         ax.set_xlabel("Frame number")
         ax.set_ylabel("Mass per angstrom")
