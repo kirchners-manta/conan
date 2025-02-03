@@ -266,14 +266,13 @@ class CNTload:
         """
         Calculate the loading mass of the liquid within the CNTs.
         """
-        print(self.liquid_mass)
         # print the number of processed frames
-        print(f"Processed frames: {self.proc_frame_counter}")
+        ddict.printLog(f"Processed frames: {self.proc_frame_counter}")
         self.liq_mass_per_frame = self.liquid_mass / self.proc_frame_counter
-        print(f"Average loading mass per frame: {self.liq_mass_per_frame}")
+        ddict.printLog(f"Average loading mass per frame: {self.liq_mass_per_frame}")
         # print the loading mass of the liquid per angstrom
         self.liq_mass_per_angstrom = self.liq_mass_per_frame / self.dist
-        print(f"Loading mass per angstrom: {self.liq_mass_per_angstrom}")
+        ddict.printLog(f"Loading mass per angstrom: {self.liq_mass_per_angstrom}")
         self.liquid_mass = 0
 
         pd_frame_masses = pd.DataFrame(self.frame_masses)
@@ -284,14 +283,13 @@ class CNTload:
         pd_frame_masses["10_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=10).mean().shift(-5)
         pd_frame_masses["50_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=50).mean().shift(-25)
 
-        print(pd_frame_masses)
-
         # plot the results
         fig, ax = plt.subplots()
         ax.plot(pd_frame_masses["Frame_masses"], label="Loading mass")
         ax.plot(pd_frame_masses["5_frame_average"], label="5 frame average")
         ax.plot(pd_frame_masses["10_frame_average"], label="10 frame average")
         ax.plot(pd_frame_masses["50_frame_average"], label="50 frame average")
+        ax.axhline(y=self.liq_mass_per_frame, color="black", linestyle="--", label="Average mass per frame")
 
         ax.set_xlabel("Frame number")
         ax.set_ylabel("Frame masses")
@@ -299,7 +297,37 @@ class CNTload:
         ax.grid()
 
         # save the plot
-        fig.savefig("frame_masses.png")
+        fig.savefig("frame_masses.png", dpi=300)
+
+        pd_mass_per_angstrom = pd.DataFrame(self.frame_masses / self.dist)
+        pd_mass_per_angstrom.columns = ["Mass_per_angstrom"]
+
+        # do the same averaging for the mass per angstrom
+        pd_mass_per_angstrom["5_frame_average"] = (
+            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=5).mean().shift(-2)
+        )
+        pd_mass_per_angstrom["10_frame_average"] = (
+            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=10).mean().shift(-5)
+        )
+        pd_mass_per_angstrom["50_frame_average"] = (
+            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=50).mean().shift(-25)
+        )
+        ax.axhline(y=self.liq_mass_per_angstrom, color="black", linestyle="--", label="Average mass per angstrom")
+
+        # plot the results
+        fig, ax = plt.subplots()
+        ax.plot(pd_mass_per_angstrom["Mass_per_angstrom"], label="Loading mass per angstrom")
+        ax.plot(pd_mass_per_angstrom["5_frame_average"], label="5 frame average")
+        ax.plot(pd_mass_per_angstrom["10_frame_average"], label="10 frame average")
+        ax.plot(pd_mass_per_angstrom["50_frame_average"], label="50 frame average")
+
+        ax.set_xlabel("Frame number")
+        ax.set_ylabel("Mass per angstrom")
+        ax.legend()
+        ax.grid()
+
+        # save the plot with high resolution
+        fig.savefig("mass_per_angstrom.png", dpi=300)
 
         # save the data
         pd_frame_masses.to_csv("frame_masses.csv")
