@@ -331,3 +331,4 @@ class CNTload:
 
         # save the data
         pd_frame_masses.to_csv("frame_masses.csv")
+        pd_mass_per_angstrom.to_csv("mass_per_angstrom.csv")
