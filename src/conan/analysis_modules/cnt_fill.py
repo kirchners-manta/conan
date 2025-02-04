@@ -271,7 +271,7 @@ class CNTload:
         ddict.printLog(f"Average confined mass: {self.liq_mass_per_frame}")
         # print the loading mass of the liquid per angstrom
         self.liq_mass_per_angstrom = self.liq_mass_per_frame / self.dist
-        ddict.printLog(f"Average mass per \u00C5: {self.liq_mass_per_angstrom}")
+        ddict.printLog(f"Average mass per \u00c5: {self.liq_mass_per_angstrom}")
         self.liquid_mass = 0
 
         pd_frame_masses = pd.DataFrame(self.frame_masses)
