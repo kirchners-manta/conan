@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 
 import conan.analysis_modules.traj_an as traj_an
 import conan.analysis_modules.traj_info as traj_info
@@ -279,14 +278,6 @@ class CNTload:
         pd_frame_masses = pd.DataFrame(self.frame_masses)
         pd_frame_masses.columns = ["Frame_masses"]
 
-        # calculate the 95% confidence interval
-        ci = 0.95
-        n = pd_frame_masses["Frame_masses"].count()
-        m = pd_frame_masses["Frame_masses"].mean()
-        std_err = pd_frame_masses["Frame_masses"].sem()
-        h = std_err * stats.t.ppf((1 + ci) / 2, n - 1)
-        print(f"95% confidence interval: {m} +/- {h}")
-
         # add a new column with the average of 5, 10 and  50 frames
         pd_frame_masses["5_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=5).mean().shift(-2)
         pd_frame_masses["10_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=10).mean().shift(-5)
@@ -299,7 +290,6 @@ class CNTload:
         ax.plot(pd_frame_masses["10_frame_average"], label="10 frame average", color="#5ec962")
         ax.plot(pd_frame_masses["50_frame_average"], label="50 frame average", color="#fde725")
         ax.axhline(y=self.liq_mass_per_frame, color="black", linestyle="--", label="Average mass per frame")
-        ax.axhspan(m - h, m + h, alpha=0.5, color="grey")
 
         ax.set_xlabel("Frame number")
         ax.set_ylabel("Frame masses")
@@ -311,13 +301,6 @@ class CNTload:
 
         pd_mass_per_angstrom = pd.DataFrame(self.frame_masses / self.dist)
         pd_mass_per_angstrom.columns = ["Mass_per_angstrom"]
-
-        # calculate the 95% confidence interval
-        n = pd_mass_per_angstrom["Mass_per_angstrom"].count()
-        m = pd_mass_per_angstrom["Mass_per_angstrom"].mean()
-        std_err = pd_mass_per_angstrom["Mass_per_angstrom"].sem()
-        h = std_err * stats.t.ppf((1 + ci) / 2, n - 1)
-        print(f"95% confidence interval (per ang): {m} +/- {h}")
 
         # do the same averaging for the mass per angstrom
         pd_mass_per_angstrom["5_frame_average"] = (
@@ -338,7 +321,6 @@ class CNTload:
         ax.plot(pd_mass_per_angstrom["10_frame_average"], label="10 frame average", color="#5ec962")
         ax.plot(pd_mass_per_angstrom["50_frame_average"], label="50 frame average", color="#fde725")
         ax.axhline(y=self.liq_mass_per_angstrom, color="black", linestyle="--", label="Average mass per angstrom")
-        ax.axhspan(m - h, m + h, alpha=0.5, color="grey")
 
         ax.set_xlabel("Frame number")
         ax.set_ylabel("Mass per angstrom")
