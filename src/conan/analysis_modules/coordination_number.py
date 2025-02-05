@@ -24,6 +24,7 @@ class CoordinationNumberAnalysis:
         if molecules.length_pore:
             self.CNT_length = molecules.length_pore[0]
             self.CNT_atoms = molecules.CNT_atoms
+        self.buffer = [] # buffer for data in frame analysis
 
     def Coord_number_prep(self):
         # Get values from inputdict
@@ -181,7 +182,7 @@ class CoordinationNumberAnalysis:
             return
 
         self.chunk_number += 1
-        chunk_distances_df = self.chunk_distances_df
+        chunk_distances_df = pd.DataFrame(self.buffer)
         coord_bin_edges = self.coord_bin_edges
         coord_bulk_bin_edges = self.coord_bulk_bin_edges
         chunk_number = self.chunk_number
@@ -308,8 +309,8 @@ class CoordinationNumberAnalysis:
 
         self.processed_coord_df = processed_coord_df
 
-        # Empty chunk_distances_df to free up memory
-        self.chunk_distances_df = pd.DataFrame()
+        # Empty buffer before processing next chunk
+        self.buffer = []
 
     def analyze_frame(self, split_frame, frame_counter):
         if (self.do_xyz_analysis) == "y":
@@ -409,12 +410,9 @@ class CoordinationNumberAnalysis:
             ).min(axis=1)
             data["Distance_to_referencepoint"] = distance_to_referencepoint[indices[0]]
 
-        distances_df = pd.DataFrame(data)
 
-        # add the new values to the dataframe
-        chunk_distances_df = pd.concat([chunk_distances_df, distances_df])
-
-        self.chunk_distances_df = chunk_distances_df
+        # add data to buffer
+        self.buffer.append(data)
 
     def Coord_post_processing(self):
         if (self.do_xyz_analysis) == "y":
