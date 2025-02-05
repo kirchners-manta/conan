@@ -183,6 +183,14 @@ class CoordinationNumberAnalysis:
 
         self.chunk_number += 1
         chunk_distances_df = pd.DataFrame(self.buffer)
+
+        # the buffer contains lists as single element, we need to expand them before
+        # processing
+        chunk_distances_df = chunk_distances_df.explode(['Species1','Species2','Molecule1'
+                                                         ,'Molecule2','Distance',
+                                                         'Distance_to_referencepoint']).reset_index(drop=True)
+
+
         coord_bin_edges = self.coord_bin_edges
         coord_bulk_bin_edges = self.coord_bulk_bin_edges
         chunk_number = self.chunk_number
