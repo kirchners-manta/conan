@@ -24,7 +24,7 @@ class CoordinationNumberAnalysis:
         if molecules.length_pore:
             self.CNT_length = molecules.length_pore[0]
             self.CNT_atoms = molecules.CNT_atoms
-        self.buffer = [] # buffer for data in frame analysis
+        self.buffer = []  # buffer for data in frame analysis
 
     def Coord_number_prep(self):
         # Get values from inputdict
@@ -186,10 +186,9 @@ class CoordinationNumberAnalysis:
 
         # the buffer contains lists as single element, we need to expand them before
         # processing
-        chunk_distances_df = chunk_distances_df.explode(['Species1','Species2','Molecule1'
-                                                         ,'Molecule2','Distance',
-                                                         'Distance_to_referencepoint']).reset_index(drop=True)
-
+        chunk_distances_df = chunk_distances_df.explode(
+            ["Species1", "Species2", "Molecule1", "Molecule2", "Distance", "Distance_to_referencepoint"]
+        ).reset_index(drop=True)
 
         coord_bin_edges = self.coord_bin_edges
         coord_bulk_bin_edges = self.coord_bulk_bin_edges
@@ -336,7 +335,7 @@ class CoordinationNumberAnalysis:
         regions = self.regions
         referencepoint = self.referencepoint
         poresonly = self.poresonly
-        chunk_distances_df = self.chunk_distances_df
+        # chunk_distances_df = self.chunk_distances_df
         box_dimension = np.array(self.traj_file.box_size)
         coord_dist = self.coord_dist
 
@@ -417,7 +416,6 @@ class CoordinationNumberAnalysis:
                 mol_com_reference["Z_COM"].values[:, np.newaxis] - z_referencepoint
             ).min(axis=1)
             data["Distance_to_referencepoint"] = distance_to_referencepoint[indices[0]]
-
 
         # add data to buffer
         self.buffer.append(data)
