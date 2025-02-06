@@ -127,23 +127,33 @@ class CoordinationNumberAnalysis:
             ddict.printLog("Invalid input.\n")
             sys.exit(1)
 
+        self.print_pngs = False
+        print_pngs = ddict.get_input(
+                    "Should CONAN print .png files of the plots? [y/n] ", args, "string"
+                )
+        if print_pngs == "y":
+            self.print_pngs = "True"
+
         # Ask user up to which distance the coordination number should be calculated.
         coord_dist = float(
-            ddict.get_input("Up to which distance should the coordination number be calculated? ", args, "float")
+            ddict.get_input("Enter the maximum coordination-distance [in Å]? ", args, "float")
         )
         coord_bin_edges = np.linspace(0, coord_dist, 101)
         coord_bin_edges = coord_bin_edges.round(2)
 
         # Ask user how the bulk should be incremented
+        max_distance_to_ref = float(ddict.get_input("Enter the maximum distance to the reference point [in Å]? ", args, "float"))
+
         coord_bulk_bin_edges = 0
         if referencepoint == "y":
-            number_of_bulk_increments = int(ddict.get_input("Number of increments? ", args, "int"))
+            number_of_bulk_increments = int(ddict.get_input("How many bins for the bulk in z-direction? ", args, "int"))
             if poresonly == "n":
                 coord_bulk_bin_edges = np.linspace(
                     0,
-                    max(
-                        (z_referencepoint[3] - z_referencepoint[2]) / 2, (z_referencepoint[1] - z_referencepoint[0]) / 2
-                    ),
+                    #max(
+                    #    (z_referencepoint[3] - z_referencepoint[2]) / 2, (z_referencepoint[1] - z_referencepoint[0]) / 2
+                    #)
+                    max_distance_to_ref,
                     number_of_bulk_increments,
                 )
             else:
@@ -250,7 +260,7 @@ class CoordinationNumberAnalysis:
                             np.digitize(Distance_to_referencepoint, coord_bulk_bin_edges)
                         ].round(2)
 
-                    # Next we take care of the coo rdination number
+                    # Next we take care of the coordination number
 
                     # np.histogram sorts all values in 'molecule_distance['Distance']' into bins defined by
                     # 'bins=coord_bin_edges' the [0] at the end gives us a list of all y-values
@@ -443,6 +453,30 @@ class CoordinationNumberAnalysis:
                 .apply(weighted_average)
                 .reset_index()
             )
+            # Some Zbin values might not exist at this point (no molecule/CN value of 0)
+            # But we should still plot the bins
+            for species_pair in processed_coord_df["Reference_Observable"].unique():
+                # Make a dummy dataframe with values from the current species pair
+                dummy_df = processed_coord_df[processed_coord_df["Reference_Observable"] == species_pair]
+
+                # Ensure all Zbin values from coord_bulk_bin_edges exist
+                missing_zbins = set(self.coord_bulk_bin_edges) - set(dummy_df["Zbin"].unique())
+
+                # Create missing rows with required structure
+                missing_rows = pd.DataFrame([
+                    {
+                        "Reference_Observable": species_pair,  # Set Reference_Observable
+                        "Zbin": z_distance,  # Set missing Zbin value
+                        **{col: 0 for col in self.coord_bin_edges[:-1]},  # Set coord_bin_edges columns to 0
+                    }
+                    for z_distance in missing_zbins
+                ])
+
+                # Concatenate the missing rows to the dummy dataframe
+                dummy_df = pd.concat([dummy_df, missing_rows], ignore_index=True)
+
+                # Update processed_coord_df with the new dummy_df
+                processed_coord_df = pd.concat([processed_coord_df, dummy_df], ignore_index=True)
         else:
             processed_coord_df = (
                 processed_coord_df.groupby(["Reference_Observable"], observed=False)
@@ -478,6 +512,7 @@ class CoordinationNumberAnalysis:
 
             if "Zbin" in avg_coord_df:
                 dummy_df.set_index(["Zbin"], inplace=True)
+                dummy_df = dummy_df.sort_index()  # Ensure Y-axis is sorted
             else:
                 dummy_df = dummy_df.transpose()
 
@@ -522,7 +557,8 @@ class CoordinationNumberAnalysis:
                 plt.title(" ")
 
                 # Save the plot
-                plt.savefig(f"{output_directory}/{species_pair}.png")
+                if self.print_pngs:
+                    plt.savefig(f"{output_directory}/{species_pair}.png")
 
         # close all figures
         plt.close("all")
