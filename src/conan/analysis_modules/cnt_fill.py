@@ -56,13 +56,9 @@ class CNTload:
         # drop the "Pore" string from the Struc column and just keep the number
         pore_atoms.loc[:, "Struc"] = pore_atoms["Struc"].str.replace("Pore", "")
         pore_atoms.loc[:, "Struc"] = pore_atoms["Struc"].astype(int)
-        # print(pore_atoms)
         pore_No = pore_atoms["Struc"].nunique()
 
-        # add a new column to the pore_atoms dataframe with the number of bonds the atom has
         pore_atoms["bonds"] = 0
-
-        # print(self.molecules.molecule_bonds)
 
         # identify an atom from the CNT_atoms list which belongs to a given CNT (from 1 to the maximum number of CNTs)
         for i in range(1, pore_No + 1):
@@ -103,26 +99,25 @@ class CNTload:
         mapping = {i: index for i, index in enumerate(Catom_positions[:, 3])}
         G = nx.relabel_nodes(G, mapping)
 
-        # each connected component of the graph is a molecule
         molecules = list(nx.connected_components(G))
 
-        # add a new column to the pore_atoms dataframe with the ring number using .loc
         pore_atoms["ring"] = 0
 
         for i in range(len(molecules)):
             for j in molecules[i]:
                 pore_atoms.loc[j, "ring"] = i + 1
 
-        ddict.printLog(pore_atoms[pore_atoms["bonds"] == 2])
+        # ddict.printLog(pore_atoms[pore_atoms["bonds"] == 2])
 
         # save the index of ring1 and ring2 atoms to seperate numpy arrays
         self.ring1 = np.array([atom for atom in pore_atoms[pore_atoms["ring"] == 1].index])
         self.ring2 = np.array([atom for atom in pore_atoms[pore_atoms["ring"] == 2].index])
 
         ddict.printLog(
-            "\nPlease make sure the CNT is not larger than half the box size,"
-            " the CNT doese not cross preiodic boundaries and the atomic positions are wrapped"
-            " into the simulation box correctly. For pre-processing, please use Travis\n",
+            "\nTo ensure that the program delivers correct results,"
+            " it must be ensured that all atoms are wrapped in the simulation box"
+            " and that the CNT does not cross the PBC boundaries."
+            " For pre-processing, please use e.g. Travis.\n",
             color="red",
         )
 
@@ -146,16 +141,16 @@ class CNTload:
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
         ring1_ref = np.array([ring1_ref[0], ring1_ref[1], ring1_ref[2]])
 
-        self.dist_ring = np.linalg.norm(
-            traj_info.minimum_image_distance(ring1_array, ring1_ref, self.traj_file.box_size)
-        )
-        print("radius of the ring:", self.dist_ring.round(3))
+        # self.dist_ring = np.linalg.norm(traj_info.minimum_image_distance(
+        # ring1_array, ring1_ref, self.traj_file.box_size))
+        self.dist_ring = np.linalg.norm(ring1_array - ring1_ref)
+        ddict.printLog(f"Radius of the CNT: {np.round(self.dist_ring, 3)}")
 
-        self.dist = np.linalg.norm(
-            traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
-        ).round(3)
+        # self.dist = np.linalg.norm(traj_info.minimum_image_distance(
+        # ring1_array, ring2_array, self.traj_file.box_size))
+        self.dist = np.linalg.norm(ring1_array - ring2_array)
 
-        print("Distance between the rings:", self.dist)
+        ddict.printLog(f"Distance between the rings: {np.round(self.dist, 3)}")
 
         """The user shall have the option to select an region within the CNTs to calculate the loading mass.
         This is preferred, as the liquid might behave somewhat differently at the openeing of the CNTs.
@@ -166,7 +161,7 @@ class CNTload:
         # first we need to define the normal vector of the CNT axis. It is the vector between the two rings.
         # The vector is normalized.
         cnt_axis = (ring2_array - ring1_array) / np.linalg.norm(ring2_array - ring1_array)
-        print("CNT axis:", cnt_axis)
+        ddict.printLog(f"CNT axis: {cnt_axis}")
 
         self.shortening_q = ddict.get_input(
             "Do you want to shorten the CNT axis (space to analyze within the CNT)? (y/n): ",
@@ -185,11 +180,10 @@ class CNTload:
 
             ring1_array = ring1_array + self.shortening * cnt_axis
             ring2_array = ring2_array - self.shortening * cnt_axis
-            self.dist = np.linalg.norm(
-                traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
-            ).round(3)
-
-        print("Distance between the rings:", self.dist)
+            # self.dist = np.linalg.norm(traj_info.minimum_image_distance(
+            # ring1_array, ring2_array, self.traj_file.box_size))
+            self.dist = np.linalg.norm(ring1_array - ring2_array)
+        print("Length of CNT axis considered:", self.dist.round(3))
 
         # finally set up an array to store the liquid mass each time frame which is processed.
         self.liquid_mass = 0
@@ -232,11 +226,9 @@ class CNTload:
 
         ring1_array = ring1_array + self.shortening * cnt_axis
         ring2_array = ring2_array - self.shortening * cnt_axis
-        self.dist = np.linalg.norm(
-            traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size)
-        ).round(3)
-
-        # cnt_center = (ring1_array + cnt_axis * self.dist / 2).round(3)
+        # self.dist = np.linalg.norm(
+        #    traj_info.minimum_image_distance(ring1_array, ring2_array, self.traj_file.box_size))
+        self.dist = np.linalg.norm(ring1_array - ring2_array)
 
         """ Calculate the mass of the liquid within the CNTs.
         First identify which species are within the CNTs.
@@ -253,12 +245,10 @@ class CNTload:
         # check if a liquid atom is within the CNT
         for atom_position in atom_positions:
             if points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_position[:3]):
-                # print(atom_position)
                 self.liquid_mass += atom_position[3]
                 frame_mass += atom_position[3]
 
         self.frame_masses = np.append(self.frame_masses, frame_mass)
-        # print(f"Frame {frame_counter} mass: {frame_mass}")
 
         self.proc_frame_counter += 1
 
@@ -268,27 +258,32 @@ class CNTload:
         """
 
         self.liq_mass_per_frame = self.liquid_mass / self.proc_frame_counter
-        ddict.printLog(f"Average confined mass: {self.liq_mass_per_frame}")
-        # print the loading mass of the liquid per angstrom
         self.liq_mass_per_angstrom = self.liq_mass_per_frame / self.dist
-        ddict.printLog(f"Average mass per \u00c5: {self.liq_mass_per_angstrom}")
+
+        ddict.printLog(f"Average confined mass: {np.round(self.liq_mass_per_frame, 5)}")
+        ddict.printLog(f"Average mass per \u00c5: {np.round(self.liq_mass_per_angstrom, 5)}")
         self.liquid_mass = 0
 
         pd_frame_masses = pd.DataFrame(self.frame_masses)
         pd_frame_masses.columns = ["Frame_masses"]
 
-        # add a new column with the average of 5, 10 and  50 frames
+        # check if the CNT is empty, all entries are zero
+        if np.all(pd_frame_masses["Frame_masses"] == 0):
+            ddict.printLog("CNT is empty, no liquid is present.", color="red")
+            return
+
+        # add a new column with the average of 5, 10 and 50 frames
         pd_frame_masses["5_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=5).mean().shift(-2)
         pd_frame_masses["10_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=10).mean().shift(-5)
         pd_frame_masses["50_frame_average"] = pd_frame_masses["Frame_masses"].rolling(window=50).mean().shift(-25)
 
         # plot the results
         fig, ax = plt.subplots()
-        ax.axhline(y=self.liq_mass_per_frame, color="darkgray", linestyle="--", label="Average mass")
         ax.plot(pd_frame_masses["Frame_masses"], label="Frame", color="#440154")
         ax.plot(pd_frame_masses["5_frame_average"], label="5 frame average", color="#21908C")
         ax.plot(pd_frame_masses["10_frame_average"], label="10 frame average", color="#5ec962")
         ax.plot(pd_frame_masses["50_frame_average"], label="50 frame average", color="#fde725")
+        ax.axhline(y=self.liq_mass_per_frame, color="darkgray", linestyle="--", label="Average mass")
 
         ax.set_xlabel("Frame number")
         ax.set_ylabel("Confined mass / u")
@@ -298,36 +293,23 @@ class CNTload:
         # save the plot
         fig.savefig("conf_mass_temp.png", dpi=300)
 
-        pd_mass_per_angstrom = pd.DataFrame(self.frame_masses / self.dist)
-        pd_mass_per_angstrom.columns = ["Mass_per_angstrom"]
+        pd_mass_per_angstrom = pd_frame_masses.copy().div(self.dist)
+        pd_mass_per_angstrom.rename(columns={"Frame_masses": "Mass_per_angstrom"}, inplace=True)
 
-        # do the same averaging for the mass per angstrom
-        pd_mass_per_angstrom["5_frame_average"] = (
-            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=5).mean().shift(-2)
-        )
-        pd_mass_per_angstrom["10_frame_average"] = (
-            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=10).mean().shift(-5)
-        )
-        pd_mass_per_angstrom["50_frame_average"] = (
-            pd_mass_per_angstrom["Mass_per_angstrom"].rolling(window=50).mean().shift(-25)
-        )
-
-        # plot the results
+        # plot the results per angstrom
         fig, ax = plt.subplots()
-        ax.axhline(y=self.liq_mass_per_angstrom, color="darkgray", linestyle="--", label="Average mass")
         ax.plot(pd_mass_per_angstrom["Mass_per_angstrom"], label="Frame", color="#440154")
         ax.plot(pd_mass_per_angstrom["5_frame_average"], label="5 frame average", color="#21908C")
         ax.plot(pd_mass_per_angstrom["10_frame_average"], label="10 frame average", color="#5ec962")
         ax.plot(pd_mass_per_angstrom["50_frame_average"], label="50 frame average", color="#fde725")
+        ax.axhline(y=self.liq_mass_per_angstrom, color="darkgray", linestyle="--", label="Average mass")
 
         ax.set_xlabel("Frame Number")
         ax.set_ylabel("Confined mass / u")
         ax.legend()
         ax.grid()
 
-        # save the plot with high resolution
-        fig.savefig("conf_mass_t_ang.png", dpi=300)
-
         # save the data
+        fig.savefig("conf_mass_t_ang.png", dpi=300)
         pd_frame_masses.to_csv("frame_masses.csv")
         pd_mass_per_angstrom.to_csv("mass_per_angstrom.csv")
