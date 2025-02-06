@@ -128,21 +128,19 @@ class CoordinationNumberAnalysis:
             sys.exit(1)
 
         self.print_pngs = False
-        print_pngs = ddict.get_input(
-                    "Should CONAN print .png files of the plots? [y/n] ", args, "string"
-                )
+        print_pngs = ddict.get_input("Should CONAN print .png files of the plots? [y/n] ", args, "string")
         if print_pngs == "y":
             self.print_pngs = "True"
 
         # Ask user up to which distance the coordination number should be calculated.
-        coord_dist = float(
-            ddict.get_input("Enter the maximum coordination-distance [in Å]? ", args, "float")
-        )
+        coord_dist = float(ddict.get_input("Enter the maximum coordination-distance [in Å]? ", args, "float"))
         coord_bin_edges = np.linspace(0, coord_dist, 101)
         coord_bin_edges = coord_bin_edges.round(2)
 
         # Ask user how the bulk should be incremented
-        max_distance_to_ref = float(ddict.get_input("Enter the maximum distance to the reference point [in Å]? ", args, "float"))
+        max_distance_to_ref = float(
+            ddict.get_input("Enter the maximum distance to the reference point [in Å]? ", args, "float")
+        )
 
         coord_bulk_bin_edges = 0
         if referencepoint == "y":
@@ -150,9 +148,6 @@ class CoordinationNumberAnalysis:
             if poresonly == "n":
                 coord_bulk_bin_edges = np.linspace(
                     0,
-                    #max(
-                    #    (z_referencepoint[3] - z_referencepoint[2]) / 2, (z_referencepoint[1] - z_referencepoint[0]) / 2
-                    #)
                     max_distance_to_ref,
                     number_of_bulk_increments,
                 )
@@ -463,14 +458,16 @@ class CoordinationNumberAnalysis:
                 missing_zbins = set(self.coord_bulk_bin_edges) - set(dummy_df["Zbin"].unique())
 
                 # Create missing rows with required structure
-                missing_rows = pd.DataFrame([
-                    {
-                        "Reference_Observable": species_pair,  # Set Reference_Observable
-                        "Zbin": z_distance,  # Set missing Zbin value
-                        **{col: 0 for col in self.coord_bin_edges[:-1]},  # Set coord_bin_edges columns to 0
-                    }
-                    for z_distance in missing_zbins
-                ])
+                missing_rows = pd.DataFrame(
+                    [
+                        {
+                            "Reference_Observable": species_pair,  # Set Reference_Observable
+                            "Zbin": z_distance,  # Set missing Zbin value
+                            **{col: 0 for col in self.coord_bin_edges[:-1]},  # Set coord_bin_edges columns to 0
+                        }
+                        for z_distance in missing_zbins
+                    ]
+                )
 
                 # Concatenate the missing rows to the dummy dataframe
                 dummy_df = pd.concat([dummy_df, missing_rows], ignore_index=True)
