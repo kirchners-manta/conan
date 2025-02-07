@@ -72,18 +72,23 @@ class TrajectoryFile:
         else:
             return None
 
-        ddict.printLog(f"\nTotal number of atoms: {num_atoms}\n")
+        ddict.printLog(f"\nNumber of atoms: {num_atoms}\n")
 
         return num_atoms, lines_per_frame
 
     def simbox_dimension(self):
 
         if self.file_type == "xyz":
-            ddict.printLog("Enter the dimensions of the simulation box [\u00c5]:")
-            simbox_x = float(ddict.get_input("[X]   ", self.args, "float"))
-            simbox_y = float(ddict.get_input("[Y]   ", self.args, "float"))
-            simbox_z = float(ddict.get_input("[Z]   ", self.args, "float"))
-            ddict.printLog("")
+            same_length = ddict.get_input("Is the simulation box a cube? [y/n]: ", self.args, "str")
+            if same_length == "y":
+                simbox_x = float(ddict.get_input("What is the edge length of the cube? [\u00c5]: ", self.args, "float"))
+                simbox_z = simbox_y = simbox_x
+            else:
+                ddict.printLog("Enter the dimensions of the simulation box [\u00c5]:")
+                simbox_x = float(ddict.get_input("[X]   ", self.args, "float"))
+                simbox_y = float(ddict.get_input("[Y]   ", self.args, "float"))
+                simbox_z = float(ddict.get_input("[Z]   ", self.args, "float"))
+                ddict.printLog("")
 
         elif self.file_type == "pdb":
             with open(self.file) as f:
