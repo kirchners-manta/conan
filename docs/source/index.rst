@@ -55,9 +55,3 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :maxdepth: 2
 
    other/versions
-
-.. toctree::
-    :caption: API
-    :maxdepth: 2
-
-    api
