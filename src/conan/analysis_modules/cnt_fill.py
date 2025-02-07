@@ -198,13 +198,12 @@ class CNTload:
         """
 
         frame_mass = 0
-        # print(split_frame)
         # turn the X, Y and Z values into floats
         split_frame["X"] = split_frame["X"].astype(float)
         split_frame["Y"] = split_frame["Y"].astype(float)
         split_frame["Z"] = split_frame["Z"].astype(float)
 
-        # calculate the center of geometry for the ring1 atoms
+        # calculate the center of geometry of the rings
         ring1 = split_frame.loc[self.ring1]
         ring1_x = ring1["X"].mean()
         ring1_y = ring1["Y"].mean()
