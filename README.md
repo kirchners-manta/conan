@@ -36,7 +36,7 @@ You can test your current code with
 ## Usage
 After installing the package, conan is available via the command line:
 ```bash
-CONAN -h
+CONAN
 ```
 
 ## Documentation
