@@ -8,10 +8,10 @@ is identical to an rdf integral.
 3D coordination number
 ----------------------
 
-The result of the analysis can be performed on a user-defined grid and printed as a gaussian cube file. 
-Each 3D-bin will contain the coordination number up to the specified coordination distance. The output is 
+The result of the analysis can be performed on a user-defined grid and printed as a gaussian cube file.
+Each 3D-bin will contain the coordination number up to the specified coordination distance. The output is
 split into different cube files for each species pair (not including species identified or defined as structures).
-The cube files can be visualized to get a 3d map of the coordination number (by using e.g. VMD, PyMol etc.). This can 
+The cube files can be visualized to get a 3d map of the coordination number (by using e.g. VMD, PyMol etc.). This can
 be helpfule to recognize regions of interest in highly anisotropic systems:
 
 .. image:: ../pictures/3d_coordnum_example.png
