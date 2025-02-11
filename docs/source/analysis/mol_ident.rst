@@ -1,10 +1,10 @@
-Molecule Identifier
+Molecule identification
 ===================
-A molecule identifier is included in the program.
-All bonds between atoms are identified through distance criteria.
-Thereby the cutoff distances, below which two atoms are considered bonded, depend on the elements.
-All element combinations and the according cutoff distances are listed in a library.
-The program deduces all molecules from the first frame in the trajectory and therefore cannot handle bond breaking or formation in the trajectory.
-Periodic boundary conditions are taken into account.
-After molecule recognition, the program prints the number of unique molecules and how many of each there are in the system.
-It also generates images of the identified molecules (if the number of atoms is less than 50) with atom labels.
+
+The program includes a molecule identifier that detects all bonds between atoms based on distance criteria.
+The cutoff distances, which determine whether two atoms are bonded, vary depending on the elements involved.
+These element combinations and their corresponding cutoff distances are detailed in a library.
+The program analyzes the first frame of the trajectory to identify all molecules, meaning it does not account for bond breaking or formation throughout the trajectory.
+Periodic boundary conditions are taken into consideration during this process.
+Once molecules are recognized, the program outputs the number of unique molecules and their respective quantities within the system.
+Additionally, it generates images of the identified molecules (for those with fewer than 50 atoms) complete with atom labels.

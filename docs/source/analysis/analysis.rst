@@ -1,33 +1,39 @@
 General Information
 ===================
 
-The trajectory analysis tool is automatically called, when a trajectory is loaded. Use the ``-f`` flag to define which trajectory to load.
+The trajectory analysis tool is automatically called when a trajectory is loaded. Use the ``-f`` flag to specify which trajectory to load.
 
 .. code-block:: none
 
-    $ CONAN -f trajectory.xyz
+    $ CONAN -f <trajectoryfile> ...
 
 .. note::
-    The trajectory has to either xyz, pdb or LAMMPS (.lammpstrj or .lmp) format.
-    If the trajectory is in xyz format, the user is prompted to enter the simulation box dimensions, as they are needed for some analyses.
-    In the case of the pdb and LAMMPS format, the box dimensions are read directly from the trajectory.
+    The trajectory must be in either xyz, pdb or LAMMPS (.lammpstrj or .lmp) format.
+    If the trajectory is in xyz format, the user will be prompted to enter the simulation box dimensions, as they are required for some analyses.
+    In the case of the pdb and LAMMPS formats, the box dimensions are read directly from the trajectory.
 
-As a first step, the program identifies all rigid structures in the trajectory and characterizes them.
-The identification of solid structures is achieved by comparing the fist two frames of a given trajectory and identify all frozen atoms.
-The structures therefore have to stay frozen over the course of the simulation.
-The trajectory analysis part is divided into two main sections, the picture mode and the analysis mode, which includes all the analysis functions implemented.
-All modi will be discussed in further detail in the following sections.
+As a first step, the program identifies and characterizes all rigid structures in the trajectory.
+The identification of rigid structures is done by comparing the first two frames of a given trajectory and identifying all frozen atoms.
+The structures must therefore remain frozen throughout the simulation.
+Alternatively, the user can define a structure manually.
+The trajectory is then analyses in awaytheuser can choose from a variety of analysis options.
 
-For the analysis options implemented, the following parameters are potentially needed:
+The following parameters may be required for the implemented analysis options
 
-* element masses
-* van der Waals [1]_ or covalent [2]_ radii of the elements
-* number of increments (set by the user)
+* Element Masses
+* Van der Waals [1]_ or covalent [2]_ radii of the elements
+* Number of increments (user defined)
+.. note::
+
+        For all analysis options, the listed atomic masses are used. If the user wants to use different masses, they must be added to defdict.py.
 
 .. note::
 
         The user is prompted to choose between the van der Waals radii and covalent radii.
-        For all analysis options, the listed atomic masses are used.
+
+.. note::
+
+        The masses and radii of Drude particles (D) and dummy atoms (X) are set to zero.
 
 .. list-table::
    :widths: 25 25 25 25
@@ -106,9 +112,6 @@ For the analysis options implemented, the following parameters are potentially n
      - 0.00
      - 0.00
 
-.. note::
-
-        The masses and radii of Drude particles (D) and dummy atoms (X) are set to zero, to not interfere with the molecular recognition of the program.
 
 
 .. [1] A. Bondi, van der Waals Volumes and Radii, J. Phys. Chem. 68 (3) (1964) 441-451.

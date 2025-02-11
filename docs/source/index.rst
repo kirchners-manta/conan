@@ -30,7 +30,6 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :maxdepth: 2
 
    first_steps/Installation
-   first_steps/input_output
 
 .. toctree::
    :caption: Simulation Setup
@@ -44,7 +43,7 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :maxdepth: 2
 
    analysis/analysis
-   analysis/picture_mode
+   analysis/snapshots
    analysis/mol_ident
    analysis/acc_volume
    analysis/dens_prof
