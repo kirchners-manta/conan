@@ -183,7 +183,7 @@ class VelocityAnalysis:
 
         grid_points_average_velocities = self.grid_point_average_velocities
 
-        ddict.printLog(f"The maximum velocity is: {max(grid_points_average_velocities):.5f} \u00C5/fs\n")
+        ddict.printLog(f"The maximum velocity is: {max(grid_points_average_velocities):.5f} \u00c5/fs\n")
 
         # Prepare data for writing cube file
         self.grid_point_densities = grid_points_average_velocities
@@ -217,9 +217,9 @@ class VelocityAnalysis:
 
     def save_velocity_profiles(self, x_vel_profile, y_vel_profile, z_vel_profile):
         # Save profiles to CSV and plot
-        self.save_profile("x", x_vel_profile, "Velocity [\u00C5/fs]")
-        self.save_profile("y", y_vel_profile, "Velocity [\u00C5/fs]")
-        self.save_profile("z", z_vel_profile, "Velocity [\u00C5/fs]")
+        self.save_profile("x", x_vel_profile, "Velocity [\u00c5/fs]")
+        self.save_profile("y", y_vel_profile, "Velocity [\u00c5/fs]")
+        self.save_profile("z", z_vel_profile, "Velocity [\u00c5/fs]")
 
     def save_profile(self, axis, profile, ylabel):
         df = pd.DataFrame(
@@ -233,6 +233,6 @@ class VelocityAnalysis:
         # Plot profile
         fig, ax = plt.subplots()
         ax.plot(df[axis], df[ylabel], "-", label=f"{axis.upper()} Velocity Profile", color="black")
-        ax.set(xlabel=f"{axis} [\u00C5]", ylabel=ylabel, title=f"Velocity Profile along {axis.upper()}")
+        ax.set(xlabel=f"{axis} [\u00c5]", ylabel=ylabel, title=f"Velocity Profile along {axis.upper()}")
         ax.grid()
         fig.savefig(f"{axis}_velocity_profile.pdf")
