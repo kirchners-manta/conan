@@ -23,6 +23,7 @@ The following parameters may be required for the implemented analysis options
 * Element Masses
 * Van der Waals [1]_ or covalent [2]_ radii of the elements
 * Number of increments (user defined)
+
 .. note::
 
         For all analysis options, the listed atomic masses are used. If the user wants to use different masses, they must be added to defdict.py.
