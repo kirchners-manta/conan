@@ -2,14 +2,12 @@
 
 # -- Project information
 
-import conan
-
 project = "CONAN"
 copyright = "2023, Kirchner Group"
 author = "Leonard Dick"
 
-release = "1.0.0"
-version = conan.VERSION
+release = "1.1.0"
+version = "1.1.0"
 
 # -- General configuration
 
@@ -17,7 +15,6 @@ extensions = [
     "sphinx.ext.duration",
     "sphinx.ext.doctest",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
 ]
 
