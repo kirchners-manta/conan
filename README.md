@@ -50,5 +50,5 @@ The built documentation can be found here: `docs/build/html/index.html`.
 ## Citations
 Please cite the publication, if you use the program in your research.
 
-https://pubs.acs.org/doi/10.1021/acs.jcim.3c01075
+https://pubs.acs.org/doi/10.1021/acs.jcim.3c01075<br />
 https://doi.org/10.1021/acs.jpcb.3c08493
