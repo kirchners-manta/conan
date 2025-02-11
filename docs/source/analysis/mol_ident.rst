@@ -1,5 +1,5 @@
 Molecule identification
-===================
+=======================
 
 The program includes a molecule identifier that detects all bonds between atoms based on distance criteria.
 The cutoff distances, which determine whether two atoms are bonded, vary depending on the elements involved.

@@ -7,12 +7,12 @@ To install CONAN, simply clone the public repository to your machine using GitHu
 
    git clone https://github.com/kirchners-manta/conan.git
 
-The code supports Python 3.10 to 3.12. To run the code, several libraries need to be installed, which are listed in the `pyproject.toml` file.
+The code supports Python 3.10 to 3.12. To run the code, several libraries need to be installed, which are listed in the ``pyproject.toml`` file.
 
 Setting up an environment
 -------------------------
 
-To ensure a clean and isolated installation, it is recommended to use an environment. You can use either `conda` or `venv`.
+To ensure a clean and isolated installation, it is recommended to use an environment. You can use either ``conda`` or ``venv``.
 
 Using conda (preferred)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -25,7 +25,7 @@ Using conda (preferred)
       conda activate conan
 
 Using ``venv`` (Python's built-in virtual environment)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Create a new virtual environment:
 
@@ -67,7 +67,7 @@ A log file called ``conan.log`` is written, containing everything that is printe
 For certain modules, additional files may be created (e.g. a ``csv`` file for the results of the analysis).
 
 For further information
--------------------
+-----------------------
 
 For more details on setting up virtual environments, see the official documentation:
 
