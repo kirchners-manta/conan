@@ -243,10 +243,7 @@ class CNTload:
         ring2_array = ring2_array - self.shortening * cnt_axis
         self.dist = np.linalg.norm(ring1_array - ring2_array)
 
-        self.ring_ring_distances = np.append(self.dist)
-
-        """
-        Calculate the mass of the liquid within the CNTs.
+        """ Calculate the mass of the liquid within the CNTs.
         First identify which species are within the CNTs.
         For this use the points in cylider function.
         """
