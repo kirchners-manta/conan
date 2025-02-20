@@ -118,6 +118,7 @@ class TrajectoryFile:
         box_size = (simbox_x, simbox_y, simbox_z)
         ddict.printLog(
             f"The simulation box dimensions are [\u00c5]: {float(box_size[0]):.3f} x {float(box_size[1]):.3f} x "
+            f"The simulation box dimensions are [\u00c5]: {float(box_size[0]):.3f} x {float(box_size[1]):.3f} x "
             f"{float(box_size[2]):.3f}"
         )
 
@@ -195,7 +196,7 @@ class TrajectoryFile:
                         "Charge": atom_charge_pos,
                     }
 
-                    # now read the frame
+                    # read the frame
                     df_frame = pd.read_csv(
                         self.file,
                         sep=r"\s+",
@@ -215,7 +216,7 @@ class TrajectoryFile:
                 ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
                 sys.exit()
 
-            # check if there is a 'Label', 'Molecule' and 'Charge' column in the dataframe. If not, add an empty column.
+            # Check if there is a 'Molecule' or 'Charge' column in the dataframe. If not, add an empty column.
             if "Molecule" not in df_frame.columns:
                 df_frame["Molecule"] = None
             if "Charge" not in df_frame.columns:
@@ -705,6 +706,8 @@ class Molecule:
 
         # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
         structure_frame_copy = structure_frame.copy()
+        traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(str)
+        structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
 
         # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each
         # respective one.
@@ -755,9 +758,12 @@ class Molecule:
                 )
                 if (x_max - x_min) < 1.0:
                     ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} \u00c5.\n")
+                    ddict.printLog(f"The wall extends in yz direction at x = {x_min:.2f} \u00c5.\n")
                 if (y_max - y_min) < 1.0:
                     ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} \u00c5.\n")
+                    ddict.printLog(f"The wall extends in xz direction at y = {y_min:.2f} \u00c5.\n")
                 if (z_max - z_min) < 1.0:
+                    ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} \u00c5.\n")
                     ddict.printLog(f"The wall extends in xy direction at z = {z_min:.2f} \u00c5.\n")
                     Walls_positions.append(z_min)
                 structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Wall{counter_wall}"
@@ -769,6 +775,7 @@ class Molecule:
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
+        traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
         traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
 
         # Print the structure information .
@@ -815,6 +822,7 @@ class Molecule:
                 length_pore[i - 1] = traj_file.box_size[2]
                 ddict.printLog(f"Pore{i} is considered infinite in z direction.")
             ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} \u00c5.")
+            ddict.printLog(f"The length of Pore{i} is {length_pore[i - 1]:.2f} \u00c5.")
 
             # The center of each pore is the average of the minimum and maximum z coordinate.
             center_pore.append((max_z_pore[i - 1] + min_z_pore[i - 1]) / 2)
@@ -837,6 +845,7 @@ class Molecule:
                 (
                     f"The center of the CNT in Pore{i} is at "
                     f"{x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) \u00c5."
+                    f"{x_center:.2f}, {y_center:.2f}, {center_pore[i - 1]:.2f}) \u00c5."
                 )
             )
             # Combine the x, y and z centers to a numpy array.
@@ -846,6 +855,7 @@ class Molecule:
             # Calculate the radius of the CNT_ring.
             tuberadius = np.sqrt((CNT_ring.iloc[0]["x"] - x_center) ** 2 + (CNT_ring.iloc[0]["y"] - y_center) ** 2)
             tuberadii.append(tuberadius)
+            ddict.printLog(f"The radius of the CNT in Pore{i} is {tuberadius:.2f} \u00c5.\n")
             ddict.printLog(f"The radius of the CNT in Pore{i} is {tuberadius:.2f} \u00c5.\n")
 
             # Calculate the xy-distance of the centerpoint of the CNT to all pore atoms.
