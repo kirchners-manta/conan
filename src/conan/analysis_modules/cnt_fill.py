@@ -216,7 +216,7 @@ class CNTload:
 
         # calculate the center of geometry of the rings
         ring1 = split_frame.loc[self.ring1]
-        ring1_ref = ring1.iloc[0][["x", "y", "z"]].values
+        ring1_ref = ring1.iloc[0][["X", "Y", "Z"]].values
         ring1_x = ring1["X"].mean()
         ring1_y = ring1["Y"].mean()
         ring1_z = ring1["Z"].mean()
@@ -228,10 +228,12 @@ class CNTload:
 
         ring1_array = np.array([ring1_x, ring1_y, ring1_z])
         ring2_array = np.array([ring2_x, ring2_y, ring2_z])
-        ring1_ref = np.array([ring1_ref[0], ring1_ref[1], ring1_ref[2]])
 
-        dist_ring = np.linalg.norm(ring1_array - ring1_ref)
-        self.ring_radii = np.append(dist_ring)
+        for index, row in ring1.iterrows():
+            ring1_ref = row[["X", "Y", "Z"]].values
+            ring1_ref = np.array([ring1_ref[0], ring1_ref[1], ring1_ref[2]])
+            dist_ring = np.linalg.norm(ring1_array - ring1_ref)
+            self.ring_radii = np.append(self.ring_radii, dist_ring)
 
         """
         This is the shortening part regarding the cnt space to observe
@@ -243,8 +245,11 @@ class CNTload:
         ring2_array = ring2_array - self.shortening * cnt_axis
         self.dist = np.linalg.norm(ring1_array - ring2_array)
 
-        """ Calculate the mass of the liquid within the CNTs.
-        First identify which species are within the CNTs.
+        self.ring_ring_distances = np.append(self.ring_ring_distances, self.dist)
+
+        """
+        Calculate the mass of the liquid within the CNTs.
+        First identify which species are within.
         For this use the points in cylider function.
         """
 
@@ -301,9 +306,15 @@ class CNTload:
 
         # save the ring-ring distances and the radii of the CNTs
         pd_ring_ring_distances = pd.DataFrame(self.ring_ring_distances)
+        print(pd_ring_ring_distances)
         pd_ring_ring_distances.columns = ["Ring_ring_distances"]
+        mean_ring_ring_distance = pd_ring_ring_distances["Ring_ring_distances"].mean()
+        ddict.printLog(f"Mean distance between the rings: {mean_ring_ring_distance}")
         pd_ring_ring_distances.to_csv("ring_ring_distances.csv")
 
         pd_ring_radii = pd.DataFrame(self.ring_radii)
+        print(pd_ring_radii)
         pd_ring_radii.columns = ["Ring_radii"]
+        mean_ring_radii = pd_ring_radii["Ring_radii"].mean()
+        ddict.printLog(f"Mean radius of the CNT: {mean_ring_radii}")
         pd_ring_radii.to_csv("ring_radii.csv")
