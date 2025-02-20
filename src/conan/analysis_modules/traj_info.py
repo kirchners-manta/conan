@@ -190,7 +190,7 @@ class TrajectoryFile:
                         "Charge": atom_charge_pos,
                     }
 
-                    # now read the frame
+                    # read the frame
                     df_frame = pd.read_csv(
                         self.file,
                         sep=r"\s+",
@@ -210,7 +210,7 @@ class TrajectoryFile:
                 ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
                 sys.exit()
 
-            # check if there is a 'Label', 'Molecule' and 'Charge' column in the dataframe. If not, add an empty column.
+            # Check if there is a 'Molecule' or 'Charge' column in the dataframe. If not, add an empty column.
             if "Molecule" not in df_frame.columns:
                 df_frame["Molecule"] = None
             if "Charge" not in df_frame.columns:
@@ -673,9 +673,9 @@ class Molecule:
                     "No structures were found in the simulation box. \n",
                     color="red",
                 )
-            define_struc = ddict.get_input("Manually define the structures? [y/n]: ", traj_file.args, "str")
-            if define_struc == "n":
-                sys.exit()
+                define_struc = ddict.get_input("Manually define the structures? [y/n]: ", traj_file.args, "str")
+                if define_struc == "n":
+                    sys.exit()
             else:
                 spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
                 structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
@@ -700,6 +700,8 @@ class Molecule:
 
         # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
         structure_frame_copy = structure_frame.copy()
+        traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(str)
+        structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
 
         # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each
         # respective one.
@@ -759,10 +761,11 @@ class Molecule:
 
         # Copy the structure frame back to the original structure frame.
         structure_frame = structure_frame_copy
+        # change the structure column in the traj_file.frame0 dataframe from boolean to string.
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
-        traj_file.frame0["Struc"].replace(False, "Liquid", inplace=True)
+        traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
 
         # Print the structure information .
         ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
