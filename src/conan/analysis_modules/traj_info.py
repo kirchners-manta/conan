@@ -770,8 +770,7 @@ class Molecule:
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
-        traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
-        traj_file.frame0.replace({"Struc": {False: "Liquid"}}, inplace=True)
+        traj_file.frame0.replace({"Struc": {"False": "Liquid"}}, inplace=True)
 
         # Print the structure information .
         ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
@@ -780,20 +779,17 @@ class Molecule:
 
         if len(CNTs) > 0:
             CNT_pore_question = ddict.get_input(
-                "Does one of the pores contain rigid CNTs along the z axis of the simulation box? [y/n]: ",
+                "Does one of the pores contain CNTs oriented along the z axis of the simulation box? [y/n]: ",
                 traj_file.args,
                 "str",
             )
             if CNT_pore_question == "y":
-                if len(CNTs) == 0:
-                    ddict.printLog("There are no pores in the system.\n", color="red")
-                    sys.exit()
                 if len(CNTs) == 1:
                     which_pores = [1]
                     ddict.printLog("Only one Pore in the system.\n")
                 else:
                     which_pores = ddict.get_input(
-                        f"Which pores contains a CNT? [1-{len(CNTs)}]: ", traj_file.args, "str"
+                        f"Which pore contains a CNT? [1-{len(CNTs)}]: ", traj_file.args, "str"
                     )
                     ddict.printLog("")
 

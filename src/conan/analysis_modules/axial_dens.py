@@ -485,6 +485,8 @@ def density_analysis_3D(traj_file, molecules, an):
     traj_an.process_trajectory(traj_file, molecules, an, dens_analyzer)
     dens_analyzer.density_analysis_processing()
 
+    print("Density analysis finished.")
+
 
 class DensityAnalysis:
     def __init__(self, traj_file, molecules):
@@ -562,6 +564,8 @@ class DensityAnalysis:
         # Perform final chunk processing
         self.chunk_processing()
 
+        print("Density analysis finished.")
+
         # Extract density information and calculate densities
         self.calculate_grid_point_densities()
 
@@ -620,29 +624,34 @@ class DensityAnalysis:
         x_dens_profile /= sum_gp_x
         y_dens_profile /= sum_gp_y
         z_dens_profile /= sum_gp_z
-
         # Save and plot density profiles
         self.save_density_profiles(x_dens_profile, y_dens_profile, z_dens_profile)
 
     def save_density_profiles(self, x_dens_profile, y_dens_profile, z_dens_profile):
+
+        print(x_dens_profile)
+
         # Save profiles to CSV and plot
-        self.save_profile("x", x_dens_profile)
-        self.save_profile("y", y_dens_profile)
-        self.save_profile("z", z_dens_profile)
+        self.save_profile("X", x_dens_profile)
+        self.save_profile("Y", y_dens_profile)
+        self.save_profile("Z", z_dens_profile)
 
     def save_profile(self, axis, profile):
-        df = pd.DataFrame(
-            {
-                axis: getattr(self, f"{axis}_grid"),
-                "Density [u/Ang^3]": profile,
-                "Density [g/cm^3]": profile * 1.66053907,
-            }
-        )
-        df.to_csv(f"{axis}_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
-
-        # Plot profile
-        fig, ax = plt.subplots()
-        ax.plot(df[axis], df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-        ax.set(xlabel=f"{axis} [\u00c5]", ylabel="Density [g/cm\u00b3]", title="Density profile")
-        ax.grid()
-        fig.savefig(f"{axis}_density_profile.pdf")
+        try:
+            df = pd.DataFrame(
+                {
+                    axis: getattr(self, f"{axis}_grid"),
+                    "Density [u/Ang^3]": profile,
+                    "Density [g/cm^3]": profile * 1.66053907,
+                }
+            )
+            df.to_csv(f"{axis}_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
+            print(f"{axis}-density profile saved as {axis}_dens_profile.csv")
+            # Plot profile
+            fig, ax = plt.subplots()
+            ax.plot(df[axis], df["Density [g/cm^3]"], "-", label="Density profile", color="black")
+            ax.set(xlabel=f"{axis} [\u00c5]", ylabel="Density [g/cm\u00b3]", title="Density profile")
+            ax.grid()
+            fig.savefig(f"{axis}_density_profile.pdf")
+        except Exception as e:
+            print(f"An error occurred: {e}")
