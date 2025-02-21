@@ -1,5 +1,3 @@
-# according to https://github.com/tox-dev/tox-gh
-
 name: check
 on:
   pull_request:
