@@ -1,3 +1,5 @@
+# according to https://github.com/tox-dev/tox-gh
+
 name: check
 on:
   pull_request:
@@ -29,10 +31,8 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py }}
-      - name: Install dependencies
-        run: |
-          python -m pip install tox-gh>=1.2
-          python -m pip install pytest>=6.0 pluggy>=1.5,<2 iniconfig>=2.0 exceptiongroup>=1.2.2
+      - name: Install tox
+        run: python -m pip install tox-gh>=1.2
       - name: Setup test suite
         run: tox -vv --notest
       - name: Run test suite
