@@ -219,7 +219,6 @@ def prepare_frame(
 
     if split_frame is None:
         return None
-
     split_frame.reset_index(drop=True, inplace=True)
     split_frame["Struc"] = traj_file.frame0["Struc"]
     split_frame["Molecule"] = traj_file.frame0["Molecule"]
