@@ -2,6 +2,9 @@ import math
 import sys
 from collections import Counter
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -629,29 +632,32 @@ class DensityAnalysis:
 
     def save_density_profiles(self, x_dens_profile, y_dens_profile, z_dens_profile):
 
-        print(x_dens_profile)
-
         # Save profiles to CSV and plot
         self.save_profile("X", x_dens_profile)
         self.save_profile("Y", y_dens_profile)
         self.save_profile("Z", z_dens_profile)
 
     def save_profile(self, axis, profile):
-        try:
-            df = pd.DataFrame(
-                {
-                    axis: getattr(self, f"{axis}_grid"),
-                    "Density [u/Ang^3]": profile,
-                    "Density [g/cm^3]": profile * 1.66053907,
-                }
-            )
-            df.to_csv(f"{axis}_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
-            print(f"{axis}-density profile saved as {axis}_dens_profile.csv")
-            # Plot profile
-            fig, ax = plt.subplots()
-            ax.plot(df[axis], df["Density [g/cm^3]"], "-", label="Density profile", color="black")
-            ax.set(xlabel=f"{axis} [\u00c5]", ylabel="Density [g/cm\u00b3]", title="Density profile")
-            ax.grid()
-            fig.savefig(f"{axis}_density_profile.pdf")
-        except Exception as e:
-            print(f"An error occurred: {e}")
+        if axis == "X":
+            grid = "x_grid"
+        elif axis == "Y":
+            grid = "y_grid"
+        elif axis == "Z":
+            grid = "z_grid"
+        df = pd.DataFrame(
+            {
+                axis: getattr(self, grid),
+                "Density [u/Ang^3]": profile,
+                "Density [g/cm^3]": profile * 1.66053907,
+            }
+        )
+
+        df.to_csv(f"{axis}_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
+        print(f"{axis}-density profile saved as {axis}_dens_profile.csv")
+        # Plot profile
+        fig, ax = plt.subplots()
+        # print the first column with iloc
+        ax.plot(df.iloc[:, 0], df["Density [g/cm^3]"], "-", label="Density profile", color="black")
+        ax.set(xlabel=f"{axis} [\u00c5]", ylabel="Density [g/cm\u00b3]", title="Density profile")
+        ax.grid()
+        fig.savefig(f"{axis}_density_profile.pdf")

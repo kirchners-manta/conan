@@ -705,6 +705,7 @@ class Molecule:
         # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
         structure_frame_copy = structure_frame.copy()
         traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(str)
+        structure_frame["Struc"] = structure_frame["Struc"].astype(str)
         structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
 
         # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each

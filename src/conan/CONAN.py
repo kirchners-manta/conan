@@ -2,8 +2,6 @@
 # The program is written by Leonard Dick, 2023
 
 import os
-
-os.environ["QT_QPA_PLATFORM"] = "xcb"
 import sys
 import time
 
