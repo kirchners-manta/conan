@@ -40,11 +40,17 @@ class COMCalculation:
         frame["Z"] = frame["Z"].astype(float)
         frame["Mass"] = frame["Mass"].astype(float)
 
+        total_mass_per_molecule = frame.groupby("Molecule")["Mass"].transform("sum")
         frame = frame.groupby("Molecule").apply(self.unwrap_coordinates, box_size=box_size).reset_index(drop=True)
 
-        frame["X_COM"] = frame.groupby("Molecule").apply(lambda x: (x["X"] * x["Mass"]).sum() / x["Mass"].sum())
-        frame["Y_COM"] = frame.groupby("Molecule").apply(lambda x: (x["Y"] * x["Mass"]).sum() / x["Mass"].sum())
-        frame["Z_COM"] = frame.groupby("Molecule").apply(lambda x: (x["Z"] * x["Mass"]).sum() / x["Mass"].sum())
+        frame["X_COM"] = (frame["X"] * frame["Mass"]) / total_mass_per_molecule
+        frame["Y_COM"] = (frame["Y"] * frame["Mass"]) / total_mass_per_molecule
+        frame["Z_COM"] = (frame["Z"] * frame["Mass"]) / total_mass_per_molecule
+        # frame = frame.groupby("Molecule").apply(self.unwrap_coordinates, box_size=box_size).reset_index(drop=True)
+
+        # frame["X_COM"] = frame.groupby("Molecule").apply(lambda x: (x["X"] * x["Mass"]).sum() / x["Mass"].sum())
+        # frame["Y_COM"] = frame.groupby("Molecule").apply(lambda x: (x["Y"] * x["Mass"]).sum() / x["Mass"].sum())
+        # frame["Z_COM"] = frame.groupby("Molecule").apply(lambda x: (x["Z"] * x["Mass"]).sum() / x["Mass"].sum())
 
         mol_com = (
             frame.groupby("Molecule")
@@ -229,7 +235,6 @@ class VelocityAnalysis:
             }
         )
         df.to_csv(f"{axis}_velocity_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
-
         # Plot profile
         fig, ax = plt.subplots()
         ax.plot(df[axis], df[ylabel], "-", label=f"{axis.upper()} Velocity Profile", color="black")
