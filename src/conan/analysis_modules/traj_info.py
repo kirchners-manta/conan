@@ -322,6 +322,7 @@ class Molecule:
         exclude_atom_kind = ["Na", "Zn", "Li", "D", "X"]
         neglect_atoms = []
 
+        print(traj_file.frame0)
         for atom in exclude_atom_kind:
             if any(traj_file.frame0["Element"] == atom):
                 exclude_atom = str(
@@ -467,6 +468,7 @@ class Molecule:
 
         molecule_frame = pd.DataFrame(columns=["Molecule", "Atoms", "Bonds", "Atoms_sym", "Bonds_sym"])
 
+        print(frame0)
         molecule_frame["Molecule"] = range(1, int(self.molecule_counter) + 1)
         molecule_frame["Atoms"] = self.molecules
         molecule_frame["Bonds"] = self.molecule_bonds
@@ -1091,10 +1093,21 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
 
-    atom_type_pos = headers.index("element")
-    atom_x_pos = headers.index("xu")
-    atom_y_pos = headers.index("yu")
-    atom_z_pos = headers.index("zu")
+    try:
+        atom_type_pos = headers.index("Element")
+    except ValueError:
+        atom_type_pos = headers.index("type")
+
+    try:
+        atom_x_pos = headers.index("xu")
+        atom_y_pos = headers.index("yu")
+        atom_z_pos = headers.index("zu")
+    except ValueError:
+        atom_x_pos = headers.index("x")
+        atom_y_pos = headers.index("y")
+        atom_z_pos = headers.index("z")
+
+    atom_id_pos = headers.index("id") if "id" in headers else None
     atom_charge_pos = headers.index("q") if "q" in headers else None
 
     # Drop the first 9 lines
@@ -1116,6 +1129,9 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     # if there are charges provided, add them to the dataframe as a new column.
     if atom_charge_pos:
         split_frame["Charge"] = split_frame[atom_charge_pos].astype(float)
+
+    if atom_id_pos:
+        split_frame["ID"] = split_frame[atom_id_pos].astype(str)
 
     return split_frame
 
