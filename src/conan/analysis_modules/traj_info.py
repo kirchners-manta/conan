@@ -225,7 +225,7 @@ class TrajectoryFile:
 
         except (pd.errors.EmptyDataError, ValueError, IndexError) as e:
             # Handle the case where the frame does not exist or cannot be read
-            print(f"Warning: Could not read frame {frame_number}. Error: {e}")
+            ddict.printLog(f"Warning: Could not read frame {frame_number}. Error: {e}")
             df_frame = pd.DataFrame()
 
         return df_frame
@@ -322,7 +322,6 @@ class Molecule:
         exclude_atom_kind = ["Na", "Zn", "Li", "D", "X"]
         neglect_atoms = []
 
-        print(traj_file.frame0)
         for atom in exclude_atom_kind:
             if any(traj_file.frame0["Element"] == atom):
                 exclude_atom = str(
@@ -468,7 +467,6 @@ class Molecule:
 
         molecule_frame = pd.DataFrame(columns=["Molecule", "Atoms", "Bonds", "Atoms_sym", "Bonds_sym"])
 
-        print(frame0)
         molecule_frame["Molecule"] = range(1, int(self.molecule_counter) + 1)
         molecule_frame["Atoms"] = self.molecules
         molecule_frame["Bonds"] = self.molecule_bonds
@@ -1094,7 +1092,7 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     headers = header_line[2:]
 
     try:
-        atom_type_pos = headers.index("Element")
+        atom_type_pos = headers.index("element")
     except ValueError:
         atom_type_pos = headers.index("type")
 
