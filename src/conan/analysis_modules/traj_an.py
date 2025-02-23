@@ -1,18 +1,18 @@
 import sys
 import time
 
-import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.axial_dens as axdens
+import conan.analysis_modules.cnt_fill as cnt_fill
 import conan.analysis_modules.coordination_number as cn
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
+import conan.analysis_modules.traj_info as traj_info
 import conan.analysis_modules.velocity as vel
+import conan.analysis_modules.xyz_output as xyz
 import conan.defdict as ddict
-from conan.analysis_modules import traj_info
-from conan.analysis_modules import xyz_output as xyz
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
@@ -59,6 +59,8 @@ def run_analysis(traj_file, molecules, maindict):
         vel.mol_velocity_analysis(traj_file, molecules, an)
     elif an.choice2 == 10:
         msd.msd_analysis(traj_file, molecules, an)
+    elif an.choice2 == 11:
+        cnt_fill.cnt_loading_mass(traj_file, molecules, an)
 
 
 class Analysis:
@@ -86,9 +88,10 @@ class Analysis:
         ddict.printLog("(8) Calculate the density along the axes.")
         ddict.printLog("(9) Calculate the velocity along the axes.")
         ddict.printLog("(10) Calculate the (root) mean square displacement of the liquid in the CNT.")
+        ddict.printLog("(11) Calculate the mass of the liquid in the CNT.")
 
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)
@@ -101,13 +104,13 @@ class Analysis:
         Based on the file format, each frame needs to be processed differently."""
 
         if traj_file.args["trajectoryfile"].endswith(".xyz"):
-            from conan.analysis_modules.traj_info import xyz as run
+            from traj_info import xyz as run
         elif traj_file.args["trajectoryfile"].endswith(".pdb"):
-            from conan.analysis_modules.traj_info import pdb as run
+            from traj_info import pdb as run
         elif traj_file.args["trajectoryfile"].endswith(".lmp") or traj_file.args["trajectoryfile"].endswith(
             ".lammpstrj"
         ):
-            from conan.analysis_modules.traj_info import lammpstrj as run
+            from traj_info import lammpstrj as run
         else:
             raise ValueError("Unsupported trajectory file format")
         return run
@@ -159,10 +162,12 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
         chunk_number += 1
         print(f"\nChunk {chunk_number} of {traj_file.num_chunks}")
 
-        if chunk.shape[0] == traj_file.lines_last_chunk:
-            frames = np.split(chunk, traj_file.last_chunk_size)
-        else:
-            frames = np.split(chunk, traj_file.chunk_size)
+        frames = []
+        num_frames = chunk.shape[0] // traj_file.lines_per_frame
+        for i in range(num_frames):
+            start_idx = i * traj_file.lines_per_frame
+            end_idx = (i + 1) * traj_file.lines_per_frame
+            frames.append(chunk.iloc[start_idx:end_idx])
 
         for frame in frames:
             frame_counter += 1
@@ -209,18 +214,19 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
 def prepare_frame(
     an, frame, element_masses, traj_file, regional_q, regions, spec_molecule, spec_atom, analysis_spec_molecule
 ):
-    """Preparing the frame for the analysis module by removing atoms, which are noto needed."""
+    """Preparing the frame for the analysis module by removing atoms, which are not needed."""
     split_frame = run_trajectory_module(an, frame, element_masses, traj_file)
+
     if split_frame is None:
         return None
-
     split_frame.reset_index(drop=True, inplace=True)
     split_frame["Struc"] = traj_file.frame0["Struc"]
     split_frame["Molecule"] = traj_file.frame0["Molecule"]
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+    if an.choice2 != 11:
+        split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
 
     if regional_q == "y":
         split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]

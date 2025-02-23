@@ -244,10 +244,10 @@ class MSDAnalysis:
         axs[1, 0].plot(time_lags, msd_y, label=f"{species} Y")
         axs[1, 1].plot(time_lags, msd_z, label=f"{species} Z")
 
-        axs[0, 0].set(xlabel="Time lag [fs]", ylabel=label, title=f"Overall {label} for {species}")
-        axs[0, 1].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in X for {species}")
-        axs[1, 0].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in Y for {species}")
-        axs[1, 1].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in Z for {species}")
+        axs[0, 0].set(xlabel="time [fs]", ylabel=f"{label} / \u00c5²/fs²", title=f"Overall {label} for {species}")
+        axs[0, 1].set(xlabel="time [fs]", ylabel=f"{label} / \u00c5²/fs²", title=f"{label} in X for {species}")
+        axs[1, 0].set(xlabel="time [fs]", ylabel=f"{label} / \u00c5²/fs²", title=f"{label} in Y for {species}")
+        axs[1, 1].set(xlabel="time [fs]", ylabel=f"{label} / \u00c5²/fs²", title=f"{label} in Z for {species}")
 
         for ax in axs.flat:
             ax.legend()
@@ -259,13 +259,13 @@ class MSDAnalysis:
 
         # Save data to CSV
         data = {
-            "Time lag [fs]": time_lags,
+            "time [fs]": time_lags,
             label: msd,
             f"{label} X": msd_x,
             f"{label} Y": msd_y,
             f"{label} Z": msd_z,
         }
         df = pd.DataFrame(data)
-        df.to_csv(f"{label.lower()}_{species}.csv", index=False)
+        df.to_csv(f"{label.lower()}_{species}.csv", index=False, sep=";", header=True)
 
         ddict.printLog(f"{label} data and plot for species '{species}' saved.")
