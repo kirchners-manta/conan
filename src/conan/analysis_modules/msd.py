@@ -66,7 +66,7 @@ class MSDAnalysis:
             self.unwrapped_positions[species] = []
             self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
             self.initial_positions[species] = np.zeros((num_molecules, 3))
-            self.previous_positions[species] = np.zeros((num_molecules, 3))
+            self.previous_positions[species] = self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
 
             ddict.printLog(f"Initialized displacement array for species '{species}' with shape {displacements.shape}")
 
@@ -132,18 +132,17 @@ class MSDAnalysis:
                     # Unwrap displacement
                     delta -= self.box_size * np.round(delta / self.box_size)
 
-                    # Update unwrapped positions
-                    self.unwrapped_positions_current[species][idx, :] += delta
+                    # Update the positions
+                    unwrapped_pos_new = self.unwrapped_positions_current[species][idx, :] + delta
 
-                    # Update previous positions
-                    self.previous_positions[species][idx, :] = com_current
+                    self.previous_positions[species][idx, :] = com_current  # Store the wrapped position
+                    self.unwrapped_positions_current[species][idx, :] = unwrapped_pos_new
 
                 else:
                     ddict.printLog(f"Warning: Molecule {molecule} of species {species} not found in current COM frame.")
 
     def msd_processing(self):
 
-        ddict.printLog("Calculating MSD values for each species...")
         for species in self.num_liq_species_dict:
             # Convert list of unwrapped positions to numpy array
             unwrapped_positions_list = self.unwrapped_positions[species]
@@ -152,7 +151,6 @@ class MSDAnalysis:
             # Transpose to shape (num_molecules, N_frames, 3)
             unwrapped_positions_array = np.transpose(unwrapped_positions_array, (1, 0, 2))
             num_analyzed_frames = unwrapped_positions_array.shape[1]
-            dt = float(self.dt)
 
             max_tau = num_analyzed_frames
 
@@ -164,9 +162,7 @@ class MSDAnalysis:
 
             # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau):
-                tau = tau_idx * dt
-                # convert from fs to ps
-                tau = tau / 1000
+                tau = tau_idx * float(self.dt) / 1000  # ps convert
                 tau_times.append(tau)
 
                 # Initialize accumulators for squared displacements
@@ -211,23 +207,14 @@ class MSDAnalysis:
         axs[1, 0].plot(time_lags, msd_y, label=f"{species} Y")
         axs[1, 1].plot(time_lags, msd_z, label=f"{species} Z")
 
-        axs[0, 0].set(
-            xlabel="correlation time $\\tau$ / ps",
-            ylabel=f"<{label}> / \u00c5²",
-            title=f"Overall {label} for {species}",
-        )
-        axs[0, 1].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in X for {species}"
-        )
+        axs[0, 0].set(ylabel=f"<{label}(τ)> / \u00c5²", title=f"Overall {label} for {species}")
+        axs[0, 1].set(title=f"{label} in X for {species}")
         axs[1, 0].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Y for {species}"
+            xlabel="correlation time τ / ps", ylabel=f"<{label}(τ)> / \u00c5²", title=f"{label} in Y for {species}"
         )
-        axs[1, 1].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Z for {species}"
-        )
+        axs[1, 1].set(xlabel="correlation time τ / ps", title=f"{label} in Z for {species}")
 
         for ax in axs.flat:
-            ax.legend()
             ax.grid()
 
         plt.tight_layout()
