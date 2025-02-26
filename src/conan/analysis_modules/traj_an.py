@@ -87,8 +87,8 @@ class Analysis:
         ddict.printLog("(7) Calculate the coordination number")
         ddict.printLog("(8) Calculate the density along the axes.")
         ddict.printLog("(9) Calculate the velocity along the axes.")
-        ddict.printLog("(10) Calculate the (root) mean square displacement of the liquid in the CNT.")
-        ddict.printLog("(11) Calculate the mass of the liquid in the CNT.")
+        ddict.printLog("(10) Calculate the mean square displacement of the liquid in the CNT.")
+        ddict.printLog("(11) Calculate the mass of the liquid inside a CNT.")
 
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
         analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
