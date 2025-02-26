@@ -165,6 +165,8 @@ class MSDAnalysis:
             # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau):
                 tau = tau_idx * dt
+                # convert from fs to ps
+                tau = tau / 1000
                 tau_times.append(tau)
 
                 # Initialize accumulators for squared displacements
@@ -209,13 +211,19 @@ class MSDAnalysis:
         axs[1, 0].plot(time_lags, msd_y, label=f"{species} Y")
         axs[1, 1].plot(time_lags, msd_z, label=f"{species} Z")
 
-        axs[0, 0].set(ylabel=f"{label} / \u00c5²", title=f"Overall {label} for {species}")
-        axs[0, 1].set(
-            xlabel="correlation time \u1D6D5 [fs]", ylabel=f"{label} / \u00c5²", title=f"{label} in X for {species}"
+        axs[0, 0].set(
+            xlabel="correlation time $\\tau$ / ps",
+            ylabel=f"<{label}> / \u00c5²",
+            title=f"Overall {label} for {species}",
         )
-        axs[1, 0].set(ylabel=f"{label} / \u00c5²", title=f"{label} in Y for {species}")
+        axs[0, 1].set(
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in X for {species}"
+        )
+        axs[1, 0].set(
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Y for {species}"
+        )
         axs[1, 1].set(
-            xlabel="correlation time \u1D6D5 [fs]", ylabel=f"{label} / \u00c5²", title=f"{label} in Z for {species}"
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Z for {species}"
         )
 
         for ax in axs.flat:
