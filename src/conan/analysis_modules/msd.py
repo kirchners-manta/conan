@@ -142,18 +142,7 @@ class MSDAnalysis:
                     ddict.printLog(f"Warning: Molecule {molecule} of species {species} not found in current COM frame.")
 
     def msd_processing(self):
-        # MSD or RMSD
-        msd_or_rmsd = int(ddict.get_input("Do you want to calculate the [1] MSD or the [2] RMSD?  ", self.args, "int"))
 
-        if msd_or_rmsd == 1:
-            self.calculate_msd()
-        elif msd_or_rmsd == 2:
-            self.calculate_rmsd()
-        else:
-            ddict.printLog("Invalid input. Please enter 1 for MSD or 2 for RMSD.")
-            return
-
-    def calculate_msd(self):
         ddict.printLog("Calculating MSD values for each species...")
         for species in self.num_liq_species_dict:
             # Convert list of unwrapped positions to numpy array
@@ -176,6 +165,8 @@ class MSDAnalysis:
             # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau):
                 tau = tau_idx * dt
+                # convert from fs to ps
+                tau = tau / 1000
                 tau_times.append(tau)
 
                 # Initialize accumulators for squared displacements
@@ -212,30 +203,6 @@ class MSDAnalysis:
             # Now we have msd_tau, msd_x_tau, msd_y_tau, msd_z_tau, and tau_times
             self.plot_msd(msd_tau, msd_x_tau, msd_y_tau, msd_z_tau, tau_times, species, "MSD")
 
-    def calculate_rmsd(self):
-        ddict.printLog("Calculating RMSD values for each species...")
-        num_analyzed_frames = len(self.analyzed_frame_indices)
-        for species in self.num_liq_species_dict:
-            displacements = self.displacements[species]
-
-            rmsd = np.zeros(num_analyzed_frames)
-            rmsd_x = np.zeros(num_analyzed_frames)
-            rmsd_y = np.zeros(num_analyzed_frames)
-            rmsd_z = np.zeros(num_analyzed_frames)
-
-            time = np.array(self.analyzed_frame_indices) * float(self.dt)
-
-            for idx, dt in enumerate(self.analyzed_frame_indices):
-                disp = displacements[:, dt, :]
-                sq_disp = np.square(disp)
-                rms_disp = np.sqrt(np.sum(sq_disp, axis=1))
-                rmsd[idx] = np.mean(rms_disp)
-                rmsd_x[idx] = np.mean(np.sqrt(sq_disp[:, 0]))
-                rmsd_y[idx] = np.mean(np.sqrt(sq_disp[:, 1]))
-                rmsd_z[idx] = np.mean(np.sqrt(sq_disp[:, 2]))
-
-            self.plot_msd(rmsd, rmsd_x, rmsd_y, rmsd_z, time, species, "RMSD")
-
     def plot_msd(self, msd, msd_x, msd_y, msd_z, time_lags, species, label):
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
@@ -244,10 +211,20 @@ class MSDAnalysis:
         axs[1, 0].plot(time_lags, msd_y, label=f"{species} Y")
         axs[1, 1].plot(time_lags, msd_z, label=f"{species} Z")
 
-        axs[0, 0].set(xlabel="Time lag [fs]", ylabel=label, title=f"Overall {label} for {species}")
-        axs[0, 1].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in X for {species}")
-        axs[1, 0].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in Y for {species}")
-        axs[1, 1].set(xlabel="Time lag [fs]", ylabel=label, title=f"{label} in Z for {species}")
+        axs[0, 0].set(
+            xlabel="correlation time $\\tau$ / ps",
+            ylabel=f"<{label}> / \u00c5²",
+            title=f"Overall {label} for {species}",
+        )
+        axs[0, 1].set(
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in X for {species}"
+        )
+        axs[1, 0].set(
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Y for {species}"
+        )
+        axs[1, 1].set(
+            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Z for {species}"
+        )
 
         for ax in axs.flat:
             ax.legend()
@@ -259,13 +236,13 @@ class MSDAnalysis:
 
         # Save data to CSV
         data = {
-            "Time lag [fs]": time_lags,
+            "time [fs]": time_lags,
             label: msd,
             f"{label} X": msd_x,
             f"{label} Y": msd_y,
             f"{label} Z": msd_z,
         }
         df = pd.DataFrame(data)
-        df.to_csv(f"{label.lower()}_{species}.csv", index=False)
+        df.to_csv(f"{label.lower()}_{species}.csv", index=False, sep=";", header=True)
 
         ddict.printLog(f"{label} data and plot for species '{species}' saved.")

@@ -72,18 +72,23 @@ class TrajectoryFile:
         else:
             return None
 
-        ddict.printLog(f"\nTotal number of atoms: {num_atoms}\n")
+        ddict.printLog(f"\nNumber of atoms: {num_atoms}\n")
 
         return num_atoms, lines_per_frame
 
     def simbox_dimension(self):
 
         if self.file_type == "xyz":
-            ddict.printLog("Enter the dimensions of the simulation box [\u00c5]:")
-            simbox_x = float(ddict.get_input("[X]   ", self.args, "float"))
-            simbox_y = float(ddict.get_input("[Y]   ", self.args, "float"))
-            simbox_z = float(ddict.get_input("[Z]   ", self.args, "float"))
-            ddict.printLog("")
+            same_length = ddict.get_input("Is the simulation box a cube? [y/n]: ", self.args, "str")
+            if same_length == "y":
+                simbox_x = float(ddict.get_input("What is the edge length of the cube? [\u00c5]: ", self.args, "float"))
+                simbox_z = simbox_y = simbox_x
+            else:
+                ddict.printLog("Enter the dimensions of the simulation box [\u00c5]:")
+                simbox_x = float(ddict.get_input("[X]   ", self.args, "float"))
+                simbox_y = float(ddict.get_input("[Y]   ", self.args, "float"))
+                simbox_z = float(ddict.get_input("[Z]   ", self.args, "float"))
+                ddict.printLog("")
 
         elif self.file_type == "pdb":
             with open(self.file) as f:
@@ -190,7 +195,7 @@ class TrajectoryFile:
                         "Charge": atom_charge_pos,
                     }
 
-                    # now read the frame
+                    # read the frame
                     df_frame = pd.read_csv(
                         self.file,
                         sep=r"\s+",
@@ -210,7 +215,7 @@ class TrajectoryFile:
                 ddict.printLog("The file is not in a known format. Use the help flag (-h) for more information")
                 sys.exit()
 
-            # check if there is a 'Label', 'Molecule' and 'Charge' column in the dataframe. If not, add an empty column.
+            # Check if there is a 'Molecule' or 'Charge' column in the dataframe. If not, add an empty column.
             if "Molecule" not in df_frame.columns:
                 df_frame["Molecule"] = None
             if "Charge" not in df_frame.columns:
@@ -220,7 +225,7 @@ class TrajectoryFile:
 
         except (pd.errors.EmptyDataError, ValueError, IndexError) as e:
             # Handle the case where the frame does not exist or cannot be read
-            print(f"Warning: Could not read frame {frame_number}. Error: {e}")
+            ddict.printLog(f"Warning: Could not read frame {frame_number}. Error: {e}")
             df_frame = pd.DataFrame()
 
         return df_frame
@@ -247,7 +252,7 @@ class TrajectoryFile:
 
         # Calculate how many bytes each line of the trajectory file has.
         bytes_per_line = trajectory_file_size / (number_of_lines)
-        # The number of lines in a chunk. Each chunk is roughly 50 MB large.
+        # The number of frames in a chunk. Each chunk is roughly 50 MB large.
         chunk_size = int(100000000 / ((self.lines_per_frame) * bytes_per_line))
         # The number of chunks (always round up).
         number_of_chunks = math.ceil(number_of_frames / chunk_size)
@@ -670,17 +675,16 @@ class Molecule:
         if structure_frame.empty or traj_file.args["manual"]:
             if structure_frame.empty:
                 ddict.printLog(
-                    "No structures were found in the simulation box. \n",
+                    "No frozen structures were found in the simulation box. \n",
                     color="red",
                 )
-            define_struc = ddict.get_input("Manually define the structures? [y/n]: ", traj_file.args, "str")
-            if define_struc == "n":
-                sys.exit()
-            else:
-                spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
-                structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
+                define_struc = ddict.get_input("Manually define structures? [y/n]: ", traj_file.args, "str")
+                if define_struc == "n":
+                    sys.exit()
+            spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
+            structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
-                # output["unique_molecule_frame"] = self.unique_molecule_frame
+            # output["unique_molecule_frame"] = self.unique_molecule_frame
 
         # convert atom information to a list of dictionaries
         str_atom_list = []
@@ -700,6 +704,9 @@ class Molecule:
 
         # Make a copy of the structure frame (to assure pandas treats it as a copy, not a view)
         structure_frame_copy = structure_frame.copy()
+        traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(str)
+        structure_frame["Struc"] = structure_frame["Struc"].astype(str)
+        structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
 
         # Consider all Molecules in the structure frame and get the maximum and minimum x, y and z coordinates for each
         # respective one.
@@ -737,6 +744,7 @@ class Molecule:
                 )
 
                 # Change the structure column to pore{i}
+                structure_frame_copy["Struc"] = structure_frame_copy["Struc"].astype(str)
                 structure_frame_copy.loc[structure_frame["Molecule"] == molecule, "Struc"] = f"Pore{counter_pore}"
                 CNTs.append(f"Pore{counter_pore}")
 
@@ -759,10 +767,11 @@ class Molecule:
 
         # Copy the structure frame back to the original structure frame.
         structure_frame = structure_frame_copy
+        traj_file.frame0["Struc"] = traj_file.frame0["Struc"].astype(structure_frame["Struc"].dtype)
         traj_file.frame0.loc[structure_frame.index, "Struc"] = structure_frame["Struc"]
 
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
-        traj_file.frame0["Struc"].replace(False, "Liquid", inplace=True)
+        traj_file.frame0.replace({"Struc": {"False": "Liquid"}}, inplace=True)
 
         # Print the structure information .
         ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
@@ -771,18 +780,17 @@ class Molecule:
 
         if len(CNTs) > 0:
             CNT_pore_question = ddict.get_input(
-                "Does one of the pores contain rigid CNTs? [y/n]: ", traj_file.args, "str"
+                "Does one of the pores contain CNTs oriented along the z axis of the simulation box? [y/n]: ",
+                traj_file.args,
+                "str",
             )
             if CNT_pore_question == "y":
-                if len(CNTs) == 0:
-                    ddict.printLog("There are no pores in the system.\n", color="red")
-                    sys.exit()
                 if len(CNTs) == 1:
                     which_pores = [1]
                     ddict.printLog("Only one Pore in the system.\n")
                 else:
                     which_pores = ddict.get_input(
-                        f"Which pores contains a CNT? [1-{len(CNTs)}]: ", traj_file.args, "str"
+                        f"Which pore contains a CNT? [1-{len(CNTs)}]: ", traj_file.args, "str"
                     )
                     ddict.printLog("")
 
@@ -864,7 +872,7 @@ class Molecule:
         if "CNT" not in traj_file.frame0.columns:
             traj_file.frame0["CNT"] = None
 
-        # creat a CNT_atoms dataframe with just the CNT atoms (value in the 'CNT' column is larger than 0.)
+        # create a CNT_atoms dataframe with just the CNT atoms (value in the 'CNT' column is larger than 0.)
 
         CNT_atoms = traj_file.frame0[traj_file.frame0["CNT"] > 0].copy()
 
@@ -1083,10 +1091,21 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
 
-    atom_type_pos = headers.index("element")
-    atom_x_pos = headers.index("xu")
-    atom_y_pos = headers.index("yu")
-    atom_z_pos = headers.index("zu")
+    try:
+        atom_type_pos = headers.index("element")
+    except ValueError:
+        atom_type_pos = headers.index("type")
+
+    try:
+        atom_x_pos = headers.index("xu")
+        atom_y_pos = headers.index("yu")
+        atom_z_pos = headers.index("zu")
+    except ValueError:
+        atom_x_pos = headers.index("x")
+        atom_y_pos = headers.index("y")
+        atom_z_pos = headers.index("z")
+
+    atom_id_pos = headers.index("id") if "id" in headers else None
     atom_charge_pos = headers.index("q") if "q" in headers else None
 
     # Drop the first 9 lines
@@ -1108,6 +1127,9 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     # if there are charges provided, add them to the dataframe as a new column.
     if atom_charge_pos:
         split_frame["Charge"] = split_frame[atom_charge_pos].astype(float)
+
+    if atom_id_pos:
+        split_frame["ID"] = split_frame[atom_id_pos].astype(str)
 
     return split_frame
 
