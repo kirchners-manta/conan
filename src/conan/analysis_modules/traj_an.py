@@ -115,30 +115,28 @@ class Analysis:
             raise ValueError("Unsupported trajectory file format")
         return run
 
+    def region_question(self, traj_file) -> tuple:
+        """Question for the user if the calculation should be performed in a specific region."""
 
-def region_question(traj_file) -> tuple:
-    """Question for the user if the calculation should be performed in a specific region."""
+        self.regional_q = ddict.get_input(
+            "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
+        )
+        self.regions = [0] * 6
+        if self.regional_q == "y":
+            self.regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
+            self.regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
+            self.regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
+            self.regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
+            self.regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
+            self.regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
+        return self.regional_q, self.regions
 
-    regional_q = ddict.get_input(
-        "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
-    )
-    regions = [0] * 6
-    if regional_q == "y":
-        regions[0] = float(ddict.get_input("Enter minimum x-value ", traj_file.args, "float"))
-        regions[1] = float(ddict.get_input("Enter maximum x-value ", traj_file.args, "float"))
-        regions[2] = float(ddict.get_input("Enter minimum y-value ", traj_file.args, "float"))
-        regions[3] = float(ddict.get_input("Enter maximum y-value ", traj_file.args, "float"))
-        regions[4] = float(ddict.get_input("Enter minimum z-value ", traj_file.args, "float"))
-        regions[5] = float(ddict.get_input("Enter maximum z-value ", traj_file.args, "float"))
-    return regional_q, regions
+    def frame_question(self, traj_file) -> tuple:
+        """Question for the user to specify the start frame and the frame interval."""
 
-
-def frame_question(traj_file) -> tuple:
-    """Question for the user to specify the start frame and the frame interval."""
-
-    start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
-    frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
-    return start_frame, frame_interval
+        self.start_frame = int(ddict.get_input("Start analysis at which frame?: ", traj_file.args, "int"))
+        self.frame_interval = int(ddict.get_input("Analyse every nth step: ", traj_file.args, "int"))
+        return self.start_frame, self.frame_interval
 
 
 def process_trajectory(traj_file, molecules, an, analysis_option):
@@ -152,10 +150,10 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     proc_frames = 0
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
-    regional_q, regions = region_question(traj_file)
+    regional_q, regions = an.region_question(traj_file)
     analysis_option.regional_q = regional_q
     analysis_option.regions = regions
-    start_frame, frame_interval = frame_question(traj_file)
+    start_frame, frame_interval = an.frame_question(traj_file)
 
     Main_time = time.time()
     for chunk in trajectory:

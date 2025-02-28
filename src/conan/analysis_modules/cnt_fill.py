@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+
+# check if a given point is within a cylinder
 import numpy as np
 import pandas as pd
 
@@ -8,19 +10,20 @@ import conan.analysis_modules.traj_info as traj_info
 import conan.defdict as ddict
 
 
-# check if a given point is within a cylinder
-def points_in_cylinder(pt1, pt2, r, atom_to_check):
-    pt1 = np.array(pt1, dtype=np.float64)
-    pt2 = np.array(pt2, dtype=np.float64)
-    atom_to_check = np.array(atom_to_check, dtype=np.float64)
+def points_in_cylinder(pt1, pt2, r, atom_positions):
+    pt1 = np.asarray(pt1, dtype=np.float64)
+    pt2 = np.asarray(pt2, dtype=np.float64)
+    atom_positions = np.asarray(atom_positions, dtype=np.float64)
 
     vec = pt2 - pt1
-    const = r * np.linalg.norm(vec)
-    return (
-        (np.dot(atom_to_check - pt1, vec) >= 0)
-        and (np.dot(atom_to_check - pt2, vec) <= 0)
-        and (np.linalg.norm(np.cross(atom_to_check - pt1, vec)) <= const)
-    )
+    vec /= np.linalg.norm(vec)  # Normalize axis vector
+    proj = np.dot(atom_positions - pt1, vec)  # Projection along CNT axis
+
+    radial_dist = np.linalg.norm((atom_positions - pt1) - np.outer(proj, vec), axis=1)
+
+    within_cylinder = (proj >= 0) & (proj <= np.linalg.norm(pt2 - pt1)) & (radial_dist <= r)
+
+    return within_cylinder
 
 
 def cnt_loading_mass(traj_file, molecules, an):
@@ -63,7 +66,7 @@ class CNTload:
         self.an = an
         self.proc_frame_counter = 0
         self.shortening_q = "n"
-        self.shortening = 0
+        self.shortening = 0.0
 
     def cnt_loading_mass_prep(self):
         """
@@ -71,8 +74,7 @@ class CNTload:
         """
 
         pore_atoms = self.traj_file.frame0[self.traj_file.frame0["Struc"].str.contains("Pore")].copy()
-        pore_atoms.loc[:, "Struc"] = pore_atoms["Struc"].str.replace("Pore", "")
-        pore_atoms.loc[:, "Struc"] = pore_atoms["Struc"].astype(int)
+        pore_atoms.loc[:, "Struc"] = pore_atoms["Struc"].str.replace("Pore", "").astype(int)
         pore_No = pore_atoms["Struc"].nunique()
 
         pore_atoms["bonds"] = 0
@@ -253,7 +255,7 @@ class CNTload:
         For this use the points in cylider function.
         """
 
-        liquid_atoms = split_frame[split_frame["Struc"].str.contains("Liquid")].copy()
+        liquid_atoms = split_frame[split_frame["Struc"].str.contains("Liquid")]
 
         # get the atom positions of the current frame
         atom_positions = np.array(
@@ -262,10 +264,9 @@ class CNTload:
         )
 
         # check if a liquid atom is within the CNT
-        for atom_position in atom_positions:
-            if points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_position[:3]):
-                self.liquid_mass += atom_position[3]
-                frame_mass += atom_position[3]
+        inside_cylinder = points_in_cylinder(ring1_array, ring2_array, self.dist_ring, atom_positions[:, :3])
+        frame_mass = atom_positions[inside_cylinder, 3].sum()
+        self.liquid_mass += frame_mass
 
         self.frame_masses = np.append(self.frame_masses, frame_mass)
 
@@ -306,14 +307,14 @@ class CNTload:
 
         # save the ring-ring distances and the radii of the CNTs
         pd_ring_ring_distances = pd.DataFrame(self.ring_ring_distances)
-        print(pd_ring_ring_distances)
+        # print(pd_ring_ring_distances)
         pd_ring_ring_distances.columns = ["Ring_ring_distances"]
         mean_ring_ring_distance = pd_ring_ring_distances["Ring_ring_distances"].mean()
         ddict.printLog(f"Mean distance between the rings: {mean_ring_ring_distance}")
         pd_ring_ring_distances.to_csv("ring_ring_distances.csv")
 
         pd_ring_radii = pd.DataFrame(self.ring_radii)
-        print(pd_ring_radii)
+        # print(pd_ring_radii)
         pd_ring_radii.columns = ["Ring_radii"]
         mean_ring_radii = pd_ring_radii["Ring_radii"].mean()
         ddict.printLog(f"Mean radius of the CNT: {mean_ring_radii}")
