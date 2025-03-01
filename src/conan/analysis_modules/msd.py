@@ -8,15 +8,14 @@ import conan.defdict as ddict
 
 
 def msd_analysis(traj_file, molecules, an):
-    msd_analyzer = MSDAnalysis(traj_file, molecules, an)
+    msd_analyzer = MSDAnalysis(traj_file, molecules)
     msd_analyzer.msd_prep()
     traj_an.process_trajectory(traj_file, molecules, an, msd_analyzer)
-    msd_analyzer.msd_processing()
+    msd_analyzer.msd_processing(an)
 
 
 class MSDAnalysis:
-    def __init__(self, traj_file, molecules, an):
-        self.frame_interval = an.frame_interval
+    def __init__(self, traj_file, molecules):
         self.traj_file = traj_file
         self.molecules = molecules
         self.number_of_frames = traj_file.number_of_frames
@@ -172,7 +171,7 @@ class MSDAnalysis:
                 else:
                     ddict.printLog(f"Warning: Molecule {molecule} of species {species} not found in current COM frame.")
 
-    def msd_processing(self):
+    def msd_processing(self, an):
 
         for species in self.num_liq_species_dict:
             # Convert list of unwrapped positions to numpy array
@@ -194,7 +193,7 @@ class MSDAnalysis:
 
             # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau_idx):
-                tau_times.append(tau_idx * self.dt * self.frame_interval)
+                tau_times.append(tau_idx * self.dt * an.frame_interval)
 
                 # Initialize accumulators for squared displacements
                 sq_disp_accum = []

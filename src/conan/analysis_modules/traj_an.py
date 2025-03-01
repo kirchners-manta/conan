@@ -223,7 +223,7 @@ def prepare_frame(
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    if an.choice2 != 11:
+    if an.choice2 != 11 or an.choice2 != 10:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
 
     if regional_q == "y":
