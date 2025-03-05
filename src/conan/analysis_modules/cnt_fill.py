@@ -21,7 +21,7 @@ def points_in_cylinder(pt1, pt2, r, atom_positions):
 
     radial_dist = np.linalg.norm((atom_positions - pt1) - np.outer(proj, vec), axis=1)
 
-    within_cylinder = (proj >= 0) & (proj <= np.linalg.norm(pt2 - pt1)) & (radial_dist <= r)
+    within_cylinder = np.logical_and.reduce((proj >= 0, proj <= np.linalg.norm(pt2 - pt1), radial_dist <= r))
 
     return within_cylinder
 
@@ -307,7 +307,7 @@ class CNTload:
 
         # save the ring-ring distances and the radii of the CNTs
         pd_ring_ring_distances = pd.DataFrame(self.ring_ring_distances)
-        # print(pd_ring_ring_distances)
+        print(pd_ring_ring_distances)
         pd_ring_ring_distances.columns = ["Ring_ring_distances"]
         mean_ring_ring_distance = pd_ring_ring_distances["Ring_ring_distances"].mean()
         ddict.printLog(f"Mean distance between the rings: {mean_ring_ring_distance}")

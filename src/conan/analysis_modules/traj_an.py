@@ -223,7 +223,9 @@ def prepare_frame(
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    if an.choice2 != 11 or an.choice2 != 10:
+    # analysis which need the structure positions:
+    set_struc_analysis = [10, 11]
+    if an.choice2 not in set_struc_analysis:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
 
     if regional_q == "y":

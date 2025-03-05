@@ -35,18 +35,15 @@ class MSDAnalysis:
         self.analyzed_frame_indices = []
 
     def msd_prep(self):
-        # Rename columns for consistency
-        self.first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"}, inplace=True)
 
-        self.first_frame["Mass"] = self.first_frame["Element"].map(ddict.dict_mass())
-
+        # Question for time step and correlation depth
         self.dt = ddict.get_input("What is the time step in the trajectory? [fs]  ", self.args, "float")
-        # ask to specify the correlation depth
         self.correlation_depth = ddict.get_input("Up to which correlation depth?  ", self.args, "float")
 
         # Identify liquid species
         num_liq_species = self.first_frame[self.first_frame["Struc"] == "Liquid"]["Species"].unique()
 
+        # Initialize displacement arrays for each liquid species
         for species in num_liq_species:
             # Get unique molecule numbers for the species
             molecule_numbers = self.first_frame[
@@ -68,20 +65,31 @@ class MSDAnalysis:
             self.unwrapped_positions[species] = []
             self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
             self.initial_positions[species] = np.zeros((num_molecules, 3))
-            self.previous_positions[species] = self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
+            # self.previous_positions[species] = np.zeros((num_molecules, 3))
 
-            ddict.printLog(
-                f"Initialized displacement array for species '{species}'"
-            )  # with shape {displacements.shape}")
+            ddict.printLog(f"Initialized displacement array for species '{species}'")
 
         if not self.num_liq_species_dict:
             raise ValueError("No liquid species found in the trajectory!")
 
+        # Rename columns for consistency
+        self.first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"}, inplace=True)
+
+        # Assign masses to the first frame
+        self.first_frame["Mass"] = self.first_frame["Element"].map(ddict.dict_mass())
+
         # Calculate initial COM for each molecule
         COM_frame_initial = self.calculate_COM_frame(self.first_frame)
 
-        # calculate the center of mass of the whole system
-        com_box = ut.calculate_com(self.first_frame, self.box_size)
+        # calculate the center of mass of the liquid in the system
+        first_frame_no_struc = self.first_frame.drop(columns=["Struc"])
+        com_box = ut.calculate_com_box(first_frame_no_struc, self.box_size)
+        # com_box = ut.calculate_com_box(self.first_frame, self.box_size)
+
+        # adjust the COM frame to the box center
+        COM_frame_initial[["X", "Y", "Z"]] -= com_box
+
+        # print(COM_frame_initial.head())
 
         for species in self.num_liq_species_dict:
             molecule_indices = self.molecule_indices[species]
@@ -91,12 +99,7 @@ class MSDAnalysis:
                 ][["X", "Y", "Z"]].values[0]
                 self.initial_positions[species][idx, :] = com_initial
                 self.unwrapped_positions_current[species][idx, :] = com_initial
-                self.previous_positions[species][idx, :] = com_initial
-
-        # Remove the com displacement from the initial positions
-        for species in self.num_liq_species_dict:
-            self.unwrapped_positions_current[species] -= com_box
-            self.previous_positions[species] -= com_box
+                # self.previous_positions[species][idx, :] = com_initial
 
     def analyze_frame(self, split_frame, frame_counter):
         self.counter = frame_counter
@@ -112,14 +115,39 @@ class MSDAnalysis:
         # Keep track of analyzed frames
         self.analyzed_frame_indices.append(frame_counter - 1)
 
-        com_box = ut.calculate_com(split_frame, self.box_size)
+        # Calculate the center of mass of the liquid in the system
+        split_frame_no_struc = split_frame.drop(columns=["Struc"])
+        com_box = ut.calculate_com_box(split_frame_no_struc, self.box_size)
+        # com_box = ut.calculate_com_box(split_frame, self.box_size)
 
-        # Adjust the COM frame to the box center
         COM_frame_current[["X", "Y", "Z"]] -= com_box
 
-        # Calculate displacements
-        self.calculate_displacements(COM_frame_current, com_box)
+        # print(COM_frame_current.head())
+        # Initialize previous positions (for the first frame)
+        if self.counter == 1:
+            for species in self.num_liq_species_dict:
+                if species not in self.previous_positions:
+                    self.previous_positions[species] = np.zeros_like(self.unwrapped_positions_current[species])
+                self.previous_positions[species][:] = self.unwrapped_positions_current[species]
 
+            print("Previous positions initialized:")
+            for species in self.num_liq_species_dict:
+                print(f"Species {species}:", self.previous_positions[species])
+
+        else:
+            self.calculate_displacements(COM_frame_current)
+
+        # Calculate displacements
+        self.calculate_displacements(COM_frame_current)
+
+        if self.counter == 51:
+            print("Previous positions after first frame:")
+            for species in self.num_liq_species_dict:
+                print(f"Species {species}:", self.previous_positions[species])
+
+        # print(f"Frame {self.counter} analyzed.")
+
+        # Store unwrapped positions (if not the first frame)
         for species in self.num_liq_species_dict:
             self.unwrapped_positions[species].append(self.unwrapped_positions_current[species].copy())
 
@@ -128,12 +156,13 @@ class MSDAnalysis:
         grouped = frame.groupby(["Species", "Molecule"])
         com_list = []
         for (species, molecule), group in grouped:
-            com = ut.calculate_com(group, self.box_size)
+            com = ut.calculate_com_molecule(group, self.box_size)
             com_list.append({"Species": species, "Molecule": molecule, "X": com[0], "Y": com[1], "Z": com[2]})
         COM_frame = pd.DataFrame(com_list)
+
         return COM_frame
 
-    def calculate_displacements(self, COM_frame_current, com_box):
+    def calculate_displacements(self, COM_frame_current):
 
         for species in self.num_liq_species_dict:
             # Create mappings for efficient access
@@ -146,13 +175,6 @@ class MSDAnalysis:
                     # Get current COM
                     com_current = curr_com_dict.loc[molecule, ["X", "Y", "Z"]].values
 
-                    # Remove the com displacement from the current COM
-                    # com_current -= com_box
-                    # calculate the new center of mass
-                    # new_com_box = ut.calculate_com(self.first_frame, self.box_size)
-                    # print(f"new_com_box: {new_com_box}")
-                    # com_current += new_com_box
-
                     # Get previous wrapped position
                     com_prev = self.previous_positions[species][idx, :]
 
@@ -161,6 +183,10 @@ class MSDAnalysis:
                     # print(f"delta: {delta}")
                     # Unwrap displacement
                     delta -= self.box_size * np.round(delta / self.box_size)
+
+                    # Debug information
+                    # print(f"Frame {self.counter}: Molecule {molecule}")
+                    # print(f"Delta before PBC correction: {delta}")
 
                     # Update the positions
                     unwrapped_pos_new = self.unwrapped_positions_current[species][idx, :] + delta
@@ -252,14 +278,10 @@ class MSDAnalysis:
         plt.close(fig)
 
         # Save data to CSV
-        data = {
-            "time [fs]": time_lags,
-            label: msd,
-            f"{label} X": msd_x,
-            f"{label} Y": msd_y,
-            f"{label} Z": msd_z,
-        }
-        df = pd.DataFrame(data)
-        df.to_csv(f"{label.lower()}_{species}.csv", index=False, sep=";", header=True)
+
+        with open(f"{label.lower()}_{species}.csv", "w") as f:
+            f.write(f"#time [fs]; {label}; {label} X; {label} Y; {label} Z\n")
+            for i in range(len(time_lags)):
+                f.write(f"{time_lags[i]}; {msd[i]}; {msd_x[i]}; {msd_y[i]}; {msd_z[i]}\n")
 
         ddict.printLog(f"{label} data and plot for species '{species}' saved.")
