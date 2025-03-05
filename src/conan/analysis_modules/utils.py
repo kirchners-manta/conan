@@ -18,21 +18,45 @@ def minimum_image_distance(box_dimension, coordinates_reference, coordinates_obs
     return distances
 
 
-def calculate_com(molecule_df, box_size):
+def calculate_com_molecule(molecule_df, box_size):
     total_mass = molecule_df["Mass"].sum()
     positions = molecule_df[["X", "Y", "Z"]].values
     # Make masses a column vector
     masses = molecule_df["Mass"].values[:, np.newaxis]
     box_size_array = np.array(box_size, dtype=float)
 
-    com = masses[0] * positions[0]
-    for i in range(1, len(molecule_df)):
-        vector = positions[i] - com / masses[i - 1]
+    # Initialize center of mass
+    com = np.zeros(3)
+
+    for i in range(len(molecule_df)):
+        vector = positions[i] - com / total_mass
         vector_divided = vector / box_size_array
         vector_rounded = np.around(vector_divided.astype(np.double))
         # Minimum image convention
         vector -= vector_rounded * box_size_array
         com += vector * masses[i]
+
+    com /= total_mass
+
+    return com
+
+
+def calculate_com_box(frame, box_size):
+
+    # First wrap the coordinates
+    frame_wrapped = wrapping_coordinates(box_size, frame)
+
+    total_mass = frame_wrapped["Mass"].sum()
+    positions = frame_wrapped[["X", "Y", "Z"]].values
+    # Make masses a column vector
+    masses = frame_wrapped["Mass"].values[:, np.newaxis]
+
+    # Initialize center of mass
+    com = np.zeros(3)
+
+    # add all the positions multiplied by the mass to the center of mass
+    for i in range(len(frame_wrapped)):
+        com += positions[i] * masses[i]
 
     com /= total_mass
 
