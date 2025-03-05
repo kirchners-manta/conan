@@ -11,7 +11,7 @@ def msd_analysis(traj_file, molecules, an):
     msd_analyzer = MSDAnalysis(traj_file, molecules)
     msd_analyzer.msd_prep()
     traj_an.process_trajectory(traj_file, molecules, an, msd_analyzer)
-    msd_analyzer.msd_processing()
+    msd_analyzer.msd_processing(an)
 
 
 class MSDAnalysis:
@@ -35,16 +35,15 @@ class MSDAnalysis:
         self.analyzed_frame_indices = []
 
     def msd_prep(self):
-        # Rename columns for consistency
-        self.first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"}, inplace=True)
 
-        self.first_frame["Mass"] = self.first_frame["Element"].map(ddict.dict_mass())
-
+        # Question for time step and correlation depth
         self.dt = ddict.get_input("What is the time step in the trajectory? [fs]  ", self.args, "float")
+        self.correlation_depth = ddict.get_input("Up to which correlation depth?  ", self.args, "float")
 
         # Identify liquid species
         num_liq_species = self.first_frame[self.first_frame["Struc"] == "Liquid"]["Species"].unique()
 
+        # Initialize displacement arrays for each liquid species
         for species in num_liq_species:
             # Get unique molecule numbers for the species
             molecule_numbers = self.first_frame[
@@ -66,12 +65,31 @@ class MSDAnalysis:
             self.unwrapped_positions[species] = []
             self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
             self.initial_positions[species] = np.zeros((num_molecules, 3))
-            self.previous_positions[species] = np.zeros((num_molecules, 3))
+            # self.previous_positions[species] = np.zeros((num_molecules, 3))
 
-            ddict.printLog(f"Initialized displacement array for species '{species}' with shape {displacements.shape}")
+            ddict.printLog(f"Initialized displacement array for species '{species}'")
+
+        if not self.num_liq_species_dict:
+            raise ValueError("No liquid species found in the trajectory!")
+
+        # Rename columns for consistency
+        self.first_frame.rename(columns={"x": "X", "y": "Y", "z": "Z"}, inplace=True)
+
+        # Assign masses to the first frame
+        self.first_frame["Mass"] = self.first_frame["Element"].map(ddict.dict_mass())
 
         # Calculate initial COM for each molecule
         COM_frame_initial = self.calculate_COM_frame(self.first_frame)
+
+        # calculate the center of mass of the liquid in the system
+        first_frame_no_struc = self.first_frame.drop(columns=["Struc"])
+        com_box = ut.calculate_com_box(first_frame_no_struc, self.box_size)
+        # com_box = ut.calculate_com_box(self.first_frame, self.box_size)
+
+        # adjust the COM frame to the box center
+        COM_frame_initial[["X", "Y", "Z"]] -= com_box
+
+        # print(COM_frame_initial.head())
 
         for species in self.num_liq_species_dict:
             molecule_indices = self.molecule_indices[species]
@@ -81,7 +99,7 @@ class MSDAnalysis:
                 ][["X", "Y", "Z"]].values[0]
                 self.initial_positions[species][idx, :] = com_initial
                 self.unwrapped_positions_current[species][idx, :] = com_initial
-                self.previous_positions[species][idx, :] = com_initial
+                # self.previous_positions[species][idx, :] = com_initial
 
     def analyze_frame(self, split_frame, frame_counter):
         self.counter = frame_counter
@@ -94,12 +112,42 @@ class MSDAnalysis:
         # Calculate current COM for each molecule
         COM_frame_current = self.calculate_COM_frame(split_frame)
 
-        # Calculate displacements
-        self.calculate_displacements(COM_frame_current)
-
         # Keep track of analyzed frames
         self.analyzed_frame_indices.append(frame_counter - 1)
 
+        # Calculate the center of mass of the liquid in the system
+        split_frame_no_struc = split_frame.drop(columns=["Struc"])
+        com_box = ut.calculate_com_box(split_frame_no_struc, self.box_size)
+        # com_box = ut.calculate_com_box(split_frame, self.box_size)
+
+        COM_frame_current[["X", "Y", "Z"]] -= com_box
+
+        # print(COM_frame_current.head())
+        # Initialize previous positions (for the first frame)
+        if self.counter == 1:
+            for species in self.num_liq_species_dict:
+                if species not in self.previous_positions:
+                    self.previous_positions[species] = np.zeros_like(self.unwrapped_positions_current[species])
+                self.previous_positions[species][:] = self.unwrapped_positions_current[species]
+
+            print("Previous positions initialized:")
+            for species in self.num_liq_species_dict:
+                print(f"Species {species}:", self.previous_positions[species])
+
+        else:
+            self.calculate_displacements(COM_frame_current)
+
+        # Calculate displacements
+        self.calculate_displacements(COM_frame_current)
+
+        if self.counter == 51:
+            print("Previous positions after first frame:")
+            for species in self.num_liq_species_dict:
+                print(f"Species {species}:", self.previous_positions[species])
+
+        # print(f"Frame {self.counter} analyzed.")
+
+        # Store unwrapped positions (if not the first frame)
         for species in self.num_liq_species_dict:
             self.unwrapped_positions[species].append(self.unwrapped_positions_current[species].copy())
 
@@ -108,12 +156,14 @@ class MSDAnalysis:
         grouped = frame.groupby(["Species", "Molecule"])
         com_list = []
         for (species, molecule), group in grouped:
-            com = ut.calculate_com(group, self.box_size)
+            com = ut.calculate_com_molecule(group, self.box_size)
             com_list.append({"Species": species, "Molecule": molecule, "X": com[0], "Y": com[1], "Z": com[2]})
         COM_frame = pd.DataFrame(com_list)
+
         return COM_frame
 
     def calculate_displacements(self, COM_frame_current):
+
         for species in self.num_liq_species_dict:
             # Create mappings for efficient access
             curr_com_dict = COM_frame_current[COM_frame_current["Species"] == species].set_index("Molecule")
@@ -121,6 +171,8 @@ class MSDAnalysis:
             molecule_indices = self.molecule_indices[species]
             for molecule, idx in molecule_indices.items():
                 if molecule in curr_com_dict.index:
+
+                    # Get current COM
                     com_current = curr_com_dict.loc[molecule, ["X", "Y", "Z"]].values
 
                     # Get previous wrapped position
@@ -128,22 +180,25 @@ class MSDAnalysis:
 
                     # Compute displacement between current and previous positions
                     delta = com_current - com_prev
-
+                    # print(f"delta: {delta}")
                     # Unwrap displacement
                     delta -= self.box_size * np.round(delta / self.box_size)
 
-                    # Update unwrapped positions
-                    self.unwrapped_positions_current[species][idx, :] += delta
+                    # Debug information
+                    # print(f"Frame {self.counter}: Molecule {molecule}")
+                    # print(f"Delta before PBC correction: {delta}")
 
-                    # Update previous positions
-                    self.previous_positions[species][idx, :] = com_current
+                    # Update the positions
+                    unwrapped_pos_new = self.unwrapped_positions_current[species][idx, :] + delta
+
+                    self.previous_positions[species][idx, :] = com_current  # Store the wrapped position
+                    self.unwrapped_positions_current[species][idx, :] = unwrapped_pos_new
 
                 else:
                     ddict.printLog(f"Warning: Molecule {molecule} of species {species} not found in current COM frame.")
 
-    def msd_processing(self):
+    def msd_processing(self, an):
 
-        ddict.printLog("Calculating MSD values for each species...")
         for species in self.num_liq_species_dict:
             # Convert list of unwrapped positions to numpy array
             unwrapped_positions_list = self.unwrapped_positions[species]
@@ -152,9 +207,9 @@ class MSDAnalysis:
             # Transpose to shape (num_molecules, N_frames, 3)
             unwrapped_positions_array = np.transpose(unwrapped_positions_array, (1, 0, 2))
             num_analyzed_frames = unwrapped_positions_array.shape[1]
-            dt = float(self.dt)
 
-            max_tau = num_analyzed_frames
+            max_tau_idx = int(self.correlation_depth + 1)
+            max_tau_idx = min(max_tau_idx, num_analyzed_frames)
 
             msd_tau = []
             msd_x_tau = []
@@ -163,11 +218,8 @@ class MSDAnalysis:
             tau_times = []
 
             # Start from tau_idx = 1 to exclude tau = 0
-            for tau_idx in range(0, max_tau):
-                tau = tau_idx * dt
-                # convert from fs to ps
-                tau = tau / 1000
-                tau_times.append(tau)
+            for tau_idx in range(0, max_tau_idx):
+                tau_times.append(tau_idx * self.dt * an.frame_interval)
 
                 # Initialize accumulators for squared displacements
                 sq_disp_accum = []
@@ -211,23 +263,14 @@ class MSDAnalysis:
         axs[1, 0].plot(time_lags, msd_y, label=f"{species} Y")
         axs[1, 1].plot(time_lags, msd_z, label=f"{species} Z")
 
-        axs[0, 0].set(
-            xlabel="correlation time $\\tau$ / ps",
-            ylabel=f"<{label}> / \u00c5²",
-            title=f"Overall {label} for {species}",
-        )
-        axs[0, 1].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in X for {species}"
-        )
+        axs[0, 0].set(ylabel=f"<{label}(τ)> / \u00c5²", title=f"Overall {label} for {species}")
+        axs[0, 1].set(title=f"{label} in X for {species}")
         axs[1, 0].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Y for {species}"
+            xlabel="correlation time τ / ps", ylabel=f"<{label}(τ)> / \u00c5²", title=f"{label} in Y for {species}"
         )
-        axs[1, 1].set(
-            xlabel="correlation time $\\tau$ / ps", ylabel=f"<{label}> / \u00c5²", title=f"{label} in Z for {species}"
-        )
+        axs[1, 1].set(xlabel="correlation time τ / ps", title=f"{label} in Z for {species}")
 
         for ax in axs.flat:
-            ax.legend()
             ax.grid()
 
         plt.tight_layout()
@@ -235,14 +278,10 @@ class MSDAnalysis:
         plt.close(fig)
 
         # Save data to CSV
-        data = {
-            "time [fs]": time_lags,
-            label: msd,
-            f"{label} X": msd_x,
-            f"{label} Y": msd_y,
-            f"{label} Z": msd_z,
-        }
-        df = pd.DataFrame(data)
-        df.to_csv(f"{label.lower()}_{species}.csv", index=False, sep=";", header=True)
+
+        with open(f"{label.lower()}_{species}.csv", "w") as f:
+            f.write(f"#time [fs]; {label}; {label} X; {label} Y; {label} Z\n")
+            for i in range(len(time_lags)):
+                f.write(f"{time_lags[i]}; {msd[i]}; {msd_x[i]}; {msd_y[i]}; {msd_z[i]}\n")
 
         ddict.printLog(f"{label} data and plot for species '{species}' saved.")
