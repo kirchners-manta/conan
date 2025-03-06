@@ -166,8 +166,14 @@ class TrajectoryFile:
                         raise ValueError(f"Frame {frame_number} does not exist in the file.")
 
                     header = f.readline().strip().split()
-                    atom_id_pos = header.index("id") - 2
-                    atom_type_pos = header.index("element") - 2
+                    # Check if "element", "Element", or "type" is in the header
+                    try:
+                        atom_type_pos = header.index("element") - 2
+                    except ValueError:
+                        try:
+                            atom_type_pos = header.index("Element") - 2
+                        except ValueError:
+                            atom_type_pos = header.index("type") - 2
 
                     x_keywords = ["xu", "x", "ix"]
                     y_keywords = ["yu", "y", "iy"]
@@ -184,6 +190,7 @@ class TrajectoryFile:
                     atom_z_pos = find_index(header, z_keywords)
                     atom_mol_pos = header.index("mol") - 2 if "mol" in header else None
                     atom_charge_pos = header.index("q") - 2 if "q" in header else None
+                    atom_id_pos = header.index("id") - 2 if "id" in header else None
 
                     positions = {
                         "id": atom_id_pos,
@@ -223,7 +230,7 @@ class TrajectoryFile:
 
             df_frame = df_frame[["Element", "x", "y", "z", "Molecule", "Charge"]]
 
-        except (pd.errors.EmptyDataError, ValueError, IndexError) as e:
+        except (pd.errors.EmptyDataError, IndexError) as e:
             # Handle the case where the frame does not exist or cannot be read
             ddict.printLog(f"Warning: Could not read frame {frame_number}. Error: {e}")
             df_frame = pd.DataFrame()
@@ -319,9 +326,8 @@ class Molecule:
 
     def exclude_atom_kind(self, traj_file):
 
-        exclude_atom_kind = ["Na", "Zn", "Li", "D", "X"]
+        exclude_atom_kind = ["Na", "Zn", "Li", "Cl", "Br", "I", "D", "X"]
         neglect_atoms = []
-
         for atom in exclude_atom_kind:
             if any(traj_file.frame0["Element"] == atom):
                 exclude_atom = str(
@@ -360,6 +366,7 @@ class Molecule:
             (e1, e2): (covalent_radii[e1] + covalent_radii[e2]) * 1.15 for e1 in covalent_radii for e2 in covalent_radii
         }
 
+        # Remove neglected atoms
         for neg_atom in neglect_atoms:
             atoms = [atom for atom in atoms if atom["Element"] != neg_atom]
 
@@ -414,7 +421,9 @@ class Molecule:
         for molecule in molecules:
             molecule_symloop = []
             for atom in molecule:
-                molecule_symloop.append(atoms[atom]["Element"])
+                # Check if atoms has an entry for atoms (might not, as neglected atom is removed)
+                if atom < len(atoms) and atoms[atom] is not None:
+                    molecule_symloop.append(atoms[atom]["Element"])
             molecules_sym.append(molecule_symloop)
 
         molecule_bonds_sym = []
@@ -773,7 +782,7 @@ class Molecule:
         # Exchange all the entries in the 'Struc' column saying 'False' with 'Liquid'.
         traj_file.frame0.replace({"Struc": {"False": "Liquid"}}, inplace=True)
 
-        # Print the structure information .
+        # Print the structure information.
         ddict.printLog(f"\nTotal number of structures: {len(molecules_struc)}")
         ddict.printLog(f"Number of walls: {len(Walls)}")
         ddict.printLog(f"Number of pores: {len(CNTs)}\n")
@@ -1090,12 +1099,14 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     # Extract the header information
     header_line = frame.iloc[8, 0].split()
     headers = header_line[2:]
-
+    # Check if "element", "Element", or "type" is in the header
     try:
         atom_type_pos = headers.index("element")
     except ValueError:
-        atom_type_pos = headers.index("type")
-
+        try:
+            atom_type_pos = headers.index("Element")
+        except ValueError:
+            atom_type_pos = headers.index("type")
     try:
         atom_x_pos = headers.index("xu")
         atom_y_pos = headers.index("yu")
