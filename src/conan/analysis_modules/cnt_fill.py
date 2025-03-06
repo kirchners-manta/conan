@@ -39,7 +39,7 @@ def plot_and_save_results(masses_df, avg_mass, name):
     """
     fig, ax = plt.subplots()
 
-    ax.plot(masses_df.iloc[1:], label="Frame", color="#440154")
+    ax.plot(masses_df["Frame_masses"], label="Frame", color="#440154")
     ax.plot(masses_df["5_frame_average"], label="5 frame average", color="#21908C")
     ax.plot(masses_df["10_frame_average"], label="10 frame average", color="#5ec962")
     ax.plot(masses_df["50_frame_average"], label="50 frame average", color="#fde725")
