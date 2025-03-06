@@ -122,7 +122,6 @@ class MSDAnalysis:
 
         COM_frame_current[["X", "Y", "Z"]] -= com_box
 
-        # print(COM_frame_current.head())
         # Initialize previous positions (for the first frame)
         if self.counter == 1:
             for species in self.num_liq_species_dict:
@@ -130,22 +129,11 @@ class MSDAnalysis:
                     self.previous_positions[species] = np.zeros_like(self.unwrapped_positions_current[species])
                 self.previous_positions[species][:] = self.unwrapped_positions_current[species]
 
-            print("Previous positions initialized:")
-            for species in self.num_liq_species_dict:
-                print(f"Species {species}:", self.previous_positions[species])
-
         else:
             self.calculate_displacements(COM_frame_current)
 
         # Calculate displacements
         self.calculate_displacements(COM_frame_current)
-
-        if self.counter == 51:
-            print("Previous positions after first frame:")
-            for species in self.num_liq_species_dict:
-                print(f"Species {species}:", self.previous_positions[species])
-
-        # print(f"Frame {self.counter} analyzed.")
 
         # Store unwrapped positions (if not the first frame)
         for species in self.num_liq_species_dict:
