@@ -430,7 +430,9 @@ class Molecule:
         for molecule in molecule_bonds:
             molecule_bonds_symloop = []
             for bond in molecule:
-                molecule_bonds_symloop.append((atoms[bond[0]]["Element"], atoms[bond[1]]["Element"]))
+                # Check if atoms has an entry for atoms (might not, as neglected atom is removed)
+                if bond[0] < len(atoms) and bond[1] < len(atoms):
+                    molecule_bonds_symloop.append((atoms[bond[0]]["Element"], atoms[bond[1]]["Element"]))
             molecule_bonds_sym.append(molecule_bonds_symloop)
 
         # assign molecule numbers to the dataframe
