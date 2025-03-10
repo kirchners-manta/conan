@@ -307,14 +307,12 @@ class CNTload:
 
         # save the ring-ring distances and the radii of the CNTs
         pd_ring_ring_distances = pd.DataFrame(self.ring_ring_distances)
-        print(pd_ring_ring_distances)
         pd_ring_ring_distances.columns = ["Ring_ring_distances"]
         mean_ring_ring_distance = pd_ring_ring_distances["Ring_ring_distances"].mean()
         ddict.printLog(f"Mean distance between the rings: {mean_ring_ring_distance}")
         pd_ring_ring_distances.to_csv("ring_ring_distances.csv")
 
         pd_ring_radii = pd.DataFrame(self.ring_radii)
-        # print(pd_ring_radii)
         pd_ring_radii.columns = ["Ring_radii"]
         mean_ring_radii = pd_ring_radii["Ring_radii"].mean()
         ddict.printLog(f"Mean radius of the CNT: {mean_ring_radii}")
