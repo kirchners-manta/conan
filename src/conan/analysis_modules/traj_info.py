@@ -362,13 +362,15 @@ class Molecule:
         neglect_atoms = self.neglect_atom_kind
 
         covalent_radii = ddict.dict_covalent()
+
         bond_distances = {
             (e1, e2): (covalent_radii[e1] + covalent_radii[e2]) * 1.15 for e1 in covalent_radii for e2 in covalent_radii
         }
 
-        # Remove neglected atoms
-        for neg_atom in neglect_atoms:
-            atoms = [atom for atom in atoms if atom["Element"] != neg_atom]
+        # go through all bond distances and set all distances to 0, where a neglect atom is involved
+        for key in bond_distances:
+            if key[0] in neglect_atoms or key[1] in neglect_atoms:
+                bond_distances[key] = 0
 
         # Add all atoms as nodes to the graph
         atom_positions = np.array([[atom["x"], atom["y"], atom["z"]] for atom in atoms]) % traj_file.box_size
@@ -422,8 +424,9 @@ class Molecule:
             molecule_symloop = []
             for atom in molecule:
                 # Check if atoms has an entry for atoms (might not, as neglected atom is removed)
-                if atom < len(atoms) and atoms[atom] is not None:
-                    molecule_symloop.append(atoms[atom]["Element"])
+                # if atom < len(atoms) and atoms[atom] is not None:
+                #    molecule_symloop.append(atoms[atom]["Element"])
+                molecule_symloop.append(atoms[atom]["Element"])
             molecules_sym.append(molecule_symloop)
 
         molecule_bonds_sym = []
@@ -431,8 +434,9 @@ class Molecule:
             molecule_bonds_symloop = []
             for bond in molecule:
                 # Check if atoms has an entry for atoms (might not, as neglected atom is removed)
-                if bond[0] < len(atoms) and bond[1] < len(atoms):
-                    molecule_bonds_symloop.append((atoms[bond[0]]["Element"], atoms[bond[1]]["Element"]))
+                # if bond[0] < len(atoms) and bond[1] < len(atoms):
+                #    molecule_bonds_symloop.append((atoms[bond[0]]["Element"], atoms[bond[1]]["Element"]))
+                molecule_bonds_symloop.append((atoms[bond[0]]["Element"], atoms[bond[1]]["Element"]))
             molecule_bonds_sym.append(molecule_bonds_symloop)
 
         # assign molecule numbers to the dataframe
