@@ -109,7 +109,7 @@ The following parameters may be required for the implemented analysis options
      - 0.00
      - 0.00
    * - X
-     - 0.00
+     - 1.00
      - 0.00
      - 0.00
 

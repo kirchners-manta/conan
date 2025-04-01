@@ -108,7 +108,7 @@ def dict_mass() -> dict:
         "Ag": 107.868,
         "Au": 196.967,
         "D": 0.00,
-        "X": 0.00,
+        "X": 1.00,
     }
     return elem_masses
 
