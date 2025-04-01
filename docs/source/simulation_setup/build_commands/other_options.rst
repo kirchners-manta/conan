@@ -7,25 +7,27 @@ Currently available structures:
 
 * graphene/boronnitride (creates a stack of sheets)
 * cnt (creates a periodic stack of parallel cnts)
-* pore (stacking not available)
 
-depending on which structure is stacked, different arguments and commands for further customization are available:
+Depending on which structure is stacked, different arguments and commands for further customization are available:
 
-* ``graphene/boronnitride stacking``
+graphene/boronnitride stacking
+-------------------------------
 
-* ``interlayer_spacing=``
+``interlayer_spacing``
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 the interlayer_spacing arg sets the distance between adjacent sheets Angstrom. the arg requires one floating point value.
 example: ``interlayer_spacing=5.0``. The default for graphene is ``interlayer_spacing=3.35``,  the default for boronnitride ``interlayer_spacing=3.5``.
 graphene will have ABA stacking and boronnitride will have AA' stacking.
 
-* ``number_of_layers=``
+``number_of_layers``
+^^^^^^^^^^^^^^^^^^^^^
 
 the number_of_layers arg sets the number of sheets that the stack will contain. the arg requires one integer value.
 example: ``number_of_layers=5``.
 
 
-example build:
+Example build:
 
 .. code-block:: none
 
@@ -39,16 +41,19 @@ will yield the following structure:
    :width: 40%
    :alt: Graphene_stacked
 
-* ``cnt stacking``
+cnt stacking
+------------
 
-cnt stacking will create a periodic boox of parallel cnts
+Cnt stacking will create a periodic boox of parallel cnts
 
-* ``multiplicity=``
+``multiplicity``
+^^^^^^^^^^^^^^^^^
 
 the multiplicity arg sets the number of unit cells in x and y directions. the arg requires two integer values.
 example: ``multiplicity=2 3``.
 
-* ``tube_distance=``
+``tube_distance=``
+^^^^^^^^^^^^^^^^^^
 
 the tube_distance arg sets the distance between parallel tubes in Angstrom. the arg requires one floating point value.
 example: ``tube_distance=1.0``.
@@ -67,3 +72,19 @@ will yield the following structure:
 .. image:: ../../pictures/cnt_stacked.png
    :width: 40%
    :alt: cnt_stacked
+
+
+add
+===
+
+the add command is used to place functional groups at a specific position. Functional groups are
+taken from the .xyz files in /current_version/structures/ and selected with the ``group`` argument. ``group=OH`` will search for
+a file called "OH.xyz" in the structures folder and add its contents to the sheet. The position can be specified using the ``position``,
+which takes in the index of the atom the group should be placed on. When using VMD the indices can be shown using the ``vmd show_index`` command in conan.
+The command tries to take into account the local topology of the structure, so placements on curved surfaces (like the inside of a Pore) are possible.
+
+
+undo
+====
+
+The last command can be reset using the ``undo`` command.
