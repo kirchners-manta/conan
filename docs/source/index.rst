@@ -48,8 +48,9 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :caption: Trajectory analysis
    :maxdepth: 3
 
-   analysis/dens_prof
-   analysis/Coordination_number
+   analysis/specific_analyses
+   analysis/coordination_number
+   analysis/msd
 
 
 .. toctree::
