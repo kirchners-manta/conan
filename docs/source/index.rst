@@ -49,6 +49,7 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :maxdepth: 3
 
    analysis/specific_analyses
+   analysis/density
    analysis/coordination_number
    analysis/msd
 
