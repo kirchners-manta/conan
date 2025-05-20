@@ -1,6 +1,14 @@
 functionalize
 =============
 
+.. note::
+   The functionalize command is only available if the program was built using the development version of CONAN.
+   To do this, please reinstall CONAN with the following command. For more information please visit the GitHub page of CONAN.
+
+.. code-block:: none
+
+      pip install -e '.[dev]'
+
 The functionalize command is used to place a specified number of functional groups on the structure.
 Functional groups are taken from the .xyz files in ``/current_version/build_modules/structure_lib/`` and selected with the ``group`` argument.
 ``group=OH`` will search for a file named "OH.xyz" in the ``structure_lib/`` directory and add its contents to the sheet.
