@@ -19,7 +19,7 @@ pip install .
 ### For development use
 To install the development package
 ```bash
-pip install -e '.[dev]'.
+pip install -e '.[dev]'
 ```
 After installing the package, set the pre-commit hooks with the following command
 ```bash
