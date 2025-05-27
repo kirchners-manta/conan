@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
 import networkx as nx
-
-# check if a given point is within a cylinder
 import numpy as np
 import pandas as pd
 
@@ -10,27 +8,30 @@ import conan.analysis_modules.traj_info as traj_info
 import conan.defdict as ddict
 
 
+def cnt_loading_mass(traj_file, molecules, an):
+    clm = CNTload(traj_file, molecules, an)
+    clm.cnt_loading_mass_prep()
+    traj_an.process_trajectory(traj_file, molecules, an, clm)
+    clm.cnt_loading_mass_processing()
+
+
 def points_in_cylinder(pt1, pt2, r, atom_positions):
     pt1 = np.asarray(pt1, dtype=np.float64)
     pt2 = np.asarray(pt2, dtype=np.float64)
     atom_positions = np.asarray(atom_positions, dtype=np.float64)
 
+    # set up vector
     vec = pt2 - pt1
-    vec /= np.linalg.norm(vec)  # Normalize axis vector
-    proj = np.dot(atom_positions - pt1, vec)  # Projection along CNT axis
+    # Normalize axis vector
+    vec /= np.linalg.norm(vec)
+    # Projection along CNT axis
+    proj = np.dot(atom_positions - pt1, vec)
 
     radial_dist = np.linalg.norm((atom_positions - pt1) - np.outer(proj, vec), axis=1)
 
     within_cylinder = np.logical_and.reduce((proj >= 0, proj <= np.linalg.norm(pt2 - pt1), radial_dist <= r))
 
     return within_cylinder
-
-
-def cnt_loading_mass(traj_file, molecules, an):
-    clm = CNTload(traj_file, molecules, an)
-    clm.cnt_loading_mass_prep()
-    traj_an.process_trajectory(traj_file, molecules, an, clm)
-    clm.cnt_loading_mass_processing()
 
 
 def plot_and_save_results(masses_df, avg_mass, name):

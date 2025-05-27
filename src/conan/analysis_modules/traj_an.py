@@ -6,6 +6,7 @@ import pandas as pd
 import conan.analysis_modules.axial_dens as axdens
 import conan.analysis_modules.cnt_fill as cnt_fill
 import conan.analysis_modules.coordination_number as cn
+import conan.analysis_modules.flex_rad_dens as flex_raddens
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
@@ -61,6 +62,8 @@ def run_analysis(traj_file, molecules, maindict):
         msd.msd_analysis(traj_file, molecules, an)
     elif an.choice2 == 11:
         cnt_fill.cnt_loading_mass(traj_file, molecules, an)
+    elif an.choice2 == 12:
+        flex_raddens.flex_rad_dens(traj_file, molecules, an)
 
 
 class Analysis:
@@ -89,9 +92,9 @@ class Analysis:
         ddict.printLog("(9) Calculate the velocity along the axes.")
         ddict.printLog("(10) Calculate the mean square displacement of the liquid in the CNT.")
         ddict.printLog("(11) Calculate the mass of the liquid inside a CNT.")
-
+        ddict.printLog("(12) Calculate the radial mass density of the liquid inside a flexible CNT.")
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)
