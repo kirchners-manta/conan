@@ -153,6 +153,7 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     regional_q, regions = an.region_question(traj_file)
     analysis_option.regional_q = regional_q
     analysis_option.regions = regions
+    analysis_option.analysis_spec_molecule = analysis_spec_molecule
     start_frame, frame_interval = an.frame_question(traj_file)
 
     Main_time = time.time()

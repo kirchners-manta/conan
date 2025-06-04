@@ -398,9 +398,14 @@ class CoordinationNumberAnalysis:
         distances = utils.minimum_image_distance(box_dimension, mol_com_reference, mol_com)
 
         # Create a mask to filter the distances
-        mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
-            distances <= coord_dist
-        )
+        # If a specific molecule is requested, we can save pairs involving the same species
+        # If no specific molecule is requested this would be too much data so we filter it out
+        if self.analysis_spec_molecule == "n":
+            mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
+                distances <= coord_dist
+            )
+        else:
+            mask = distances <= coord_dist
 
         # Get the indices of the filtered distances
         indices = np.where(mask)
@@ -624,9 +629,14 @@ class CoordinationNumberAnalysis:
         distances = utils.minimum_image_distance(box_dimension, mol_com_reference, mol_com)
 
         # Create a mask to filter the distances
-        mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
-            distances <= coord_dist
-        )
+        # If a specific molecule is requested, we can save pairs involving the same species
+        # If no specific molecule is requested this would be too much data so we filter it out
+        if self.analysis_spec_molecule == "n":
+            mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
+                distances <= coord_dist
+            )
+        else:
+            mask = distances <= coord_dist
 
         # Get the indices of the filtered distances
         indices = np.where(mask)
@@ -678,12 +688,12 @@ class CoordinationNumberAnalysis:
             # Filter distances for the current frame
             frame_distances = chunk_distances_df[chunk_distances_df["Frame"] == frame]
 
-            # Create an empty list to store the data
-            coord_data = []
-
             # initialize Zbin (holds the distance to the next structure)
             # now so we do not have to initialize it inside the
             # loop
+
+            # Create an empty list to store the data
+            coord_data = []
 
             for species_pair in frame_distances[["Species1", "Species2"]].drop_duplicates().values:
 
@@ -726,7 +736,6 @@ class CoordinationNumberAnalysis:
                             **dict(zip(coord_bin_edges[:-1], counts)),
                         }
                     )
-
         # convert coord_data into a pandas DataFrame for further processing
         coord_df = pd.DataFrame(coord_data)
 
@@ -949,9 +958,14 @@ class CoordinationNumberAnalysis:
         distances = utils.minimum_image_distance(box_dimension, mol_com_reference, mol_com)
 
         # Create a mask to filter the distances
-        mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
-            distances <= coord_dist
-        )
+        # If a specific molecule is requested, we can save pairs involving the same species
+        # If no specific molecule is requested this would be too much data so we filter it out
+        if self.analysis_spec_molecule == "n":
+            mask = (mol_com_reference["Species"].values[:, np.newaxis] != mol_com["Species"].values) & (
+                distances <= coord_dist
+            )
+        else:
+            mask = distances <= coord_dist
 
         # Get the indices of the filtered distances
         indices = np.where(mask)
