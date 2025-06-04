@@ -693,13 +693,17 @@ class Molecule:
                     "No frozen structures were found in the simulation box. \n",
                     color="red",
                 )
-                define_struc = ddict.get_input("Manually define structures? [y/n]: ", traj_file.args, "str")
-                if define_struc == "n":
+                manually_define_struc = ddict.get_input("Manually define structures? [y/n]: ", traj_file.args, "str")
+                if manually_define_struc == "n":
                     sys.exit()
             spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
             structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
-
-            # output["unique_molecule_frame"] = self.unique_molecule_frame
+        else:
+            # User should be able to manually define structures anyways if the recognition was bad
+            manually_define_struc = ddict.get_input("Manually define structures? [y/n]: ", traj_file.args, "str")
+            if manually_define_struc == "y":
+                spec_molecule = molecule_choice(traj_file.args, traj_file.frame0, 2)
+                structure_frame = traj_file.frame0[traj_file.frame0["Species"].isin(spec_molecule)].copy()
 
         # convert atom information to a list of dictionaries
         str_atom_list = []
