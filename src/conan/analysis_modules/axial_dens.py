@@ -533,7 +533,9 @@ class DensityAnalysis:
         self.grid_point_chunk_atom_labels = [Counter() for _ in range(len(grid_points))]
 
         self.print_pngs = False
-        print_pngs = ddict.get_input("Should CONAN print .png files of the plots? [y/n] ", self.traj_file.args, "string")
+        print_pngs = ddict.get_input(
+            "Should CONAN print .png files of the plots? [y/n] ", self.traj_file.args, "string"
+        )
         if print_pngs == "y":
             self.print_pngs = "True"
 
@@ -641,7 +643,7 @@ class DensityAnalysis:
 
         # Plot afterwards so that if anything happens at least the user
         # has all the raw data
-        if(self.print_pngs):
+        if self.print_pngs:
             self.plot_data("X", x_dens_profile)
             self.plot_data("Y", y_dens_profile)
             self.plot_data("Z", z_dens_profile)
@@ -662,7 +664,7 @@ class DensityAnalysis:
         )
 
         df.to_csv(f"{axis}_dens_profile.csv", sep=";", index=False, header=True, float_format="%.5f")
-        print(f"{axis}-density profile saved as {axis}_dens_profile.csv")       
+        print(f"{axis}-density profile saved as {axis}_dens_profile.csv")
 
     def plot_data(self, axis, profile):
         if axis == "X":
