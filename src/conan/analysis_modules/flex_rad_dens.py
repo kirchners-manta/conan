@@ -356,7 +356,6 @@ class FlexRadDens:
             results_df["Density [u/Ang^3]"] = results_df["Mass"] / results_df["Volume"]
             results_df["Density [g/cm^3]"] = results_df["Density [u/Ang^3]"] * 1.66053907
 
-            print(results_df)
             # Reset index and add bin numbers
             results_df.reset_index(drop=True, inplace=True)
             results_df.insert(0, "Bin", results_df.index + 1)
