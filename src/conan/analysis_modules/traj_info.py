@@ -553,7 +553,7 @@ class Molecule:
                 # aslo change the label to "'Element'1" for these atoms
                 frame0.at[i, "Label"] = f"{row['Element']}1"
 
-        # The 'Species' column currently is of type 'object' we change it to 'int' for later calculations
+        # The 'Species' column currently is of type 'object' change it to 'int' for later calculations
         frame0["Species"] = frame0["Species"].astype(int)
 
         # Add correct atom label to the newly adde species in unique_molecule_frame
