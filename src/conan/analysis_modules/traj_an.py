@@ -194,17 +194,20 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
+        
         # Run chunk processing for certain analysis options
         if isinstance(analysis_option, cn.CoordinationNumberAnalysis):
             analysis_option.proc_chunk()
 
-        time_per_frame = (time.time() - Main_time) / proc_frames
-        remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
-        remaining_time = time_per_frame * remaining_frames
-        print(
-            f"\nTime per frame: {time_per_frame:.2f} s,",
-            f" Remaining time: {remaining_time:.2f} s ({remaining_time / 60:.2f} min)",
-        )
+        # Avoid division by 0 if analysis is started on a frame that lies outside of the first chunk
+        if proc_frames is not 0:
+            time_per_frame = (time.time() - Main_time) / proc_frames
+            remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
+            remaining_time = time_per_frame * remaining_frames
+            print(
+                f"\nTime per frame: {time_per_frame:.2f} s,",
+                f" Remaining time: {remaining_time:.2f} s ({remaining_time / 60:.2f} min)",
+            )
 
     analysis_option.proc_frames = proc_frames
     ddict.printLog(f"\n\nFinished processing the trajectory in {time.time() - Main_time:.2f} seconds.\n")
