@@ -13,6 +13,7 @@ import conan.analysis_modules.traj_info as traj_info
 import conan.analysis_modules.velocity as vel
 import conan.analysis_modules.xyz_output as xyz
 import conan.defdict as ddict
+import conan.analysis_modules.utils as ut
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
@@ -231,6 +232,9 @@ def prepare_frame(
     set_struc_analysis = [10, 11]
     if an.choice2 not in set_struc_analysis:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+
+    # Wrap coordinates into the simulation box using PBC
+    split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
 
     if regional_q == "y":
         split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]
