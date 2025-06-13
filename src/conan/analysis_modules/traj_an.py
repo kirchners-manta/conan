@@ -118,7 +118,6 @@ class Analysis:
 
     def region_question(self, traj_file) -> tuple:
         """Question for the user if the calculation should be performed in a specific region."""
-
         self.regional_q = ddict.get_input(
             "Do you want the calculation to be performed in a specific region? [y/n] ", traj_file.args, "string"
         )
@@ -151,7 +150,8 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     proc_frames = 0
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
-    regional_q, regions = an.region_question(traj_file)
+    if an.choice2 in [1,2,3,4,5,6,7,8]:
+        regional_q, regions = an.region_question(traj_file)
     analysis_option.regional_q = regional_q
     analysis_option.regions = regions
     analysis_option.analysis_spec_molecule = analysis_spec_molecule
@@ -233,10 +233,11 @@ def prepare_frame(
     if an.choice2 not in set_struc_analysis:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
 
-    # Wrap coordinates into the simulation box using PBC
-    split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
+    
 
     if regional_q == "y":
+        # Wrap coordinates into the simulation box using PBC
+        split_frame = ut.wrapping_coordinates(traj_file.box_size, split_frame)
         split_frame = split_frame[split_frame["X"].astype(float) >= regions[0]]
         split_frame = split_frame[split_frame["X"].astype(float) <= regions[1]]
         split_frame = split_frame[split_frame["Y"].astype(float) >= regions[2]]
