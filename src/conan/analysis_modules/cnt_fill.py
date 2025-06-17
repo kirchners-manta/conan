@@ -158,9 +158,7 @@ class CNTload:
         """
         ddict.printLog(
             "\nTo ensure that the program delivers correct results,"
-            " it must be ensured that all atoms are wrapped molecule wise in the simulation box"
-            " and that the CNT does not cross the PBC boundaries."
-            " For pre-processing, please use e.g. Travis.\n",
+            " please make sure the simulation box dimensions are at least twice the diameter of a given CNT\n",
             color="red",
         )
 
@@ -321,7 +319,7 @@ class CNTload:
 
                 ddict.printLog(
                     f"Periodic CNT {i}, Ring radius: {np.round(dist_ring,3)},",
-                    " Virtual distance: {np.round(pair_dist,3)}, number of atoms of: {len(ring1)}",
+                    f" Virtual distance: {np.round(pair_dist,3)}, number of atoms of: {len(ring1)}",
                 )
 
             print(f"Number of CNTs: {len(mol_rings)}")

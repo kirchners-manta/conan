@@ -240,11 +240,18 @@ def prepare_frame(
         split_frame = split_frame[split_frame["Z"].astype(float) <= regions[5]]
 
     if analysis_spec_molecule == "y":
-        split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
-        # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
+        # filter liquid molecules
+        liquid_mask = split_frame["Struc"] == "Liquid"
+        # Create a boolean filter mask that keeps rows of structure atoms
+        # and filters the liquid atoms which are to be analyzed
+        species_mask = ~liquid_mask | (liquid_mask & split_frame["Species"].isin(spec_molecule))
+        split_frame = split_frame[species_mask]
+
+        # If specific atoms are requested, only apply atom filtering to liquid molecules
         if spec_atom[0] != "all":
-            # If specific atoms are requested, only these atoms are kept.
-            split_frame = split_frame[split_frame["Label"].isin(spec_atom)]
+            # Create a filter mask that keeps non-liquid rows and filters liquid rows by atom label
+            atom_mask = ~(split_frame["Struc"] == "Liquid") | split_frame["Label"].isin(spec_atom)
+            split_frame = split_frame[atom_mask]
 
     return split_frame
 
