@@ -10,10 +10,10 @@ import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
 import conan.analysis_modules.traj_info as traj_info
+import conan.analysis_modules.utils as ut
 import conan.analysis_modules.velocity as vel
 import conan.analysis_modules.xyz_output as xyz
 import conan.defdict as ddict
-import conan.analysis_modules.utils as ut
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning, module="numpy.core.fromnumeric")
@@ -150,7 +150,7 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     proc_frames = 0
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
-    if an.choice2 in [1,2,3,4,5,6,7,8]:
+    if an.choice2 in [1, 2, 3, 4, 5, 6, 7, 8]:
         regional_q, regions = an.region_question(traj_file)
     analysis_option.regional_q = regional_q
     analysis_option.regions = regions
@@ -195,13 +195,13 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
                 "Processed frame %d (frame %d of %d)" % (proc_frames, frame_counter, traj_file.number_of_frames),
                 end="\r",
             )
-        
+
         # Run chunk processing for certain analysis options
         if isinstance(analysis_option, cn.CoordinationNumberAnalysis):
             analysis_option.proc_chunk()
 
         # Avoid division by 0 if analysis is started on a frame that lies outside of the first chunk
-        if proc_frames is not 0:
+        if proc_frames != 0:
             time_per_frame = (time.time() - Main_time) / proc_frames
             remaining_frames = (traj_file.number_of_frames - frame_counter) / frame_interval
             remaining_time = time_per_frame * remaining_frames
@@ -232,8 +232,6 @@ def prepare_frame(
     set_struc_analysis = [10, 11]
     if an.choice2 not in set_struc_analysis:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
-
-    
 
     if regional_q == "y":
         # Wrap coordinates into the simulation box using PBC
