@@ -153,11 +153,14 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     proc_frames = 0
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
+    analysis_option.analysis_spec_molecule = analysis_spec_molecule
+
+    regional_q = "n"
+    regions = [0] * 6
     if an.choice2 in [1, 2, 3, 4, 5, 6, 7, 8]:
         regional_q, regions = an.region_question(traj_file)
-    analysis_option.regional_q = regional_q
-    analysis_option.regions = regions
-    analysis_option.analysis_spec_molecule = analysis_spec_molecule
+        analysis_option.regional_q = regional_q
+        analysis_option.regions = regions
     start_frame, frame_interval = an.frame_question(traj_file)
 
     Main_time = time.time()
@@ -231,10 +234,11 @@ def prepare_frame(
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    # analysis which need the structure positions:
+    # analysis which need the structure positions and all atoms:
     set_struc_analysis = [10, 11, 12]
+
     if an.choice2 not in set_struc_analysis:
-        split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+        split_frame = split_frame[split_frame["Struc"] == "Liquid"]
 
     if regional_q == "y":
         # Wrap coordinates into the simulation box using PBC
@@ -253,8 +257,6 @@ def prepare_frame(
         # and filters the liquid atoms which are to be analyzed
         species_mask = ~liquid_mask | (liquid_mask & split_frame["Species"].isin(spec_molecule))
         split_frame = split_frame[species_mask]
-
-        # If specific atoms are requested, only apply atom filtering to liquid molecules
         if spec_atom[0] != "all":
             # Create a filter mask that keeps non-liquid rows and filters liquid rows by atom label
             atom_mask = ~(split_frame["Struc"] == "Liquid") | split_frame["Label"].isin(spec_atom)

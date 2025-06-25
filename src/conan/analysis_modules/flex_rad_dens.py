@@ -158,8 +158,22 @@ class FlexRadDens:
         cnts_dataframes = {}
         # set up the dict to store the number of increments for each CNT
         self.num_increments = {}
+        same_max_distance_q = ddict.get_input(
+            "Do you want to use the same maximum displacement for all CNTs to compute the density profiles? (y/n) ",
+            self.traj_file.args,
+            "string",
+        )
+
+        if same_max_distance_q.lower() == "y":
+            max_distance = ddict.get_input(
+                "What is the maximum distance you want to use for all CNTs? [Å] ", self.traj_file.args, "float"
+            )
+
         for cnt_id, pair_list in cnt_load.cnt_data.items():
-            tuberadius = pair_list[0]["ring_radius"]
+            if same_max_distance_q.lower() == "y":
+                tuberadius = max_distance
+            else:
+                tuberadius = pair_list[0]["ring_radius"]
             ddict.printLog(f"\n-> CNT {cnt_id} with radius {tuberadius:.3f} angstrom")
             self.num_increments[cnt_id] = int(
                 ddict.get_input(
@@ -177,7 +191,7 @@ class FlexRadDens:
             data = {"Frame": np.arange(1, self.traj_file.number_of_frames + 1)}
             # Add columns for each bin
             for i in range(self.num_increments[cnt_id]):
-                data["Bin %d" % (i + 1)] = np.zeros(self.traj_file.number_of_frames)
+                data["Bin %d" % (i + 1)] = np.zeros(self.traj_file.number_of_frames, dtype=float)
             cnts_dataframes[cnt_id] = pd.DataFrame(data)
 
         self.cnts_bin_edges = cnts_bin_edges
@@ -309,7 +323,7 @@ class FlexRadDens:
                 if radial_distances.size > 0:
                     counts, _ = np.histogram(radial_distances, bins=bin_edges, weights=inside_atoms_masses)
                     for b in range(self.num_increments[cnt_id]):
-                        self.cnts_dataframes[cnt_id].iat[frame_counter - 1, b] = counts[b]
+                        self.cnts_dataframes[cnt_id].iat[frame_counter - 1, b + 1] = float(counts[b])
 
         self.proc_frame_counter += 1
 
