@@ -293,11 +293,11 @@ class FlexRadDens:
 
                 atom_xyz = atom_positions[:, :3].astype(float)
 
-                # compute midpoint M and half‐length ℓ
+                # compute midpoint M and half‐length
                 M = 0.5 * (ring1_array + ring2_array)
                 half = 0.5 * np.linalg.norm(ring2_array - ring1_array)
 
-                # compute delta = atom_xyz − M
+                # compute distance fora ll atoms
                 delta = atom_xyz - M
 
                 # minimum-image for each dimension
@@ -305,18 +305,18 @@ class FlexRadDens:
                 delta[:, 1] -= box_size[1] * np.round(delta[:, 1] / box_size[1])
                 delta[:, 2] -= box_size[2] * np.round(delta[:, 2] / box_size[2])
 
-                # project onto axis u
+                # project this back onto the axis
                 proj = np.dot(delta, cnt_axis)
 
-                # radial distances
+                # compute the radial distances
                 radial_vecs = delta - np.outer(proj, cnt_axis)
                 radial = np.linalg.norm(radial_vecs, axis=1)
 
-                # boolean mask for inside cylinder:
+                # boolean mask for inside cylinder
                 # |proj| ≤ half AND radial ≤ dist_ring
                 inside_cylinder = (np.abs(proj) <= half) & (radial <= dist_ring)
 
-                # collect masses & radial distances
+                # finally get the masses & radial distances
                 inside_atoms_masses = atom_positions[inside_cylinder, 3].astype(float)
                 radial_distances = radial[inside_cylinder]
 
