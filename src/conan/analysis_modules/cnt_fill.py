@@ -318,8 +318,8 @@ class CNTload:
                 self.cnt_data[i] = cnt_pair_data
 
                 ddict.printLog(
-                    f"Periodic CNT {i}, Ring radius: {np.round(dist_ring,3)},",
-                    f" Virtual distance: {np.round(pair_dist,3)}, number of atoms of: {len(ring1)}",
+                    f"Periodic CNT {i}, Ring radius: {np.round(dist_ring, 3)},",
+                    f" Virtual distance: {np.round(pair_dist, 3)}, number of atoms of: {len(ring1)}",
                 )
 
             print(f"Number of CNTs: {len(mol_rings)}")
@@ -425,8 +425,8 @@ class CNTload:
                         }
                     )
                     ddict.printLog(
-                        f"CNT {cid}, Ring pair ({r1_key}:{r2_key}) => radius: {np.round(dist_ring,3)}",
-                        ", distance: {np.round(pair_dist,3)}",
+                        f"CNT {cid}, Ring pair ({r1_key}:{r2_key}) => radius: {np.round(dist_ring, 3)}",
+                        f", distance: {np.round(pair_dist, 3)}",
                     )
                 self.cnt_data[cid] = cnt_pair_data
 
