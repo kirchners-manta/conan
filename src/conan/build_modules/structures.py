@@ -871,17 +871,37 @@ class Structure2d(Structure):
         Args:
             selected_position (List[float]): The position to add the group to.
         """
-        added_group = self.group_list[0].remove_anchors()
-        # randomly rotate the group
-        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
-        # shift the coordinates to the selected position
-        for atom in new_atom_coordinates:
-            atom[1] += selected_position[0]
-            atom[2] += selected_position[1]
-            atom[3] += selected_position[2]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
-        new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
-        self._structure_df = pd.concat([self._structure_df, new_atoms_df])
+        # Grab the first FunctionalGroup and its atom positions
+        group = self.group_list[0]
+        atom_list = list(group.atom_positions)  # List of (element, x, y, z)
+
+        # Locate the first anchor atom labeled 'X'
+        anchors = [atom for atom in atom_list if atom[0] == "X"]
+        if not anchors:
+            raise ValueError("No anchor atom ('X') found in group to align to origin.")
+        anchor_x, anchor_y, anchor_z = anchors[0][1:]
+
+        # Translate all atoms so the anchor sits at the origin
+        centered = [(element, x - anchor_x, y - anchor_y, z - anchor_z) for element, x, y, z in atom_list]
+
+        # Drop the anchor entries
+        centered = [atom for atom in centered if atom[0] != "X"]
+
+        # Apply a random rotation around (0,0,0)
+        rotated = utils.random_rotate_group_list(centered)
+
+        # Shift the rotated group to the desired position
+        shifted = [
+            (element, x + selected_position[0], y + selected_position[1], z + selected_position[2])
+            for element, x, y, z in rotated
+        ]
+
+        # Build DataFrame and mark as functional
+        new_df = pd.DataFrame(shifted, columns=["Species", "x", "y", "z"])
+        new_df["group"] = "functional"
+
+        # Append into the main structure
+        self._structure_df = pd.concat([self._structure_df, new_df], ignore_index=True)
 
     def __remove_adjacent_positions(
         self,
