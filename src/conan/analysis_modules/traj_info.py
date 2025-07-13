@@ -565,6 +565,9 @@ class Molecule:
         unique_molecule_frame.sort_values("Molecule", inplace=True)
         unique_molecule_frame.reset_index(inplace=True, drop=True)
 
+        # Add a "species" column to the unique_molecule_frame dataframe, which is just the index + 1
+        unique_molecule_frame["Species"] = unique_molecule_frame.index + 1
+
         old_species_list = [0] * len(unique_molecule_frame)
         for i, row in unique_molecule_frame.iterrows():
             old_species_list[i] = frame0["Species"][row["Atoms"][0]]

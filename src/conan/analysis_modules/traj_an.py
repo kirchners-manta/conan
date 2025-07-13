@@ -6,6 +6,7 @@ import pandas as pd
 import conan.analysis_modules.axial_dens as axdens
 import conan.analysis_modules.cnt_fill as cnt_fill
 import conan.analysis_modules.coordination_number as cn
+import conan.analysis_modules.flex_angle as flex_ang
 import conan.analysis_modules.flex_rad_dens as flex_raddens
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
@@ -65,6 +66,8 @@ def run_analysis(traj_file, molecules, maindict):
         cnt_fill.cnt_loading_mass(traj_file, molecules, an)
     elif an.choice2 == 12:
         flex_raddens.flex_rad_dens(traj_file, molecules, an)
+    elif an.choice2 == 13:
+        flex_ang.flex_angle(traj_file, molecules, an)
 
 
 class Analysis:
@@ -95,7 +98,7 @@ class Analysis:
         ddict.printLog("(11) Calculate the mass of the liquid inside a CNT.")
         ddict.printLog("(12) Calculate the radial mass density of the liquid inside a flexible CNT.")
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)
@@ -235,9 +238,9 @@ def prepare_frame(
     split_frame["Label"] = traj_file.frame0["Label"]
 
     # analysis which need the structure positions and all atoms:
-    set_struc_analysis = [10, 11, 12]
+    no_struc_analysis = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-    if an.choice2 not in set_struc_analysis:
+    if an.choice2 in no_struc_analysis:
         split_frame = split_frame[split_frame["Struc"] == "Liquid"]
 
     if regional_q == "y":
