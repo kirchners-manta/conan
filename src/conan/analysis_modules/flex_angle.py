@@ -438,11 +438,10 @@ class FlexAngle(flexrd.FlexRadDens):
         vectors = []
         mol_coords = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
 
-        # Apply PBC correction to all coordinates relative to molecule center
-        corrected_coords = []
         # Use the first atom as reference for the molecule
         ref_coord = mol_coords[0]
-        corrected_coords.append(ref_coord)  # First atom stays as reference
+        corrected_coords = np.zeros_like(mol_coords)
+        corrected_coords[0] = ref_coord  # First atom stays as reference
 
         for i in range(1, len(mol_coords)):
             coord = mol_coords[i]
@@ -451,18 +450,20 @@ class FlexAngle(flexrd.FlexRadDens):
             delta[0] -= box_size[0] * np.round(delta[0] / box_size[0])
             delta[1] -= box_size[1] * np.round(delta[1] / box_size[1])
             delta[2] -= box_size[2] * np.round(delta[2] / box_size[2])
-            corrected_coords.append(ref_coord + delta)
-        corrected_coords = np.array(corrected_coords)
+            corrected_coords[i] = ref_coord + delta
 
-        # Now apply translation to CNT center coordinate system
-        final_coords = []
-        for coord in corrected_coords:
-            delta_to_center = coord - cnt_center
-            delta_to_center[0] -= box_size[0] * np.round(delta_to_center[0] / box_size[0])
-            delta_to_center[1] -= box_size[1] * np.round(delta_to_center[1] / box_size[1])
-            delta_to_center[2] -= box_size[2] * np.round(delta_to_center[2] / box_size[2])
-            final_coords.append(cnt_center + delta_to_center)
-        corrected_coords = np.array(final_coords)
+        # Apply PBC correction only to the reference atom relative to CNT center
+        ref_to_center = ref_coord - cnt_center
+        ref_to_center[0] -= box_size[0] * np.round(ref_to_center[0] / box_size[0])
+        ref_to_center[1] -= box_size[1] * np.round(ref_to_center[1] / box_size[1])
+        ref_to_center[2] -= box_size[2] * np.round(ref_to_center[2] / box_size[2])
+
+        # Calculate the corrected reference position
+        corrected_ref_pos = cnt_center + ref_to_center
+
+        # Translate all atoms by the same offset to preserve internal structure
+        translation_offset = corrected_ref_pos - ref_coord
+        corrected_coords += translation_offset
 
         for i in range(1, 3):  # Vector 1 and Vector 2
             vector_setup = self.vectors.get(i)
@@ -498,11 +499,11 @@ class FlexAngle(flexrd.FlexRadDens):
                 if len(corrected_coords) >= 2:
                     # Use first two atoms of the molecule
                     vector = corrected_coords[1] - corrected_coords[0]
-                    """
+
                     # Debug: Check bond length for sanity
                     bond_length = np.linalg.norm(vector)
                     if bond_length > 5.0:  # Suspiciously long bond (likely PBC issue)
-                        if not hasattr(self, '_debug_bond_count'):
+                        if not hasattr(self, "_debug_bond_count"):
                             self._debug_bond_count = 0
                         if self._debug_bond_count < 10:  # Limit debug output
                             ddict.printLog(f"Debug: Suspicious bond length {bond_length:.2f} Å detected")
@@ -510,7 +511,6 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog(f"  Corrected coords: {corrected_coords[0]} -> {corrected_coords[1]}")
                             self._debug_bond_count += 1
                         return None  # Skip this molecule if bond is too long
-                        """
                 else:
                     return None
 
@@ -531,6 +531,8 @@ class FlexAngle(flexrd.FlexRadDens):
                         if self._debug_bond_count < 10:
                             ddict.printLog(f"Debug: Suspicious bond length {max_bond_length:.2f} Å in mean vector")
                             ddict.printLog(f"  Bond lengths: {bond_lengths}")
+                            ddict.printLog(f"  Central atom: {central_atom}")
+                            ddict.printLog(f"  Other atoms: {corrected_coords[1:]}")
                             self._debug_bond_count += 1
                         return None  # Skip this molecule
 
@@ -634,11 +636,22 @@ class FlexAngle(flexrd.FlexRadDens):
         bin_edges = self.cnts_bin_edges[cnt_id]
 
         # Create figure with custom layout for marginal plots
-        fig = plt.figure(figsize=(9, 12))
-        fig.suptitle(f"Angle Distribution in CNT {cnt_id}", fontsize=24)
+        fig = plt.figure(figsize=(11, 12))
+        fig.suptitle(f"Angle Distribution in CNT {cnt_id}", fontsize=24, y=0.98)
 
         # Define the layout: left margin plot, main plots, and space for colorbar
-        gs = fig.add_gridspec(3, 3, width_ratios=[1, 4, 0.2], height_ratios=[1, 4, 1.5], hspace=0.1, wspace=0.05)
+        gs = fig.add_gridspec(
+            3,
+            3,
+            width_ratios=[1, 4, 0.2],
+            height_ratios=[1, 4, 1.5],
+            hspace=0.08,
+            wspace=0.1,
+            left=0.12,
+            bottom=0.08,
+            right=0.88,
+            top=0.90,
+        )
 
         ax_bottom = fig.add_subplot(gs[2, 1])  # Bottom: average angle vs radial position
         # Main heatmap (center)
@@ -669,7 +682,6 @@ class FlexAngle(flexrd.FlexRadDens):
             interpolation="nearest",
         )
 
-        ax_main.set_ylabel(r"$\theta$ / °", fontsize=19)
         ax_main.tick_params(labelbottom=False, labelleft=False, labelsize=16)  # Show y-axis labels, hide x-axis labels
         ax_main.grid(True, alpha=0.9, color="gray", linewidth=0.5)
 
@@ -747,7 +759,32 @@ class FlexAngle(flexrd.FlexRadDens):
         cbar.set_label("Count", fontsize=19)
         cbar.ax.tick_params(labelsize=16)
 
-        # Adjust layout
-        plt.tight_layout()
+        # Save the figure (layout is already handled by gridspec parameters)
         plt.savefig(f"CNT_{cnt_id}_angle_analysis.png", dpi=300, bbox_inches="tight")
         ddict.printLog(f"Angle analysis plots saved as CNT_{cnt_id}_angle_analysis.png")
+
+    def verify_molecular_integrity(self, corrected_coords, mol_coords, molecule_id=None):
+        """
+        Verify that the PBC-corrected coordinates maintain reasonable molecular geometry.
+        This is a debug/verification method.
+        """
+        if len(corrected_coords) < 2:
+            return True
+
+        # Check all pairwise distances in the molecule
+        max_reasonable_bond = 3.0  # Angstroms - adjust based on your system
+
+        for i in range(len(corrected_coords)):
+            for j in range(i + 1, len(corrected_coords)):
+                distance = np.linalg.norm(corrected_coords[i] - corrected_coords[j])
+                if distance > max_reasonable_bond:
+                    if not hasattr(self, "_integrity_check_count"):
+                        self._integrity_check_count = 0
+                    if self._integrity_check_count < 5:  # Limit output
+                        ddict.printLog(f"Warning: Large intramolecular distance {distance:.2f} Å")
+                        ddict.printLog(f"  Molecule {molecule_id}, atoms {i}-{j}")
+                        ddict.printLog(f"  Original: {mol_coords[i]} - {mol_coords[j]}")
+                        ddict.printLog(f"  Corrected: {corrected_coords[i]} - {corrected_coords[j]}")
+                        self._integrity_check_count += 1
+                    return False
+        return True
