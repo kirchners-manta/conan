@@ -395,13 +395,34 @@ class FlexAngle(flexrd.FlexRadDens):
             if vectors is not None and len(vectors) == 2:
                 vector1, vector2 = vectors
 
+                # Check for zero-length vectors which cause issues
+                v1_magnitude = np.linalg.norm(vector1)
+                v2_magnitude = np.linalg.norm(vector2)
+
+                # Skip molecules with very small vectors (likely numerical artifacts)
+                min_vector_threshold = 1e-6  # Minimum vector length threshold
+                if v1_magnitude < min_vector_threshold or v2_magnitude < min_vector_threshold:
+                    continue
+
                 # Calculate angle between the two vectors
-                cos_angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
+                cos_angle = np.dot(vector1, vector2) / (v1_magnitude * v2_magnitude)
                 # Clamp to avoid numerical errors
                 cos_angle = np.clip(cos_angle, -1.0, 1.0)
                 angle_rad = np.arccos(cos_angle)
                 angle_deg = np.degrees(angle_rad)
 
+                """
+                # Debug: Log suspicious angles for investigation (use a counter to limit output)
+                if angle_deg < 1.0 or angle_deg > 179.0:
+                    if not hasattr(self, '_debug_angle_count'):
+                        self._debug_angle_count = 0
+                    if self._debug_angle_count < 20:  # Only log first 20 suspicious angles
+                        ddict.printLog(f"Debug: Suspicious angle {angle_deg:.2f}° found for molecule {mol_id}")
+                        ddict.printLog(f"  Vector 1: {vector1} (magnitude: {v1_magnitude:.6f})")
+                        ddict.printLog(f"  Vector 2: {vector2} (magnitude: {v2_magnitude:.6f})")
+                        ddict.printLog(f"  cos_angle: {cos_angle:.6f}")
+                        self._debug_angle_count += 1
+                """
                 angles.append(angle_deg)
                 radial_positions.append(com_radial_distance)
 
@@ -417,15 +438,31 @@ class FlexAngle(flexrd.FlexRadDens):
         vectors = []
         mol_coords = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
 
-        # Apply PBC correction to all coordinates
+        # Apply PBC correction to all coordinates relative to molecule center
         corrected_coords = []
-        for coord in mol_coords:
-            delta = coord - cnt_center
+        # Use the first atom as reference for the molecule
+        ref_coord = mol_coords[0]
+        corrected_coords.append(ref_coord)  # First atom stays as reference
+
+        for i in range(1, len(mol_coords)):
+            coord = mol_coords[i]
+            delta = coord - ref_coord
+            # Apply minimum image convention for each component
             delta[0] -= box_size[0] * np.round(delta[0] / box_size[0])
             delta[1] -= box_size[1] * np.round(delta[1] / box_size[1])
             delta[2] -= box_size[2] * np.round(delta[2] / box_size[2])
-            corrected_coords.append(cnt_center + delta)
+            corrected_coords.append(ref_coord + delta)
         corrected_coords = np.array(corrected_coords)
+
+        # Now apply translation to CNT center coordinate system
+        final_coords = []
+        for coord in corrected_coords:
+            delta_to_center = coord - cnt_center
+            delta_to_center[0] -= box_size[0] * np.round(delta_to_center[0] / box_size[0])
+            delta_to_center[1] -= box_size[1] * np.round(delta_to_center[1] / box_size[1])
+            delta_to_center[2] -= box_size[2] * np.round(delta_to_center[2] / box_size[2])
+            final_coords.append(cnt_center + delta_to_center)
+        corrected_coords = np.array(final_coords)
 
         for i in range(1, 3):  # Vector 1 and Vector 2
             vector_setup = self.vectors.get(i)
@@ -461,6 +498,19 @@ class FlexAngle(flexrd.FlexRadDens):
                 if len(corrected_coords) >= 2:
                     # Use first two atoms of the molecule
                     vector = corrected_coords[1] - corrected_coords[0]
+                    """
+                    # Debug: Check bond length for sanity
+                    bond_length = np.linalg.norm(vector)
+                    if bond_length > 5.0:  # Suspiciously long bond (likely PBC issue)
+                        if not hasattr(self, '_debug_bond_count'):
+                            self._debug_bond_count = 0
+                        if self._debug_bond_count < 10:  # Limit debug output
+                            ddict.printLog(f"Debug: Suspicious bond length {bond_length:.2f} Å detected")
+                            ddict.printLog(f"  Original coords: {mol_coords[0]} -> {mol_coords[1]}")
+                            ddict.printLog(f"  Corrected coords: {corrected_coords[0]} -> {corrected_coords[1]}")
+                            self._debug_bond_count += 1
+                        return None  # Skip this molecule if bond is too long
+                        """
                 else:
                     return None
 
@@ -471,6 +521,19 @@ class FlexAngle(flexrd.FlexRadDens):
                     # Assume first atom is central (O), others are bonded (H)
                     central_atom = corrected_coords[0]
                     bond_vectors = corrected_coords[1:] - central_atom
+
+                    # Debug: Check bond lengths for sanity
+                    bond_lengths = np.linalg.norm(bond_vectors, axis=1)
+                    max_bond_length = np.max(bond_lengths)
+                    if max_bond_length > 5.0:  # Suspiciously long bond
+                        if not hasattr(self, "_debug_bond_count"):
+                            self._debug_bond_count = 0
+                        if self._debug_bond_count < 10:
+                            ddict.printLog(f"Debug: Suspicious bond length {max_bond_length:.2f} Å in mean vector")
+                            ddict.printLog(f"  Bond lengths: {bond_lengths}")
+                            self._debug_bond_count += 1
+                        return None  # Skip this molecule
+
                     vector = np.mean(bond_vectors, axis=0)
                 else:
                     return None
@@ -501,6 +564,16 @@ class FlexAngle(flexrd.FlexRadDens):
 
             # Convert to DataFrame for easier processing
             df = pd.DataFrame(angle_records)
+
+            ddict.printLog(f"  Total angles: {len(df)}")
+
+            # near_zero_angles = df[df['angle'] < 5.0]
+            # near_180_angles = df[df['angle'] > 175.0]
+            # ddict.printLog(f"  Angles < 5°: {len(near_zero_angles)} ({100*len(near_zero_angles)/len(df):.1f}%)")
+            # ddict.printLog(f"  Angles > 175°: {len(near_180_angles)} ({100*len(near_180_angles)/len(df):.1f}%)")
+
+            ddict.printLog(f"  Min angle: {df['angle'].min():.2f}°")
+            ddict.printLog(f"  Max angle: {df['angle'].max():.2f}°")
 
             # Create angle distribution for each radial bin
             num_radial_bins = len(self.cnts_bin_edges[cnt_id]) - 1
@@ -653,11 +726,11 @@ class FlexAngle(flexrd.FlexRadDens):
             avg_angles,
             yerr=std_angles,
             fmt="o-",
-            capsize=5,
-            capthick=2,
+            capsize=2,
+            capthick=1,
             color="darkblue",
-            markersize=10,
-            linewidth=4,
+            markersize=5,
+            linewidth=2,
         )
         ax_bottom.set_xlabel(r"$r_{rad}$ / Å", fontsize=19)
         ax_bottom.set_ylabel(r"$\langle\theta\rangle$ / °", fontsize=19)
@@ -677,6 +750,4 @@ class FlexAngle(flexrd.FlexRadDens):
         # Adjust layout
         plt.tight_layout()
         plt.savefig(f"CNT_{cnt_id}_angle_analysis.png", dpi=300, bbox_inches="tight")
-        plt.show()
-
         ddict.printLog(f"Angle analysis plots saved as CNT_{cnt_id}_angle_analysis.png")
