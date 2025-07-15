@@ -268,6 +268,7 @@ class Structure1d(Structure):
         # Method to construct the CNT based on provided parameters and keywords
         if self._build_CNT(parameters, keywords) is not None:
             self._print_data()
+        self._generate_graph()
 
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -297,7 +298,7 @@ class Structure1d(Structure):
             self._structure_df.iloc[parameters["position"], 2],  # Y coordinate
             self._structure_df.iloc[parameters["position"], 3],
         ]  # Z coordinate
-        self._add_group_on_position(position)  # Adds the group at the selected position
+        self._add_group_on_position(position, parameters["position"])  # Adds the group at the selected position
 
     # PRIVATE
     def _print_data(self):
@@ -313,7 +314,7 @@ class Structure1d(Structure):
 
         ddict.printLog(tube_table)
 
-    def _add_group_on_position(self, selected_position: List[float]):
+    def _add_group_on_position(self, selected_position: List[float], position_index):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
         orientation based on the local surface normal.
@@ -343,13 +344,13 @@ class Structure1d(Structure):
         max_z = self._structure_df.query('group == "Structure"')["z"].max()
         if selected_position[2] < self.bond_length:
             rotated_coordinates = self.rotate_around_cnt_opening(
-                selected_position, rotated_coordinates, orientation_vector
+                selected_position, position_index, rotated_coordinates, orientation_vector
             )
         elif selected_position[2] > (max_z - self.bond_length * 1.2):
             # if the group is placed at the other side of the cnt we need to multiply the orientation vector with -1.0
             # so that the group is rotated out of the cnt, not inside the cnt
             rotated_coordinates = self.rotate_around_cnt_opening(
-                selected_position, rotated_coordinates, orientation_vector * -1.0
+                selected_position, position_index, rotated_coordinates, orientation_vector * -1.0
             )
 
         # Shift the rotated coordinates so that they are correctly positioned at the selected location
@@ -569,29 +570,67 @@ class Structure1d(Structure):
     def rotate_around_cnt_opening(
         self,
         selected_position: List[float],
-        atom_coordinates: Tuple[str, float, float, float, str],
+        position_index: int,
+        atom_coordinates: List[Tuple[str, float, float, float, str]],
         orientation_vector: List[float],
-    ):
+    ) -> List[List]:
+        # We first rotate the group such that the orientation vector is parallel to the
+        # central axis of the cnt
+        orientation_vec = np.array(orientation_vector, dtype=float)
+        central_axis = np.array([0.0, 0.0, -float(self.center[2])], dtype=float)
 
-        central_axis = np.array(
-            [0.0, 0.0, (-1.0 * self.center[2])]
-        )  # difference vector between pore center and pore opening
+        rot_axis1 = np.cross(orientation_vec, central_axis)
+        rot_axis1 /= np.linalg.norm(rot_axis1)
+        angle1 = np.deg2rad(90)
 
-        # Get the axis around which we want to rotate the group and normalize it
-        rotational_axis = np.cross(orientation_vector, central_axis)
-        print(rotational_axis)
-        rotational_axis = rotational_axis / np.linalg.norm(rotational_axis)
+        intermediate: List[Tuple[str, float, float, float, str]] = []
+        for atom_id, x, y, z, atom_type in atom_coordinates:
+            v = np.array([x, y, z], dtype=float)
+            r1 = utils.rotate_3d_vector(v, rot_axis1, angle1)
+            intermediate.append((atom_id, r1[0], r1[1], r1[2], atom_type))
 
-        # We want to rotate the group by 90°
-        angle = np.deg2rad(90)
+        # We also need to rotate the orientation vector since we do another rotation
+        orientation1 = utils.rotate_3d_vector(orientation_vec, rot_axis1, angle1)
 
-        # apply rotation to all coordinates
-        rotated_coordinates = []
-        for atom in atom_coordinates:
-            rotated_coords = utils.rotate_3d_vector(np.array(atom[1:4]), rotational_axis, angle)
-            rotated_coordinates.append([atom[0], *rotated_coords, atom[-1]])
+        # Next we need to ensure that the angle of the functional group to the other adjacent C-atoms is
+        # 120° so that it fits to the honeycomb structure
+        nbrs = list(self.graph.neighbors(position_index))
+        atom_A_idx, atom_C_idx = nbrs[0], nbrs[1]
 
-        return rotated_coordinates
+        # pull A, B, C as true float arrays
+        A = self._structure_df.iloc[atom_A_idx, 1:4].to_numpy(dtype=float)
+        B = np.array(selected_position, dtype=float)
+        C = self._structure_df.iloc[atom_C_idx, 1:4].to_numpy(dtype=float)
+
+        vector_BA = A - B
+        vector_BC = C - B
+
+        # compute plane normal and normalize
+        axis2 = np.cross(vector_BA, vector_BC)
+        axis2 /= np.linalg.norm(axis2)
+
+        # project orientation1 into BA-BC plane
+        v1 = orientation1 - np.dot(orientation1, axis2) * axis2
+        v1 /= np.linalg.norm(v1)
+
+        # target direction at 120° to BA and BC
+        b_hat = vector_BA / np.linalg.norm(vector_BA)
+        c_hat = vector_BC / np.linalg.norm(vector_BC)
+        target = -(b_hat + c_hat)
+        target /= np.linalg.norm(target)
+        cosang = np.clip(np.dot(v1, target), -1.0, 1.0)
+        ang = np.arccos(cosang)
+        if np.dot(np.cross(v1, target), axis2) < 0:
+            ang = -ang
+
+        # apply second rotation
+        rotated_coordinates2: List[List] = []
+        for atom_id, x1, y1, z1, atom_type in intermediate:
+            v1_coord = np.array([x1, y1, z1], dtype=float)
+            r2 = utils.rotate_3d_vector(v1_coord, axis2, ang)
+            rotated_coordinates2.append([atom_id, r2[0], r2[1], r2[2], atom_type])
+
+        return rotated_coordinates2
 
     def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
