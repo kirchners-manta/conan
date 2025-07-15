@@ -44,10 +44,30 @@ class FlexAngle(flexrd.FlexRadDens):
         # Call the parent class preparation method
         super().flex_rad_dens_prep()
 
+        ddict.printLog("\n" + "=" * 80)
+        ddict.printLog("ANGLE ANALYSIS SETUP")
+        ddict.printLog("=" * 80)
+        ddict.printLog("The radial bin position is set through the center of mass (COM)")
+        ddict.printLog("=" * 80)
+
+        # 1. Set up the reference molecule
+        ddict.printLog("\n1. REFERENCE MOLECULE SETUP")
+        ddict.printLog("-" * 40)
+        self.setup_target_molecule()
+
+        # 2. Set up the vectors
+        ddict.printLog("\n2. VECTOR SETUP")
+        ddict.printLog("-" * 40)
         self.vector_setup()
 
-        # Add angle-specific preparation here
+        # 3. Set up the angle incrementation
+        ddict.printLog("\n3. ANGLE INCREMENTATION SETUP")
+        ddict.printLog("-" * 40)
         self.setup_angle_bins()
+
+        ddict.printLog("\n" + "=" * 80)
+        ddict.printLog("ANGLE ANALYSIS SETUP COMPLETE")
+        ddict.printLog("=" * 80)
 
     def setup_angle_bins(self):
         """
@@ -82,31 +102,70 @@ class FlexAngle(flexrd.FlexRadDens):
         """
         vector_choices = [1, 2, 3, 4]
         vectors = {}
-        ddict.printLog(
-            "\nChoose the vector setup for the angle calculation:\n"
-            "1. CNT center axis direction\n"
-            "2. Connection from CNT center to atom\n"
-            "3. Connection between two atoms\n"
-            "4. Mean of bond vectors (e.g., for H2O)\n"
-        )
+        vector_configs = {}  # Store additional configuration for each vector
+
+        ddict.printLog("Available vector types:")
+        ddict.printLog("  1. CNT center axis direction")
+        ddict.printLog("  2. Connection from CNT center to atom")
+        ddict.printLog("  3. Connection between two atoms")
+        ddict.printLog("  4. Mean of bond vectors (e.g., for H2O)")
 
         for i in range(1, 3):
+            ddict.printLog(f"\nSetting up Vector {i}:")
             while True:
                 vector_choice = ddict.get_input(f"Choose setup for vector {i} (1-4): ", self.traj_file.args, "int")
                 if vector_choice in vector_choices:
-                    # append the chosen vector setup to the vectors dictionary
                     vectors[i] = vector_choice
-                    print(f"Vector {i} setup: {vector_choice}")
+                    vector_configs[i] = {}
+
+                    # Additional configuration based on vector type
+                    if vector_choice == 1:
+                        # CNT center axis direction - ask for direction preference
+                        ddict.printLog("  CNT center axis vector:")
+                        ddict.printLog("  This vector represents the direction along the CNT axis.")
+                        direction_choice = ddict.get_input(
+                            "  Direction preference (1: ring1->ring2, 2: ring2->ring1): ", self.traj_file.args, "int"
+                        )
+                        if direction_choice == 1:
+                            vector_configs[i]["direction"] = "forward"
+                            ddict.printLog("  Vector will point from ring1 to ring2")
+                        else:
+                            vector_configs[i]["direction"] = "reverse"
+                            ddict.printLog("  Vector will point from ring2 to ring1")
+
+                    elif vector_choice == 2:
+                        # Connection from CNT center to atom - clarify direction
+                        ddict.printLog("  Radial vector from CNT center:")
+                        direction_choice = ddict.get_input(
+                            "  Vector direction (1: center->atom, 2: atom->center): ", self.traj_file.args, "int"
+                        )
+                        if direction_choice == 1:
+                            vector_configs[i]["direction"] = "outward"
+                            ddict.printLog("  Vector points from CNT center toward the atom (outward)")
+                        else:
+                            vector_configs[i]["direction"] = "inward"
+                            ddict.printLog("  Vector points from atom toward CNT center (inward)")
+
+                    elif vector_choice == 3:
+                        # Connection between two atoms - let user choose atoms
+                        ddict.printLog("  Bond vector between two atoms:")
+                        ddict.printLog("  Specific atoms will be selected after molecule setup.")
+                        vector_configs[i]["atom_selection"] = "manual"
+
+                    elif vector_choice == 4:
+                        # Mean of bond vectors - let user choose central atom and bonded atoms
+                        ddict.printLog("  Mean of bond vectors:")
+                        ddict.printLog("  Central and bonded atoms will be selected after molecule setup.")
+                        vector_configs[i]["atom_selection"] = "manual"
+
                     break
                 else:
-                    print(f"Invalid choice: {vector_choice}. Please choose from {vector_choices}.")
+                    ddict.printLog(f"  Invalid choice: {vector_choice}. Please choose from {vector_choices}.")
 
-        # Store the vectors for use in analysis
+        # Store the vectors and configurations for use in analysis
         self.vectors = vectors
-        ddict.printLog(f"\nVector setup complete: Vector 1 = {vectors[1]}, Vector 2 = {vectors[2]}")
-
-        # Get the target molecule type for analysis
-        self.setup_target_molecule()
+        self.vector_configs = vector_configs
+        ddict.printLog(f"\nVector setup complete: Vector 1 = Type {vectors[1]}, Vector 2 = Type {vectors[2]}")
 
         # Setup atom selection for reference points
         self.setup_atom_selection()
@@ -122,21 +181,38 @@ class FlexAngle(flexrd.FlexRadDens):
             # Ensure all species are integers
             available_molecules = [int(species) for species in available_molecules]
 
-            ddict.printLog(f"\nAvailable molecule types: {available_molecules}")
+            # Check which species are structures and remove them from the list
+            # in the traj_info.frame0 dataset, the column "Struc" not being "Liquid" indicates a structure
+            struc_species = (
+                self.traj_file.frame0[self.traj_file.frame0["Struc"] != "Liquid"]["Species"].unique().tolist()
+            )
 
-            while True:
-                target_molecule = ddict.get_input(
-                    f"Which molecule type do you want to analyze? {available_molecules}: ", self.traj_file.args, "int"
-                )
+            available_molecules = [species for species in available_molecules if species not in struc_species]
+            ddict.printLog(f"Available liquid species: {available_molecules}")
 
-                target_molecule = int(target_molecule)
+            # check if there are more than one available species
+            if len(available_molecules) == 0:
+                ddict.printLog("No valid species found for angle analysis. Please check your trajectory data.")
+                self.target_molecule = None
+            elif len(available_molecules) == 1:
+                self.target_molecule = available_molecules[0]
+                ddict.printLog(f"Species automatically selected: {self.target_molecule}")
+            else:
+                while True:
+                    target_molecule = ddict.get_input(
+                        f"Which molecule type do you want to analyze? {available_molecules}: ",
+                        self.traj_file.args,
+                        "int",
+                    )
 
-                if target_molecule in available_molecules:
-                    self.target_molecule = target_molecule
-                    ddict.printLog(f"Target molecule set to: {target_molecule}")
-                    break
-                else:
-                    ddict.printLog(f"Invalid molecule type. Please choose from: {available_molecules}")
+                    target_molecule = int(target_molecule)
+
+                    if target_molecule in available_molecules:
+                        self.target_molecule = target_molecule
+                        ddict.printLog(f"Target molecule selected: {target_molecule}")
+                        break
+                    else:
+                        ddict.printLog(f"Invalid molecule type. Please choose from: {available_molecules}")
 
     def setup_atom_selection(self):
         """
@@ -164,37 +240,154 @@ class FlexAngle(flexrd.FlexRadDens):
                 for i, atom in enumerate(atom_labels):
                     ddict.printLog(f"  {i+1}: {atom}")
 
-                # Ask user for reference point choice
-                use_com = ddict.get_input(
-                    "Use center of mass (COM) or specific atom as reference? (com/atom): ",
-                    self.traj_file.args,
-                    "string",
-                ).lower()
+                # Handle reference point selection for vector type 2
+                needs_reference = any(self.vectors[i] == 2 for i in [1, 2])
+                if needs_reference:
+                    ddict.printLog("\nSetting up reference point for radial vectors:")
+                    # Ask user for reference point choice
+                    use_com = ddict.get_input(
+                        "Use center of mass (COM) or specific atom as reference? (com/atom): ",
+                        self.traj_file.args,
+                        "string",
+                    ).lower()
 
-                if use_com == "com":
-                    self.reference_method = "com"
-                    ddict.printLog("Using center of mass as reference point")
-                elif use_com == "atom":
-                    self.reference_method = "atom"
-                    while True:
-                        try:
-                            atom_idx = ddict.get_input(
-                                f"Which atom to use as reference? (1-{len(atom_labels)}): ", self.traj_file.args, "int"
-                            )
-                            if 1 <= atom_idx <= len(atom_labels):
-                                self.reference_atom_idx = atom_idx - 1  # Convert to 0-based index
-                                self.reference_atom_label = atom_labels[self.reference_atom_idx]
-                                ddict.printLog(
-                                    f"Using atom {atom_idx} ({self.reference_atom_label}) as reference point"
+                    if use_com == "com":
+                        self.reference_method = "com"
+                        ddict.printLog("  Using center of mass as reference point")
+                    elif use_com == "atom":
+                        self.reference_method = "atom"
+                        while True:
+                            try:
+                                atom_idx = ddict.get_input(
+                                    f"  Which atom to use as reference? (1-{len(atom_labels)}): ",
+                                    self.traj_file.args,
+                                    "int",
                                 )
-                                break
-                            else:
-                                ddict.printLog(f"Invalid choice. Please choose between 1 and {len(atom_labels)}")
-                        except (ValueError, IndexError):
-                            ddict.printLog(f"Invalid input. Please choose between 1 and {len(atom_labels)}")
+                                if 1 <= atom_idx <= len(atom_labels):
+                                    self.reference_atom_idx = atom_idx - 1  # Convert to 0-based index
+                                    self.reference_atom_label = atom_labels[self.reference_atom_idx]
+                                    ddict.printLog(
+                                        f"  Using atom {atom_idx} ({self.reference_atom_label}) as reference point"
+                                    )
+                                    break
+                                else:
+                                    ddict.printLog(f"  Invalid choice. Please choose between 1 and {len(atom_labels)}")
+                            except (ValueError, IndexError):
+                                ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
+                    else:
+                        ddict.printLog("  Invalid choice, defaulting to center of mass")
+                        self.reference_method = "com"
                 else:
-                    ddict.printLog("Invalid choice, defaulting to center of mass")
-                    self.reference_method = "com"
+                    self.reference_method = "com"  # Default for non-type-2 vectors
+
+                # Handle manual atom selection for vectors 3 and 4
+                for vector_num in [1, 2]:
+                    if self.vectors[vector_num] == 3:
+                        # Manual selection for bond vector (two atoms)
+                        ddict.printLog(f"\nManual atom selection for Vector {vector_num} (Bond Vector):")
+                        ddict.printLog("  Select two atoms to define the bond vector:")
+
+                        # Select first atom
+                        while True:
+                            try:
+                                atom1_idx = ddict.get_input(
+                                    f"  Select first atom (base of vector) (1-{len(atom_labels)}): ",
+                                    self.traj_file.args,
+                                    "int",
+                                )
+                                if 1 <= atom1_idx <= len(atom_labels):
+                                    break
+                                else:
+                                    ddict.printLog(f"  Invalid choice. Please choose between 1 and {len(atom_labels)}")
+                            except (ValueError, IndexError):
+                                ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
+
+                        # Select second atom
+                        while True:
+                            try:
+                                atom2_idx = ddict.get_input(
+                                    f"  Select second atom (tip of vector) (1-{len(atom_labels)}): ",
+                                    self.traj_file.args,
+                                    "int",
+                                )
+                                if 1 <= atom2_idx <= len(atom_labels):
+                                    if atom2_idx != atom1_idx:
+                                        break
+                                    else:
+                                        ddict.printLog("  Please select a different atom for the second position")
+                                else:
+                                    ddict.printLog(f"  Invalid choice. Please choose between 1 and {len(atom_labels)}")
+                            except (ValueError, IndexError):
+                                ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
+
+                        # Store the atom selection
+                        self.vector_configs[vector_num]["atom1_idx"] = atom1_idx - 1  # Convert to 0-based
+                        self.vector_configs[vector_num]["atom2_idx"] = atom2_idx - 1  # Convert to 0-based
+                        ddict.printLog(
+                            f"  Vector {vector_num}: {atom_labels[atom1_idx-1]} -> {atom_labels[atom2_idx-1]}"
+                        )
+
+                    elif self.vectors[vector_num] == 4:
+                        # Manual selection for mean bond vectors (central atom + bonded atoms)
+                        ddict.printLog(f"\nManual atom selection for Vector {vector_num} (Mean Bond Vectors):")
+
+                        # Select central atom
+                        while True:
+                            try:
+                                central_idx = ddict.get_input(
+                                    f"  Select central atom (base of all bond vectors) (1-{len(atom_labels)}): ",
+                                    self.traj_file.args,
+                                    "int",
+                                )
+                                if 1 <= central_idx <= len(atom_labels):
+                                    break
+                                else:
+                                    ddict.printLog(f"  Invalid choice. Please choose between 1 and {len(atom_labels)}")
+                            except (ValueError, IndexError):
+                                ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
+
+                        # Select bonded atoms
+                        bonded_indices = []
+                        ddict.printLog("  Select atoms bonded to the central atom (enter 0 to finish):")
+
+                        while True:
+                            try:
+                                prompt = (
+                                    f"  Select bonded atom {len(bonded_indices)+1} "
+                                    f"(1-{len(atom_labels)}, 0 to finish): "
+                                )
+                                bonded_idx = ddict.get_input(
+                                    prompt,
+                                    self.traj_file.args,
+                                    "int",
+                                )
+                                if bonded_idx == 0:
+                                    if len(bonded_indices) >= 1:
+                                        break
+                                    else:
+                                        ddict.printLog("  Please select at least one bonded atom")
+                                elif 1 <= bonded_idx <= len(atom_labels):
+                                    if bonded_idx != central_idx and (bonded_idx - 1) not in bonded_indices:
+                                        bonded_indices.append(bonded_idx - 1)  # Convert to 0-based
+                                        ddict.printLog(f"    Added: {atom_labels[bonded_idx-1]}")
+                                    elif bonded_idx == central_idx:
+                                        ddict.printLog("  Cannot select the central atom as a bonded atom")
+                                    else:
+                                        ddict.printLog("  This atom is already selected")
+                                else:
+                                    ddict.printLog(f"  Invalid choice. Please choose between 1 and {len(atom_labels)}")
+                            except (ValueError, IndexError):
+                                ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
+
+                        # Store the atom selection
+                        self.vector_configs[vector_num]["central_idx"] = central_idx - 1  # Convert to 0-based
+                        self.vector_configs[vector_num]["bonded_indices"] = bonded_indices
+
+                        bonded_labels = [atom_labels[idx] for idx in bonded_indices]
+                        ddict.printLog(
+                            f"  Vector {vector_num}: Mean of bonds from {atom_labels[central_idx-1]} to {bonded_labels}"
+                        )
+
             else:
                 ddict.printLog("Could not find atom information for target molecule, using center of mass")
                 self.reference_method = "com"
@@ -467,13 +660,20 @@ class FlexAngle(flexrd.FlexRadDens):
 
         for i in range(1, 3):  # Vector 1 and Vector 2
             vector_setup = self.vectors.get(i)
+            vector_config = self.vector_configs.get(i, {})
 
             if vector_setup == 1:
                 # CNT center axis direction
-                vector = cnt_axis
+                direction = vector_config.get("direction", "forward")
+                if direction == "forward":
+                    vector = cnt_axis  # ring1 -> ring2
+                else:  # reverse
+                    vector = -cnt_axis  # ring2 -> ring1
 
             elif vector_setup == 2:
                 # Connection from CNT center to atom/COM
+                direction = vector_config.get("direction", "outward")
+
                 if self.reference_method == "com":
                     # Use center of mass of molecule (weighted by atomic masses)
                     atom_masses = molecule_atoms["Mass"].values.astype(float)
@@ -482,7 +682,11 @@ class FlexAngle(flexrd.FlexRadDens):
                     # Project COM onto plane perpendicular to CNT axis
                     com_radial = molecule_com - cnt_center
                     com_radial_proj = com_radial - np.dot(com_radial, cnt_axis) * cnt_axis
-                    vector = com_radial_proj
+
+                    if direction == "outward":
+                        vector = com_radial_proj  # center -> atom
+                    else:  # inward
+                        vector = -com_radial_proj  # atom -> center
                 else:
                     # Use specific atom as reference
                     if len(corrected_coords) > self.reference_atom_idx:
@@ -490,15 +694,21 @@ class FlexAngle(flexrd.FlexRadDens):
                         # Project atom onto plane perpendicular to CNT axis
                         atom_radial = ref_atom - cnt_center
                         atom_radial_proj = atom_radial - np.dot(atom_radial, cnt_axis) * cnt_axis
-                        vector = atom_radial_proj
+
+                        if direction == "outward":
+                            vector = atom_radial_proj  # center -> atom
+                        else:  # inward
+                            vector = -atom_radial_proj  # atom -> center
                     else:
                         return None
-            # need some more detailed options
+
             elif vector_setup == 3:
-                # Connection between two atoms
-                if len(corrected_coords) >= 2:
-                    # Use first two atoms of the molecule
-                    vector = corrected_coords[1] - corrected_coords[0]
+                # Connection between two atoms - use manual selection
+                atom1_idx = vector_config.get("atom1_idx", 0)
+                atom2_idx = vector_config.get("atom2_idx", 1)
+
+                if len(corrected_coords) > max(atom1_idx, atom2_idx):
+                    vector = corrected_coords[atom2_idx] - corrected_coords[atom1_idx]
 
                     # Debug: Check bond length for sanity
                     bond_length = np.linalg.norm(vector)
@@ -507,20 +717,23 @@ class FlexAngle(flexrd.FlexRadDens):
                             self._debug_bond_count = 0
                         if self._debug_bond_count < 10:  # Limit debug output
                             ddict.printLog(f"Debug: Suspicious bond length {bond_length:.2f} Å detected")
-                            ddict.printLog(f"  Original coords: {mol_coords[0]} -> {mol_coords[1]}")
-                            ddict.printLog(f"  Corrected coords: {corrected_coords[0]} -> {corrected_coords[1]}")
+                            ddict.printLog(f"  Atom {atom1_idx} -> Atom {atom2_idx}")
+                            ddict.printLog(
+                                f"  Corrected coords: {corrected_coords[atom1_idx]} -> {corrected_coords[atom2_idx]}"
+                            )
                             self._debug_bond_count += 1
                         return None  # Skip this molecule if bond is too long
                 else:
                     return None
 
             elif vector_setup == 4:
-                # Mean of bond vectors (e.g., for H2O)
-                if len(corrected_coords) >= 3:
-                    # For water: O-H bonds
-                    # Assume first atom is central (O), others are bonded (H)
-                    central_atom = corrected_coords[0]
-                    bond_vectors = corrected_coords[1:] - central_atom
+                # Mean of bond vectors - use manual selection
+                central_idx = vector_config.get("central_idx", 0)
+                bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
+
+                if len(corrected_coords) > central_idx and all(idx < len(corrected_coords) for idx in bonded_indices):
+                    central_atom = corrected_coords[central_idx]
+                    bond_vectors = corrected_coords[bonded_indices] - central_atom
 
                     # Debug: Check bond lengths for sanity
                     bond_lengths = np.linalg.norm(bond_vectors, axis=1)
@@ -532,7 +745,7 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog(f"Debug: Suspicious bond length {max_bond_length:.2f} Å in mean vector")
                             ddict.printLog(f"  Bond lengths: {bond_lengths}")
                             ddict.printLog(f"  Central atom: {central_atom}")
-                            ddict.printLog(f"  Other atoms: {corrected_coords[1:]}")
+                            ddict.printLog(f"  Bonded atoms: {corrected_coords[bonded_indices]}")
                             self._debug_bond_count += 1
                         return None  # Skip this molecule
 
