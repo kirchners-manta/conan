@@ -8,6 +8,7 @@ import random
 from abc import ABC
 from typing import Dict, List, Optional, Tuple, Union
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
@@ -103,6 +104,7 @@ class Structure(ABC):
         """
         self._structure_df: pd.DataFrame = pd.DataFrame()
         self.group_list: List[FunctionalGroup] = []
+        self.graph: nx.Graph = nx.Graph()
 
     @abc.abstractmethod
     def add(self, parameters: Dict[str, Union[str, int, float]]):
@@ -147,6 +149,28 @@ class Structure(ABC):
         self._structure_df.drop([index], inplace=True)  # Removes the specified index from the DataFrame
 
     # PRIVATE
+    def _generate_graph(self):
+        """
+        Generates a molecular graph based on a distance search on the atomic coordinates in _structure_df.
+        """
+        # Check if _structure_df contains anything
+        if self._structure_df.empty:
+            ddict.printLog("Graph generation failed because structure_df is empty!")
+            return
+
+        # Add all atoms as nodes
+        for index, atom in self._structure_df.iterrows():
+            species = atom["Species"]
+            pos = (atom["x"], atom["y"], atom["z"])
+            self.graph.add_node(index, element=species, position=pos)
+
+        # Now add edges for spatially close atoms
+        pos_array = self._structure_df[["x", "y", "z"]].to_numpy()
+        pairs = utils.find_close_pairs(pos_array, cutoff_distance=1.5)
+
+        for i, j in pairs:
+            self.graph.add_edge(i, j)
+
     def _write_xyz_file(self, name_output: str, coordinates: pd.DataFrame) -> None:
         """
         Writes the structure to an XYZ file.

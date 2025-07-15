@@ -2,6 +2,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 
 def rotate_3d_vector(vec: np.ndarray, rotational_axis: np.ndarray, angle: float) -> np.ndarray:
@@ -322,3 +323,24 @@ def area(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
         The area of the triangle.
     """
     return 0.5 * abs((a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]))
+
+
+def find_close_pairs(pos: np.ndarray, cutoff_distance: float) -> List:
+    """
+    Take xyz positions from pos and find pairs within cutoff_distance.
+
+    Parameters
+    ----------
+    pos : np.ndarray
+        xyz positions.
+    cutoff_distance : float
+        cutoff for pairs.
+
+        Returns
+        -------
+        List
+            List of indices of pairs within cutoff_distance.
+    """
+    tree = cKDTree(pos)
+    pairs = tree.query_pairs(r=cutoff_distance)
+    return list(pairs)
