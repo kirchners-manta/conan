@@ -313,6 +313,21 @@ class Structure1d(Structure):
             rotated_coord = np.dot(rotation_matrix, atom_coords)
             rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
 
+        # We also need to rotate the orientation vector
+        orientation_vector = np.dot(rotation_matrix, orientation_vector)
+
+        max_z = self._structure_df.query('group == "Structure"')["z"].max()
+        if selected_position[2] < self.bond_length:
+            rotated_coordinates = self.rotate_around_cnt_opening(
+                selected_position, rotated_coordinates, orientation_vector
+            )
+        elif selected_position[2] > (max_z - self.bond_length * 1.2):
+            # if the group is placed at the other side of the cnt we need to multiply the orientation vector with -1.0
+            # so that the group is rotated out of the cnt, not inside the cnt
+            rotated_coordinates = self.rotate_around_cnt_opening(
+                selected_position, rotated_coordinates, orientation_vector * -1.0
+            )
+
         # Shift the rotated coordinates so that they are correctly positioned at the selected location
         for atom in rotated_coordinates:
             atom[1] += selected_position[0]
@@ -328,46 +343,25 @@ class Structure1d(Structure):
 
     def find_surface_normal_vector(self, position: List[float]) -> npt.NDArray:
         """
-        Calculates the surface normal vector at a specified position within the structure.
-        This vector is essential for aligning functional groups correctly relative to the structure's surface.
+        Finds the surface normal vector at a given position.
 
         Args:
-            position (List[float]): The coordinates [x, y, z] at which to find the normal vector.
+            position (List[float]): The position to find the normal vector for.
 
         Returns:
-            npt.NDArray: The normalized surface normal vector.
+            npt.NDArray: The normal vector.
         """
+        # Calculate the vector from the pore center to the given position
+        normal_vector = np.array(
+            [self.center[0] - position[0], self.center[1] - position[1], 0.0]  # x-component  # y-component
+        )  # z-component is 0 because we are assuming a 2D surface in xy-plane
 
-        surface_atoms = []
-        # Iterate through each atom in the DataFrame to find atoms near the specified position
-        for i, atom in self._structure_df.iterrows():
-            # Calculate the Cartesian distance from the current atom to the specified position
-            delta_x = atom["x"] - position[0]
-            delta_y = atom["y"] - position[1]
-            distance = math.sqrt((delta_x) ** 2 + (delta_y) ** 2 + (atom["z"] - position[2]) ** 2)
-            # Include atoms that are within a certain threshold distance (e.g., 120% of bond length)
-            if distance <= self.bond_length * 1.2:
-                # Exclude the position itself to avoid zero vector in calculations
-                if distance >= 0.05:  # Ensure it's not the exact same point
-                    surface_atoms.append([atom["x"], atom["y"], atom["z"]])
-
-        # Convert list of surface atoms into a NumPy array for vector operations
-        surface_atoms = np.array(surface_atoms)
-        # Calculate the geometric center (average position) of these surface atoms
-        average_position = np.average(surface_atoms, axis=0)
-
-        # this only works on curved surface (selected position and surface atoms are NOT in one plane)
-        # on flat surfaces we have to use a different algorithm
-
-        # Calculate the vector from the specified position to the average position
-        # This vector points in the direction of the normal to the surface at 'position'
-        position = np.array(position)
-        normal_vector = average_position - position
-
-        # Normalize the vector to have a magnitude of 1, making it a true normal vector
+        # Compute the magnitude of the normal vector
         normal_magnitude = np.linalg.norm(normal_vector)
+
+        # Normalize the vector to make it a unit vector
         normal_vector /= normal_magnitude
-        print(normal_vector)
+
         return normal_vector
 
     def _build_CNT(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
@@ -521,6 +515,10 @@ class Structure1d(Structure):
         # adjusted to give correct tube length
         self.tube_length = z_max
 
+        # cnts are currently always built around symmetrically around the z-axis,
+        # so the x and y coordinates are 0.0
+        self.center = [0.0, 0.0, z_max / 2.0]
+
         # get PBC tube length
         # armchair configuration
         if tube_kind == 1:
@@ -543,6 +541,33 @@ class Structure1d(Structure):
             self._structure_df.at[i, "Label"] = f"C{counter}"
             counter = counter + 1
         return self._structure_df
+
+    def rotate_around_cnt_opening(
+        self,
+        selected_position: List[float],
+        atom_coordinates: Tuple[str, float, float, float, str],
+        orientation_vector: List[float],
+    ):
+
+        central_axis = np.array(
+            [0.0, 0.0, (-1.0 * self.center[2])]
+        )  # difference vector between pore center and pore opening
+
+        # Get the axis around which we want to rotate the group and normalize it
+        rotational_axis = np.cross(orientation_vector, central_axis)
+        print(rotational_axis)
+        rotational_axis = rotational_axis / np.linalg.norm(rotational_axis)
+
+        # We want to rotate the group by 90°
+        angle = np.deg2rad(90)
+
+        # apply rotation to all coordinates
+        rotated_coordinates = []
+        for atom in atom_coordinates:
+            rotated_coords = utils.rotate_3d_vector(np.array(atom[1:4]), rotational_axis, angle)
+            rotated_coordinates.append([atom[0], *rotated_coords, atom[-1]])
+
+        return rotated_coordinates
 
     def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
