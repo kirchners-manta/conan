@@ -343,7 +343,7 @@ class FlexAngle(flexrd.FlexRadDens):
                         self.vector_configs[vector_num]["atom1_idx"] = atom1_idx - 1  # Convert to 0-based
                         self.vector_configs[vector_num]["atom2_idx"] = atom2_idx - 1  # Convert to 0-based
                         ddict.printLog(
-                            f"  Vector {vector_num}: {atom_labels[atom1_idx-1]} -> {atom_labels[atom2_idx-1]}"
+                            f"  Vector {vector_num}: {atom_labels[atom1_idx - 1]} -> {atom_labels[atom2_idx - 1]}"
                         )
 
                     elif self.vectors[vector_num] == 4:
@@ -372,7 +372,7 @@ class FlexAngle(flexrd.FlexRadDens):
                         while True:
                             try:
                                 prompt = (
-                                    f"  Select bonded atom {len(bonded_indices)+1} "
+                                    f"  Select bonded atom {len(bonded_indices) + 1} "
                                     f"(1-{len(atom_labels)}, 0 to finish): "
                                 )
                                 bonded_idx = ddict.get_input(
@@ -388,7 +388,7 @@ class FlexAngle(flexrd.FlexRadDens):
                                 elif 1 <= bonded_idx <= len(atom_labels):
                                     if bonded_idx != central_idx and (bonded_idx - 1) not in bonded_indices:
                                         bonded_indices.append(bonded_idx - 1)  # Convert to 0-based
-                                        ddict.printLog(f"    Added: {atom_labels[bonded_idx-1]}")
+                                        ddict.printLog(f"    Added: {atom_labels[bonded_idx - 1]}")
                                     elif bonded_idx == central_idx:
                                         ddict.printLog("  Cannot select the central atom as a bonded atom")
                                     else:
@@ -404,7 +404,9 @@ class FlexAngle(flexrd.FlexRadDens):
 
                         bonded_labels = [atom_labels[idx] for idx in bonded_indices]
                         ddict.printLog(
-                            f"  Vector {vector_num}: Mean of bonds from {atom_labels[central_idx-1]} to {bonded_labels}"
+                            f"  Vector {vector_num}: Mean of bonds from "
+                            f"{atom_labels[central_idx - 1]} "
+                            f"to {bonded_labels}"
                         )
 
             else:
