@@ -92,7 +92,7 @@ class FlexAngle(flexrd.FlexRadDens):
             num_angle_bins = 60
             ddict.printLog(f"Using default: {num_angle_bins} angle bins (3° increments)")
         else:
-            ddict.printLog(f"Using {num_angle_bins} angle bins ({180/num_angle_bins:.1f}° increments)")
+            ddict.printLog(f"Using {num_angle_bins} angle bins ({180 / num_angle_bins:.1f}° increments)")
 
         self.angle_bins = np.linspace(0, 180, num_angle_bins + 1)
 
@@ -257,7 +257,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
                 ddict.printLog(f"\nAtom types in molecule {self.target_molecule}:")
                 for i, atom in enumerate(atom_labels):
-                    ddict.printLog(f"  {i+1}: {atom}")
+                    ddict.printLog(f"  {i + 1}: {atom}")
 
                 # Handle reference point selection for vector type 2
                 needs_reference = any(self.vectors[i] == 2 for i in [1, 2])
