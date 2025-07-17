@@ -29,12 +29,21 @@ class FlexAngle(flexrd.FlexRadDens):
     """
 
     def __init__(self, traj_file, molecules, an):
+
         # Initialize parent class
         super().__init__(traj_file, molecules, an)
 
         # Initialize additional data structures
         self.angle_data = {}
         self.angle_bins = {}
+
+        # Check if dipole vector information is given in the trajectory
+        if hasattr(self.traj_file, "dipole_info") and self.traj_file.dipole_info:
+            self.dipole_info = True
+            ddict.printLog("=> Dipole vector information found in trajectory data. <=")
+        else:
+            self.dipole_info = False
+            ddict.printLog("No dipole vector information found in trajectory data.")
 
     def flex_rad_dens_prep(self):
         """
@@ -44,11 +53,11 @@ class FlexAngle(flexrd.FlexRadDens):
         # Call the parent class preparation method
         super().flex_rad_dens_prep()
 
-        ddict.printLog("\n" + "=" * 80)
+        ddict.printLog("\n" + "=" * 50)
         ddict.printLog("ANGLE ANALYSIS SETUP")
-        ddict.printLog("=" * 80)
+        ddict.printLog("=" * 50)
         ddict.printLog("The radial bin position is set through the center of mass (COM)")
-        ddict.printLog("=" * 80)
+        ddict.printLog("-" * 40)
 
         # 1. Set up the reference molecule
         ddict.printLog("\n1. REFERENCE MOLECULE SETUP")
@@ -65,9 +74,9 @@ class FlexAngle(flexrd.FlexRadDens):
         ddict.printLog("-" * 40)
         self.setup_angle_bins()
 
-        ddict.printLog("\n" + "=" * 80)
+        ddict.printLog("\n" + "=" * 50)
         ddict.printLog("ANGLE ANALYSIS SETUP COMPLETE")
-        ddict.printLog("=" * 80)
+        ddict.printLog("=" * 50)
 
     def setup_angle_bins(self):
         """
@@ -99,8 +108,9 @@ class FlexAngle(flexrd.FlexRadDens):
         2. Connection from CNT center to atom/COM
         3. Connection between two atoms
         4. Mean of bond vectors (e.g., for H2O)
+        5. Dipole vector (if available)
         """
-        vector_choices = [1, 2, 3, 4]
+        vector_choices = [1, 2, 3, 4, 5] if self.dipole_info else [1, 2, 3, 4]
         vectors = {}
         vector_configs = {}  # Store additional configuration for each vector
 
@@ -109,11 +119,16 @@ class FlexAngle(flexrd.FlexRadDens):
         ddict.printLog("  2. Connection from CNT center to atom")
         ddict.printLog("  3. Connection between two atoms")
         ddict.printLog("  4. Mean of bond vectors (e.g., for H2O)")
+        if self.dipole_info:
+            ddict.printLog("  5. Dipole vector")
 
         for i in range(1, 3):
             ddict.printLog(f"\nSetting up Vector {i}:")
             while True:
-                vector_choice = ddict.get_input(f"Choose setup for vector {i} (1-4): ", self.traj_file.args, "int")
+                if self.dipole_info:
+                    vector_choice = ddict.get_input(f"Choose setup for vector {i} (1-5): ", self.traj_file.args, "int")
+                else:
+                    vector_choice = ddict.get_input(f"Choose setup for vector {i} (1-4): ", self.traj_file.args, "int")
                 if vector_choice in vector_choices:
                     vectors[i] = vector_choice
                     vector_configs[i] = {}
@@ -137,7 +152,7 @@ class FlexAngle(flexrd.FlexRadDens):
                         # Connection from CNT center to atom - clarify direction
                         ddict.printLog("  Radial vector from CNT center:")
                         direction_choice = ddict.get_input(
-                            "  Vector direction (1: center->atom, 2: atom->center): ", self.traj_file.args, "int"
+                            "  Vector direction (1: center -> atom, 2: atom -> center): ", self.traj_file.args, "int"
                         )
                         if direction_choice == 1:
                             vector_configs[i]["direction"] = "outward"
@@ -158,6 +173,10 @@ class FlexAngle(flexrd.FlexRadDens):
                         ddict.printLog("  Central and bonded atoms will be selected after molecule setup.")
                         vector_configs[i]["atom_selection"] = "manual"
 
+                    elif vector_choice == 5 and self.dipole_info:
+                        # Dipole vector - no additional configuration needed
+                        ddict.printLog("  Reading the dipole vector from trajectory data.")
+
                     break
                 else:
                     ddict.printLog(f"  Invalid choice: {vector_choice}. Please choose from {vector_choices}.")
@@ -165,7 +184,7 @@ class FlexAngle(flexrd.FlexRadDens):
         # Store the vectors and configurations for use in analysis
         self.vectors = vectors
         self.vector_configs = vector_configs
-        ddict.printLog(f"\nVector setup complete: Vector 1 = Type {vectors[1]}, Vector 2 = Type {vectors[2]}")
+        ddict.printLog(f"\nVector setup complete: 1.Vector = type {vectors[1]}, 2.Vector = type {vectors[2]}")
 
         # Setup atom selection for reference points
         self.setup_atom_selection()
@@ -329,7 +348,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
                     elif self.vectors[vector_num] == 4:
                         # Manual selection for mean bond vectors (central atom + bonded atoms)
-                        ddict.printLog(f"\nManual atom selection for Vector {vector_num} (Mean Bond Vectors):")
+                        ddict.printLog(f"\nManual atom selection for vector {vector_num} (mean bond vector):")
 
                         # Select central atom
                         while True:
@@ -544,7 +563,6 @@ class FlexAngle(flexrd.FlexRadDens):
         for mol_id, molecule_atoms in molecule_groups:
             if molecule_atoms.empty:
                 continue
-
             # molecule coordinates
             mol_coords = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
 
@@ -733,12 +751,15 @@ class FlexAngle(flexrd.FlexRadDens):
 
                 if len(corrected_coords) > central_idx and all(idx < len(corrected_coords) for idx in bonded_indices):
                     central_atom = corrected_coords[central_idx]
+
+                    # Calculate bond vectors from central atom to bonded atoms
                     bond_vectors = corrected_coords[bonded_indices] - central_atom
 
                     # Debug: Check bond lengths for sanity
                     bond_lengths = np.linalg.norm(bond_vectors, axis=1)
                     max_bond_length = np.max(bond_lengths)
-                    if max_bond_length > 5.0:  # Suspiciously long bond
+                    # Suspiciously long bond if length > 5.0 Å
+                    if max_bond_length > 5.0:
                         if not hasattr(self, "_debug_bond_count"):
                             self._debug_bond_count = 0
                         if self._debug_bond_count < 10:
@@ -747,11 +768,53 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog(f"  Central atom: {central_atom}")
                             ddict.printLog(f"  Bonded atoms: {corrected_coords[bonded_indices]}")
                             self._debug_bond_count += 1
-                        return None  # Skip this molecule
+                        # skip this molecule if any bond is too long
+                        return None
 
-                    vector = np.mean(bond_vectors, axis=0)
+                    # Check for zero-length bond vectors before normalization,
+                    # Skip if any bond is too short
+                    if np.any(bond_lengths < 1e-6):
+                        return None
+
+                    # Calculate the bisector vector (mean of normalized bond vectors)
+                    # Normalize each bond vector
+                    unit_bond_vectors = bond_vectors / bond_lengths[:, np.newaxis]
+                    # Average the unit vectors
+                    bisector_vector = np.mean(unit_bond_vectors, axis=0)
+
+                    # Check if the unit vectors cancel each other out (opposing directions)
+                    bisector_magnitude = np.linalg.norm(bisector_vector)
+
+                    # Skip if bond vectors cancel out (e.g., linear molecule)
+                    if bisector_magnitude < 1e-6:
+                        return None
+
+                    # The bisector is already close to unit length, but normalize for consistency
+                    vector = bisector_vector / bisector_magnitude
                 else:
                     return None
+            elif vector_setup == 5:
+                # In the molecule_atoms df, the atom information for the given molecule is stored.
+                # the x,y and z components of the dipole vector are are stored in the columns "Dipole_X",
+                # "Dipole_Y" and "Dipole_Z".
+                # The molecule dipole vector is stored in a line of one atom. The entries for all other atoms are 0.
+                if (
+                    "Dipole_X" in molecule_atoms.columns
+                    and "Dipole_Y" in molecule_atoms.columns
+                    and "Dipole_Z" in molecule_atoms.columns
+                ):
+                    # drop all rows where the dipole vector is 0
+                    dipole_row = molecule_atoms[
+                        (molecule_atoms["Dipole_X"] != 0)
+                        | (molecule_atoms["Dipole_Y"] != 0)
+                        | (molecule_atoms["Dipole_Z"] != 0)
+                    ]
+                    dipole_vector = dipole_row[["Dipole_X", "Dipole_Y", "Dipole_Z"]].values.astype(float)
+                    if len(dipole_vector) == 1:
+                        vector = dipole_vector[0]
+                    else:
+                        ddict.printLog("Error: More than one dipole vector found for the molecule, skipping.")
+                        return None
             else:
                 return None
 
