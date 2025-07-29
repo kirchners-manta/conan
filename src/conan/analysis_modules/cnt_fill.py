@@ -340,7 +340,6 @@ class CNTload:
                     G.add_edge(i, j)
 
         if hasattr(self, "periodic_cnt_processed") and self.periodic_cnt_processed:
-            # Then skip
             pass
         else:
             mapping = {i: index for i, index in enumerate(Catom_positions[:, 3])}
@@ -377,7 +376,7 @@ class CNTload:
                 self.cnt_rings[cid] = rings_dict
 
             # Process non-periodic CNT data
-            self.cnt_data = {}  # Store calculated data per CNT and ring pair
+            self.cnt_data = {}
             for cid, rings_dict in self.cnt_rings.items():
                 ring_keys = sorted(rings_dict.keys())
                 cnt_pair_data = []

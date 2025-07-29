@@ -1032,7 +1032,7 @@ class FlexAngle(flexrd.FlexRadDens):
         ax_top.set_xlim(x_min, x_max)
 
         # Add colorbar in the third column
-        cax = fig.add_subplot(gs[1, 2])  # Use the middle row of the third column for colorbar
+        cax = fig.add_subplot(gs[1, 2])
         cbar = plt.colorbar(im, cax=cax)
         cbar.set_label("Count", fontsize=19)
         cbar.ax.tick_params(labelsize=16)
