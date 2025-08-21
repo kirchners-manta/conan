@@ -339,9 +339,11 @@ class FlexAngle(flexrd.FlexRadDens):
                             except (ValueError, IndexError):
                                 ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
 
-                        # Store the atom selection
+                        # Store the atom selection (indices AND labels for robustness against reordering)
                         self.vector_configs[vector_num]["atom1_idx"] = atom1_idx - 1  # Convert to 0-based
                         self.vector_configs[vector_num]["atom2_idx"] = atom2_idx - 1  # Convert to 0-based
+                        self.vector_configs[vector_num]["atom1_label"] = atom_labels[atom1_idx - 1]
+                        self.vector_configs[vector_num]["atom2_label"] = atom_labels[atom2_idx - 1]
                         ddict.printLog(
                             f"  Vector {vector_num}: {atom_labels[atom1_idx - 1]} -> {atom_labels[atom2_idx - 1]}"
                         )
@@ -398,9 +400,11 @@ class FlexAngle(flexrd.FlexRadDens):
                             except (ValueError, IndexError):
                                 ddict.printLog(f"  Invalid input. Please choose between 1 and {len(atom_labels)}")
 
-                        # Store the atom selection
+                        # Store the atom selection (indices AND labels for robustness against reordering)
                         self.vector_configs[vector_num]["central_idx"] = central_idx - 1  # Convert to 0-based
                         self.vector_configs[vector_num]["bonded_indices"] = bonded_indices
+                        self.vector_configs[vector_num]["central_label"] = atom_labels[central_idx - 1]
+                        self.vector_configs[vector_num]["bonded_labels"] = [atom_labels[idx] for idx in bonded_indices]
 
                         bonded_labels = [atom_labels[idx] for idx in bonded_indices]
                         ddict.printLog(
@@ -624,18 +628,6 @@ class FlexAngle(flexrd.FlexRadDens):
                 angle_rad = np.arccos(cos_angle)
                 angle_deg = np.degrees(angle_rad)
 
-                """
-                # Debug: Log suspicious angles for investigation (use a counter to limit output)
-                if angle_deg < 1.0 or angle_deg > 179.0:
-                    if not hasattr(self, '_debug_angle_count'):
-                        self._debug_angle_count = 0
-                    if self._debug_angle_count < 20:  # Only log first 20 suspicious angles
-                        ddict.printLog(f"Debug: Suspicious angle {angle_deg:.2f}° found for molecule {mol_id}")
-                        ddict.printLog(f"  Vector 1: {vector1} (magnitude: {v1_magnitude:.6f})")
-                        ddict.printLog(f"  Vector 2: {vector2} (magnitude: {v2_magnitude:.6f})")
-                        ddict.printLog(f"  cos_angle: {cos_angle:.6f}")
-                        self._debug_angle_count += 1
-                """
                 angles.append(angle_deg)
                 radial_positions.append(com_radial_distance)
 
@@ -649,7 +641,72 @@ class FlexAngle(flexrd.FlexRadDens):
             return None
 
         vectors = []
-        mol_coords = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
+
+        mol_coords_raw = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
+        mol_labels_raw = molecule_atoms["Label"].values
+
+        # Get the template ordering from the unique_molecule_frame
+        if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
+            target_mol_data = self.molecules.unique_molecule_frame[
+                self.molecules.unique_molecule_frame["Species"] == self.target_molecule
+            ]
+
+            if not target_mol_data.empty:
+                # Get the template labels (without species suffix)
+                template_labels = target_mol_data["Labels"].iloc[0]
+                if isinstance(template_labels, list):
+                    template_labels_clean = [label.split("_")[0] for label in template_labels]
+                else:
+                    try:
+                        template_labels = (
+                            eval(template_labels) if isinstance(template_labels, str) else [template_labels]
+                        )
+                        template_labels_clean = [label.split("_")[0] for label in template_labels]
+                    except (ValueError, SyntaxError, NameError, TypeError):
+                        template_labels_clean = [str(template_labels).split("_")[0]]
+
+                # Clean current molecule labels (remove species suffix)
+                current_labels_clean = [label.split("_")[0] for label in mol_labels_raw]
+
+                # Create reordering map to match template order
+                reorder_indices = []
+                for template_label in template_labels_clean:
+                    # Find the index of this label in the current molecule
+                    try:
+                        idx = current_labels_clean.index(template_label)
+                        reorder_indices.append(idx)
+                    except ValueError:
+                        # Label not found, this shouldn't happen but use original order as fallback
+                        ddict.printLog(
+                            f"Warning: Template label {template_label} not found in molecule, using original order"
+                        )
+                        mol_coords = mol_coords_raw
+                        break
+                else:
+                    # Check that we have the same number of atoms
+                    if len(reorder_indices) != len(mol_coords_raw):
+                        ddict.printLog(
+                            f"Warning: Template has {len(template_labels_clean)} atoms "
+                            f"but molecule has {len(mol_coords_raw)} atoms, using original order"
+                        )
+                        mol_coords = mol_coords_raw
+                    else:
+                        # Successfully reordered to match template
+                        mol_coords = mol_coords_raw[reorder_indices]
+                        if not hasattr(self, "_reorder_debug_count"):
+                            self._reorder_debug_count = 0
+                        if self._reorder_debug_count < 3:  # Only show for first few molecules
+                            ddict.printLog("Debug: Reordered molecule atoms to match template ordering")
+                            ddict.printLog(f"  Template order: {template_labels_clean}")
+                            ddict.printLog(f"  Original order: {current_labels_clean}")
+                            ddict.printLog(f"  Reorder indices: {reorder_indices}")
+                            self._reorder_debug_count += 1
+            else:
+                # Fallback to original order
+                mol_coords = mol_coords_raw
+        else:
+            # Fallback to original order
+            mol_coords = mol_coords_raw
 
         # Use the first atom as reference for the molecule
         ref_coord = mol_coords[0]
@@ -677,6 +734,15 @@ class FlexAngle(flexrd.FlexRadDens):
         # Translate all atoms by the same offset to preserve internal structure
         translation_offset = corrected_ref_pos - ref_coord
         corrected_coords += translation_offset
+
+        # Helper function to find atom index by label in the reordered coordinates
+        def find_atom_index_by_label(target_label, template_labels_clean):
+            """Find the index of an atom in corrected_coords based on its label."""
+            try:
+                return template_labels_clean.index(target_label)
+            except ValueError:
+                ddict.printLog(f"Warning: Could not find atom with label {target_label}")
+                return None
 
         for i in range(1, 3):  # Vector 1 and Vector 2
             vector_setup = self.vectors.get(i)
@@ -708,9 +774,33 @@ class FlexAngle(flexrd.FlexRadDens):
                     else:  # inward
                         vector = -com_radial_proj  # atom -> center
                 else:
-                    # Use specific atom as reference
-                    if len(corrected_coords) > self.reference_atom_idx:
-                        ref_atom = corrected_coords[self.reference_atom_idx]
+                    # Use specific atom as reference - try to use label for robustness
+                    if hasattr(self, "reference_atom_label") and hasattr(self.molecules, "unique_molecule_frame"):
+                        # Try to find the atom by label in the reordered coordinates
+                        target_mol_data = self.molecules.unique_molecule_frame[
+                            self.molecules.unique_molecule_frame["Species"] == self.target_molecule
+                        ]
+                        if not target_mol_data.empty:
+                            template_labels = target_mol_data["Labels"].iloc[0]
+                            if isinstance(template_labels, list):
+                                template_labels_clean = [label.split("_")[0] for label in template_labels]
+                            else:
+                                try:
+                                    template_labels = (
+                                        eval(template_labels) if isinstance(template_labels, str) else [template_labels]
+                                    )
+                                    template_labels_clean = [label.split("_")[0] for label in template_labels]
+                                except (ValueError, SyntaxError, NameError, TypeError):
+                                    template_labels_clean = [str(template_labels).split("_")[0]]
+
+                            ref_atom_idx = find_atom_index_by_label(self.reference_atom_label, template_labels_clean)
+                        else:
+                            ref_atom_idx = self.reference_atom_idx
+                    else:
+                        ref_atom_idx = self.reference_atom_idx
+
+                    if ref_atom_idx is not None and len(corrected_coords) > ref_atom_idx:
+                        ref_atom = corrected_coords[ref_atom_idx]
                         # Project atom onto plane perpendicular to CNT axis
                         atom_radial = ref_atom - cnt_center
                         atom_radial_proj = atom_radial - np.dot(atom_radial, cnt_axis) * cnt_axis
@@ -723,19 +813,54 @@ class FlexAngle(flexrd.FlexRadDens):
                         return None
 
             elif vector_setup == 3:
-                # Connection between two atoms - use manual selection
-                atom1_idx = vector_config.get("atom1_idx", 0)
-                atom2_idx = vector_config.get("atom2_idx", 1)
+                # Connection between two atoms - use manual selection with labels for robustness
+                # First try to use labels if available, fall back to indices
+                if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
+                    target_mol_data = self.molecules.unique_molecule_frame[
+                        self.molecules.unique_molecule_frame["Species"] == self.target_molecule
+                    ]
+                    if not target_mol_data.empty:
+                        template_labels = target_mol_data["Labels"].iloc[0]
+                        if isinstance(template_labels, list):
+                            template_labels_clean = [label.split("_")[0] for label in template_labels]
+                        else:
+                            try:
+                                template_labels = (
+                                    eval(template_labels) if isinstance(template_labels, str) else [template_labels]
+                                )
+                                template_labels_clean = [label.split("_")[0] for label in template_labels]
+                            except (ValueError, SyntaxError, NameError, TypeError):
+                                template_labels_clean = [str(template_labels).split("_")[0]]
 
-                if len(corrected_coords) > max(atom1_idx, atom2_idx):
+                        # Use labels if available, otherwise fall back to indices
+                        if "atom1_label" in vector_config and "atom2_label" in vector_config:
+                            atom1_idx = find_atom_index_by_label(vector_config["atom1_label"], template_labels_clean)
+                            atom2_idx = find_atom_index_by_label(vector_config["atom2_label"], template_labels_clean)
+                        else:
+                            atom1_idx = vector_config.get("atom1_idx", 0)
+                            atom2_idx = vector_config.get("atom2_idx", 1)
+                    else:
+                        # Fallback to indices
+                        atom1_idx = vector_config.get("atom1_idx", 0)
+                        atom2_idx = vector_config.get("atom2_idx", 1)
+                else:
+                    # Fallback to indices
+                    atom1_idx = vector_config.get("atom1_idx", 0)
+                    atom2_idx = vector_config.get("atom2_idx", 1)
+
+                if (
+                    atom1_idx is not None
+                    and atom2_idx is not None
+                    and len(corrected_coords) > max(atom1_idx, atom2_idx)
+                ):
                     vector = corrected_coords[atom2_idx] - corrected_coords[atom1_idx]
 
                     # Debug: Check bond length for sanity
                     bond_length = np.linalg.norm(vector)
-                    if bond_length > 5.0:  # Suspiciously long bond (likely PBC issue)
+                    if bond_length > 5.0:
                         if not hasattr(self, "_debug_bond_count"):
                             self._debug_bond_count = 0
-                        if self._debug_bond_count < 10:  # Limit debug output
+                        if self._debug_bond_count < 10:
                             ddict.printLog(f"Debug: Suspicious bond length {bond_length:.2f} Å detected")
                             ddict.printLog(f"  Atom {atom1_idx} -> Atom {atom2_idx}")
                             ddict.printLog(
@@ -747,11 +872,53 @@ class FlexAngle(flexrd.FlexRadDens):
                     return None
 
             elif vector_setup == 4:
-                # Mean of bond vectors - use manual selection
-                central_idx = vector_config.get("central_idx", 0)
-                bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
+                # Mean of bond vectors - use manual selection with labels for robustness
+                # First try to use labels if available, fall back to indices
+                if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
+                    target_mol_data = self.molecules.unique_molecule_frame[
+                        self.molecules.unique_molecule_frame["Species"] == self.target_molecule
+                    ]
+                    if not target_mol_data.empty:
+                        template_labels = target_mol_data["Labels"].iloc[0]
+                        if isinstance(template_labels, list):
+                            template_labels_clean = [label.split("_")[0] for label in template_labels]
+                        else:
+                            try:
+                                template_labels = (
+                                    eval(template_labels) if isinstance(template_labels, str) else [template_labels]
+                                )
+                                template_labels_clean = [label.split("_")[0] for label in template_labels]
+                            except (ValueError, SyntaxError, NameError, TypeError):
+                                template_labels_clean = [str(template_labels).split("_")[0]]
 
-                if len(corrected_coords) > central_idx and all(idx < len(corrected_coords) for idx in bonded_indices):
+                        # Use labels if available, otherwise fall back to indices
+                        if "central_label" in vector_config and "bonded_labels" in vector_config:
+                            central_idx = find_atom_index_by_label(
+                                vector_config["central_label"], template_labels_clean
+                            )
+                            bonded_indices = []
+                            for bonded_label in vector_config["bonded_labels"]:
+                                idx = find_atom_index_by_label(bonded_label, template_labels_clean)
+                                if idx is not None:
+                                    bonded_indices.append(idx)
+                        else:
+                            central_idx = vector_config.get("central_idx", 0)
+                            bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
+                    else:
+                        # Fallback to indices
+                        central_idx = vector_config.get("central_idx", 0)
+                        bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
+                else:
+                    # Fallback to indices
+                    central_idx = vector_config.get("central_idx", 0)
+                    bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
+
+                if (
+                    central_idx is not None
+                    and len(corrected_coords) > central_idx
+                    and bonded_indices
+                    and all(idx < len(corrected_coords) for idx in bonded_indices)
+                ):
                     central_atom = corrected_coords[central_idx]
 
                     # Calculate bond vectors from central atom to bonded atoms
@@ -781,6 +948,7 @@ class FlexAngle(flexrd.FlexRadDens):
                     # Calculate the bisector vector (mean of normalized bond vectors)
                     # Normalize each bond vector
                     unit_bond_vectors = bond_vectors / bond_lengths[:, np.newaxis]
+
                     # Average the unit vectors
                     bisector_vector = np.mean(unit_bond_vectors, axis=0)
 
@@ -917,7 +1085,6 @@ class FlexAngle(flexrd.FlexRadDens):
         fig = plt.figure(figsize=(11, 12))
         fig.suptitle(f"Angle Distribution in CNT {cnt_id}", fontsize=24, y=0.98)
 
-        # Define the layout: left margin plot, main plots, and space for colorbar
         gs = fig.add_gridspec(
             3,
             3,
@@ -931,7 +1098,7 @@ class FlexAngle(flexrd.FlexRadDens):
             top=0.90,
         )
 
-        ax_bottom = fig.add_subplot(gs[2, 1])  # Bottom: average angle vs radial position
+        ax_bottom = fig.add_subplot(gs[2, 1])
         # Main heatmap (center)
         ax_main = fig.add_subplot(gs[1, 1], sharex=ax_bottom)
 
@@ -977,7 +1144,7 @@ class FlexAngle(flexrd.FlexRadDens):
         ax_top.tick_params(
             labelbottom=False, labelsize=16, top=True, labeltop=True
         )  # Show both bottom and top x-labels
-        ax_top.xaxis.set_label_position("top")  # Put x-label at top
+        ax_top.xaxis.set_label_position("top")
         ax_top.grid(True, alpha=0.9, color="gray", linewidth=0.5)
 
         # Left plot: Angle distribution (histogram along y-axis, positive values from right to left)
@@ -995,7 +1162,7 @@ class FlexAngle(flexrd.FlexRadDens):
         ax_left.set_ylabel(r"$\theta$ / °", fontsize=19)
         ax_left.tick_params(labelsize=16)
         ax_left.grid(True, alpha=0.9, color="gray", linewidth=0.5)
-        ax_left.invert_xaxis()  # Invert to show values from right to left
+        ax_left.invert_xaxis()
 
         # Bottom plot: Average angle by radial bin
         num_radial_bins = len(bin_edges) - 1
@@ -1044,13 +1211,12 @@ class FlexAngle(flexrd.FlexRadDens):
     def verify_molecular_integrity(self, corrected_coords, mol_coords, molecule_id=None):
         """
         Verify that the PBC-corrected coordinates maintain reasonable molecular geometry.
-        This is a debug/verification method.
         """
         if len(corrected_coords) < 2:
             return True
 
         # Check all pairwise distances in the molecule
-        max_reasonable_bond = 3.0  # Angstroms - adjust based on your system
+        max_reasonable_bond = 3.0
 
         for i in range(len(corrected_coords)):
             for j in range(i + 1, len(corrected_coords)):
@@ -1058,7 +1224,7 @@ class FlexAngle(flexrd.FlexRadDens):
                 if distance > max_reasonable_bond:
                     if not hasattr(self, "_integrity_check_count"):
                         self._integrity_check_count = 0
-                    if self._integrity_check_count < 5:  # Limit output
+                    if self._integrity_check_count < 5:
                         ddict.printLog(f"Warning: Large intramolecular distance {distance:.2f} Å")
                         ddict.printLog(f"  Molecule {molecule_id}, atoms {i}-{j}")
                         ddict.printLog(f"  Original: {mol_coords[i]} - {mol_coords[j]}")

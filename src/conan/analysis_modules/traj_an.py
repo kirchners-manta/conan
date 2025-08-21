@@ -11,6 +11,7 @@ import conan.analysis_modules.flex_rad_dens as flex_raddens
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
+import conan.analysis_modules.resid_time as resid_time
 import conan.analysis_modules.traj_info as traj_info
 import conan.analysis_modules.utils as ut
 import conan.analysis_modules.velocity as vel
@@ -68,6 +69,8 @@ def run_analysis(traj_file, molecules, maindict):
         flex_raddens.flex_rad_dens(traj_file, molecules, an)
     elif an.choice2 == 13:
         flex_ang.flex_angle(traj_file, molecules, an)
+    elif an.choice2 == 14:
+        resid_time.resid_time_analysis(traj_file, molecules, an)
 
 
 class Analysis:
@@ -97,8 +100,10 @@ class Analysis:
         ddict.printLog("(10) Calculate the mean square displacement of the liquid in the CNT.")
         ddict.printLog("(11) Calculate the mass of the liquid inside a CNT.")
         ddict.printLog("(12) Calculate the radial mass density of the liquid inside a flexible CNT.")
+        ddict.printLog("(13) Calculate the angle between two vectors of choice.")
+        ddict.printLog("(14) Calculate the residence time of a liquid molecule inside radial layers of a CNT.")
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)

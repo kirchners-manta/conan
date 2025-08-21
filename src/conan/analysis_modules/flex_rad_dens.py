@@ -136,7 +136,7 @@ class FlexRadDens:
     def flex_rad_dens_prep(self):
         """
         Prepare the flexible radial density analysis.
-        For this we need to do:
+        For this, things are needed:
         - Ask the user how many increments the CNT should be radially divided into.
         - Let the user decide if the full length of the CNT should be subject to this analysis
         (to avoid opening effects if wanted).
