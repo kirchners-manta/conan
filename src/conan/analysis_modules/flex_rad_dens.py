@@ -1,13 +1,9 @@
 import matplotlib.pyplot as plt
-
-# import networkx as nx
 import numpy as np
 import pandas as pd
 
 import conan.analysis_modules.cnt_fill as cf
 import conan.analysis_modules.traj_an as traj_an
-
-# import conan.analysis_modules.traj_info as traj_info
 import conan.defdict as ddict
 
 
@@ -78,7 +74,7 @@ class FlexRadDens:
         # Make a copy to avoid modifying the original
         ring = ring_df.copy()
 
-        # Calculate distances with broadcasting
+        # Calculate distances 
         ring["dist_x"] = np.abs(ring[["x"]].values - first_atom_coords[0])
         ring["dist_y"] = np.abs(ring[["y"]].values - first_atom_coords[1])
         ring["dist_z"] = np.abs(ring[["z"]].values - first_atom_coords[2])
@@ -88,7 +84,6 @@ class FlexRadDens:
         max_iterations = 10
 
         while iterations < max_iterations:
-            # Find atoms that are too far away in any dimension
             far_atoms = ring[
                 (ring["dist_x"] > box_size[0] / 2)
                 | (ring["dist_y"] > box_size[1] / 2)
@@ -96,8 +91,6 @@ class FlexRadDens:
             ]
 
             if far_atoms.empty:
-                # if iterations > 0:
-                # ddict.printLog(f"All atoms adjusted after {iterations} iterations")
                 break
 
             for i, atom in far_atoms.iterrows():
@@ -377,7 +370,7 @@ class FlexRadDens:
             for i in range(len(results_df)):
                 density_df[i] = dataframe.iloc[:, i + 1] / results_df.loc[i, "Volume"]
 
-            # Add statistical measures
+            # Add statistics
             results_df["Variance"] = density_df.var(axis=0).values
             results_df["Standard dev."] = density_df.std(axis=0).values
             results_df["Standard error"] = density_df.sem(axis=0).values
@@ -550,8 +543,7 @@ class FlexRadDens:
                         linewidth=2,
                         label=f"CNT {cnt_id} (r={tube_radius:.2f}Å)",
                     )
-
-                # Set labels and title
+                    
                 x_label = "Distance from tube center [Å]"
                 ax.set(
                     xlabel=x_label, ylabel="Density [g/cm³]", title="Comparison of Radial Density Profiles Across CNTs"

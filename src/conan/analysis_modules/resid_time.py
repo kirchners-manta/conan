@@ -30,17 +30,15 @@ class ResidTime:
         self.molecules = molecules
         self.an = an
         self.proc_frame_counter = 0
-        # set default parameters for correlation function residence time calculation
         # Maximum transient departure time
         self.t_star = 2.0
         # Maximum correlation time
         self.max_correlation_time = 50.0
-        # Dictionary to store frame-by-frame molecule layer data: {cnt_id: {mol_id: [layer_per_frame]}}
+        # Dictionary to store frame-by-frame molecule layer data
         self.molecule_frame_data = {}
-        # Dictionary to store molecule count per layer per frame: {cnt_id: {frame: {layer: count}}}
+        # Dictionary to store molecule count per layer per frame
         self.layer_population_data = {}
-        # Dict to store correlation function results:
-        # {cnt_id: {layer: {'time': [], 'correlation': [], 'residence_time': float}}}
+        # Dict to store correlation function results
         self.correlation_functions = {}
 
     def resid_time_prep(self):
@@ -133,7 +131,8 @@ class ResidTime:
         """
         ddict.printLog(f"\n--- Setting up radial layers for {cnt_description} ---")
 
-        layer_edges = [0.0]  # Always start from center
+        # Always start from center
+        layer_edges = [0.0]  
         layer_num = 1
 
         while True:
@@ -178,7 +177,7 @@ class ResidTime:
         # Make a copy
         ring = ring_df.copy()
 
-        # Calculate distances with broadcasting
+        # Calculate distances
         ring["dist_x"] = np.abs(ring[["x"]].values - first_atom_coords[0])
         ring["dist_y"] = np.abs(ring[["y"]].values - first_atom_coords[1])
         ring["dist_z"] = np.abs(ring[["z"]].values - first_atom_coords[2])
@@ -188,7 +187,6 @@ class ResidTime:
         max_iterations = 10
 
         while iterations < max_iterations:
-            # Find atoms that are too far away in any dimension
             far_atoms = ring[
                 (ring["dist_x"] > box_size[0] / 2)
                 | (ring["dist_y"] > box_size[1] / 2)
