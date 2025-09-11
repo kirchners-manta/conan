@@ -169,7 +169,7 @@ class MSDAnalysis:
 
                     unwrapped_pos_new = self.unwrapped_positions_current[species][idx, :] + delta
 
-                    self.previous_positions[species][idx, :] = com_current 
+                    self.previous_positions[species][idx, :] = com_current
                     self.unwrapped_positions_current[species][idx, :] = unwrapped_pos_new
 
                 else:

@@ -132,7 +132,7 @@ class ResidTime:
         ddict.printLog(f"\n--- Setting up radial layers for {cnt_description} ---")
 
         # Always start from center
-        layer_edges = [0.0]  
+        layer_edges = [0.0]
         layer_num = 1
 
         while True:

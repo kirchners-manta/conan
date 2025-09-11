@@ -74,7 +74,7 @@ class FlexRadDens:
         # Make a copy to avoid modifying the original
         ring = ring_df.copy()
 
-        # Calculate distances 
+        # Calculate distances
         ring["dist_x"] = np.abs(ring[["x"]].values - first_atom_coords[0])
         ring["dist_y"] = np.abs(ring[["y"]].values - first_atom_coords[1])
         ring["dist_z"] = np.abs(ring[["z"]].values - first_atom_coords[2])
@@ -543,7 +543,7 @@ class FlexRadDens:
                         linewidth=2,
                         label=f"CNT {cnt_id} (r={tube_radius:.2f}Å)",
                     )
-                    
+
                 x_label = "Distance from tube center [Å]"
                 ax.set(
                     xlabel=x_label, ylabel="Density [g/cm³]", title="Comparison of Radial Density Profiles Across CNTs"

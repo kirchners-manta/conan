@@ -132,7 +132,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
                     # Additional configuration based on vector type
                     if vector_choice == 1:
-                        # CNT center axis direction 
+                        # CNT center axis direction
                         ddict.printLog("  CNT center axis vector:")
                         ddict.printLog("  This vector represents the direction along the CNT axis.")
                         direction_choice = ddict.get_input(
@@ -146,7 +146,7 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog("  Vector will point from ring2 to ring1")
 
                     elif vector_choice == 2:
-                        # Connection from CNT center to atom 
+                        # Connection from CNT center to atom
                         ddict.printLog("  Radial vector from CNT center:")
                         direction_choice = ddict.get_input(
                             "  Vector direction (1: center -> atom, 2: atom -> center): ", self.traj_file.args, "int"
@@ -159,13 +159,13 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog("  Vector points from atom toward CNT center (inward)")
 
                     elif vector_choice == 3:
-                        # Connection between two atoms 
+                        # Connection between two atoms
                         ddict.printLog("  Bond vector between two atoms:")
                         ddict.printLog("  Specific atoms will be selected after molecule setup.")
                         vector_configs[i]["atom_selection"] = "manual"
 
                     elif vector_choice == 4:
-                        # Mean of bond vectors 
+                        # Mean of bond vectors
                         ddict.printLog("  Mean of bond vectors:")
                         ddict.printLog("  Central and bonded atoms will be selected after molecule setup.")
                         vector_configs[i]["atom_selection"] = "manual"
@@ -240,7 +240,7 @@ class FlexAngle(flexrd.FlexRadDens):
             ]
 
             if not target_mol_data.empty:
-                # Extract atom labels 
+                # Extract atom labels
                 labels_entry = target_mol_data["Labels"].iloc[0]
                 if isinstance(labels_entry, list):
                     atom_labels = labels_entry
@@ -280,7 +280,7 @@ class FlexAngle(flexrd.FlexRadDens):
                                 )
                                 if 1 <= atom_idx <= len(atom_labels):
                                     # Store the atom index (0-based) and label
-                                    self.reference_atom_idx = atom_idx - 1  
+                                    self.reference_atom_idx = atom_idx - 1
                                     self.reference_atom_label = atom_labels[self.reference_atom_idx]
                                     ddict.printLog(
                                         f"  Using atom {atom_idx} ({self.reference_atom_label}) as reference point"
@@ -295,7 +295,7 @@ class FlexAngle(flexrd.FlexRadDens):
                         self.reference_method = "com"
                 else:
                     # set default to com
-                    self.reference_method = "com" 
+                    self.reference_method = "com"
 
                 # Handle manual atom selection for vectors 3 and 4
                 for vector_num in [1, 2]:
@@ -691,7 +691,7 @@ class FlexAngle(flexrd.FlexRadDens):
         # Use the first atom as reference for the molecule
         ref_coord = mol_coords[0]
         corrected_coords = np.zeros_like(mol_coords)
-        corrected_coords[0] = ref_coord  
+        corrected_coords[0] = ref_coord
 
         for i in range(1, len(mol_coords)):
             coord = mol_coords[i]
@@ -849,7 +849,7 @@ class FlexAngle(flexrd.FlexRadDens):
                     return None
 
             elif vector_setup == 4:
-                # Mean of bond vectors 
+                # Mean of bond vectors
                 # First try to use labels if available, if not fall back to indices
                 if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
                     target_mol_data = self.molecules.unique_molecule_frame[
@@ -1057,9 +1057,9 @@ class FlexAngle(flexrd.FlexRadDens):
         ax_bottom = fig.add_subplot(gs[2, 1])
         ax_main = fig.add_subplot(gs[1, 1], sharex=ax_bottom)
         # Top: radial distribution
-        ax_top = fig.add_subplot(gs[0, 1], sharex=ax_bottom)  
+        ax_top = fig.add_subplot(gs[0, 1], sharex=ax_bottom)
         # Left: angle distribution
-        ax_left = fig.add_subplot(gs[1, 0], sharey=ax_main)  
+        ax_left = fig.add_subplot(gs[1, 0], sharey=ax_main)
 
         # 2D histogram for the main heatmap
         hist2d, xedges, yedges = np.histogram2d(
@@ -1096,13 +1096,11 @@ class FlexAngle(flexrd.FlexRadDens):
         )
         ax_top.set_ylabel("Count", fontsize=19)
         ax_top.set_xlabel(r"$r_{rad}$ / Å", fontsize=19)
-        ax_top.tick_params(
-            labelbottom=False, labelsize=16, top=True, labeltop=True
-        ) 
+        ax_top.tick_params(labelbottom=False, labelsize=16, top=True, labeltop=True)
         ax_top.xaxis.set_label_position("top")
         ax_top.grid(True, alpha=0.9, color="gray", linewidth=0.5)
 
-        # Left plot: Angle distribution 
+        # Left plot: Angle distribution
         angle_hist, _ = np.histogram(raw_df["angle"], bins=self.angle_bins)
         angle_bin_centers = (self.angle_bins[:-1] + self.angle_bins[1:]) / 2
         ax_left.barh(
