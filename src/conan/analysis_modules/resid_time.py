@@ -70,7 +70,7 @@ class ResidTime:
             layer_edges = self._get_layer_setup("all CNTs")
             for cnt_id in self.cnt_data.keys():
                 self.cnts_layer_edges[cnt_id] = layer_edges
-                self.cnts_layer_labels[cnt_id] = [f"{i+1}" for i in range(len(layer_edges) - 1)]
+                self.cnts_layer_labels[cnt_id] = [f"{i + 1}" for i in range(len(layer_edges) - 1)]
                 self.correlation_functions[cnt_id] = {label: {} for label in self.cnts_layer_labels[cnt_id]}
                 self.molecule_frame_data[cnt_id] = {}
                 self.layer_population_data[cnt_id] = {}
@@ -81,7 +81,7 @@ class ResidTime:
                 ddict.printLog(f"\n-> CNT {cnt_id} with radius {tube_radius:.2f} Å")
                 layer_edges = self._get_layer_setup(f"CNT {cnt_id}")
                 self.cnts_layer_edges[cnt_id] = layer_edges
-                self.cnts_layer_labels[cnt_id] = [f"{i+1}" for i in range(len(layer_edges) - 1)]
+                self.cnts_layer_labels[cnt_id] = [f"{i + 1}" for i in range(len(layer_edges) - 1)]
                 self.correlation_functions[cnt_id] = {label: {} for label in self.cnts_layer_labels[cnt_id]}
                 self.molecule_frame_data[cnt_id] = {}
                 self.layer_population_data[cnt_id] = {}
@@ -158,7 +158,7 @@ class ResidTime:
             except ValueError:
                 ddict.printLog("Invalid input. Please enter a number or 'done'.", color="red")
 
-        ddict.printLog(f"Layer setup: {len(layer_edges)-1} layers with boundaries at {layer_edges} Å")
+        ddict.printLog(f"Layer setup: {len(layer_edges) - 1} layers with boundaries at {layer_edges} Å")
         return layer_edges
 
     def ring_mean(self, ring):
@@ -606,7 +606,7 @@ class ResidTime:
 
             # Save frame-by-frame molecule layer data (one row per molecule, one column per frame)
             if cnt_id in self.molecule_frame_data and self.molecule_frame_data[cnt_id]:
-                frame_columns = [f"Frame_{i+1}" for i in range(self.proc_frame_counter)]
+                frame_columns = [f"Frame_{i + 1}" for i in range(self.proc_frame_counter)]
                 molecule_frame_df_data = []
 
                 for mol_id, layer_sequence in self.molecule_frame_data[cnt_id].items():
