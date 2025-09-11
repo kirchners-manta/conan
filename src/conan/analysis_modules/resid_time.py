@@ -1,10 +1,3 @@
-"""
-Residence time analysis for molecules in CNT layers.
-
-This module analyzes the residence times of molecules in different radial layers
-within carbon nanotubes (CNTs). It handles transient visits.
-"""
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -27,6 +20,7 @@ def resid_time_analysis(traj_file, molecules, an):
 
 class ResidTime:
     """
+    Residence time analysis for molecules in CNT layers.
     Calculate the residence time of a given molecule in a radial layer within a CNT.
     The radial layers are set by the user.
     """
@@ -181,7 +175,7 @@ class ResidTime:
         Adjust atoms in a ring that are too far away due to periodic boundary conditions.
         (Copied from flex_rad_dens)
         """
-        # Make a copy to avoid modifying the original
+        # Make a copy
         ring = ring_df.copy()
 
         # Calculate distances with broadcasting
@@ -249,11 +243,8 @@ class ResidTime:
         # Get box size for PBC handling
         box_size = self.traj_file.box_size
 
-        # Identify liquid atoms
         liquid_atoms = split_frame[split_frame["Struc"].str.contains("Liquid")]
 
-        # Group atoms by molecule and calculate center of mass for each molecule
-        # Use the same logic as in flex_rad_dens.py
         molecules_data = {}
 
         molecule_groups = liquid_atoms.groupby("Molecule")
@@ -456,7 +447,7 @@ class ResidTime:
                         correlation_times, correlation_values
                     )
 
-                    # Store correlation data with results
+                    # Store results
                     self.correlation_functions[cnt_id][layer] = {
                         "time": correlation_times,
                         "correlation": correlation_values,
@@ -894,8 +885,9 @@ class ResidTime:
         if len(correlation_values) == 0:
             return [], []
 
-        # Generate time points (Δ starts at frame 1)
-        correlation_times = [(i + 1) * self.time_step for i in range(len(correlation_values))]
+        # Prepend zero-lag point C(0)=1 (survival probability at zero lag)
+        correlation_times = [0.0] + [(i + 1) * self.time_step for i in range(len(correlation_values))]
+        correlation_values = [1.0] + correlation_values
         return correlation_times, correlation_values
 
     def _fast_survival_correlation(self, cnt_id, layer, max_lag, t_star_frames):
@@ -995,7 +987,6 @@ class ResidTime:
             times = np.array(correlation_times)
             values = np.array(correlation_values)
 
-            # Remove non-positive or NaN values
             valid_mask = (values > 0) & np.isfinite(values) & np.isfinite(times)
             if np.sum(valid_mask) < 3:
                 return 0.0, False
@@ -1003,29 +994,41 @@ class ResidTime:
             times = times[valid_mask]
             values = values[valid_mask]
 
-            # Fit exponential decay: f(t) = A * exp(-t/tau)
-            def exp_decay(t, A, tau):
-                return A * np.exp(-t / tau)
+            # Model with fixed amplitude: C(t) = exp(-t / tau)
+            def exp_decay(t, tau):
+                return np.exp(-t / tau)
 
-            # Initial guess: A = first value, tau = time at half-maximum
-            A_init = values[0]
-            half_max_idx = np.argmin(np.abs(values - A_init / 2))
-            tau_init = times[half_max_idx] if half_max_idx > 0 else times[-1] / 3
+            # Initial guess for tau: time where C(t) ~ 0.5 (half-life); fallback times[-1]/3
+            half_idx = np.argmin(np.abs(values - 0.5))
+            tau_init = times[half_idx] if half_idx > 0 else max(times[-1] / 3, 1e-6)
+
+            # Exclude t = 0 from fitting to avoid overweighting the exact 1.0 point
+            nonzero_mask = times > 0
+            if np.sum(nonzero_mask) >= 3:
+                fit_times = times[nonzero_mask]
+                fit_values = values[nonzero_mask]
+            else:
+                # If insufficient points without t=0, fall back to all points
+                fit_times = times
+                fit_values = values
 
             popt, pcov = curve_fit(
                 exp_decay,
-                times,
-                values,
-                p0=[A_init, tau_init],
-                bounds=([0, 0], [10 * A_init, 10 * times[-1]]),
+                fit_times,
+                fit_values,
+                p0=[tau_init],
+                bounds=([0.0], [10 * fit_times[-1]]),
                 maxfev=5000,
             )
 
-            A_fit, tau_fit = popt
+            tau_fit = popt[0]
 
-            # Check fit quality
-            y_pred = exp_decay(times, A_fit, tau_fit)
-            r_squared = 1 - np.sum((values - y_pred) ** 2) / np.sum((values - np.mean(values)) ** 2)
+            y_pred = exp_decay(fit_times, tau_fit)
+            denom = np.sum((fit_values - np.mean(fit_values)) ** 2)
+            if denom <= 0:
+                r_squared = 1.0 if np.allclose(fit_values, y_pred) else 0.0
+            else:
+                r_squared = 1 - np.sum((fit_values - y_pred) ** 2) / denom
 
             if r_squared > 0.7 and tau_fit > 0:
                 return tau_fit, True
