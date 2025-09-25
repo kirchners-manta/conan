@@ -118,7 +118,7 @@ proc applyStructuralRepresentation {molid structuralCount} {
     mol rename $molid top
     mol delrep 0 top
     mol representation Bonds 0.300000 12.000000
-    mol color Name
+    mol color Element
     mol selection "index < $structuralCount"
     mol material Opaque
     mol addrep top

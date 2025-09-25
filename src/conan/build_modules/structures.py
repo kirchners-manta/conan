@@ -8,6 +8,7 @@ import random
 from abc import ABC
 from typing import Dict, List, Optional, Tuple, Union
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
@@ -103,6 +104,7 @@ class Structure(ABC):
         """
         self._structure_df: pd.DataFrame = pd.DataFrame()
         self.group_list: List[FunctionalGroup] = []
+        self.graph: nx.Graph = nx.Graph()
 
     @abc.abstractmethod
     def add(self, parameters: Dict[str, Union[str, int, float]]):
@@ -147,6 +149,28 @@ class Structure(ABC):
         self._structure_df.drop([index], inplace=True)  # Removes the specified index from the DataFrame
 
     # PRIVATE
+    def _generate_graph(self):
+        """
+        Generates a molecular graph based on a distance search on the atomic coordinates in _structure_df.
+        """
+        # Check if _structure_df contains anything
+        if self._structure_df.empty:
+            ddict.printLog("Graph generation failed because structure_df is empty!")
+            return
+
+        # Add all atoms as nodes
+        for index, atom in self._structure_df.iterrows():
+            species = atom["Species"]
+            pos = (atom["x"], atom["y"], atom["z"])
+            self.graph.add_node(index, element=species, position=pos)
+
+        # Now add edges for spatially close atoms
+        pos_array = self._structure_df[["x", "y", "z"]].to_numpy()
+        pairs = utils.find_close_pairs(pos_array, cutoff_distance=1.5)
+
+        for i, j in pairs:
+            self.graph.add_edge(i, j)
+
     def _write_xyz_file(self, name_output: str, coordinates: pd.DataFrame) -> None:
         """
         Writes the structure to an XYZ file.
@@ -244,6 +268,7 @@ class Structure1d(Structure):
         # Method to construct the CNT based on provided parameters and keywords
         if self._build_CNT(parameters, keywords) is not None:
             self._print_data()
+        self._generate_graph()
 
     def stack(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]):
         """
@@ -273,7 +298,7 @@ class Structure1d(Structure):
             self._structure_df.iloc[parameters["position"], 2],  # Y coordinate
             self._structure_df.iloc[parameters["position"], 3],
         ]  # Z coordinate
-        self._add_group_on_position(position)  # Adds the group at the selected position
+        self._add_group_on_position(position, parameters["position"])  # Adds the group at the selected position
 
     # PRIVATE
     def _print_data(self):
@@ -289,7 +314,7 @@ class Structure1d(Structure):
 
         ddict.printLog(tube_table)
 
-    def _add_group_on_position(self, selected_position: List[float]):
+    def _add_group_on_position(self, selected_position: List[float], position_index):
         """
         Adds a functional group to the structure at a specified position, with automatic adjustment to ensure proper
         orientation based on the local surface normal.
@@ -313,6 +338,21 @@ class Structure1d(Structure):
             rotated_coord = np.dot(rotation_matrix, atom_coords)
             rotated_coordinates.append([atom[0], rotated_coord[0], rotated_coord[1], rotated_coord[2], "functional"])
 
+        # We also need to rotate the orientation vector
+        orientation_vector = np.dot(rotation_matrix, orientation_vector)
+
+        max_z = self._structure_df.query('group == "Structure"')["z"].max()
+        if selected_position[2] < self.bond_length:
+            rotated_coordinates = self.rotate_around_cnt_opening(
+                selected_position, position_index, rotated_coordinates, orientation_vector
+            )
+        elif selected_position[2] > (max_z - self.bond_length * 1.2):
+            # if the group is placed at the other side of the cnt we need to multiply the orientation vector with -1.0
+            # so that the group is rotated out of the cnt, not inside the cnt
+            rotated_coordinates = self.rotate_around_cnt_opening(
+                selected_position, position_index, rotated_coordinates, orientation_vector * -1.0
+            )
+
         # Shift the rotated coordinates so that they are correctly positioned at the selected location
         for atom in rotated_coordinates:
             atom[1] += selected_position[0]
@@ -328,46 +368,25 @@ class Structure1d(Structure):
 
     def find_surface_normal_vector(self, position: List[float]) -> npt.NDArray:
         """
-        Calculates the surface normal vector at a specified position within the structure.
-        This vector is essential for aligning functional groups correctly relative to the structure's surface.
+        Finds the surface normal vector at a given position.
 
         Args:
-            position (List[float]): The coordinates [x, y, z] at which to find the normal vector.
+            position (List[float]): The position to find the normal vector for.
 
         Returns:
-            npt.NDArray: The normalized surface normal vector.
+            npt.NDArray: The normal vector.
         """
+        # Calculate the vector from the pore center to the given position
+        normal_vector = np.array(
+            [self.center[0] - position[0], self.center[1] - position[1], 0.0]  # x-component  # y-component
+        )  # z-component is 0 because we are assuming a 2D surface in xy-plane
 
-        surface_atoms = []
-        # Iterate through each atom in the DataFrame to find atoms near the specified position
-        for i, atom in self._structure_df.iterrows():
-            # Calculate the Cartesian distance from the current atom to the specified position
-            delta_x = atom["x"] - position[0]
-            delta_y = atom["y"] - position[1]
-            distance = math.sqrt((delta_x) ** 2 + (delta_y) ** 2 + (atom["z"] - position[2]) ** 2)
-            # Include atoms that are within a certain threshold distance (e.g., 120% of bond length)
-            if distance <= self.bond_length * 1.2:
-                # Exclude the position itself to avoid zero vector in calculations
-                if distance >= 0.05:  # Ensure it's not the exact same point
-                    surface_atoms.append([atom["x"], atom["y"], atom["z"]])
-
-        # Convert list of surface atoms into a NumPy array for vector operations
-        surface_atoms = np.array(surface_atoms)
-        # Calculate the geometric center (average position) of these surface atoms
-        average_position = np.average(surface_atoms, axis=0)
-
-        # this only works on curved surface (selected position and surface atoms are NOT in one plane)
-        # on flat surfaces we have to use a different algorithm
-
-        # Calculate the vector from the specified position to the average position
-        # This vector points in the direction of the normal to the surface at 'position'
-        position = np.array(position)
-        normal_vector = average_position - position
-
-        # Normalize the vector to have a magnitude of 1, making it a true normal vector
+        # Compute the magnitude of the normal vector
         normal_magnitude = np.linalg.norm(normal_vector)
+
+        # Normalize the vector to make it a unit vector
         normal_vector /= normal_magnitude
-        print(normal_vector)
+
         return normal_vector
 
     def _build_CNT(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
@@ -521,6 +540,10 @@ class Structure1d(Structure):
         # adjusted to give correct tube length
         self.tube_length = z_max
 
+        # cnts are currently always built around symmetrically around the z-axis,
+        # so the x and y coordinates are 0.0
+        self.center = [0.0, 0.0, z_max / 2.0]
+
         # get PBC tube length
         # armchair configuration
         if tube_kind == 1:
@@ -543,6 +566,71 @@ class Structure1d(Structure):
             self._structure_df.at[i, "Label"] = f"C{counter}"
             counter = counter + 1
         return self._structure_df
+
+    def rotate_around_cnt_opening(
+        self,
+        selected_position: List[float],
+        position_index: int,
+        atom_coordinates: List[Tuple[str, float, float, float, str]],
+        orientation_vector: List[float],
+    ) -> List[List]:
+        # We first rotate the group such that the orientation vector is parallel to the
+        # central axis of the cnt
+        orientation_vec = np.array(orientation_vector, dtype=float)
+        central_axis = np.array([0.0, 0.0, -float(self.center[2])], dtype=float)
+
+        rot_axis1 = np.cross(orientation_vec, central_axis)
+        rot_axis1 /= np.linalg.norm(rot_axis1)
+        angle1 = np.deg2rad(90)
+
+        intermediate: List[Tuple[str, float, float, float, str]] = []
+        for atom_id, x, y, z, atom_type in atom_coordinates:
+            v = np.array([x, y, z], dtype=float)
+            r1 = utils.rotate_3d_vector(v, rot_axis1, angle1)
+            intermediate.append((atom_id, r1[0], r1[1], r1[2], atom_type))
+
+        # We also need to rotate the orientation vector since we do another rotation
+        orientation1 = utils.rotate_3d_vector(orientation_vec, rot_axis1, angle1)
+
+        # Next we need to ensure that the angle of the functional group to the other adjacent C-atoms is
+        # 120° so that it fits to the honeycomb structure
+        nbrs = list(self.graph.neighbors(position_index))
+        atom_A_idx, atom_C_idx = nbrs[0], nbrs[1]
+
+        # pull A, B, C as true float arrays
+        A = self._structure_df.iloc[atom_A_idx, 1:4].to_numpy(dtype=float)
+        B = np.array(selected_position, dtype=float)
+        C = self._structure_df.iloc[atom_C_idx, 1:4].to_numpy(dtype=float)
+
+        vector_BA = A - B
+        vector_BC = C - B
+
+        # compute plane normal and normalize
+        axis2 = np.cross(vector_BA, vector_BC)
+        axis2 /= np.linalg.norm(axis2)
+
+        # project orientation1 into BA-BC plane
+        v1 = orientation1 - np.dot(orientation1, axis2) * axis2
+        v1 /= np.linalg.norm(v1)
+
+        # target direction at 120° to BA and BC
+        b_hat = vector_BA / np.linalg.norm(vector_BA)
+        c_hat = vector_BC / np.linalg.norm(vector_BC)
+        target = -(b_hat + c_hat)
+        target /= np.linalg.norm(target)
+        cosang = np.clip(np.dot(v1, target), -1.0, 1.0)
+        ang = np.arccos(cosang)
+        if np.dot(np.cross(v1, target), axis2) < 0:
+            ang = -ang
+
+        # apply second rotation
+        rotated_coordinates2: List[List] = []
+        for atom_id, x1, y1, z1, atom_type in intermediate:
+            v1_coord = np.array([x1, y1, z1], dtype=float)
+            r2 = utils.rotate_3d_vector(v1_coord, axis2, ang)
+            rotated_coordinates2.append([atom_id, r2[0], r2[1], r2[2], atom_type])
+
+        return rotated_coordinates2
 
     def _stack_CNTs(self, parameters: Dict[str, Union[str, int, float]], keywords: List[str]) -> pd.DataFrame:
         """
@@ -871,17 +959,37 @@ class Structure2d(Structure):
         Args:
             selected_position (List[float]): The position to add the group to.
         """
-        added_group = self.group_list[0].remove_anchors()
-        # randomly rotate the group
-        new_atom_coordinates = utils.random_rotate_group_list(added_group.copy())
-        # shift the coordinates to the selected position
-        for atom in new_atom_coordinates:
-            atom[1] += selected_position[0]
-            atom[2] += selected_position[1]
-            atom[3] += selected_position[2]
-        new_atoms_df = pd.DataFrame(new_atom_coordinates, columns=["Species", "x", "y", "z"])
-        new_atoms_df["group"] = pd.Series(["functional" for x in range(len(new_atoms_df.index))])
-        self._structure_df = pd.concat([self._structure_df, new_atoms_df])
+        # Grab the first FunctionalGroup and its atom positions
+        group = self.group_list[0]
+        atom_list = list(group.atom_positions)  # List of (element, x, y, z)
+
+        # Locate the first anchor atom labeled 'X'
+        anchors = [atom for atom in atom_list if atom[0] == "X"]
+        if not anchors:
+            raise ValueError("No anchor atom ('X') found in group to align to origin.")
+        anchor_x, anchor_y, anchor_z = anchors[0][1:]
+
+        # Translate all atoms so the anchor sits at the origin
+        centered = [(element, x - anchor_x, y - anchor_y, z - anchor_z) for element, x, y, z in atom_list]
+
+        # Drop the anchor entries
+        centered = [atom for atom in centered if atom[0] != "X"]
+
+        # Apply a random rotation around (0,0,0)
+        rotated = utils.random_rotate_group_list(centered)
+
+        # Shift the rotated group to the desired position
+        shifted = [
+            (element, x + selected_position[0], y + selected_position[1], z + selected_position[2])
+            for element, x, y, z in rotated
+        ]
+
+        # Build DataFrame and mark as functional
+        new_df = pd.DataFrame(shifted, columns=["Species", "x", "y", "z"])
+        new_df["group"] = "functional"
+
+        # Append into the main structure
+        self._structure_df = pd.concat([self._structure_df, new_df], ignore_index=True)
 
     def __remove_adjacent_positions(
         self,
