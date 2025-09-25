@@ -59,12 +59,6 @@ class RadialDensityAnalysis:
             self.raddens_bin_labels = np.arange(1, len(self.raddens_bin_edges), 1)
             ddict.printLog("Increment distance: %0.3f angstrom" % (self.rad_increment))
 
-        self.initialize_data_frame()
-
-    def initialize_data_frame(self):
-        if self.num_increments is None:
-            raise ValueError("num_increments has not been set. Make sure to run raddens_prep first.")
-
         data = {"Frame": np.arange(1, self.number_of_frames + 1)}
         # Add columns for each bin
         for i in range(self.num_increments):

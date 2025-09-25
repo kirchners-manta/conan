@@ -28,7 +28,7 @@ class VelocityAnalysis:
         self.traj_file = traj_file
         self.molecules = molecules
         self.args = traj_file.args
-        self.old_frame = None  # Initialize as None
+        self.old_frame = None
         self.rad_increment = None
         self.velocity_bin_edges = None
         self.velocity_bin_labels = None
@@ -56,14 +56,13 @@ class VelocityAnalysis:
             )
             self.rad_increment = self.molecules.tuberadii[i] / self.num_increments
             self.velocity_bin_edges = np.linspace(0, self.molecules.tuberadii[0], self.num_increments + 1)
-            self.velocity_bin_labels = np.arange(self.num_increments)  # Zero-based indexing
+            self.velocity_bin_labels = np.arange(self.num_increments)
             ddict.printLog("Increment distance: %0.3f angstrom" % (self.rad_increment))
 
         self.dt = ddict.get_input("What is the time step in the trajectory? [fs]  ", self.args, "float")
         self.initialize_data_frames()
 
     def initialize_data_frames(self):
-        # Initialize the velocity_df and velocity_bin_counter
         self.velocity_df = pd.DataFrame({"Frame": np.arange(1, self.traj_file.number_of_frames + 1)})
         for i in range(self.num_increments):
             self.velocity_df["Bin %d" % (i + 1)] = 0.0  # Initialize with float zeros
@@ -78,7 +77,7 @@ class VelocityAnalysis:
         new_frame = new_frame.reset_index(drop=True)
 
         if self.old_frame is None:
-            # First frame, velocities are zero
+            # First frame (velocities are zero)
             velocity = np.zeros(len(new_frame))
             # Set old_frame to new_frame for next step
             self.old_frame = new_frame.copy()
@@ -109,12 +108,10 @@ class VelocityAnalysis:
         split_frame = split_frame.reset_index(drop=True)
         split_frame["velocity"] = velocity
 
-        return split_frame  # Return updated split_frame
+        return split_frame
 
     def analyze_frame(self, split_frame, frame_counter):
-        # Call the calculate_velocity function
         split_frame = self.calculate_velocity(split_frame)
-        # Call the radial_velocity_analysis for each frame
         self.radial_velocity_analysis(split_frame, frame_counter)
 
     def radial_velocity_analysis(self, split_frame, frame_counter):
@@ -143,7 +140,6 @@ class VelocityAnalysis:
         split_frame["Y_adjust"] = split_frame["Y"].astype(float) - CNT_centers[0][1]
         split_frame["Distance"] = np.sqrt(split_frame["X_adjust"] ** 2 + split_frame["Y_adjust"] ** 2)
 
-        # Use numeric bin indices starting from 0
         split_frame["Distance_bin"] = pd.cut(
             split_frame["Distance"], bins=self.velocity_bin_edges, labels=False, include_lowest=True
         )
@@ -160,7 +156,7 @@ class VelocityAnalysis:
 
         for idx, row in velocity_df_temp.iterrows():
             bin_idx = int(row["Distance_bin"])
-            bin_label = "Bin %d" % (bin_idx + 1)  # Adjust for one-based indexing in column names
+            bin_label = "Bin %d" % (bin_idx + 1)
             bin_sum = row["velocity"]
             self.velocity_df.loc[frame_counter, bin_label] += bin_sum
 

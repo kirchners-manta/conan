@@ -6,9 +6,12 @@ import pandas as pd
 import conan.analysis_modules.axial_dens as axdens
 import conan.analysis_modules.cnt_fill as cnt_fill
 import conan.analysis_modules.coordination_number as cn
+import conan.analysis_modules.flex_angle as flex_ang
+import conan.analysis_modules.flex_rad_dens as flex_raddens
 import conan.analysis_modules.msd as msd
 import conan.analysis_modules.rad_dens as raddens
 import conan.analysis_modules.rad_velocity as radvel
+import conan.analysis_modules.resid_time as resid_time
 import conan.analysis_modules.traj_info as traj_info
 import conan.analysis_modules.utils as ut
 import conan.analysis_modules.velocity as vel
@@ -62,6 +65,12 @@ def run_analysis(traj_file, molecules, maindict):
         msd.msd_analysis(traj_file, molecules, an)
     elif an.choice2 == 11:
         cnt_fill.cnt_loading_mass(traj_file, molecules, an)
+    elif an.choice2 == 12:
+        flex_raddens.flex_rad_dens(traj_file, molecules, an)
+    elif an.choice2 == 13:
+        flex_ang.flex_angle(traj_file, molecules, an)
+    elif an.choice2 == 14:
+        resid_time.resid_time_analysis(traj_file, molecules, an)
 
 
 class Analysis:
@@ -90,9 +99,11 @@ class Analysis:
         ddict.printLog("(9) Calculate the velocity along the axes.")
         ddict.printLog("(10) Calculate the mean square displacement of the liquid in the CNT.")
         ddict.printLog("(11) Calculate the mass of the liquid inside a CNT.")
-
+        ddict.printLog("(12) Calculate the radial mass density of the liquid inside a flexible CNT.")
+        ddict.printLog("(13) Calculate the angle between two vectors of choice.")
+        ddict.printLog("(14) Calculate the residence time of a liquid molecule inside radial layers of a CNT.")
         analysis_choice2 = int(ddict.get_input("What analysis should be performed?:  ", traj_file.args, "int"))
-        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        analysis_choice2_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         if analysis_choice2 not in analysis_choice2_options:
             ddict.printLog("-> The analysis you entered is not known.")
             sys.exit(1)
@@ -150,11 +161,14 @@ def process_trajectory(traj_file, molecules, an, analysis_option):
     proc_frames = 0
 
     spec_molecule, spec_atom, analysis_spec_molecule = traj_info.molecule_choice(traj_file.args, traj_file.frame0, 1)
+    analysis_option.analysis_spec_molecule = analysis_spec_molecule
+
+    regional_q = "n"
+    regions = [0] * 6
     if an.choice2 in [1, 2, 3, 4, 5, 6, 7, 8]:
         regional_q, regions = an.region_question(traj_file)
-    analysis_option.regional_q = regional_q
-    analysis_option.regions = regions
-    analysis_option.analysis_spec_molecule = analysis_spec_molecule
+        analysis_option.regional_q = regional_q
+        analysis_option.regions = regions
     start_frame, frame_interval = an.frame_question(traj_file)
 
     Main_time = time.time()
@@ -228,10 +242,11 @@ def prepare_frame(
     split_frame["Species"] = traj_file.frame0["Species"]
     split_frame["Label"] = traj_file.frame0["Label"]
 
-    # analysis which need the structure positions:
-    set_struc_analysis = [10, 11]
-    if an.choice2 not in set_struc_analysis:
-        split_frame = split_frame[split_frame["Struc"] == "Liquid"].drop(["Struc"], axis=1)
+    # analysis which need the structure positions and all atoms:
+    no_struc_analysis = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    if an.choice2 in no_struc_analysis:
+        split_frame = split_frame[split_frame["Struc"] == "Liquid"]
 
     if regional_q == "y":
         # Wrap coordinates into the simulation box using PBC
@@ -244,11 +259,16 @@ def prepare_frame(
         split_frame = split_frame[split_frame["Z"].astype(float) <= regions[5]]
 
     if analysis_spec_molecule == "y":
-        split_frame = split_frame[split_frame["Species"].isin(spec_molecule)]
-        # If the spec_atom list does not contain "all" then only the atoms in the list are kept.
+        # filter liquid molecules
+        liquid_mask = split_frame["Struc"] == "Liquid"
+        # Create a boolean filter mask that keeps rows of structure atoms
+        # and filters the liquid atoms which are to be analyzed
+        species_mask = ~liquid_mask | (liquid_mask & split_frame["Species"].isin(spec_molecule))
+        split_frame = split_frame[species_mask]
         if spec_atom[0] != "all":
-            # If specific atoms are requested, only these atoms are kept.
-            split_frame = split_frame[split_frame["Label"].isin(spec_atom)]
+            # Create a filter mask that keeps non-liquid rows and filters liquid rows by atom label
+            atom_mask = ~(split_frame["Struc"] == "Liquid") | split_frame["Label"].isin(spec_atom)
+            split_frame = split_frame[atom_mask]
 
     return split_frame
 

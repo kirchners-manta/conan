@@ -23,6 +23,7 @@ class TrajectoryFile:
         self.file_type = self.get_file_type()
         self.num_atoms, self.lines_per_frame = self.get_num_atoms()
         self.box_size = self.simbox_dimension()
+        self.dipole_info = False
         self.frame0 = self.get_frame()
         self.frame1 = self.get_frame(1)
         self.frame0 = self.frame_comparison(self.frame0, self.frame1)
@@ -192,6 +193,22 @@ class TrajectoryFile:
                     atom_charge_pos = header.index("q") - 2 if "q" in header else None
                     atom_id_pos = header.index("id") - 2 if "id" in header else None
 
+                    # Check for dipole vectors in the header
+                    dipole_x_pos = None
+                    dipole_y_pos = None
+                    dipole_z_pos = None
+                    dipole_norm_pos = None
+
+                    for i, h in enumerate(header):
+                        if "dip" in h.lower() and "x" in h.lower():
+                            dipole_x_pos = i - 2
+                        elif "dip" in h.lower() and "y" in h.lower():
+                            dipole_y_pos = i - 2
+                        elif "dip" in h.lower() and "z" in h.lower():
+                            dipole_z_pos = i - 2
+                        elif "dip" in h.lower() and "norm" in h.lower():
+                            dipole_norm_pos = i - 2
+
                     positions = {
                         "id": atom_id_pos,
                         "Element": atom_type_pos,
@@ -200,6 +217,10 @@ class TrajectoryFile:
                         "z": atom_z_pos,
                         "Molecule": atom_mol_pos,
                         "Charge": atom_charge_pos,
+                        "Dipole_x": dipole_x_pos,
+                        "Dipole_y": dipole_y_pos,
+                        "Dipole_z": dipole_z_pos,
+                        "Dipole_norm": dipole_norm_pos,
                     }
 
                     # read the frame
@@ -228,7 +249,18 @@ class TrajectoryFile:
             if "Charge" not in df_frame.columns:
                 df_frame["Charge"] = None
 
-            df_frame = df_frame[["Element", "x", "y", "z", "Molecule", "Charge"]]
+            # Prepare the base columns
+            base_columns = ["Element", "x", "y", "z", "Molecule", "Charge"]
+
+            # Add dipole columns if they exist
+            dipole_columns = ["Dipole_x", "Dipole_y", "Dipole_z", "Dipole_norm"]
+            final_columns = base_columns + [col for col in dipole_columns if col in df_frame.columns]
+
+            # if there is dipole information, set self.dipole_info to true
+            if not self.dipole_info and any(col in df_frame.columns for col in dipole_columns):
+                self.dipole_info = True
+
+            df_frame = df_frame[final_columns]
 
         except (pd.errors.EmptyDataError, IndexError) as e:
             # Handle the case where the frame does not exist or cannot be read
@@ -553,7 +585,7 @@ class Molecule:
                 # aslo change the label to "'Element'1" for these atoms
                 frame0.at[i, "Label"] = f"{row['Element']}1"
 
-        # The 'Species' column currently is of type 'object' we change it to 'int' for later calculations
+        # The 'Species' column currently is of type 'object' change it to 'int' for later calculations
         frame0["Species"] = frame0["Species"].astype(int)
 
         # Add correct atom label to the newly adde species in unique_molecule_frame
@@ -564,6 +596,9 @@ class Molecule:
         # Sort the species numbering alphabetically
         unique_molecule_frame.sort_values("Molecule", inplace=True)
         unique_molecule_frame.reset_index(inplace=True, drop=True)
+
+        # Add a "species" column to the unique_molecule_frame dataframe, which is just the index + 1
+        unique_molecule_frame["Species"] = unique_molecule_frame.index + 1
 
         old_species_list = [0] * len(unique_molecule_frame)
         for i, row in unique_molecule_frame.iterrows():
@@ -799,7 +834,7 @@ class Molecule:
 
         if len(CNTs) > 0:
             CNT_pore_question = ddict.get_input(
-                "Does one of the pores contain CNTs oriented along the z axis of the simulation box? [y/n]: ",
+                "Does one of the pores identified contain a rigid CNT oriented along the z axis? [y/n]: ",
                 traj_file.args,
                 "str",
             )
@@ -1129,13 +1164,38 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     atom_id_pos = headers.index("id") if "id" in headers else None
     atom_charge_pos = headers.index("q") if "q" in headers else None
 
+    # check if the dipole vectors are given in the trajectory.
+    # check if entries in the header line contains "dip", followed by either "x", "y", or "z".
+    # "norm" after "dip" is also possible, it is the vectors length.
+    dipole_x_pos = [i for i, header in enumerate(headers) if "dip" in header.lower() and "x" in header.lower()]
+    dipole_y_pos = [i for i, header in enumerate(headers) if "dip" in header.lower() and "y" in header.lower()]
+    dipole_z_pos = [i for i, header in enumerate(headers) if "dip" in header.lower() and "z" in header.lower()]
+    dipole_norm_pos = [i for i, header in enumerate(headers) if "dip" in header.lower() and "norm" in header.lower()]
+
+    # If there are dipole vectors, we will add them to the dataframe.
+    # if dipole_x_pos or dipole_y_pos or dipole_z_pos or dipole_norm_pos:
+    #    ddict.printLog("Dipole vectors found.")
+
     # Drop the first 9 lines
     frame = frame.drop(frame.index[range(9)])
 
     split_frame = frame[0].str.split(expand=True)
     split_frame.reset_index(drop=True, inplace=True)
 
-    split_frame = split_frame.rename(columns={atom_type_pos: "Atom", atom_x_pos: "X", atom_y_pos: "Y", atom_z_pos: "Z"})
+    # Build the rename dictionary step by step
+    rename_dict = {atom_type_pos: "Atom", atom_x_pos: "X", atom_y_pos: "Y", atom_z_pos: "Z"}
+
+    # Add dipole columns only if they exist
+    if dipole_x_pos:
+        rename_dict[dipole_x_pos[0]] = "Dipole_X"
+    if dipole_y_pos:
+        rename_dict[dipole_y_pos[0]] = "Dipole_Y"
+    if dipole_z_pos:
+        rename_dict[dipole_z_pos[0]] = "Dipole_Z"
+    if dipole_norm_pos:
+        rename_dict[dipole_norm_pos[0]] = "Dipole_Norm"
+
+    split_frame = split_frame.rename(columns=rename_dict)
 
     # Modify the 'Atom' column to contain the first character (and the second character if lowercase)
     split_frame["Atom"] = split_frame["Atom"].apply(
@@ -1145,12 +1205,38 @@ def lammpstrj(frame, element_masses, id_frame) -> pd.DataFrame:
     # Add a new column with the atomic mass of each atom.
     split_frame["Mass"] = split_frame["Atom"].map(element_masses)
 
-    # if there are charges provided, add them to the dataframe as a new column.
-    if atom_charge_pos:
+    # Add charge and ID columns if they exist in the original headers
+    if atom_charge_pos is not None:
         split_frame["Charge"] = split_frame[atom_charge_pos].astype(float)
+    if atom_id_pos is not None:
+        split_frame["ID"] = split_frame[atom_id_pos].astype(int)
 
-    if atom_id_pos:
-        split_frame["ID"] = split_frame[atom_id_pos].astype(str)
+    # Convert dipole columns to float if they exist
+    if "Dipole_X" in split_frame.columns:
+        split_frame["Dipole_X"] = split_frame["Dipole_X"].astype(float)
+    if "Dipole_Y" in split_frame.columns:
+        split_frame["Dipole_Y"] = split_frame["Dipole_Y"].astype(float)
+    if "Dipole_Z" in split_frame.columns:
+        split_frame["Dipole_Z"] = split_frame["Dipole_Z"].astype(float)
+    if "Dipole_Norm" in split_frame.columns:
+        split_frame["Dipole_Norm"] = split_frame["Dipole_Norm"].astype(float)
+
+    # Keep only the columns we want and drop any remaining numeric column names
+    desired_columns = ["Atom", "X", "Y", "Z", "Mass"]
+    if "Charge" in split_frame.columns:
+        desired_columns.append("Charge")
+    if "ID" in split_frame.columns:
+        desired_columns.append("ID")
+    if "Dipole_X" in split_frame.columns:
+        desired_columns.append("Dipole_X")
+    if "Dipole_Y" in split_frame.columns:
+        desired_columns.append("Dipole_Y")
+    if "Dipole_Z" in split_frame.columns:
+        desired_columns.append("Dipole_Z")
+    if "Dipole_Norm" in split_frame.columns:
+        desired_columns.append("Dipole_Norm")
+
+    split_frame = split_frame[desired_columns]
 
     return split_frame
 
