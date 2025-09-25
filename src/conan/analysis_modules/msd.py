@@ -45,7 +45,6 @@ class MSDAnalysis:
 
         # Initialize displacement arrays for each liquid species
         for species in num_liq_species:
-            # Get unique molecule numbers for the species
             molecule_numbers = self.first_frame[
                 (self.first_frame["Struc"] == "Liquid") & (self.first_frame["Species"] == species)
             ]["Molecule"].unique()
@@ -83,9 +82,7 @@ class MSDAnalysis:
         # calculate the center of mass of the liquid in the system
         first_frame_no_struc = self.first_frame.drop(columns=["Struc"])
         com_box = ut.calculate_com_box(first_frame_no_struc, self.box_size)
-        # com_box = ut.calculate_com_box(self.first_frame, self.box_size)
 
-        # adjust the COM frame to the box center
         COM_frame_initial[["X", "Y", "Z"]] -= com_box
 
         # print(COM_frame_initial.head())
@@ -195,7 +192,6 @@ class MSDAnalysis:
             msd_z_tau = []
             tau_times = []
 
-            # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau_idx):
                 tau_times.append(tau_idx * self.dt * an.frame_interval)
 
@@ -255,7 +251,6 @@ class MSDAnalysis:
         plt.close(fig)
 
         # Save data to CSV
-
         with open(f"{label.lower()}_{species}.csv", "w") as f:
             f.write(f"#time [fs]; {label}; {label} X; {label} Y; {label} Z\n")
             for i in range(len(time_lags)):

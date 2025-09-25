@@ -215,7 +215,6 @@ class ResidTime:
                     else:
                         ring.at[i, "z"] += box_size[2]
 
-            # Recalculate distances after adjustments
             ring["dist_x"] = np.abs(ring[["x"]].values - first_atom_coords[0])
             ring["dist_y"] = np.abs(ring[["y"]].values - first_atom_coords[1])
             ring["dist_z"] = np.abs(ring[["z"]].values - first_atom_coords[2])
@@ -297,10 +296,8 @@ class ResidTime:
             if frame_counter not in self.layer_population_data[cnt_id]:
                 self.layer_population_data[cnt_id][frame_counter] = {label: 0 for label in layer_labels}
 
-            # Track molecules in this CNT
             molecules_in_cnt = {}
 
-            # Determine which molecules are inside this CNT by checking against the first pair only
             if len(pair_list) > 0:
                 # Use first pair as representative
                 pair_data = pair_list[0]
@@ -360,12 +357,10 @@ class ResidTime:
 
                     delta = mol_pos - M
 
-                    # Apply minimum image convention
                     delta[0] -= box_size[0] * np.round(delta[0] / box_size[0])
                     delta[1] -= box_size[1] * np.round(delta[1] / box_size[1])
                     delta[2] -= box_size[2] * np.round(delta[2] / box_size[2])
 
-                    # Project onto CNT axis and calculate radial distance
                     proj = np.dot(delta, cnt_axis)
                     radial_vec = delta - proj * cnt_axis
                     radial_dist = np.linalg.norm(radial_vec)
@@ -466,10 +461,8 @@ class ResidTime:
                         "fit_success": False,
                     }
 
-        # Generate results and statistics
+        # Generate statistics
         self._generate_residence_statistics()
-
-        # Generate layer population statistics
         self._generate_layer_population_statistics()
 
         # Plot correlation functions and results
@@ -482,7 +475,6 @@ class ResidTime:
         if plot_correlation.lower() == "y":
             self._plot_correlation_functions()
 
-        # Plot population data if requested
         plot_population = ddict.get_input(
             "Do you want to plot the layer population data? (y/n) ",
             self.traj_file.args,
@@ -572,7 +564,7 @@ class ResidTime:
                         if not np.isnan(tau_1_e_time):
                             ddict.printLog(f"    Alternative τ(1/e) = {tau_1_e_time:.2f} ps")
 
-            # Save detailed results
+            # Save results
             if results_data:
                 results_df = pd.DataFrame(results_data)
                 results_df.to_csv(
@@ -679,7 +671,6 @@ class ResidTime:
             layer_labels = self.cnts_layer_labels[cnt_id]
             times = [frame * self.time_step for frame in sorted_frames]
 
-            # Create time series plot
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
 
             # Plot 1: Time series of molecule counts per layer
@@ -930,7 +921,6 @@ class ResidTime:
                 continue
 
             for seg_start, seg_end in segments:
-                # layer-Frames per segment
                 for f in range(seg_start, seg_end + 1):
                     if seq[f] != layer:
                         continue
@@ -938,15 +928,12 @@ class ResidTime:
                     L_i = seg_end - f
                     if L_i < 1:
                         continue
-                    # t_0 condigions Δ ≤ T-1 - f
                     L_lim = min(L_i, T - 1 - f, max_lag)
                     if L_lim >= 1:
                         N_diff[1] += 1
                         N_diff[L_lim + 1] -= 1
 
-        # D(Δ)
         occ_prefix = np.cumsum(occupancy_counts)
-        # N(Δ)
         N = np.cumsum(N_diff)
 
         correlation = []
@@ -996,7 +983,7 @@ class ResidTime:
             def exp_decay(t, tau):
                 return np.exp(-t / tau)
 
-            # Initial guess for tau: time where C(t) ~ 0.5 (half-life); fallback times[-1]/3
+            # Initial guess for tau: time where C(t) ~ 0.5 (half-life)
             half_idx = np.argmin(np.abs(values - 0.5))
             tau_init = times[half_idx] if half_idx > 0 else max(times[-1] / 3, 1e-6)
 
@@ -1006,7 +993,6 @@ class ResidTime:
                 fit_times = times[nonzero_mask]
                 fit_values = values[nonzero_mask]
             else:
-                # If insufficient points without t=0, fall back to all points
                 fit_times = times
                 fit_values = values
 
@@ -1042,7 +1028,6 @@ class ResidTime:
         Create plots for correlation functions and residence time fits.
         """
         for cnt_id, layer_data in self.correlation_functions.items():
-            # Filter out layers with no data
             non_empty_layers = {
                 layer: data
                 for layer, data in layer_data.items()
@@ -1052,7 +1037,6 @@ class ResidTime:
             if not non_empty_layers:
                 continue
 
-            # Create correlation function plot
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
             # Plot 1: Correlation functions
@@ -1071,7 +1055,7 @@ class ResidTime:
 
                 ax1.plot(times, correlations, "o-", label=label, color=colors[idx], linewidth=1.5, markersize=3)
 
-                # Mark 1/e point if residence time was determined
+                # Mark 1/e point
                 if not np.isnan(residence_time) and residence_time <= max(times):
                     ax1.axhline(y=1 / np.e, color=colors[idx], linestyle="--", alpha=0.5)
                     ax1.axvline(x=residence_time, color=colors[idx], linestyle="--", alpha=0.5)

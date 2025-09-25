@@ -149,7 +149,6 @@ class FlexRadDens:
         cnts_bin_edges = {}
         cnts_bin_labels = {}
         cnts_dataframes = {}
-        # set up the dict to store the number of increments for each CNT
         self.num_increments = {}
         same_max_distance_q = ddict.get_input(
             "Do you want to use the same maximum displacement for all CNTs? (y/n) ",
@@ -226,10 +225,8 @@ class FlexRadDens:
                 r1_key = pair_data["r1_key"]
                 r2_key = pair_data["r2_key"]
 
-                # Check if this is a periodic CNT ring pair
                 is_periodic = pair_data.get("is_periodic", False)
 
-                # Get coordinates from the current frame
                 ring1 = split_frame.loc[self.cnt_rings[cnt_id][r1_key]].copy()
 
                 # periodic CNTs
@@ -246,10 +243,8 @@ class FlexRadDens:
                     elif periodic_direction == "z":
                         ring2["Z"] = ring2["Z"] + box_size[2]
                 else:
-                    # For normal CNTs, get the second ring from the frame
                     ring2 = split_frame.loc[self.cnt_rings[cnt_id][r2_key]].copy()
 
-                # Convert column names from X,Y,Z to x,y,z for consistency with adjust_ring_pbc
                 ring1 = ring1.rename(columns={"X": "x", "Y": "y", "Z": "z"})
                 ring2 = ring2.rename(columns={"X": "x", "Y": "y", "Z": "z"})
 
@@ -284,27 +279,23 @@ class FlexRadDens:
 
                 atom_xyz = atom_positions[:, :3].astype(float)
 
-                # compute midpoint M and half‐length
+                # Compute midpoint M and half‐length
                 M = 0.5 * (ring1_array + ring2_array)
                 half = 0.5 * np.linalg.norm(ring2_array - ring1_array)
 
-                # compute distance fora ll atoms
                 delta = atom_xyz - M
 
-                # minimum-image for each dimension
                 delta[:, 0] -= box_size[0] * np.round(delta[:, 0] / box_size[0])
                 delta[:, 1] -= box_size[1] * np.round(delta[:, 1] / box_size[1])
                 delta[:, 2] -= box_size[2] * np.round(delta[:, 2] / box_size[2])
 
-                # project this back onto the axis
+                # projec back onto the axis
                 proj = np.dot(delta, cnt_axis)
 
                 # compute the radial distances
                 radial_vecs = delta - np.outer(proj, cnt_axis)
                 radial = np.linalg.norm(radial_vecs, axis=1)
 
-                # boolean mask for inside cylinder
-                # |proj| ≤ half AND radial ≤ dist_ring
                 inside_cylinder = (np.abs(proj) <= half) & (radial <= dist_ring)
 
                 # finally get the masses & radial distances
@@ -389,10 +380,8 @@ class FlexRadDens:
             )
 
             if plot_data.lower() == "y":
-                # Keep a copy for potential contour plot
                 results_df_copy = results_df.copy()
 
-                # Ask about normalization
                 normalize = ddict.get_input(
                     "Do you want to normalize the increments with respect to the CNT's radius? (y/n) ",
                     self.traj_file.args,
@@ -402,17 +391,14 @@ class FlexRadDens:
                 if normalize.lower() == "y":
                     results_df["Bin_center"] = results_df["Bin_center"] / tube_radius
 
-                # Ask about mirroring
                 mirror = ddict.get_input("Do you want to mirror the plot? (y/n) ", self.traj_file.args, "string")
 
                 if mirror.lower() == "y":
-                    # Mirror the data by multiplying the bin center by -1
                     results_df_mirror = results_df.copy()
                     results_df_mirror["Bin_center"] = results_df["Bin_center"] * (-1)
                     results_df_mirror.sort_values(by=["Bin_center"], inplace=True)
                     results_df = pd.concat([results_df_mirror, results_df], ignore_index=True)
 
-                # Generate the density plot
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax.plot(
                     results_df["Bin_center"],
@@ -422,7 +408,6 @@ class FlexRadDens:
                     color="black",
                 )
 
-                # Add standard deviation as shaded area if not mirrored
                 if mirror.lower() != "y":
                     upper_bound = results_df["Density [g/cm^3]"] + results_df["Standard dev."]
                     lower_bound = results_df["Density [g/cm^3]"] - results_df["Standard dev."]
@@ -451,7 +436,6 @@ class FlexRadDens:
                 fig.savefig(filename, dpi=300, bbox_inches="tight")
                 ddict.printLog(f"-> Radial density function saved as {filename}")
 
-                # Save data
                 results_df.to_csv(
                     f"CNT_{cnt_id}_radial_density_function.csv", sep=";", index=False, float_format="%.5f"
                 )
@@ -478,7 +462,7 @@ class FlexRadDens:
                     c = ax.contourf(Theta, R, values, cmap="viridis")
 
                     ax.spines["polar"].set_visible(False)
-                    ax.set_xticklabels([])  # Remove angle labels
+                    ax.set_xticklabels([])
 
                     # Set radial gridlines and labels
                     ax.set_yticks(np.linspace(0, tube_radius if normalize.lower() == "n" else 1, 5))
@@ -499,7 +483,6 @@ class FlexRadDens:
                     else:
                         ax.set_ylabel(r"$d_{rad}/r_{CNT}$", labelpad=10, fontsize=12)
 
-                    # Save contour plot
                     filename = f"CNT_{cnt_id}_radial_density_contour.png"
                     fig.savefig(filename, dpi=300, bbox_inches="tight")
                     ddict.printLog(f"-> Radial density contour plot saved as {filename}")
@@ -521,10 +504,8 @@ class FlexRadDens:
                     bin_edges = cnts_bin_edges[cnt_id]
                     tube_radius = self.cnt_data[cnt_id][0]["ring_radius"]
 
-                    # Calculate bin centers
                     bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2
 
-                    # Calculate total CNT length
                     cnt_length = 0
                     for pair_data in self.cnt_data[cnt_id]:
                         cnt_length += pair_data["pair_distance"]
@@ -552,6 +533,5 @@ class FlexRadDens:
                 ax.grid(True, linestyle="--", alpha=0.7)
                 ax.legend()
 
-                # Save comparison plot
                 fig.savefig("CNT_comparison_radial_density.png", dpi=300, bbox_inches="tight")
                 ddict.printLog("-> Comparison plot saved as CNT_comparison_radial_density.png")

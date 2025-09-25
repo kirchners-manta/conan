@@ -27,14 +27,11 @@ class FlexAngle(flexrd.FlexRadDens):
 
     def __init__(self, traj_file, molecules, an):
 
-        # Initialize parent class
         super().__init__(traj_file, molecules, an)
 
-        # Initialize additional data structures
         self.angle_data = {}
         self.angle_bins = {}
 
-        # Check if dipole vector information is given in the trajectory
         if hasattr(self.traj_file, "dipole_info") and self.traj_file.dipole_info:
             self.dipole_info = True
             ddict.printLog("=> Dipole vector information found in trajectory data. <=")
@@ -47,39 +44,38 @@ class FlexAngle(flexrd.FlexRadDens):
         Prepare the radial density angle calculation.
         Uses the parent class preparation method and adds angle-specific setup.
         """
-        # Call the parent class preparation method
         super().flex_rad_dens_prep()
 
-        ddict.printLog("\n" + "=" * 50)
+        ddict.printLog("\n" + "=" * 30)
         ddict.printLog("ANGLE ANALYSIS SETUP")
-        ddict.printLog("=" * 50)
+        ddict.printLog("=" * 30)
         ddict.printLog("The radial bin position is set through the center of mass (COM)")
-        ddict.printLog("-" * 40)
+        ddict.printLog("-" * 20)
 
         # 1. Set up the reference molecule
         ddict.printLog("\n1. REFERENCE MOLECULE SETUP")
-        ddict.printLog("-" * 40)
+        ddict.printLog("-" * 20)
         self.setup_target_molecule()
 
         # 2. Set up the vectors
         ddict.printLog("\n2. VECTOR SETUP")
-        ddict.printLog("-" * 40)
+        ddict.printLog("-" * 20)
         self.vector_setup()
 
         # 3. Set up the angle incrementation
         ddict.printLog("\n3. ANGLE INCREMENTATION SETUP")
-        ddict.printLog("-" * 40)
+        ddict.printLog("-" * 20)
         self.setup_angle_bins()
 
-        ddict.printLog("\n" + "=" * 50)
+        ddict.printLog("\n" + "=" * 30)
         ddict.printLog("ANGLE ANALYSIS SETUP COMPLETE")
-        ddict.printLog("=" * 50)
+        ddict.printLog("=" * 30)
 
     def setup_angle_bins(self):
         """
         Set up angle-specific analysis parameters.
         """
-        # Set up angle bins (0 to 180 degrees, for example)
+        # Set up angle bins
         num_angle_bins = ddict.get_input(
             "How many angle bins do you want to use? (default: 60 for 3° increments): ", self.traj_file.args, "int"
         )
@@ -93,7 +89,6 @@ class FlexAngle(flexrd.FlexRadDens):
 
         self.angle_bins = np.linspace(0, 180, num_angle_bins + 1)
 
-        # Initialize angle data storage for each CNT
         for cnt_id in self.cnts_bin_edges.keys():
             self.angle_data[cnt_id] = {"angles": [], "radial_positions": [], "frame_data": pd.DataFrame()}
 
@@ -109,7 +104,7 @@ class FlexAngle(flexrd.FlexRadDens):
         """
         vector_choices = [1, 2, 3, 4, 5] if self.dipole_info else [1, 2, 3, 4]
         vectors = {}
-        vector_configs = {}  # Store additional configuration for each vector
+        vector_configs = {}
 
         ddict.printLog("Available vector types:")
         ddict.printLog("  1. CNT center axis direction")
@@ -132,7 +127,6 @@ class FlexAngle(flexrd.FlexRadDens):
 
                     # Additional configuration based on vector type
                     if vector_choice == 1:
-                        # CNT center axis direction
                         ddict.printLog("  CNT center axis vector:")
                         ddict.printLog("  This vector represents the direction along the CNT axis.")
                         direction_choice = ddict.get_input(
@@ -146,7 +140,6 @@ class FlexAngle(flexrd.FlexRadDens):
                             ddict.printLog("  Vector will point from ring2 to ring1")
 
                     elif vector_choice == 2:
-                        # Connection from CNT center to atom
                         ddict.printLog("  Radial vector from CNT center:")
                         direction_choice = ddict.get_input(
                             "  Vector direction (1: center -> atom, 2: atom -> center): ", self.traj_file.args, "int"
@@ -183,18 +176,18 @@ class FlexAngle(flexrd.FlexRadDens):
         self.vector_configs = vector_configs
         ddict.printLog(f"\nVector setup complete: 1.Vector = type {vectors[1]}, 2.Vector = type {vectors[2]}")
 
-        # Setup atom selection for reference points
+        # setup atom selection for reference points
         self.setup_atom_selection()
 
     def setup_target_molecule(self):
         """
         Set up target species for angle analysis.
         """
-        # Get available species from the molecules object
+        # available species from the molecules object
         if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
             available_molecules = self.molecules.unique_molecule_frame["Species"].tolist()
 
-            # Ensure all species are integers
+            # all species are integers
             available_molecules = [int(species) for species in available_molecules]
 
             # Check which species are structures and remove them from the list
@@ -233,7 +226,6 @@ class FlexAngle(flexrd.FlexRadDens):
         """
         Set up atom selection for vector calculations.
         """
-        # Get atom types for the target molecule from the molecules object
         if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
             target_mol_data = self.molecules.unique_molecule_frame[
                 self.molecules.unique_molecule_frame["Species"] == self.target_molecule
@@ -294,7 +286,6 @@ class FlexAngle(flexrd.FlexRadDens):
                         ddict.printLog("  Invalid choice, defaulting to center of mass")
                         self.reference_method = "com"
                 else:
-                    # set default to com
                     self.reference_method = "com"
 
                 # Handle manual atom selection for vectors 3 and 4
@@ -444,18 +435,14 @@ class FlexAngle(flexrd.FlexRadDens):
             )
             return
 
-        # Process each CNT - use FULL split_frame for CNT ring access
         for cnt_id, pair_list in self.cnt_data.items():
-            # Get the bins for this CNT
             bin_edges = self.cnts_bin_edges[cnt_id]
 
-            # Lists to store angles and radial positions for this CNT
             frame_angles = []
             frame_radial_positions = []
 
             # Process each ring pair in this CNT
             for pair_idx, pair_data in enumerate(pair_list):
-                # Get ring identifiers
                 r1_key = pair_data["r1_key"]
                 r2_key = pair_data["r2_key"]
 
@@ -464,7 +451,6 @@ class FlexAngle(flexrd.FlexRadDens):
                 # Get coordinates from the current frame
                 ring1 = split_frame.loc[self.cnt_rings[cnt_id][r1_key]].copy()
 
-                # periodic CNTs
                 if is_periodic:
                     ring2 = ring1.copy()
                     periodic_direction = pair_data.get("periodic_direction", "z")
@@ -500,7 +486,6 @@ class FlexAngle(flexrd.FlexRadDens):
                     ring_radii.append(dist_ring)
                 dist_ring = np.mean(ring_radii)
 
-                # Apply shortening (if requested)
                 if hasattr(self, "shortening") and self.shortening > 0:
                     ring1_array = ring1_array + self.shortening * cnt_axis
                     ring2_array = ring2_array - self.shortening * cnt_axis
@@ -515,12 +500,9 @@ class FlexAngle(flexrd.FlexRadDens):
 
             # Store angle data for this CNT and frame
             if frame_angles:
-                # Bin the angles by radial position
                 for angle, radial_pos in zip(frame_angles, frame_radial_positions):
-                    # Find which radial bin this molecule belongs to
                     bin_idx = np.digitize(radial_pos, bin_edges) - 1
                     if 0 <= bin_idx < len(bin_edges) - 1:
-                        # Store angle in the appropriate bin
                         self.angle_data[cnt_id]["angles"].append(
                             {
                                 "frame": frame_counter,
@@ -550,23 +532,18 @@ class FlexAngle(flexrd.FlexRadDens):
         for mol_id, molecule_atoms in molecule_groups:
             if molecule_atoms.empty:
                 continue
-            # molecule coordinates
             mol_coords = molecule_atoms[["X", "Y", "Z"]].values.astype(float)
 
-            # minimum image convention
             delta = mol_coords - M
             delta[:, 0] -= box_size[0] * np.round(delta[:, 0] / box_size[0])
             delta[:, 1] -= box_size[1] * np.round(delta[:, 1] / box_size[1])
             delta[:, 2] -= box_size[2] * np.round(delta[:, 2] / box_size[2])
 
-            # Project onto CNT axis
             proj = np.dot(delta, cnt_axis)
 
-            # Calculate radial distances
             radial_vecs = delta - np.outer(proj, cnt_axis)
             radial_distances = np.linalg.norm(radial_vecs, axis=1)
 
-            # Check if any atom of this molecule is inside the CNT
             inside_cylinder = (np.abs(proj) <= half_length) & (radial_distances <= cnt_radius)
 
             if not np.any(inside_cylinder):
@@ -597,14 +574,13 @@ class FlexAngle(flexrd.FlexRadDens):
                 v1_magnitude = np.linalg.norm(vector1)
                 v2_magnitude = np.linalg.norm(vector2)
 
-                # Skip molecules with very small vectors (likely numerical artifacts)
-                min_vector_threshold = 1e-6  # Minimum vector length threshold
+                # Skip molecules with very small vectors
+                min_vector_threshold = 1e-6
                 if v1_magnitude < min_vector_threshold or v2_magnitude < min_vector_threshold:
                     continue
 
                 # Calculate angle between the two vectors
                 cos_angle = np.dot(vector1, vector2) / (v1_magnitude * v2_magnitude)
-                # Clamp to avoid numerical errors
                 cos_angle = np.clip(cos_angle, -1.0, 1.0)
                 angle_rad = np.arccos(cos_angle)
                 angle_deg = np.degrees(angle_rad)
@@ -652,12 +628,10 @@ class FlexAngle(flexrd.FlexRadDens):
                 # Create reordering map to match template order
                 reorder_indices = []
                 for template_label in template_labels_clean:
-                    # Find the index of this label in the current molecule
                     try:
                         idx = current_labels_clean.index(template_label)
                         reorder_indices.append(idx)
                     except ValueError:
-                        # Label not found, this shouldn't happen but use original order as fallback
                         ddict.printLog(
                             f"Warning: Template label {template_label} not found in molecule, using original order"
                         )
@@ -675,20 +649,17 @@ class FlexAngle(flexrd.FlexRadDens):
                         mol_coords = mol_coords_raw[reorder_indices]
                         if not hasattr(self, "_reorder_debug_count"):
                             self._reorder_debug_count = 0
-                        if self._reorder_debug_count < 3:  # Only show for first few molecules
+                        if self._reorder_debug_count < 3:
                             ddict.printLog("Debug: Reordered molecule atoms to match template ordering")
                             ddict.printLog(f"  Template order: {template_labels_clean}")
                             ddict.printLog(f"  Original order: {current_labels_clean}")
                             ddict.printLog(f"  Reorder indices: {reorder_indices}")
                             self._reorder_debug_count += 1
             else:
-                # Fallback to original order
                 mol_coords = mol_coords_raw
         else:
-            # Fallback to original order
             mol_coords = mol_coords_raw
 
-        # Use the first atom as reference for the molecule
         ref_coord = mol_coords[0]
         corrected_coords = np.zeros_like(mol_coords)
         corrected_coords[0] = ref_coord
@@ -696,13 +667,11 @@ class FlexAngle(flexrd.FlexRadDens):
         for i in range(1, len(mol_coords)):
             coord = mol_coords[i]
             delta = coord - ref_coord
-            # Apply minimum image convention for each component
             delta[0] -= box_size[0] * np.round(delta[0] / box_size[0])
             delta[1] -= box_size[1] * np.round(delta[1] / box_size[1])
             delta[2] -= box_size[2] * np.round(delta[2] / box_size[2])
             corrected_coords[i] = ref_coord + delta
 
-        # Apply PBC correction only to the reference atom relative to CNT center
         ref_to_center = ref_coord - cnt_center
         ref_to_center[0] -= box_size[0] * np.round(ref_to_center[0] / box_size[0])
         ref_to_center[1] -= box_size[1] * np.round(ref_to_center[1] / box_size[1])
@@ -751,7 +720,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
                     if direction == "outward":
                         vector = com_radial_proj  # center -> atom
-                    else:  # inward
+                    else:
                         vector = -com_radial_proj  # atom -> center
                 else:
                     if hasattr(self, "reference_atom_label") and hasattr(self.molecules, "unique_molecule_frame"):
@@ -785,7 +754,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
                         if direction == "outward":
                             vector = atom_radial_proj  # center -> atom
-                        else:  # inward
+                        else:
                             vector = -atom_radial_proj  # atom -> center
                     else:
                         return None
@@ -817,11 +786,9 @@ class FlexAngle(flexrd.FlexRadDens):
                             atom1_idx = vector_config.get("atom1_idx", 0)
                             atom2_idx = vector_config.get("atom2_idx", 1)
                     else:
-                        # Fallback to indices
                         atom1_idx = vector_config.get("atom1_idx", 0)
                         atom2_idx = vector_config.get("atom2_idx", 1)
                 else:
-                    # Fallback to indices
                     atom1_idx = vector_config.get("atom1_idx", 0)
                     atom2_idx = vector_config.get("atom2_idx", 1)
 
@@ -844,12 +811,11 @@ class FlexAngle(flexrd.FlexRadDens):
                                 f"  Corrected coords: {corrected_coords[atom1_idx]} -> {corrected_coords[atom2_idx]}"
                             )
                             self._debug_bond_count += 1
-                        return None  # Skip this molecule if bond is too long
+                        return None
                 else:
                     return None
 
             elif vector_setup == 4:
-                # Mean of bond vectors
                 # First try to use labels if available, if not fall back to indices
                 if hasattr(self.molecules, "unique_molecule_frame") and not self.molecules.unique_molecule_frame.empty:
                     target_mol_data = self.molecules.unique_molecule_frame[
@@ -882,11 +848,9 @@ class FlexAngle(flexrd.FlexRadDens):
                             central_idx = vector_config.get("central_idx", 0)
                             bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
                     else:
-                        # Fallback to indices
                         central_idx = vector_config.get("central_idx", 0)
                         bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
                 else:
-                    # Fallback to indices
                     central_idx = vector_config.get("central_idx", 0)
                     bonded_indices = vector_config.get("bonded_indices", list(range(1, len(corrected_coords))))
 
@@ -901,7 +865,7 @@ class FlexAngle(flexrd.FlexRadDens):
                     # Calculate bond vectors from central atom to bonded atoms
                     bond_vectors = corrected_coords[bonded_indices] - central_atom
 
-                    # Debug: Check bond lengths for sanity
+                    # Check bond lengths for sanity
                     bond_lengths = np.linalg.norm(bond_vectors, axis=1)
                     max_bond_length = np.max(bond_lengths)
                     # Suspiciously long bond if length > 5.0 Å
@@ -918,20 +882,15 @@ class FlexAngle(flexrd.FlexRadDens):
                         return None
 
                     # Check for zero-length bond vectors before normalization,
-                    # Skip if any bond is too short
+                    # skip if any bond is too short
                     if np.any(bond_lengths < 1e-6):
                         return None
-                    # Normalize each bond vector
                     unit_bond_vectors = bond_vectors / bond_lengths[:, np.newaxis]
-                    # Average the unit vectors
                     bisector_vector = np.mean(unit_bond_vectors, axis=0)
-                    # Check if the unit vectors cancel each other out (opposing directions)
                     bisector_magnitude = np.linalg.norm(bisector_vector)
-                    # Skip if bond vectors cancel out (e.g., linear molecule)
                     if bisector_magnitude < 1e-6:
                         return None
 
-                    # The bisector is already close to unit length, but normalize for consistency
                     vector = bisector_vector / bisector_magnitude
                 else:
                     return None
@@ -1018,12 +977,10 @@ class FlexAngle(flexrd.FlexRadDens):
                             }
                         )
 
-            # Create results DataFrame
             results_df = pd.DataFrame(results_data)
             results_df.to_csv(f"CNT_{cnt_id}_angle_distribution.csv", index=False)
             df.to_csv(f"CNT_{cnt_id}_raw_angles.csv", index=False)
 
-            # Generate plots if requested
             plot_data = ddict.get_input(
                 f"Do you want to plot the angle distribution for CNT {cnt_id}? (y/n) ", self.traj_file.args, "string"
             )
@@ -1037,7 +994,6 @@ class FlexAngle(flexrd.FlexRadDens):
         """
         bin_edges = self.cnts_bin_edges[cnt_id]
 
-        # Create figure with custom layout for marginal plots
         fig = plt.figure(figsize=(11, 12))
         fig.suptitle(f"Angle Distribution in CNT {cnt_id}", fontsize=24, y=0.98)
 
@@ -1056,9 +1012,7 @@ class FlexAngle(flexrd.FlexRadDens):
 
         ax_bottom = fig.add_subplot(gs[2, 1])
         ax_main = fig.add_subplot(gs[1, 1], sharex=ax_bottom)
-        # Top: radial distribution
         ax_top = fig.add_subplot(gs[0, 1], sharex=ax_bottom)
-        # Left: angle distribution
         ax_left = fig.add_subplot(gs[1, 0], sharey=ax_main)
 
         # 2D histogram for the main heatmap
@@ -1069,10 +1023,8 @@ class FlexAngle(flexrd.FlexRadDens):
         # Calculate radial bin centers for consistent x-axis
         radial_bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-        # Create a masked array to show white background for zero values
         hist2d_masked = np.ma.masked_where(hist2d == 0, hist2d)
 
-        # Main heatmap
         im = ax_main.imshow(
             hist2d_masked.T,
             origin="lower",
@@ -1147,17 +1099,14 @@ class FlexAngle(flexrd.FlexRadDens):
         ax_bottom.tick_params(labelsize=16)
         ax_bottom.grid(True, alpha=0.9, color="gray", linewidth=0.5)
 
-        # Ensure all plots have the same x-axis limits
         ax_bottom.set_xlim(x_min, x_max)
         ax_top.set_xlim(x_min, x_max)
 
-        # Add colorbar in the third column
         cax = fig.add_subplot(gs[1, 2])
         cbar = plt.colorbar(im, cax=cax)
         cbar.set_label("Count", fontsize=19)
         cbar.ax.tick_params(labelsize=16)
 
-        # Save the figure (layout is already handled by gridspec parameters)
         plt.savefig(f"CNT_{cnt_id}_angle_analysis.png", dpi=300, bbox_inches="tight")
         ddict.printLog(f"Angle analysis plots saved as CNT_{cnt_id}_angle_analysis.png")
 
@@ -1168,7 +1117,6 @@ class FlexAngle(flexrd.FlexRadDens):
         if len(corrected_coords) < 2:
             return True
 
-        # Check all pairwise distances in the molecule
         max_reasonable_bond = 3.0
 
         for i in range(len(corrected_coords)):
