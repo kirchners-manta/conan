@@ -232,12 +232,11 @@ class ResidTime:
         Analyze each frame to track molecule positions in radial layers.
         Uses center of mass for each molecule.
         """
-        # Convert coordinate columns to float
+        
         split_frame["X"] = split_frame["X"].astype(float)
         split_frame["Y"] = split_frame["Y"].astype(float)
         split_frame["Z"] = split_frame["Z"].astype(float)
 
-        # Get box size for PBC handling
         box_size = self.traj_file.box_size
 
         liquid_atoms = split_frame[split_frame["Struc"].str.contains("Liquid")]
@@ -381,15 +380,14 @@ class ResidTime:
                             current_layer = layer_labels[-1]
 
                         if current_layer is not None:
-                            # Mark this molecule as inside this CNT with the determined layer
+                            #  molecule inside CNT in determined layer
                             molecules_in_cnt[mol_id] = current_layer
                         else:
                             # Inside CNT but outside defined layers
                             molecules_in_cnt[mol_id] = "outside"
 
-            # Now process all molecules for this CNT (only once each)
+            # process all molecules for this CNT (only once each)
             for mol_id, mol_data in molecules_data.items():
-                # Initialize molecule frame data if not exists
                 if mol_id not in self.molecule_frame_data[cnt_id]:
                     self.molecule_frame_data[cnt_id][mol_id] = []
 
@@ -404,10 +402,10 @@ class ResidTime:
                         # Increment population count for this layer
                         self.layer_population_data[cnt_id][frame_counter][current_layer] += 1
                     else:
-                        # Inside CNT but outside defined layers
+                        # inside CNT but outside defined layers
                         self.molecule_frame_data[cnt_id][mol_id].append("outside")
                 else:
-                    # Molecule center of mass is outside CNT
+                    # Molecule is outside CNT
                     self.molecule_frame_data[cnt_id][mol_id].append("Outside")
 
         self.proc_frame_counter += 1
@@ -431,10 +429,10 @@ class ResidTime:
             for layer in layer_labels:
                 ddict.printLog(f"  Calculating correlation function for layer {layer}...")
 
-                # Calculate time correlation function for this layer
+                # time correlation function for this layer
                 correlation_times, correlation_values = self._calculate_layer_correlation_function(cnt_id, layer)
 
-                # Fit exponential decay to determine residence time
+                # exponential decay to determine residence time
                 if len(correlation_times) > 3 and len(correlation_values) > 3:
                     residence_time, fit_success = self._perform_exponential_fitting(
                         correlation_times, correlation_values
@@ -461,11 +459,9 @@ class ResidTime:
                         "fit_success": False,
                     }
 
-        # Generate statistics
         self._generate_residence_statistics()
         self._generate_layer_population_statistics()
 
-        # Plot correlation functions and results
         plot_correlation = ddict.get_input(
             "Do you want to plot the correlation functions? (y/n) ",
             self.traj_file.args,
@@ -490,7 +486,6 @@ class ResidTime:
     def _validate_segments(self, segments):
         """
         Validate that filtered segments meet the minimum consecutive frames requirement.
-        This is a debugging/validation method.
 
         Parameters:
         -----------
@@ -596,7 +591,7 @@ class ResidTime:
                     )
                     ddict.printLog(f"-> Raw correlation data saved as CNT_{cnt_id}_correlation_functions_raw.csv")
 
-            # Save frame-by-frame molecule layer data (one row per molecule, one column per frame)
+            # Save frame-by-frame molecule layer data 
             if cnt_id in self.molecule_frame_data and self.molecule_frame_data[cnt_id]:
                 frame_columns = [f"Frame_{i + 1}" for i in range(self.proc_frame_counter)]
                 molecule_frame_df_data = []
@@ -630,7 +625,7 @@ class ResidTime:
 
             ddict.printLog(f"\nCNT {cnt_id}:")
 
-            # Create population dataframe (frames as rows, layers as columns)
+            # Create population dataframe
             sorted_frames = sorted(frame_data.keys())
             layer_labels = self.cnts_layer_labels[cnt_id]
 
@@ -645,7 +640,6 @@ class ResidTime:
             population_df.to_csv(f"CNT_{cnt_id}_layer_population.csv", sep=";", index=False)
             ddict.printLog(f"-> Layer population data saved as CNT_{cnt_id}_layer_population.csv")
 
-            # Calculate and display summary statistics
             for layer in layer_labels:
                 layer_counts = [frame_data[frame].get(layer, 0) for frame in sorted_frames]
                 mean_count = np.mean(layer_counts)
@@ -673,7 +667,7 @@ class ResidTime:
 
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
 
-            # Plot 1: Time series of molecule counts per layer
+            # Plot 1: time series of molecule counts per layer
             colors = plt.cm.viridis(np.linspace(0, 0.9, len(layer_labels)))
 
             for idx, layer in enumerate(layer_labels):
@@ -688,7 +682,7 @@ class ResidTime:
             ax1.legend()
             ax1.grid(True, alpha=0.3)
 
-            # Plot 2: Stacked area plot
+            # Plot 2: stacked plot
             layer_counts_matrix = []
             for layer in layer_labels:
                 layer_counts = [frame_data[frame].get(layer, 0) for frame in sorted_frames]
@@ -701,7 +695,7 @@ class ResidTime:
             ax2.legend(loc="upper right")
             ax2.grid(True, alpha=0.3)
 
-            # Plot 3: Box plot of population distributions
+            # Plot 3: box plot of population distributions
             box_data = []
             box_labels = []
             for layer in layer_labels:
@@ -1067,7 +1061,7 @@ class ResidTime:
             ax1.grid(True, alpha=0.3)
             ax1.set_ylim(0, 1.1)
 
-            # Plot 2: Semi-log plot for better visualization of exponential decay
+            # Plot 2: Semi-log plot for visualization of exponential decay
             for idx, (layer, data) in enumerate(non_empty_layers.items()):
                 times = data["time"]
                 correlations = data["correlation"]

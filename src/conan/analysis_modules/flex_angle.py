@@ -47,28 +47,28 @@ class FlexAngle(flexrd.FlexRadDens):
         super().flex_rad_dens_prep()
 
         ddict.printLog("\n" + "=" * 30)
-        ddict.printLog("ANGLE ANALYSIS SETUP")
+        ddict.printLog("angle analysis setup")
         ddict.printLog("=" * 30)
         ddict.printLog("The radial bin position is set through the center of mass (COM)")
         ddict.printLog("-" * 20)
 
-        # 1. Set up the reference molecule
-        ddict.printLog("\n1. REFERENCE MOLECULE SETUP")
+        # 1. reference molecule
+        ddict.printLog("\n1. reference molecule setup")
         ddict.printLog("-" * 20)
         self.setup_target_molecule()
 
-        # 2. Set up the vectors
-        ddict.printLog("\n2. VECTOR SETUP")
+        # 2. set up vectors
+        ddict.printLog("\n2. vector setup")
         ddict.printLog("-" * 20)
         self.vector_setup()
 
-        # 3. Set up the angle incrementation
-        ddict.printLog("\n3. ANGLE INCREMENTATION SETUP")
+        # 3. set up angle incrementation
+        ddict.printLog("\n3. Angle incrementation")
         ddict.printLog("-" * 20)
         self.setup_angle_bins()
 
         ddict.printLog("\n" + "=" * 30)
-        ddict.printLog("ANGLE ANALYSIS SETUP COMPLETE")
+        ddict.printLog("setup complete")
         ddict.printLog("=" * 30)
 
     def setup_angle_bins(self):

@@ -344,7 +344,7 @@ class FlexRadDens:
             results_df["Bin_highedge"] = bin_edges[1:]
             results_df["Bin_center"] = (bin_edges[1:] + bin_edges[:-1]) / 2
 
-            # Calculate cylindrical shell volumes for each bin
+            # Calculate cylindrical volumes for each bin
             vol_increment = np.pi * (bin_edges[1:] ** 2 - bin_edges[:-1] ** 2) * cnt_length
             results_df["Volume"] = vol_increment
 
@@ -361,7 +361,7 @@ class FlexRadDens:
             for i in range(len(results_df)):
                 density_df[i] = dataframe.iloc[:, i + 1] / results_df.loc[i, "Volume"]
 
-            # Add statistics
+            # statistics
             results_df["Variance"] = density_df.var(axis=0).values
             results_df["Standard dev."] = density_df.std(axis=0).values
             results_df["Standard error"] = density_df.sem(axis=0).values
@@ -487,7 +487,7 @@ class FlexRadDens:
                     fig.savefig(filename, dpi=300, bbox_inches="tight")
                     ddict.printLog(f"-> Radial density contour plot saved as {filename}")
 
-        # Create a combined plot for all CNTs if there are multiple
+        # Create a combined plot for all CNTs (if there are multiple)
         if len(cnts_dataframes) > 1:
             combined_plot = ddict.get_input(
                 "Do you want to create a combined plot comparing all CNTs? (y/n) ", self.traj_file.args, "string"
@@ -496,7 +496,7 @@ class FlexRadDens:
             if combined_plot.lower() == "y":
                 fig, ax = plt.subplots(figsize=(12, 7))
 
-                # Plot each CNT with a different color/style
+                # Plot each CNT with a different color
                 colors = plt.cm.viridis(np.linspace(0, 0.9, len(cnts_dataframes)))
 
                 for idx, (cnt_id, dataframe) in enumerate(cnts_dataframes.items()):

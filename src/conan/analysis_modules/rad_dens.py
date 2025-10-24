@@ -199,9 +199,7 @@ class RadialDensityAnalysis:
 
         # Calculate the variance for all columns in raddens_df_density.
         results_rd_df["Variance"] = pd.DataFrame(raddens_df_density.var(axis=0))
-        # Calculate the standard deviation for all columns in raddens_df_density.
         results_rd_df["Standard dev."] = pd.DataFrame(raddens_df_density.std(axis=0))
-        # Calculate the standard error for all columns in raddens_df_density.
         results_rd_df["Standard error"] = pd.DataFrame(raddens_df_density.sem(axis=0))
 
         # Change the column names to the according bins, as in raddens_df and add the frame number.
@@ -326,7 +324,6 @@ class RadialDensityAnalysis:
                 ddict.printLog("-> Radial density function countour plot saved as Radial_density_function_polar.pdf\n")
 
         # Add a new column to the raddens_df dataframe with the total mass/charge in each frame.
-        # (excluding the frame column)
         raddens_df["Total"] = raddens_df.iloc[:, 1:].sum(axis=1)
 
         raddens_df.to_csv("Radial_mass_dist_raw.csv", sep=";", index=False, header=True, float_format="%.5f")
