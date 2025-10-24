@@ -215,7 +215,6 @@ class StructureOptimizer:
             x0,
             method="L-BFGS-B",
             callback=optimization_callback,
-            options={"disp": True},
         )
 
         # Close the progress bar
