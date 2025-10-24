@@ -232,7 +232,7 @@ class ResidTime:
         Analyze each frame to track molecule positions in radial layers.
         Uses center of mass for each molecule.
         """
-        
+
         split_frame["X"] = split_frame["X"].astype(float)
         split_frame["Y"] = split_frame["Y"].astype(float)
         split_frame["Z"] = split_frame["Z"].astype(float)
@@ -591,7 +591,7 @@ class ResidTime:
                     )
                     ddict.printLog(f"-> Raw correlation data saved as CNT_{cnt_id}_correlation_functions_raw.csv")
 
-            # Save frame-by-frame molecule layer data 
+            # Save frame-by-frame molecule layer data
             if cnt_id in self.molecule_frame_data and self.molecule_frame_data[cnt_id]:
                 frame_columns = [f"Frame_{i + 1}" for i in range(self.proc_frame_counter)]
                 molecule_frame_df_data = []
