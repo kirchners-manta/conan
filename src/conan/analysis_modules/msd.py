@@ -45,7 +45,6 @@ class MSDAnalysis:
 
         # Initialize displacement arrays for each liquid species
         for species in num_liq_species:
-            # Get unique molecule numbers for the species
             molecule_numbers = self.first_frame[
                 (self.first_frame["Struc"] == "Liquid") & (self.first_frame["Species"] == species)
             ]["Molecule"].unique()
@@ -65,7 +64,6 @@ class MSDAnalysis:
             self.unwrapped_positions[species] = []
             self.unwrapped_positions_current[species] = np.zeros((num_molecules, 3))
             self.initial_positions[species] = np.zeros((num_molecules, 3))
-            # self.previous_positions[species] = np.zeros((num_molecules, 3))
 
             ddict.printLog(f"Initialized displacement array for species '{species}'")
 
@@ -84,9 +82,7 @@ class MSDAnalysis:
         # calculate the center of mass of the liquid in the system
         first_frame_no_struc = self.first_frame.drop(columns=["Struc"])
         com_box = ut.calculate_com_box(first_frame_no_struc, self.box_size)
-        # com_box = ut.calculate_com_box(self.first_frame, self.box_size)
 
-        # adjust the COM frame to the box center
         COM_frame_initial[["X", "Y", "Z"]] -= com_box
 
         # print(COM_frame_initial.head())
@@ -103,7 +99,6 @@ class MSDAnalysis:
 
     def analyze_frame(self, split_frame, frame_counter):
         self.counter = frame_counter
-        # Ensure data types are correct
         split_frame["X"] = split_frame["X"].astype(float)
         split_frame["Y"] = split_frame["Y"].astype(float)
         split_frame["Z"] = split_frame["Z"].astype(float)
@@ -118,7 +113,6 @@ class MSDAnalysis:
         # Calculate the center of mass of the liquid in the system
         split_frame_no_struc = split_frame.drop(columns=["Struc"])
         com_box = ut.calculate_com_box(split_frame_no_struc, self.box_size)
-        # com_box = ut.calculate_com_box(split_frame, self.box_size)
 
         COM_frame_current[["X", "Y", "Z"]] -= com_box
 
@@ -168,18 +162,11 @@ class MSDAnalysis:
 
                     # Compute displacement between current and previous positions
                     delta = com_current - com_prev
-                    # print(f"delta: {delta}")
-                    # Unwrap displacement
                     delta -= self.box_size * np.round(delta / self.box_size)
 
-                    # Debug information
-                    # print(f"Frame {self.counter}: Molecule {molecule}")
-                    # print(f"Delta before PBC correction: {delta}")
-
-                    # Update the positions
                     unwrapped_pos_new = self.unwrapped_positions_current[species][idx, :] + delta
 
-                    self.previous_positions[species][idx, :] = com_current  # Store the wrapped position
+                    self.previous_positions[species][idx, :] = com_current
                     self.unwrapped_positions_current[species][idx, :] = unwrapped_pos_new
 
                 else:
@@ -205,7 +192,6 @@ class MSDAnalysis:
             msd_z_tau = []
             tau_times = []
 
-            # Start from tau_idx = 1 to exclude tau = 0
             for tau_idx in range(0, max_tau_idx):
                 tau_times.append(tau_idx * self.dt * an.frame_interval)
 
@@ -240,7 +226,6 @@ class MSDAnalysis:
                 msd_y_tau.append(np.mean(sq_disp_y_accum))
                 msd_z_tau.append(np.mean(sq_disp_z_accum))
 
-            # Now we have msd_tau, msd_x_tau, msd_y_tau, msd_z_tau, and tau_times
             self.plot_msd(msd_tau, msd_x_tau, msd_y_tau, msd_z_tau, tau_times, species, "MSD")
 
     def plot_msd(self, msd, msd_x, msd_y, msd_z, time_lags, species, label):
@@ -266,7 +251,6 @@ class MSDAnalysis:
         plt.close(fig)
 
         # Save data to CSV
-
         with open(f"{label.lower()}_{species}.csv", "w") as f:
             f.write(f"#time [fs]; {label}; {label} X; {label} Y; {label} Z\n")
             for i in range(len(time_lags)):

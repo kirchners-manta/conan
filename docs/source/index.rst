@@ -8,8 +8,9 @@
 
 
 CONAN - User Guide
-===================================
+==================
 
+This is the user guide for the `CONAN <https://github.com/kirchners-manta/conan>`_ program.
 **CONAN** is a tool to generate carbon and boron nitride structures, set up MD simulation boxes, generate xyz structures from a provided trajectory and analyze MD trajectories composed of a liquid in confinement.
 The program has the following features:
 
@@ -36,18 +37,31 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    :maxdepth: 2
 
    simulation_setup/builder
-   simulation_setup/simulation_box
+
+.. toctree::
+   :caption: General
+   :maxdepth: 2
+
+   analysis/general
 
 .. toctree::
    :caption: Trajectory analysis
+   :maxdepth: 3
+
+   analysis/specific_analyses
+   analysis/coordination_number
+   analysis/density
+   analysis/mol_velocity
+   analysis/msd
+   analysis/cnt_analyses
+
+
+.. toctree::
+   :caption: Tools
    :maxdepth: 2
 
-   analysis/analysis
-   analysis/snapshots
-   analysis/mol_ident
-   analysis/acc_volume
-   analysis/dens_prof
-   analysis/Coordination_number
+   tools/simulation_box
+   tools/snapshots
 
 .. toctree::
    :caption: Other

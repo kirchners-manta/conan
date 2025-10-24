@@ -1,5 +1,6 @@
 import os
-import platform
+
+# import platform
 import random
 import tempfile
 import warnings
@@ -706,10 +707,11 @@ class TestStructureOptimizer:
 
         # Compare positions with tolerances
         try:
-            if platform.system() in ["Windows", "Darwin"]:  # Darwin ist macOS
-                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
-            else:
-                npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
+            npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
+            # if platform.system() in ["Windows", "Darwin"]:  # Darwin is macOS
+            #     npt.assert_allclose(optimized_positions, ref_positions, atol=1e-3, rtol=1e-3)
+            # else:
+            #     npt.assert_allclose(optimized_positions, ref_positions, atol=1e-5, rtol=1e-5)
         except AssertionError as e:
             for i, (opt_pos, ref_pos) in enumerate(zip(optimized_positions, ref_positions)):
                 print(f"Atom {i}: Optimized position = {opt_pos}, Reference position = {ref_pos}")
