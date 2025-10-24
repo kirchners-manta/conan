@@ -53,7 +53,7 @@ Check out :doc:`first_steps/Installation` for more information on how to install
    analysis/density
    analysis/mol_velocity
    analysis/msd
-   analysis/mass_filling
+   analysis/cnt_analyses
 
 
 .. toctree::
